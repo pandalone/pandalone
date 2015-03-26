@@ -27,7 +27,7 @@ import pkg_resources as pkg
 import tkinter as tk
 from . import (__version__, __updated__, __copyright__, __license__)
 
-__commit__       = ""
+__commit__       = "d7e6901"
 log = logging.getLogger(__name__)
 
 _bw = 2

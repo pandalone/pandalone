@@ -5,7 +5,7 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
-''''Installation script for *pandalon*.
+''''Installation script for *pandalone*.
 
 
 Install:
@@ -17,7 +17,7 @@ do the usual::
 
 Or get it directly from the PIP repository::
 
-    pip install pandalon
+    pip install pandalone
 
 Or get it directly from the github repository::
 
@@ -32,7 +32,7 @@ import re
 
 from setuptools import setup
 
-__commit__ = ""
+__commit__ = "de375b8"
 
 ## Fail early on ancient python-versions
 #
@@ -125,7 +125,7 @@ readme_lines = read_text_lines('README.rst')
 description = readme_lines[1]
 long_desc = ''.join(yield_sphinx_only_markup(readme_lines))
 ## Trick from: http://peterdowns.com/posts/first-time-with-pypi.html
-download_url = 'https://github.com/pandalone/%s/tarball/v%s' %(proj_name, proj_ver)
+download_url = 'https://github.com/%s/%s/tarball/v%s' % (proj_name, proj_name, proj_ver)
 
 setup(
     name = proj_name,
@@ -134,7 +134,7 @@ setup(
     long_description=long_desc,
     author="Kostis Anagnostopoulos at European Commission (JRC)",
     author_email="ankostis@gmail.com",
-    url = "https://github.com/pandalone/pandalone",
+    url = "https://github.com/%s/%s" % (proj_name, proj_name),
     download_url=download_url,
     keywords = [
         "python", "utility", "library", "data", "tree", "processing",
@@ -164,10 +164,10 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Utilities",
     ],
-    packages = ['pandalone'],
+    packages = [proj_name],
     #include_package_data = True,
     #package_data= {
-    #    'pandalone': ['*.vba', '*.ico'],
+    #    proj_name: ['*.vba', '*.ico'],
     #},
     install_requires = [
         'six',
@@ -194,7 +194,7 @@ setup(
     test_suite='nose.collector',
     entry_points={
         'console_scripts': [
-            'pandalon = pandalon.__main__:main',
+            '%s = %s.__main__:main' % (proj_name, proj_name),
         ],
     }, 
     zip_safe=True,

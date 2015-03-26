@@ -1,8 +1,8 @@
 :git: $Id$
 
-################################################################################
-*pandalon* wrapping pandas in trees for running calculations with dependencies 
-################################################################################
+#####################################
+pandalone: wrapping pandas in trees 
+#####################################
 |dev-status| |build-status| |cover-status| |docs-status| |pypi-status| |downloads-count| |github-issues|
 
 :Release:       0.0.1-dev.1
@@ -15,8 +15,8 @@
 :Copyright:     2015 European Commission (`JRC-IET <https://ec.europa.eu/jrc/en/institutes/iet>`_)
 :License:       `EUPL 1.1+ <https://joinup.ec.europa.eu/software/page/eupl>`_
 
-The *pandalon* is a python library for processing hierarchical data, 
-such as for scientific and engineering exploration.
+*pandalone* is a python library for processing hierarchical data (json, hdf5, pandas), 
+for scientific and engineering exploration.
 
 .. _end-opening:
 .. contents:: Table of Contents
@@ -516,15 +516,13 @@ that the sources are in good shape:
 Development procedure
 ---------------------
 .. include:: ../CONTRIBUTING.rst
-    :start-after: _after-title:
+    :start-after: .. contents:
 
 .. _dev-team:
 
 Authors
 ----------------
-
 .. include:: ../AUTHORS.rst
-    :start-after: _authors-list:
 
 
 

@@ -67,13 +67,13 @@ else:
             return inner
 
 try:
-    unicode
+    unicode #@UndefinedVariable
 except NameError:
     # Python 3
     basestring = unicode = str
 
 try:
-    long
+    long #@UndefinedVariable
 except NameError:
     # Python 3
     long = int
@@ -94,7 +94,7 @@ except NameError:
 BaseExceptions = (BaseException,)
 if 'java' in sys.platform:
     # jython
-    import java
+    import java #@UnresolvedImport
     BaseExceptions = (BaseException, java.lang.Throwable)
 
 try:
@@ -820,7 +820,7 @@ class NonCallableMock(Base):
         return message % (expected_string, actual_string)
 
 
-    def assert_called_with(_mock_self, *args, **kwargs):
+    def assert_called_with(_mock_self, *args, **kwargs): #@NoSelf
         """assert that the mock was called with the specified arguments.
 
         Raises an AssertionError if the args and keyword args passed in are
@@ -835,7 +835,7 @@ class NonCallableMock(Base):
             raise AssertionError(msg)
 
 
-    def assert_called_once_with(_mock_self, *args, **kwargs):
+    def assert_called_once_with(_mock_self, *args, **kwargs): #@NoSelf
         """assert that the mock was called exactly once and with the specified
         arguments."""
         self = _mock_self
@@ -948,14 +948,14 @@ class CallableMixin(Base):
         pass
 
 
-    def __call__(_mock_self, *args, **kwargs):
+    def __call__(_mock_self, *args, **kwargs): #@NoSelf
         # can't use self in-case a function / method we are mocking uses self
         # in the signature
         _mock_self._mock_check_sig(*args, **kwargs)
         return _mock_self._mock_call(*args, **kwargs)
 
 
-    def _mock_call(_mock_self, *args, **kwargs):
+    def _mock_call(_mock_self, *args, **kwargs): #@NoSelf
         self = _mock_self
         self.called = True
         self.call_count += 1
@@ -2339,7 +2339,7 @@ def mock_open(mock=None, read_data=''):
             import _io
             file_spec = list(set(dir(_io.TextIOWrapper)).union(set(dir(_io.BytesIO))))
         else:
-            file_spec = file
+            file_spec = file #@UndefinedVariable
 
     if mock is None:
         mock = MagicMock(name='open', spec=open)
