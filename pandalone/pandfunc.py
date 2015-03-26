@@ -29,7 +29,7 @@ import pandas as pd
 
 from pandalone._mock import MagicMock
 
-__commit__       = "$Id$"
+__commit__       = ""
 DEBUG= False
 
 _root_name = 'R'

@@ -5,8 +5,6 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
-#
-# git: $Id$
 ''''Installation script for *pandalon*.
 
 
@@ -34,6 +32,7 @@ import re
 
 from setuptools import setup
 
+__commit__ = ""
 
 ## Fail early on ancient python-versions
 #

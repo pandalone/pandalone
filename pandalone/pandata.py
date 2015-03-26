@@ -36,7 +36,7 @@ try:
 except ImportError:
     from urlparse import urljoin
 
-__commit__       = "$Id$"
+__commit__       = ""
 
 _value_with_units_regex = re.compile(r'''^\s*
                                         (?P<name>[^([]+?)   # column-name

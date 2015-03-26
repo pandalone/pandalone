@@ -2,4 +2,4 @@ from ._version import (__version__, __updated__)
 
 __copyright__     = "Copyright (C) 2013-2014 European Commission (JRC)"
 __license__       = "EUPL 1.1+"
-__commit__       = "$Id$"
+__commit__       = ""

@@ -12,7 +12,7 @@ import argparse
 import sys, os
 import unittest
 
-__commit__       = "$Id$"
+__commit__       = ""
 
 ##############
 #  Compatibility
