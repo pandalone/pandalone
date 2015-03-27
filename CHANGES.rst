@@ -17,6 +17,7 @@ TODOs
 
 .. todolist::
 
+- xlsutils: In excel-refs replace `xlwings` with `xlrd` (no COM-server, cross-platform).
 
 Changelog
 =========
