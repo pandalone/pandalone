@@ -1,10 +1,16 @@
 #!python
 #-*- coding: utf-8 -*-
-import os
-import logging
 import glob
-from textwrap import dedent 
+import logging
+import operator
+import os
+import re
+from textwrap import dedent
+
 from win32com.universal import com_error
+
+import pandas as pd
+
 try:
     import xlwings as xw
 except ImportError:
@@ -215,6 +221,116 @@ def import_files_into_excel_workbook(infiles_wildcard, wrkb_fname=None, new_fnam
         _save_excel_as_macro_enabled(xl_wb, new_fname=new_fname)
 
     return wb
+
+## TODO: Convert Excel-ref RC-notation to A1
+_excel_ref_specifier_regex = re.compile(r'''^\s*
+            @
+            (?:(?P<sheet>.+)!)?             # Sheet-name optional-group
+            (?P<ref>                        # start Cell-ref 
+                (?:[A-Z]+\d+ | R\d+C\d+ | \(\d+,\d+\))        # FROM-ref, RC/A1 notation, or tuple
+                (?:                             # start TO-Cell-ref optional-group
+                    :
+                    (?:[A-Z]+\d+ | R\d+C\d+ | \(\d+,\d+\))        # RC/A1 notation, or tuple
+                )?                              # end TO-Cell-ref optional-group
+            )                               # end Cell-ref
+            (?:                             # start Shape-specifier optional-group
+                \.
+                (?P<shape>table|vertical|horizontal)     # See respective xw.Range attributes
+            )?                              # end Shape-specifier
+            (?:\((?P<range_kws>                   # start RANGE-kws expression
+                [^)]*
+            )\))?                            # end RANGE-kws
+            (?:{(?P<pandas_kws>                   # start PANDAS-kws expression
+                [^)]*
+            )})?                            # end PANDAS-kws
+            \s*$''', re.X+re.IGNORECASE)
+_undefined = object()
+def _parse_kws(kws_str):
+    if kws_str:
+        local_vars = {}
+        exec('kws = dict(%s)' % kws_str, None, local_vars)
+        return local_vars['kws']
+    return {}
+
+def resolve_excel_ref(ref_str, default=_undefined):
+    """
+    if `ref_str` is an *excel-ref*, it returns the referred-contents as DataFrame or a scalar, `None` otherwise.
+    
+    Excel-ref examples::
+    
+            @a1
+            @E5.column
+            @some sheet_name!R1C5.TABLE
+            @1!a1:c5.table(header=False)
+            @3!a1:C5.horizontal(strict=True; atleast_2d=True)
+            @sheet-1!A1.table(asarray=True){columns=['a','b']}
+            @any%sheet^&name!A1:A6.vertical(header=True)        ## Setting Range's `header` kw and 
+                                                                #      DataFrame will parse 1st row as header
+    
+    The *excel-ref* syntax is case-insensitive apart from the key-value pairs, 
+    which it is given in BNF-notation:
+    
+    .. productionlist::
+            excel_ref   : "@" 
+                        : [sheet "!"] 
+                        : cells 
+                        : ["." shape] 
+                        : ["(" range_kws ")"] 
+                        : ["{" df_kws "}"]
+            sheet       : sheet_name | sheet_index
+            sheet_name  : <any character>
+            sheet_index : `integer`
+            cells       : cell_ref [":" cell_ref]
+            cell_ref    : A1_ref | RC_ref | tuple_ref
+            A1_ref      : <ie: "A1" or "BY34">
+            RC_ref      : <ie: "R1C1" or "R24C34">
+            tuple_ref   : <ie: "(1,1)" or "(24,1)", the 1st is the row>
+            shape       : "." ("table" | "vertical" | "horizontal")
+            range_kws   : kv_pairs                    # keywords for xlwings.Range(**kws)
+            df_kws      : kv_pairs                    # keywords for pandas.DataFrafe(**kws)
+            kv_pairs    : <python code for **keywords ie: "a=3.14, f = 'gg'">
+    
+    
+    Note that the "RC-notation" is not converted, so Excel may not support it (unless overridden in its options).
+    """
+    
+    matcher = _excel_ref_specifier_regex.match(ref_str)
+    if matcher:
+        ref = matcher.groupdict()
+        log.info("Parsed string(%s) as Excel-ref: %s", ref_str, ref)
+        
+        sheet = ref.get('sheet') or ''
+        try:
+            sheet = int(sheet)
+        except ValueError:
+            pass
+        cells = ref['ref']
+        range_kws = _parse_kws(ref.get('range_kws'))
+        ref_range = xw.Range(sheet, cells, **range_kws)
+        range_shape = ref.get('shape')
+        if range_shape:
+            ref_range = operator.attrgetter(range_shape.lower())(ref_range)
+
+        v = ref_range.value
+        
+        if ref_range.row1 != ref_range.row2 or ref_range.col1 != ref_range.col2:
+            ## Parse as DataFrame when more than one cell.
+            #
+            pandas_kws = _parse_kws(ref.get('pandas_kws'))
+            if 'header' in range_kws and not 'columns' in pandas_kws :
+                ##Do not ignore explicit-columns.
+                v = pd.DataFrame(v[1:], columns=v[0], **pandas_kws)
+            else:
+                v = pd.DataFrame(v, **pandas_kws)
+            
+        log.debug("Excel-ref(%s) value: %s", ref, v)
+
+        return v
+    else:
+        if default is _undefined:
+            raise ValueError("Invalid excel-ref(%s)!" % ref_str)
+        else:
+            return default 
 
 def main(*argv):
     """

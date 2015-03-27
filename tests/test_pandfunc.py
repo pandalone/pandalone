@@ -6,14 +6,14 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 '''
-Check pdcalc's function-dependencies exploration, reporting and classes .
+Check pandfunc's function-dependencies exploration, reporting and classes .
 '''
 import logging
 import unittest
 
 import itertools as it
 
-from ..pdcalc import _build_func_dependencies_graph, harvest_func, harvest_funcs_factory, _filter_common_prefixes, \
+from pandalone.pandfunc import _build_func_dependencies_graph, harvest_func, harvest_funcs_factory, _filter_common_prefixes, \
     Dependencies, DependenciesError, _validate_func_relations
 
 from collections import OrderedDict
@@ -24,7 +24,7 @@ from networkx.classes.digraph import DiGraph
 
 import pandas as pd
 
-from ..pdcalc import (
+from pandalone.pandfunc import (
     DependenciesError, execute_funcs_map, execute_plan,
     Dependencies, _research_calculation_routes,
     tell_paths_from_named_args
@@ -75,9 +75,22 @@ def funcs_fact2(dfin, engine, dfout):
 
     return (f1, f2, f3)
 
+def funcs_fact2_1(params, engine, dfin, dfout):
+    ## Out of returned funcs!!
+    def f10(): return dfin.cm + dfin.pmf + dfin.bmep
+
+    def f11(): engine['eng_map_params'] = f10()
+    def f12():
+        dfout['n']    = engine['eng_map_params']
+        dfout['p']      = engine['eng_map_params'] * 2
+        dfout['fc']     = engine['eng_map_params'] * 4
+    def f13(): dfout['fc_norm']         = dfout.fc / dfout.p
+
+    return (f11, f12, f13)
 
 
-class Test(unittest.TestCase):
+
+class TestHarvest(unittest.TestCase):
     def setUp(self):
         logging.basicConfig(level=logging.DEBUG)
 
@@ -312,9 +325,6 @@ class Test(unittest.TestCase):
             deps.add_func_rel(*rel)
 
 
-def lstr(lst):
-    return '\n'.join([str(e) for e in lst])
-
 def DF(d):
     return pd.DataFrame(d)
 def SR(d):
@@ -352,19 +362,6 @@ def funcs_fact1(params, engine, dfin, dfout):
     def f9(): dfin['cm']      = dfin.rps * 2 * engine.stroke / 1000
     return (f1, f2, f3, f4, f5, f6, f7, f8, f9)
 
-def funcs_fact2(params, engine, dfin, dfout):
-    ## Out of returned funcs!!
-    def f10(): return dfin.cm + dfin.pmf + dfin.bmep
-
-    def f11(): engine['eng_map_params'] = f10()
-    def f12():
-        dfout['n']    = engine['eng_map_params']
-        dfout['p']      = engine['eng_map_params'] * 2
-        dfout['fc']     = engine['eng_map_params'] * 4
-    def f13(): dfout['fc_norm']         = dfout.fc / dfout.p
-
-    return (f11, f12, f13)
-
 def funcs_fact3(params, engine, dfin, dfout):
     def f12():
         dfout['n']    = engine['eng_map_params']
@@ -380,7 +377,7 @@ def func11(params, engine, dfin, dfout):
 
 
 
-def funcs_fact(params, engine, dfin, dfout):
+def funcs_fact_2(params, engine, dfin, dfout):
     return funcs_fact1(params, engine, dfin, dfout) + funcs_fact2(params, engine, dfin, dfout)
 
 def get_params():
@@ -404,7 +401,7 @@ def get_engine():
 
 def build_base_deps():
     deps = Dependencies()
-    deps.harvest_funcs_factory(funcs_fact)
+    deps.harvest_funcs_factory(funcs_fact_2)
 
     return deps
 
@@ -427,7 +424,7 @@ def bad_funcs_fact(params, engine, dfin, dfout):
     return (child, )
 
 
-class Test(unittest.TestCase):
+class TestResolve(unittest.TestCase):
     def setUp(self):
         logging.basicConfig(level=logging.DEBUG)
         l=logging.getLogger()

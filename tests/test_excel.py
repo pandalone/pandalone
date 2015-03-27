@@ -55,7 +55,7 @@ def close_workbook(wb):
 class TestExcel(unittest.TestCase):
 
     def test_build_excel(self):
-        from ..excel import xlsutils 
+        from pandalone import xlsutils 
         
         with tempfile.TemporaryDirectory() as tmpdir:
             wb_inp_fname    = from_my_path('..', 'excel', 'ExcelRunner.xlsm')
@@ -83,7 +83,7 @@ class TestExcel(unittest.TestCase):
 
 
     def test_excel_refs(self):
-        from ..excel.ExcelRunner import resolve_excel_ref
+        from pandalone.xlsutils import resolve_excel_ref
         sheetname   ='Input'
         addr        ='d2'
         table       = pd.DataFrame({'a':[1,2,3], 'b':['s','t','u'], 'c':[True,False,True]})
@@ -127,16 +127,6 @@ class TestExcel(unittest.TestCase):
 
         if errors:
             raise Exception('There are %i out of %i errors!'% (len(errors), len(cases)))
-
-
-    def test_excel_runner_call_from_python(self):
-        from ..excel import ExcelRunner 
-        wb = None
-        try:
-            wb = ExcelRunner.main()
-        finally:
-            if wb:
-                close_workbook(wb)
 
 
 if __name__ == "__main__":

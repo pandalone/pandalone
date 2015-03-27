@@ -229,9 +229,10 @@ class LogPanel(tk.LabelFrame):
             
             txt = self.formatter.format(record)
             txt_len = len(txt)+1 #+1 ??
+            log_start = '%s-%ic'%(tk.END, txt_len)
             metadata_len = len(self.metadata_formatter.formatMessage(record))
             meta_end = '%s-%ic'%(tk.END, txt_len-metadata_len)
-
+            
             log_text['state'] = tk.NORMAL
             self._log_text.mark_set('LE', tk.END)
             log_text.insert(tk.END, txt, LogPanel.TAG_LOGS)#, LogPanel.TAG_LOGS)
@@ -354,8 +355,8 @@ class _ModelPanel(tk.LabelFrame):
             [_ModelPanel.TAG_EXTRA,     dict(font="arial overstrike")],
         ]
         for tag, kws in tags:
-            _log_text.tag_config(tag, **kws)
-        _log_text.tag_raise(tk.SEL)
+            self._log_text.tag_config(tag, **kws)
+        self._log_text.tag_raise(tk.SEL)
 
         
         return tree
@@ -433,7 +434,7 @@ class TkPandalone:
     A basic desktop UI to read and modify a dataTree, run experiment, and store its results.
     """
 
-    def __init__(self, root=None, model):
+    def __init__(self, root=None):
         """
 
         Layout::

@@ -20,7 +20,7 @@ from pandalone.utils import assertRaisesRegex
 
 
 
-class Test(unittest.TestCase):
+class TestJsonPath(unittest.TestCase):
 
 
     def test_ModelMaker_merge(self):
@@ -401,10 +401,11 @@ class Test(unittest.TestCase):
 
     def test_build_all_jsonpaths(self):
         from jsonschema._utils import load_schema 
-        schema = load_schema('draft4')
+        schema = dict(properties=dict(a=dict(properties=dict(b={}))))
         paths = pandata.build_all_jsonpaths(schema)
         print('\n'.join(paths))
-        self.assertIn('/definitions/simpleTypes', paths) #TODO: build_all_paths support $ref
+        #TODO: build and check_all_paths support $ref
+        self.assertIn('/a/b', paths)
 
 
 
