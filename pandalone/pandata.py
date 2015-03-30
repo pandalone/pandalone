@@ -22,7 +22,6 @@ import re
 from jsonschema import Draft3Validator, Draft4Validator, ValidationError
 import jsonschema
 from jsonschema.exceptions import SchemaError
-from numpy import ndarray
 from pandas.core.generic import NDFrame
 from six import string_types
 
@@ -117,11 +116,16 @@ class ModelOperations(namedtuple('ModelOperations', 'inp out conv')):
         pass
 
 
+# FIXME: PathMaps as ModelOperations is unimplemented
 class PathMaps(object):
 
     """
     Cascade prefix-mapping of json-paths to any values (here :class:`ModelOperations`.
     """
+    pass
+
+
+class TreeVisitorMixin(object):
     pass
 
 
@@ -438,6 +442,10 @@ class PandelVisitor(ValidatorBase):
             for sprop in required:
                 if not self._is_iprop_in(instance, sprop):
                     yield ValidationError("%r is a required property" % sprop)
+
+
+def trees_equal(t1, t2):
+    return True
 
 
 class Pandel(object):
@@ -1001,6 +1009,55 @@ class Pandel(object):
         return self.model
 
 
+class Pitem(defaultdict):
+
+    """
+    A "magic-mock" used to access renamed data for component-trees without modifying code.
+    """
+
+    def __init__(self, name=''):
+        self._name = name
+
+    def __str__(self):
+        s = []
+        self._paths(None, s)
+        return '\n'.join(s)
+
+    def _paths(self, prefix, paths):
+        if prefix:
+            prefix = '%s/%s' % (prefix, self._name)
+        else:
+            prefix = self._name
+        children = self.items()
+        if children:
+            for _, v in self.items():
+                v._paths(prefix, paths)
+        else:
+            paths.append(prefix)
+
+    def __missing__(self, key):
+        child = Pitem(key)
+        dict.__setitem__(self, key, child)
+        return child
+
+    def __getattr__(self, key):
+        #         print('__getattr__(%s)' % key)
+        #         return dict.__getattribute__(self, key)
+        if key.startswith('_'):
+            msg = "'%s' object has no attribute '%s'"
+            raise AttributeError(msg % (self, key))
+        return self[key]
+
+    def __setitem__(self, key, value):
+        raise AssertionError("Model must not assigned into '%s'!" % self)
+
+    def __setattr__(self, key, value):
+        if key.startswith('_'):
+            dict.__setattr__(self, key, value)
+        else:
+            raise AssertionError("Values must not assigned into '%s'!" % self)
+
+
 class JsonPointerException(Exception):
     pass
 
@@ -1153,6 +1210,31 @@ def build_all_jsonpaths(schema):
 
 
 class JSONCodec():
+
+    """
+    Json coders/decoders capable for (almost) all python objects, by pickling them.
+
+    Example::
+
+        >>> obj_list = [
+                    3.14,
+                    {
+                         'aa': pd.DataFrame([]),
+                         2: np.array([]),
+                         33: {'foo': 'bar'},
+                     },
+                     pd.DataFrame(np.random.randn(10, 2)),
+                     ('b', pd.Series({})),
+                 ]
+        >>> for o in obj_list + [obj_list]:
+        ...    s = json.dumps(o, cls=JSONCodec.Encoder)
+        ...    oo = json.loads(s, cls=pandata.JSONCodec.Decoder)
+        ...    assert trees_equal(o, oo)
+        ...
+
+    .. seealso::
+        For pickle-limitations: https://docs.python.org/3.4/library/pickle.html#pickle-picklable
+    """
     _ver_key = '_ver'
     _ver = '0'
     _obj = '$qpickle'

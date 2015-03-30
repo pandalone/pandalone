@@ -858,18 +858,19 @@ class TestJSONCodec(unittest.TestCase):
 
     @unittest.skip(('TODO: Cannot test for recursive-equality with pandas.'))
     def test_mix(self):
-        o = [1,
-             {
-                 'aa': pd.DataFrame([]),
-                 2: np.array([]),
-                 33: {'foo': 'bar'},
-             },
-             pd.DataFrame(np.random.randn(10, 2)),
-             ('b', pd.Series({})),
-             ]
-        s = json.dumps(o, cls=JSONCodec.Encoder)
-        oo = json.loads(s, cls=pandata.JSONCodec.Decoder)
-        self.assertEqual(oo, o)
+        obj_list = [3.14,
+                    {
+                        'aa': pd.DataFrame([]),
+                        2: np.array([]),
+                        33: {'foo': 'bar'},
+                    },
+                    pd.DataFrame(np.random.randn(10, 2)),
+                    ('b', pd.Series({})),
+                    ]
+        for o in obj_list + [obj_list]:
+            s = json.dumps(o, cls=JSONCodec.Encoder)
+            oo = json.loads(s, cls=pandata.JSONCodec.Decoder)
+            assert pandata.trees_equal(o, oo)
 
 
 def sorted_errors(errors):
