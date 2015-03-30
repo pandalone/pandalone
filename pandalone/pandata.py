@@ -1012,18 +1012,33 @@ class Pandel(object):
 class Pitem(defaultdict):
 
     """
-    A "magic-mock" used to access renamed data for component-trees without modifying code.
+    A "magic-dict" used to access renamed data for component-trees without modifying code.
+
+    :ivar str _name:    this path-steps's name possible to rename it; when pitem created 
+                        through recursive referencing, coincedes with parent's path.
+
+    Usage:
+
+        - Just by referencing (non_private) attributes, they are created.
+        - Unlike :class:`defaultdict` if assigned any value, 
+          raises :exc:`AssertionError`.
+        - Assignements are alllowed only for *private* attributes (ie `_name`).
+
+        Use :meth:`_paths()` to get all defined paths so far.
     """
 
-    def __init__(self, name=''):
+    def __init__(self, name='.'):
         self._name = name
 
     def __str__(self):
-        s = []
-        self._paths(None, s)
-        return '\n'.join(s)
+        return '\n'.join(self._paths())
 
-    def _paths(self, prefix, paths):
+    def _paths(self, prefix=None):
+        p = []
+        self._paths_(p, prefix=prefix)
+        return p
+
+    def _paths_(self, paths, prefix=None):
         if prefix:
             prefix = '%s/%s' % (prefix, self._name)
         else:
@@ -1031,7 +1046,7 @@ class Pitem(defaultdict):
         children = self.items()
         if children:
             for _, v in self.items():
-                v._paths(prefix, paths)
+                v._paths_(paths, prefix)
         else:
             paths.append(prefix)
 

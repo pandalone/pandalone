@@ -35,8 +35,9 @@ from six import StringIO
 import numpy as np
 import numpy.testing as npt
 from pandalone import pandata
-from pandalone.pandata import PandelVisitor, JSONCodec
+from pandalone.pandata import PandelVisitor, JSONCodec, Pitem
 import pandas as pd
+from textwrap import dedent
 
 
 try:
@@ -824,6 +825,78 @@ class TestRefResolver(unittest.TestCase):
         self.assertEqual(str(err.exception), "Oh no! What's this?")
 
 
+class TestPitem(unittest.TestCase):
+
+    def test_name(self):
+        mm = Pitem()
+        self.assertEqual(str(mm), '.')
+        self.assertNotEquals(str(mm), repr(mm))
+
+        mm = Pitem('foo')
+        self.assertEqual(str(mm), 'foo')
+        self.assertNotEquals(str(mm), repr(mm))
+
+        mm = Pitem('/foo')
+        self.assertEqual(str(mm), '/foo')
+        self.assertNotEquals(str(mm), repr(mm))
+
+    def test_buildtree_valid_ops(self):
+        mm = Pitem()
+        mm.abc
+        mm.abc['def']
+        mm['abc'].defg
+        mm.n123
+        mm.n321
+        mm._some_hidden = 12
+        exp = [
+            './abc/def',
+            './abc/defg',
+            './n321',
+            './n123',
+        ]
+        self.assertListEqual(sorted(mm._paths()), sorted(exp))
+        mm._name = 'foo'
+        exp = [
+            'foo/abc/def',
+            'foo/abc/defg',
+            'foo/n321',
+            'foo/n123',
+        ]
+        self.assertListEqual(sorted(mm._paths()), sorted(exp))
+        mm.abc._name = 'BAR'
+        exp = [
+            'foo/BAR/def',
+            'foo/BAR/defg',
+            'foo/n321',
+            'foo/n123',
+        ]
+        self.assertListEqual(sorted(mm._paths()), sorted(exp))
+
+    def test_buildtree_invalid_ops(self):
+
+        mm = Pitem()
+
+        def f1(mm):
+            mm.abc = 1
+
+        def f2(mm):
+            mm['a'] = 1
+
+        def f3(mm):
+            mm['a']['b'] = 1
+
+        def f4(mm):
+            mm['a'].c = 1
+
+        def f5(mm):
+            mm['_hid'] = 1
+
+        for f in [f1, f2, f3, f4, f5]:
+            mm = Pitem()
+            with self.assertRaises(AssertionError, msg=f):
+                f(mm),
+
+
 class TestJSONCodec(unittest.TestCase):
 
     def test_lists(self):
@@ -870,7 +943,7 @@ class TestJSONCodec(unittest.TestCase):
         for o in obj_list + [obj_list]:
             s = json.dumps(o, cls=JSONCodec.Encoder)
             oo = json.loads(s, cls=pandata.JSONCodec.Decoder)
-            assert pandata.trees_equal(o, oo)
+            self.assertTrue(pandata.trees_equal(o, oo), (o, oo))
 
 
 def sorted_errors(errors):
