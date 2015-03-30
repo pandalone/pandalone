@@ -35,7 +35,7 @@ from six import StringIO
 import numpy as np
 import numpy.testing as npt
 from pandalone import pandata
-from pandalone.pandata import PandelVisitor, JSONCodec, Pitem
+from pandalone.pandata import PandelVisitor, JSONCodec, Pstep
 import pandas as pd
 from textwrap import dedent
 
@@ -825,23 +825,23 @@ class TestRefResolver(unittest.TestCase):
         self.assertEqual(str(err.exception), "Oh no! What's this?")
 
 
-class TestPitem(unittest.TestCase):
+class TestPstep(unittest.TestCase):
 
     def test_name(self):
-        mm = Pitem()
+        mm = Pstep()
         self.assertEqual(str(mm), '.')
         self.assertNotEquals(str(mm), repr(mm))
 
-        mm = Pitem('foo')
+        mm = Pstep('foo')
         self.assertEqual(str(mm), 'foo')
         self.assertNotEquals(str(mm), repr(mm))
 
-        mm = Pitem('/foo')
+        mm = Pstep('/foo')
         self.assertEqual(str(mm), '/foo')
         self.assertNotEquals(str(mm), repr(mm))
 
     def test_buildtree_valid_ops(self):
-        mm = Pitem()
+        mm = Pstep()
         mm.abc
         mm.abc['def']
         mm['abc'].defg
@@ -874,7 +874,7 @@ class TestPitem(unittest.TestCase):
 
     def test_buildtree_invalid_ops(self):
 
-        mm = Pitem()
+        mm = Pstep()
 
         def f1(mm):
             mm.abc = 1
@@ -892,7 +892,7 @@ class TestPitem(unittest.TestCase):
             mm['_hid'] = 1
 
         for f in [f1, f2, f3, f4, f5]:
-            mm = Pitem()
+            mm = Pstep()
             with self.assertRaises(AssertionError, msg=f):
                 f(mm),
 

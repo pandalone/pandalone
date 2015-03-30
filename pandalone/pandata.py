@@ -1009,22 +1009,32 @@ class Pandel(object):
         return self.model
 
 
-class Pitem(defaultdict):
+class Pstep(defaultdict):
 
     """
-    A "magic-dict" used to access renamed data for component-trees without modifying code.
+    A "magic-dict" building *renamable* paths for accessing data-trees. 
 
-    :ivar str _name:    this path-steps's name possible to rename it; when pitem created 
-                        through recursive referencing, coincedes with parent's path.
+    The "magic" autocreates psteps as they referenced, making writting code 
+    that access data-tree paths, natural, while at the same time the "model" 
+    of those tree-data gets discovered.
+
+    Each pstep keeps internaly the name of the data-tree step, which, when
+    created through recursive referencing, coincedes with parent's branch 
+    leading to this step when steps are .  It is this name that can be change 
+    instead of modifying code, in case of different data-trees with renamed 
+    paths.
+
+    :ivar str _name:    this renameble path-steps's name
 
     Usage:
 
         - Just by referencing (non_private) attributes, they are created.
-        - Unlike :class:`defaultdict` if assigned any value, 
-          raises :exc:`AssertionError`.
-        - Assignements are alllowed only for *private* attributes (ie `_name`).
-
-        Use :meth:`_paths()` to get all defined paths so far.
+        - Unlike :class:`defaultdict` it raises :exc:`AssertionError` if 
+          any value gets assigned as dict-item or as non-private attribute
+          (ie `_name` is indeed allowed).
+        - Use :meth:`_paths()` to get all defined paths so far.
+        - TODO: psteps have 2 "modes", unlocked / locked (no new children allowed)
+          ie for detecting violations.
     """
 
     def __init__(self, name='.'):
@@ -1051,7 +1061,7 @@ class Pitem(defaultdict):
             paths.append(prefix)
 
     def __missing__(self, key):
-        child = Pitem(key)
+        child = Pstep(key)
         dict.__setitem__(self, key, child)
         return child
 
