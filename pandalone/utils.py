@@ -9,10 +9,12 @@
 from __future__ import division, unicode_literals
 
 import argparse
-import sys, os
+import os
+import sys
 import unittest
 
-__commit__       = ""
+
+__commit__ = "01b872f"
 
 ##############
 #  Compatibility
@@ -22,7 +24,7 @@ try:
 except:
     assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
 
-## Python-2 compatibility
+# Python-2 compatibility
 #
 try:
     FileNotFoundError
@@ -31,8 +33,9 @@ except NameError:
 else:
     FileNotFoundError = OSError  # @ReservedAssignment
 
+
 def raise_ex_from(ex_class, chained_ex, *args, **kwds):
- from six import reraise
+    from six import reraise
 
 
 ##############
@@ -61,34 +64,38 @@ def pairwise(t):
     return zip(it1, it2)
 
 
-## From http://code.activestate.com/recipes/578231-probably-the-fastest-memoization-decorator-in-the-/
+# From http://code.activestate.com/recipes/578231-probably-the-fastest-memoization-decorator-in-the-/
 #
 def memoize(f):
     """ Memoization decorator for functions taking one or more arguments. """
     class memodict(dict):
+
         def __init__(self, f):
             self.f = f
+
         def __call__(self, *args):
             return self[args]
+
         def __missing__(self, key):
             ret = self[key] = self.f(*key)
             return ret
     return memodict(f)
 
 
-
-
-## From http://stackoverflow.com/a/4149190/548792
+# From http://stackoverflow.com/a/4149190/548792
 #
 class Lazy(object):
-    def __init__(self,func):
-        self.func=func
+
+    def __init__(self, func):
+        self.func = func
+
     def __str__(self):
         return self.func()
 
 
 def is_travis():
     return 'TRAVIS' in os.environ
+
 
 def generate_filenames(filename):
     f, e = os.path.splitext(filename)
@@ -100,7 +107,7 @@ def generate_filenames(filename):
 
 
 def open_file_with_os(fpath):
-    ## From http://stackoverflow.com/questions/434597/open-document-with-default-application-in-python
+    # From http://stackoverflow.com/questions/434597/open-document-with-default-application-in-python
     #     and http://www.dwheeler.com/essays/open-files-urls.html
     import subprocess
     try:
@@ -116,37 +123,41 @@ def open_file_with_os(fpath):
 ###### WINDOWS ######
 #####################
 
-## From: http://stackoverflow.com/questions/2216173/how-to-get-path-of-start-menus-programs-directory  
-# 
+# From: http://stackoverflow.com/questions/2216173/how-to-get-path-of-start-menus-programs-directory
+#
 def win_shell():
     from win32com.client import Dispatch
     return Dispatch('WScript.Shell')
 
+
 def win_folder(wshell, folder_name, folder_csidl=None):
     """
-    
+
     :param wshell: win32com.client.Dispatch('WScript.Shell')
     :param str folder_name: ( StartMenu | MyDocuments | ... )
     :param str folder_csidl: see http://msdn.microsoft.com/en-us/library/windows/desktop/dd378457(v=vs.85).aspx
     """
-    #from win32com.shell import shell, shellcon                          #@UnresolvedImport
+    # from win32com.shell import shell, shellcon                          #@UnresolvedImport
     #folderid = operator.attrgetter(folder_csidl)(shellcon)
     #folder = shell.SHGetSpecialFolderPath(0, folderid)
     folder = wshell.SpecialFolders(folder_name)
-    
+
     return folder
 
-## See: http://stackoverflow.com/questions/17586599/python-create-shortcut-with-arguments
+# See: http://stackoverflow.com/questions/17586599/python-create-shortcut-with-arguments
 #    http://www.blog.pythonlibrary.org/2010/01/23/using-python-to-create-shortcuts/
 #    but keep that for the future:
-#        forgot chose: http://timgolden.me.uk/python/win32_how_do_i/create-a-shortcut.html
-def win_create_shortcut(wshell, path, target_path, wdir=None, target_args=None, icon_path=None, desc=None):     
+# forgot chose:
+# http://timgolden.me.uk/python/win32_how_do_i/create-a-shortcut.html
+
+
+def win_create_shortcut(wshell, path, target_path, wdir=None, target_args=None, icon_path=None, desc=None):
     """
-    
+
     :param wshell: win32com.client.Dispatch('WScript.Shell')
 
     """
-    
+
     is_url = path.lower().endswith('.url')
     shcut = wshell.CreateShortCut(path)
     try:
@@ -162,10 +173,10 @@ def win_create_shortcut(wshell, path, target_path, wdir=None, target_args=None, 
     finally:
         shcut.save()
 
+
 def win_wshell():
     from win32com.client import Dispatch
-    
+
     shell = Dispatch('WScript.Shell')
 
     return shell
-

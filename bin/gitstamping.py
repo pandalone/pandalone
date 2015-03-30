@@ -28,9 +28,9 @@ Setup:
 From https://gist.github.com/pkrusche/7369262
 """
 
-import sys
-import subprocess
 import re
+import subprocess
+import sys
 
 
 def filter_or_smudge(clean):
@@ -55,4 +55,4 @@ def main(args):
     filter_or_smudge(clean)
 
 if __name__ == "__main__":
-    main(*sys.argv)
+    main(sys.argv)

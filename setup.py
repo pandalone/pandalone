@@ -23,34 +23,34 @@ Or get it directly from the github repository::
 
     pip install git+https://github.com/pandalone/pandalone.git
 '''
-## Got ideas for project-setup from many places, among others:
+# Got ideas for project-setup from many places, among others:
 #    http://www.jeffknupp.com/blog/2013/08/16/open-sourcing-a-python-project-the-right-way/
 #    http://python-packaging-user-guide.readthedocs.org/en/latest/current.html
 
-import os, sys, io
+import os
+import sys
+import io
 import re
 
 from setuptools import setup
 
+
 __commit__ = "de375b8"
 
-## Fail early on ancient python-versions
+# Fail early on ancient python-versions
 #
-py_ver = sys.version
-if py_ver < "2.7":
+py_ver = sys.version_info
+if py_ver < (2, 7):
     exit("Sorry, Python2 >= 2.7 is supported!")
-if py_ver.startswith('3') and py_ver < "3.3":
+if py_ver >= (3,) and py_ver < (3, 3):
     exit("Sorry, Python3 >= 3.3 is supported!")
-if sys.argv[-1] == 'setup.py':
-    exit("To install, run `python setup.py install`")
-    
+
 proj_name = 'pandalone'
 mydir = os.path.dirname(__file__)
 
 
-
-## Version-trick to have version-info in a single place,
-## taken from: http://stackoverflow.com/questions/2058802/how-can-i-get-the-version-defined-in-setup-py-setuptools-in-my-package
+# Version-trick to have version-info in a single place,
+# taken from: http://stackoverflow.com/questions/2058802/how-can-i-get-the-version-defined-in-setup-py-setuptools-in-my-package
 ##
 def read_project_version():
     fglobals = {}
@@ -58,9 +58,11 @@ def read_project_version():
         exec(fd.read(), fglobals)  # To read __version__
     return fglobals['__version__']
 
+
 def read_text_lines(fname):
     with io.open(os.path.join(mydir, fname)) as fd:
         return fd.readlines()
+
 
 def yield_sphinx_only_markup(lines):
     """
@@ -69,7 +71,7 @@ def yield_sphinx_only_markup(lines):
 
     """
     substs = [
-        ## Selected Sphinx-only Roles.
+        # Selected Sphinx-only Roles.
         #
         (r':abbr:`([^`]+)`',        r'\1'),
         (r':ref:`([^`]+)`',         r'`\1`_'),
@@ -78,7 +80,7 @@ def yield_sphinx_only_markup(lines):
         (r':(samp|guilabel|menuselection):`([^`]+)`',        r'``\2``'),
 
 
-        ## Sphinx-only roles:
+        # Sphinx-only roles:
         #        :foo:`bar`   --> foo(``bar``)
         #        :a:foo:`bar` XXX afoo(``bar``)
         #
@@ -86,7 +88,7 @@ def yield_sphinx_only_markup(lines):
         (r':(\w+):`([^`]*)`', r'\1(``\2``)'),
 
 
-        ## Sphinx-only Directives.
+        # Sphinx-only Directives.
         #
         (r'\.\. doctest',           r'code-block'),
         (r'\.\. plot::',            r'.. '),
@@ -96,19 +98,20 @@ def yield_sphinx_only_markup(lines):
         (r'\.\. image::',          r'.. '),
 
 
-        ## Other
+        # Other
         #
         (r'\|version\|',              r'x.x.x'),
     ]
 
-    regex_subs = [ (re.compile(regex, re.IGNORECASE), sub) for (regex, sub) in substs ]
+    regex_subs = [(re.compile(regex, re.IGNORECASE), sub)
+                  for (regex, sub) in substs]
 
     def clean_line(line):
         try:
             for (regex, sub) in regex_subs:
                 line = regex.sub(sub, line)
         except Exception as ex:
-            print("ERROR: %s, (line(%s)"%(regex, sub))
+            print("ERROR: %s, (line(%s)" % (regex, sub))
             raise ex
 
         return line
@@ -117,30 +120,30 @@ def yield_sphinx_only_markup(lines):
         yield clean_line(line)
 
 
-
 proj_ver = read_project_version()
 
 
 readme_lines = read_text_lines('README.rst')
 description = readme_lines[1]
 long_desc = ''.join(yield_sphinx_only_markup(readme_lines))
-## Trick from: http://peterdowns.com/posts/first-time-with-pypi.html
-download_url = 'https://github.com/%s/%s/tarball/v%s' % (proj_name, proj_name, proj_ver)
+# Trick from: http://peterdowns.com/posts/first-time-with-pypi.html
+download_url = 'https://github.com/%s/%s/tarball/v%s' % (
+    proj_name, proj_name, proj_ver)
 
 setup(
-    name = proj_name,
+    name=proj_name,
     version=proj_ver,
     description=description,
     long_description=long_desc,
     author="Kostis Anagnostopoulos at European Commission (JRC)",
     author_email="ankostis@gmail.com",
-    url = "https://github.com/%s/%s" % (proj_name, proj_name),
+    url="https://github.com/%s/%s" % (proj_name, proj_name),
     download_url=download_url,
-    keywords = [
+    keywords=[
         "python", "utility", "library", "data", "tree", "processing",
         "calculation", "dependencies", "resolution", "scientific", "engineering",
     ],
-    classifiers = [
+    classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
@@ -164,30 +167,30 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Utilities",
     ],
-    packages = [proj_name],
+    packages=[proj_name],
     #include_package_data = True,
-    #package_data= {
+    # package_data= {
     #    proj_name: ['*.vba', '*.ico'],
     #},
-    install_requires = [
+    install_requires=[
         'six',
         'jsonschema>=2.4',
         'numpy',
-        'pandas', #'openpyxl', 'xlrd',
-        'Pillow',       ## For UI About boxes
-        'xlwings',      ## For Excel integration
+        'pandas',  # 'openpyxl', 'xlrd',
+        'Pillow',  # For UI About boxes
+        'xlwings',  # For Excel integration
         'doit',
     ],
-    setup_requires = [
+    setup_requires=[
         'setuptools',
-        'setuptools-git >= 0.3', ## Gather package-data from all files in git.
-        'sphinx >= 1.2', # >=1.3
+        'setuptools-git >= 0.3',  # Gather package-data from all files in git.
+        'sphinx >= 1.2',  # >=1.3
         'sphinx_rtd_theme',
         'jsonschema >= 2.4',
         'coveralls',
         'wheel',
     ],
-    tests_require = [
+    tests_require=[
         'nose',
         'coverage',
     ],
@@ -196,17 +199,14 @@ setup(
         'console_scripts': [
             '%s = %s.__main__:main' % (proj_name, proj_name),
         ],
-    }, 
+    },
     zip_safe=True,
     options={
-        'build_sphinx' :{
+        'build_sphinx': {
             'build_dir': 'docs/_build',
         },
-        'bdist_wheel' :{
+        'bdist_wheel': {
             'universal': True,
         },
     }
 )
-
-
-

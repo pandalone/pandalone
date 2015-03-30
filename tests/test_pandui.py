@@ -12,6 +12,7 @@ import unittest
 from unittest.case import skipIf
 
 import six
+
 from pandalone import utils
 
 
@@ -23,7 +24,6 @@ except (ImportError, NotImplementedError):
 
 
 class TkUiTest(unittest.TestCase):
-
 
     @skipIf(utils.is_travis() or six.PY2, "TravisCI has no XServer!")
     def test_smoke_test_no_event_loop(self):

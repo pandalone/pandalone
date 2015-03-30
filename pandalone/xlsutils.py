@@ -1,18 +1,20 @@
 #!python
 #-*- coding: utf-8 -*-
 import glob
+from jsonschema.compat import urlsplit, urljoin
 import logging
 import operator
 import os
 import re
 from textwrap import dedent
 
+from jsonschema._utils import URIDict
+import six
 from win32com.universal import com_error
 
 import pandas as pd
-import six
-from jsonschema._utils import URIDict
-from jsonschema.compat import urlsplit, urljoin
+
+
 try:
     import xlwings as xw
 except ImportError:
@@ -26,7 +28,7 @@ except ImportError:
     pip.main('install easygui'.split())  # @UndefinedVariable
     import easygui
 
-__commit__ = "d7e6901"
+__commit__ = "01b872f"
 
 log = logging.getLogger(__name__)
 log.trace = lambda *args, **kws: log.log(0, *args, **kws)
