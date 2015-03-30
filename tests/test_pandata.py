@@ -827,74 +827,89 @@ class TestRefResolver(unittest.TestCase):
 
 class TestPstep(unittest.TestCase):
 
-    def test_name(self):
-        mm = Pstep()
-        self.assertEqual(str(mm), '.')
-        self.assertNotEquals(str(mm), repr(mm))
+    def test_equality(self):
+        p = Pstep()
+        self.assertEqual(str(p), '.')
+        self.assertEqual(p, Pstep('.'))
+        self.assertEquals(str(p['.']), str(p))
 
-        mm = Pstep('foo')
-        self.assertEqual(str(mm), 'foo')
-        self.assertNotEquals(str(mm), repr(mm))
+        n = 'foo'
+        p = Pstep(n)
+        self.assertEqual(str(p), n)
+        self.assertEquals(p, Pstep(n))
+        self.assertEquals(str(p.foo), str(p))
+        p.foo._name = 'bar'
+        self.assertEquals(str(p.foo), 'bar')
 
-        mm = Pstep('/foo')
-        self.assertEqual(str(mm), '/foo')
-        self.assertNotEquals(str(mm), repr(mm))
+        n = '/foo'
+        p = Pstep(n)
+        self.assertEqual(str(p), n)
+        self.assertEquals(p, Pstep(n))
+        p['12']
+        self.assertNotEquals(str(p), '12')
 
     def test_buildtree_valid_ops(self):
-        mm = Pstep()
-        mm.abc
-        mm.abc['def']
-        mm['abc'].defg
-        mm.n123
-        mm.n321
-        mm._some_hidden = 12
+        p = Pstep()
+        p.abc
+        p.abc['def']
+        p['abc'].defg
+        p.n123
+        p['321']
+        p._some_hidden = 12
         exp = [
             './abc/def',
             './abc/defg',
-            './n321',
+            './321',
             './n123',
         ]
-        self.assertListEqual(sorted(mm._paths()), sorted(exp))
-        mm._name = 'foo'
+        self.assertListEqual(sorted(p._paths), sorted(exp))
+        p._name = 'foo'
         exp = [
             'foo/abc/def',
             'foo/abc/defg',
-            'foo/n321',
+            'foo/321',
             'foo/n123',
         ]
-        self.assertListEqual(sorted(mm._paths()), sorted(exp))
-        mm.abc._name = 'BAR'
+        self.assertListEqual(sorted(p._paths), sorted(exp))
+        p.abc._name = 'BAR'
         exp = [
             'foo/BAR/def',
             'foo/BAR/defg',
-            'foo/n321',
+            'foo/321',
             'foo/n123',
         ]
-        self.assertListEqual(sorted(mm._paths()), sorted(exp))
+        self.assertListEqual(sorted(p._paths), sorted(exp))
 
     def test_buildtree_invalid_ops(self):
 
-        mm = Pstep()
+        p = Pstep()
 
-        def f1(mm):
-            mm.abc = 1
+        def f1(p):
+            p.abc = 1
 
-        def f2(mm):
-            mm['a'] = 1
+        def f2(p):
+            p['a'] = 1
 
-        def f3(mm):
-            mm['a']['b'] = 1
+        def f3(p):
+            p['a']['b'] = 1
 
-        def f4(mm):
-            mm['a'].c = 1
+        def f4(p):
+            p['a'].c = 1
 
-        def f5(mm):
-            mm['_hid'] = 1
+        def f5(p):
+            p['_hid'] = 1
 
         for f in [f1, f2, f3, f4, f5]:
-            mm = Pstep()
+            p = Pstep()
             with self.assertRaises(AssertionError, msg=f):
-                f(mm),
+                f(p),
+
+    def test_idexing(self):
+        m = {'a': 1, 'b': 2, 'c': {'cc': 33}}
+        n = 'a'
+        p = Pstep(n)
+        self.assertEqual(m[p], m[n])
+        self.assertEqual(m[p[n]], m[n])
 
 
 class TestJSONCodec(unittest.TestCase):

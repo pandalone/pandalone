@@ -1035,14 +1035,37 @@ class Pstep(defaultdict):
         - Use :meth:`_paths()` to get all defined paths so far.
         - TODO: psteps have 2 "modes", unlocked / locked (no new children allowed)
           ie for detecting violations.
+
+    Example::
+
+        >>> m = {'a': 1, 'abc': 2, '321': {'cc': 33}}
+        >>> p = Pstep()
+        >>> assert m[p] == 1
+        >>> assert m[p.abc] == 2
+        >>> assert m[p['321'].cc] == 33
+        >>> p._some_hidden = 12
+
     """
 
     def __init__(self, name='.'):
         self._name = name
 
-    def __str__(self):
-        return '\n'.join(self._paths())
+    def __hash__(self):
+        return hash(self._name)
 
+    def __eq__(self, o):
+        return self._name == str(o)
+
+    def __ne__(self, o):
+        return self._name != str(o)
+
+    def __bool__(self):
+        return True
+
+    def __repr__(self):
+        return self._name
+
+    @property
     def _paths(self, prefix=None):
         p = []
         self._paths_(p, prefix=prefix)
