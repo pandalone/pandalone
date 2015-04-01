@@ -904,6 +904,20 @@ class TestPstep(unittest.TestCase):
             with self.assertRaises(AssertionError, msg=f):
                 f(p),
 
+    def test_link_psteps(self):
+        p1 = Pstep('root')
+        p2 = Pstep('def')
+        p2.ghi
+        p1.abc = p2
+        self.assertListEqual(p1._paths, ['root/abc/ghi'])
+        self.assertNotEqual(p1._paths[0], 'root/def/def/ghi')##NOTE 
+        self.assertEqual(p2._paths, ['abc/ghi'])
+
+    def test_renames(self):
+        p = Pstep('root')
+        p.abc('BAR')['def']('DEF')['123']
+        self.assertListEqual(p._paths, ['root/BAR/DEF/123'])
+
     def test_idexing(self):
         m = {'a': 1, 'b': 2, 'c': {'cc': 33}}
         n = 'a'

@@ -1047,8 +1047,16 @@ class Pstep(defaultdict):
 
     """
 
-    def __init__(self, name='.'):
+    def __init__(self, name='.', fixed=False):
         self._name = name
+        self._fixed = fixed
+
+    def __call__(self, name=None, fixed=None):
+        if name is not None:
+            self._name = name
+        if fixed is not None:
+            self._fixed = fixed
+        return self
 
     def __hash__(self):
         return hash(self._name)
@@ -1097,14 +1105,24 @@ class Pstep(defaultdict):
         return self[key]
 
     def __setitem__(self, key, value):
-        raise AssertionError("Model must not assigned into '%s'!" % self)
+        if not isinstance(value, Pstep):
+            raise self._invalid_assignment_ex(key, value)
+        else:
+            value._name = key
+            dict.__setitem__(self,  key, value)
 
     def __setattr__(self, key, value):
         if key.startswith('_'):
             dict.__setattr__(self, key, value)
         else:
-            raise AssertionError("Values must not assigned into '%s'!" % self)
-
+            if not isinstance(value, Pstep):
+                raise self._invalid_assignment_ex(key, value)
+            else:
+                self[key] = value
+    
+    def _invalid_assignment_ex(self, key, value):
+        msg = "Cannot assign `%s` to '%s/%s'!  Only other psteps allowed." 
+        return AssertionError(msg % (value, self, key))
 
 class JsonPointerException(Exception):
     pass
