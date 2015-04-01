@@ -841,6 +841,16 @@ class TestPstep(unittest.TestCase):
         p.foo._name = 'bar'
         self.assertEquals(str(p.foo), 'bar')
 
+        p = Pstep(n)
+        p._name = 'BAR'
+        self.assertNotEqual(str(p), n)
+        self.assertNotEqual(p, Pstep(n))
+        self.assertEquals(str(p.BAR), str(p))
+        p.foo._name = 'bar'
+        self.assertEquals(str(p.foo), 'bar')
+
+        self.assertNotEquals(p, Pstep(n))
+
         n = '/foo'
         p = Pstep(n)
         self.assertEqual(str(p), n)
@@ -904,21 +914,28 @@ class TestPstep(unittest.TestCase):
             with self.assertRaises(AssertionError, msg=f):
                 f(p),
 
+    def test_renames(self):
+        p = Pstep('root')
+        p.abc('BAR')['def']('DEF')['123']
+        self.assertListEqual(p._paths, ['root/BAR/DEF/123'])
+
     def test_link_psteps(self):
         p1 = Pstep('root')
         p2 = Pstep('def')
         p2.ghi
         p1.abc = p2
         self.assertListEqual(p1._paths, ['root/abc/ghi'])
-        self.assertNotEqual(p1._paths[0], 'root/def/def/ghi')##NOTE 
+        self.assertNotEqual(p1._paths[0], 'root/def/def/ghi')  # NOTE
         self.assertEqual(p2._paths, ['abc/ghi'])
 
-    def test_renames(self):
-        p = Pstep('root')
-        p.abc('BAR')['def']('DEF')['123']
-        self.assertListEqual(p._paths, ['root/BAR/DEF/123'])
+    def test_indexing(self):
+        m = {'a': 1, 'b': 2, 'c': {'cc': 33}}
+        n = 'a'
+        p = Pstep(n)
+        self.assertEqual(m[p], m[n])
+        self.assertEqual(m[p[n]], m[n])
 
-    def test_idexing(self):
+    def test_idex_assigning(self):
         m = {'a': 1, 'b': 2, 'c': {'cc': 33}}
         n = 'a'
         p = Pstep(n)

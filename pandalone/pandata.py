@@ -1009,32 +1009,35 @@ class Pandel(object):
         return self.model
 
 
-class Pstep(defaultdict):
+class Pstep(str):
 
     """
-    A "magic-dict" building *renamable* paths for accessing data-trees. 
+    Automagically-constructed *renamable* paths for accessing data-trees. 
 
     The "magic" autocreates psteps as they referenced, making writting code 
     that access data-tree paths, natural, while at the same time the "model" 
     of those tree-data gets discovered.
 
-    Each pstep keeps internaly the name of the data-tree step, which, when
+    Each pstep keeps internaly the *name* of a data-tree step, which, when
     created through recursive referencing, coincedes with parent's branch 
-    leading to this step when steps are .  It is this name that can be change 
-    instead of modifying code, in case of different data-trees with renamed 
-    paths.
+    leading to this step.  That name can be modified with :class:`Pmods`
+    so the same data-accessing code can consume differently-named data-trees.
 
     :ivar str _name:    this renameble path-steps's name
+    :ivar bool _locked: if it is possible to rename it
+    :ivar dict _meta:   TODO: jsonschema data
 
     Usage:
 
-        - Just by referencing (non_private) attributes, they are created.
-        - Unlike :class:`defaultdict` it raises :exc:`AssertionError` if 
-          any value gets assigned as dict-item or as non-private attribute
-          (ie `_name` is indeed allowed).
-        - Use :meth:`_paths()` to get all defined paths so far.
-        - TODO: psteps have 2 "modes", unlocked / locked (no new children allowed)
-          ie for detecting violations.
+    .. Warning::
+        String's slicing operations do not work on this string-subclass!
+
+    - Just by referencing (non_private) attributes, they are created.
+    - It raises :exc:`AssertionError` if any non-pstep value gets assigned 
+      as dict-item or as non-private attribute (ie `_name` is indeed allowed).
+    - Use :meth:`_paths()` to get all defined paths so far.
+    - TODO: psteps have 2 "modes", lockes / locked (no new children allowed)
+      ie for detecting violations.
 
     Example::
 
@@ -1047,36 +1050,46 @@ class Pstep(defaultdict):
 
     """
 
-    def __init__(self, name='.', fixed=False):
-        self._name = name
-        self._fixed = fixed
+    def __init__(self, name='.', fixed=False, **meta_kws):
+        self._csteps = {}
+        self._name = str(name)
+        self._locked = bool(fixed)
+        self._meta = meta_kws
 
-    def __call__(self, name=None, fixed=None):
+    def __call__(self, name=None, fixed=None, **meta_kws):
         if name is not None:
             self._name = name
         if fixed is not None:
-            self._fixed = fixed
+            self._locked = fixed
+        self._meta = meta_kws
+
         return self
 
-    def __hash__(self):
-        return hash(self._name)
+#     def __hash__(self):
+#         return hash(self._name)
+#
+#     def __eq__(self, o):
+#         return self._name == str(o)
+#
+#     def __ne__(self, o):
+#         return self._name != str(o)
+#
+#
+# TODO: Add <><=>+ ops
+#
+#     def __bool__(self):
+#         return True
 
-    def __eq__(self, o):
-        return self._name == str(o)
-
-    def __ne__(self, o):
-        return self._name != str(o)
-
-    def __bool__(self):
-        return True
-
-    def __repr__(self):
+    def __str__(self):
         return self._name
 
+    def __repr__(self):
+        return '`%s`' % self._name
+
     @property
-    def _paths(self, prefix=None):
+    def _paths(self):
         p = []
-        self._paths_(p, prefix=prefix)
+        self._paths_(p)
         return p
 
     def _paths_(self, paths, prefix=None):
@@ -1084,45 +1097,48 @@ class Pstep(defaultdict):
             prefix = '%s/%s' % (prefix, self._name)
         else:
             prefix = self._name
-        children = self.items()
-        if children:
-            for _, v in self.items():
+        if self._csteps:
+            for _, v in self._csteps.items():
                 v._paths_(paths, prefix)
         else:
             paths.append(prefix)
 
     def __missing__(self, key):
         child = Pstep(key)
-        dict.__setitem__(self, key, child)
+        self._csteps[key] = child
         return child
 
-    def __getattr__(self, key):
-        #         print('__getattr__(%s)' % key)
-        #         return dict.__getattribute__(self, key)
-        if key.startswith('_'):
-            msg = "'%s' object has no attribute '%s'"
-            raise AttributeError(msg % (self, key))
-        return self[key]
+    def __getitem__(self, key):
+        child = self._csteps.get(key, None)
+        return child or self.__missing__(key)
 
     def __setitem__(self, key, value):
         if not isinstance(value, Pstep):
-            raise self._invalid_assignment_ex(key, value)
+            raise self._ex_invalid_assignment(key, value)
         else:
+            # FIXME: Should pstep allow linking amidst paths?
+            self._csteps[key] = value
             value._name = key
-            dict.__setitem__(self,  key, value)
+
+    def __getattr__(self, key):
+        if key.startswith('_'):
+            msg = "'%s' object has no attribute '%s'"
+            raise AttributeError(msg % (self, key))
+        return self.__missing__(key)
 
     def __setattr__(self, key, value):
         if key.startswith('_'):
-            dict.__setattr__(self, key, value)
+            str.__setattr__(self, key, value)
         else:
             if not isinstance(value, Pstep):
-                raise self._invalid_assignment_ex(key, value)
+                raise self._ex_invalid_assignment(key, value)
             else:
-                self[key] = value
-    
-    def _invalid_assignment_ex(self, key, value):
-        msg = "Cannot assign `%s` to '%s/%s'!  Only other psteps allowed." 
+                self.__setitem__(key, value)
+
+    def _ex_invalid_assignment(self, key, value):
+        msg = "Cannot assign `%s` to '%s/%s'!  Only other psteps allowed."
         return AssertionError(msg % (value, self, key))
+
 
 class JsonPointerException(Exception):
     pass
