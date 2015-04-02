@@ -838,18 +838,6 @@ class TestPstep(unittest.TestCase):
         self.assertEqual(str(p), n)
         self.assertEquals(p, Pstep(n))
         self.assertEquals(str(p.foo), str(p))
-        p.foo._name = 'bar'
-        self.assertEquals(str(p.foo), 'bar')
-
-        p = Pstep(n)
-        p._name = 'BAR'
-        self.assertNotEqual(str(p), n)
-        self.assertNotEqual(p, Pstep(n))
-        self.assertEquals(str(p.BAR), str(p))
-        p.foo._name = 'bar'
-        self.assertEquals(str(p.foo), 'bar')
-
-        self.assertNotEquals(p, Pstep(n))
 
         n = '/foo'
         p = Pstep(n)
@@ -871,22 +859,6 @@ class TestPstep(unittest.TestCase):
             './abc/defg',
             './321',
             './n123',
-        ]
-        self.assertListEqual(sorted(p._paths), sorted(exp))
-        p._name = 'foo'
-        exp = [
-            'foo/abc/def',
-            'foo/abc/defg',
-            'foo/321',
-            'foo/n123',
-        ]
-        self.assertListEqual(sorted(p._paths), sorted(exp))
-        p.abc._name = 'BAR'
-        exp = [
-            'foo/BAR/def',
-            'foo/BAR/defg',
-            'foo/321',
-            'foo/n123',
         ]
         self.assertListEqual(sorted(p._paths), sorted(exp))
 
@@ -919,14 +891,21 @@ class TestPstep(unittest.TestCase):
         p.abc('BAR')['def']('DEF')['123']
         self.assertListEqual(p._paths, ['root/BAR/DEF/123'])
 
-    def test_link_psteps(self):
+    def test_assign(self):
         p1 = Pstep('root')
-        p2 = Pstep('def')
-        p2.ghi
-        p1.abc = p2
-        self.assertListEqual(p1._paths, ['root/abc/ghi'])
-        self.assertNotEqual(p1._paths[0], 'root/def/def/ghi')  # NOTE
-        self.assertEqual(p2._paths, ['abc/ghi'])
+
+        def f1():
+            p1.a = 1
+
+        def f2():
+            p1.a = p1
+
+        def f3():
+            p1.a = Pstep()
+
+        self.assertRaises(AssertionError, f1)
+        self.assertRaises(AssertionError, f2)
+        self.assertRaises(AssertionError, f3)
 
     def test_indexing(self):
         m = {'a': 1, 'b': 2, 'c': {'cc': 33}}
@@ -941,6 +920,14 @@ class TestPstep(unittest.TestCase):
         p = Pstep(n)
         self.assertEqual(m[p], m[n])
         self.assertEqual(m[p[n]], m[n])
+
+    def test_json(self):
+        json.dumps(Pstep())
+        json.dumps({Pstep(): 1})
+
+    @unittest.skip('Unknwon why sets fail with Pstep!')
+    def test_json_sets(self):
+        json.dumps({Pstep(), Pstep()})
 
 
 class TestJSONCodec(unittest.TestCase):

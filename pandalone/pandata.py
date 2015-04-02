@@ -1050,41 +1050,23 @@ class Pstep(str):
 
     """
 
-    def __init__(self, name='.', fixed=False, **meta_kws):
-        self._csteps = {}
-        self._name = str(name)
-        self._locked = bool(fixed)
-        self._meta = meta_kws
+    def __new__(cls, value='.', pmods=None, **kws):
+        return str.__new__(cls, value, **kws)
 
-    def __call__(self, name=None, fixed=None, **meta_kws):
-        if name is not None:
-            self._name = name
+    def __init__(self, fixed=False, **schema_kws):
+        self._csteps = {}
+        self._locked = bool(fixed)
+        self._schema = schema_kws
+
+    def __call__(self, fixed=None, **schema_kws):
         if fixed is not None:
             self._locked = fixed
-        self._meta = meta_kws
+        self._schema = schema_kws
 
         return self
 
-#     def __hash__(self):
-#         return hash(self._name)
-#
-#     def __eq__(self, o):
-#         return self._name == str(o)
-#
-#     def __ne__(self, o):
-#         return self._name != str(o)
-#
-#
-# TODO: Add <><=>+ ops
-#
-#     def __bool__(self):
-#         return True
-
-    def __str__(self):
-        return self._name
-
     def __repr__(self):
-        return '`%s`' % self._name
+        return '`%s`' % self
 
     @property
     def _paths(self):
@@ -1093,10 +1075,11 @@ class Pstep(str):
         return p
 
     def _paths_(self, paths, prefix=None):
+        """:return: all child/steps constructed so far, in a list"""
         if prefix:
-            prefix = '%s/%s' % (prefix, self._name)
+            prefix = '%s/%s' % (prefix, self)
         else:
-            prefix = self._name
+            prefix = self
         if self._csteps:
             for _, v in self._csteps.items():
                 v._paths_(paths, prefix)
@@ -1113,12 +1096,7 @@ class Pstep(str):
         return child or self.__missing__(key)
 
     def __setitem__(self, key, value):
-        if not isinstance(value, Pstep):
-            raise self._ex_invalid_assignment(key, value)
-        else:
-            # FIXME: Should pstep allow linking amidst paths?
-            self._csteps[key] = value
-            value._name = key
+        raise self._ex_invalid_assignment(key, value)
 
     def __getattr__(self, key):
         if key.startswith('_'):
@@ -1130,10 +1108,7 @@ class Pstep(str):
         if key.startswith('_'):
             str.__setattr__(self, key, value)
         else:
-            if not isinstance(value, Pstep):
-                raise self._ex_invalid_assignment(key, value)
-            else:
-                self.__setitem__(key, value)
+            raise self._ex_invalid_assignment(key, value)
 
     def _ex_invalid_assignment(self, key, value):
         msg = "Cannot assign `%s` to '%s/%s'!  Only other psteps allowed."
