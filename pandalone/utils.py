@@ -106,6 +106,30 @@ def generate_filenames(filename):
         i += 1
 
 
+def make_unique_filename(fname, filegen=generate_filenames):
+    fname_genor = generate_filenames(fname)
+    fname = next(fname_genor)
+    while os.path.exists(fname):
+        fname = next(fname_genor)
+    return fname
+
+
+def ensure_file_ext(fname, ext):
+    """
+    :param str ext: extension with dot(.)
+    
+    >>> assert ensure_file_ext('foo', '.bar')     == 'foo.bar'
+    >>> assert ensure_file_ext('foo.bar', '.bar') == 'foo.bar'
+    >>> assert ensure_file_ext('foo.', '.bar')    == 'foo..bar'
+    >>> assert ensure_file_ext('foo.', 'bar')    == 'foo.bar'
+
+    """
+    _, e = os.path.splitext(fname)
+    if e != ext:
+        return '%s%s' % (fname, ext)
+    return fname
+
+
 def open_file_with_os(fpath):
     # From http://stackoverflow.com/questions/434597/open-document-with-default-application-in-python
     #     and http://www.dwheeler.com/essays/open-files-urls.html
