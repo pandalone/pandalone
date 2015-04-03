@@ -2,7 +2,6 @@ from networkx import DiGraph
 import matplotlib.pyplot as plt
 
 from functools import reduce
-from collections import OrderedDict
 
 
 def pairwise(iterable):
@@ -81,6 +80,7 @@ def set_node_output(node_values,node_id,node_type,node_attr):
         results = node_attr['function'](*args) if len(node_attr['outputs'])>1 else [node_attr['function'](*args)]
         node['outputs'] = {k: res for res, k in zip(results, node_attr['outputs'])}
 
+
 def set_starting_node(graph,start_id, sources):
 
     if graph.has_node(start_id): graph.remove_node(start_id)
@@ -102,9 +102,12 @@ class Dispatcher(object):
         Example:
             >>> dsp = Dispatcher()
             >>> dsp.add_data(data_id='/a') # data to be calculated, i.e., internal data
+
             >>> dsp.add_data(data_id='/b',value='value of the data') # data with a initial value, i.e., initial data
-            >>> average_fun= lambda x: sum(x)/len(x)
+
+            >>> average_fun= lambda *x: sum(x)/len(x)
             >>> dsp.add_data(data_id='/c',wait_inputs=True,function=average_fun) # internal data that is calculated as the average of all function estimations
+
             >>> dsp.add_data(data_id='/d',value='value of the data',wait_inputs=True,function=average_fun) # initial data that is calculated as the average of all function estimations + initial data
         """
 
@@ -255,7 +258,9 @@ class Dispatcher(object):
             >>> dsp.add_data(data_id='/b',value=1)
             >>> dsp.add_function(function=sum,inputs=['/a','/b'],outputs=['/c'])
             >>> dsp.add_function(function=sum,inputs=['/c','/b'],outputs=['/a'])
+
             >>> dsp_woc = dsp.get_dispatcher_without_cycles()
+
             >>> dsp_woc = dsp.get_dispatcher_without_cycles(sources=['/a','/b'])
         """
 
@@ -402,15 +407,20 @@ def define_network():
     data_list = []
     for i in range(n_data):
         # print('data',network.add_data(data=None if i>2 else random()*6,wait_inputs=False if i!=4 else True))
-        v = i < 2
-        data_list.append({'data': i + 1 if v else None, 'wait_inputs': False if v else choice([True, False])})
+        data = {'value': i + 1.0 if i < 2 else None}
+
+        if False if i < 2 else choice([True, False]):
+            data.update({'wait_inputs':True,'function': lambda *x: sum(x)/len(x)})
+        data_list.append(data)
 
     def fun(n):
         def mul_(*args):
-            return [reduce(lambda x, y: x * y, args)] * n
+            res=reduce(lambda x, y: x * y, args)
+            return [res] * n if n>1 else res
 
         def sum_(*args):
-            return [reduce(lambda x, y: x + y, args)] * n
+            res  = reduce(lambda x, y: x + y, args)
+            return [res] * n if n>1 else res
 
         return sum_
 
@@ -443,7 +453,6 @@ if __name__ == '__main__':
 
     network = define_network()
     network_without_cycles = network.get_dispatcher_without_cycles()
-
 
     network.populate_output()
     network.plot()
