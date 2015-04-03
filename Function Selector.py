@@ -51,63 +51,166 @@ def strongly_connected_components_function(graph, sources=None):
                         scc_queue.append(v)
 
 
+def set_node_input(node_values,from_node_id,to_node_id,to_node_type):
+    if not to_node_id in node_values: node_values[to_node_id]={'inputs':{}}
+
+    to_node = node_values[to_node_id]
+
+    from_node = node_values[from_node_id]
+
+    if not 'inputs' in to_node:to_node['inputs'] = {}
+
+    to_node['inputs'][from_node_id] = from_node['outputs'][to_node_id] if to_node_type == 'data' else from_node['outputs']
+
+
+def set_node_output(node_values,node_id,node_type,node_attr):
+    node=node_values[node_id]
+
+    if node_type == 'data':
+        args = list(node['inputs'].values())
+        if node_attr['wait_inputs']:
+            if 'function' in node_attr:
+                node['outputs'] = node_attr['function'](*args)
+            else:
+                raise ValueError('Missing node attribute:', 'estimation function of data node %s'%(node_id))
+        else:
+            node['outputs'] = args[0]
+    elif node_type == 'function':
+        args = [node['inputs'][k] for k in node_attr['inputs']]
+        if 'input_domain' in node and not node_attr['input_domain'](*args): return
+        results = node_attr['function'](*args) if len(node_attr['outputs'])>1 else [node_attr['function'](*args)]
+        node['outputs'] = {k: res for res, k in zip(results, node_attr['outputs'])}
+
+def set_starting_node(graph,start_id, sources):
+
+    if graph.has_node(start_id): graph.remove_node(start_id)
+
+    graph.add_node(start_id, attr_dict={'type': 'start'})
+
+    for v in sources: graph.add_edge(start_id, v)
+
+
 class Dispatcher(object):
     def __init__(self, *args, **kwargs):
         self.graph = DiGraph(*args, **kwargs)
         self.counter = Counter()
         self.start = 'start'
+        self.node_values = {}
 
-    def add_data(self, data_id=None, data=None, wait_inputs=False, **kwargs):
-        attr_dict = {'type': 'data', 'outputs': data, 'wait_inputs': wait_inputs}
+    def add_data(self, data_id=None, value=None, wait_inputs=False,function=None, **kwargs):
+        """
+        Example:
+            >>> dsp = Dispatcher()
+            >>> dsp.add_data(data_id='/a') # data to be calculated, i.e., internal data
+            >>> dsp.add_data(data_id='/b',value='value of the data') # data with a initial value, i.e., initial data
+            >>> average_fun= lambda x: sum(x)/len(x)
+            >>> dsp.add_data(data_id='/c',wait_inputs=True,function=average_fun) # internal data that is calculated as the average of all function estimations
+            >>> dsp.add_data(data_id='/d',value='value of the data',wait_inputs=True,function=average_fun) # initial data that is calculated as the average of all function estimations + initial data
+        """
+
+        attr_dict = {'type': 'data', 'wait_inputs': wait_inputs}
+        if function is not None: attr_dict['function']=function
         attr_dict.update(**kwargs)
         if data_id is None:
             data_id = self.counter()
             while self.graph.has_node(data_id):
                 data_id = self.counter()
-        self.graph.add_node(data_id, attr_dict=attr_dict)
-        return data_id
 
-    def add_function(self, function=lambda x: None, outputs=None, inputs=OrderedDict(), input_domain=None, **kwargs):
+        if value is not None: self.node_values[data_id]={'outputs':value}
+
+        self.graph.add_node(data_id, attr_dict=attr_dict)
+
+    def add_function(self, function=lambda x: None, outputs=None, inputs=None, input_domain=None, **kwargs):
+        """
+        Example:
+            >>> dsp = Dispatcher()
+            >>> my_function = lambda a,b:('result for /c data','result for /d data')
+            >>> dsp.add_function(function=my_function,inputs=['/a','/b'],outputs=['/c','/d'])
+
+            >>> from math import log
+            >>> my_log= lambda a,b:log(b-a)
+            >>> my_domain = lambda a,b: a<b
+            >>> dsp.add_function(function=my_log,inputs=['/a','/b'],outputs=['/e'], input_domain=my_domain)
+        """
+
         if outputs is None: outputs = {}
         attr_dict = {'type': 'function',
-                     'inputs': OrderedDict([(k, None) for k in inputs.keys()]),
-                     'outputs': {k: None for k in outputs.keys()},
+                     'inputs': inputs,
+                     'outputs': outputs,
                      'function': function,
                      'wait_inputs': True}
 
         if input_domain: attr_dict['input_domain'] = input_domain
 
-        function_id = self.counter()
+        n = Counter()
+
+        function_name='%s:%s' %(function.__module__,function.__name__)
+
+        function_id = '%s<%d>' %(function_name,n())
 
         while self.graph.has_node(function_id):
-            function_id = self.counter()
+            function_id = '%s<%d>' %(function_name,n())
 
         self.graph.add_node(function_id, attr_dict=attr_dict)
 
-        for u, attr in inputs.items():
+        for u in inputs:
             if not self.graph.has_node(u): self.add_data(data_id=u)
-            self.graph.add_edge(u, function_id, attr_dict=attr)
+            self.graph.add_edge(u, function_id)
 
-        for v, attr in outputs.items():
+        for v in outputs:
             if not self.graph.has_node(v): self.add_data(data_id=v)
-            self.graph.add_edge(function_id, v, attr_dict=attr)
+            self.graph.add_edge(function_id, v)
+
+    def set_data_node_value(self,data_id=None,value=None,**kwargs):
+        """
+        Example:
+            >>> dsp = Dispatcher()
+            >>> dsp.add_data(data_id='/a')
+            >>> dsp.set_data_node_value(data_id='/a',value='value of the data')
+
+            >>> dsp.set_data_node_value(data_id='/b',value='value of the data')
+        """
+
+        if not data_id in self.graph.node:
+            self.add_data(data_id=data_id,value=value,**kwargs)
+        else:
+            if self.graph.node[data_id].get('type', None) == 'data':
+                self.node_values[data_id]={'outputs':value}
+            else:
+                raise ValueError('Input error:','%s is not a data node'%(data_id))
 
     def get_data_sources(self):
-        return [k for k, v in self.graph.node.items() if
-                (v.get('type', None) == 'data') and (v.get('outputs', None) is not None)]
+        """
+        Example:
+            >>> dsp = Dispatcher()
+            >>> dsp.set_data_node_value(data_id='/a',value='value of the data')
+            >>> dsp.add_data(data_id='/b')
+            >>> dsp.get_data_sources()
+            ['/a']
+        """
 
-    def set_starting_node(self, sources=None):
-        if self.graph.has_node(self.start): self.graph.remove_node(self.start)
+        return [k for k, v in self.graph.node.items()
+                if (v.get('type', None) == 'data')
+                and k in self.node_values
+                and self.node_values[k].get('outputs', None) is not None]
 
-        self.graph.add_node(self.start, attr_dict={'type': 'start'})
+    def populate_output(self, sources=None, targets=None, cutoff=None,dist=None, paths=None):
+        """
+        Example:
+            >>> dsp = Dispatcher()
+            >>> from math import log
+            >>> dsp.add_data(data_id='/a',value=0)
+            >>> dsp.add_data(data_id='/b',value=1)
+            >>> my_log= lambda a,b:log(b-a)
+            >>> my_domain = lambda a,b: a<b
+            >>> dsp.add_function(function=my_log,inputs=['/a','/b'],outputs=['/c'], input_domain=my_domain)
+            >>> dsp.populate_output()
+        """
 
-        for v in (sources if sources else self.get_data_sources()): self.graph.add_edge(self.start, v, {'weight': 1})
-
-    def populate_output(self, targets=None, cutoff=None):
         from heapq import heappush, heappop
-        from numpy import mean
 
-        self.set_starting_node()
+        set_starting_node(self.graph,self.start,sources if sources else self.get_data_sources())
+
         dist, paths = ({}, {self.start: [self.start]})  # dictionaries of final distances and of paths
         fringe, seen = ([], {self.start: 0})  # use heapq with (distance,label) tuples
         heappush(fringe, (0, False, self.start))
@@ -127,9 +230,7 @@ class Dispatcher(object):
                 node_type, wait_inputs = (node.get('type', None), node.get('wait_inputs', False))
 
                 if not start and (node_type in ('data', 'function')):
-                    node['inputs'] = node.get('inputs', {})
-                    output = self.graph.node[v]['outputs']
-                    node['inputs'][v] = output[w] if node_type == 'data' else output
+                    set_node_input(self.node_values,v,w,node_type)
 
                 if (cutoff is not None and vw_dist > cutoff) or \
                    (wait_inputs and not set(self.graph.predecessors(w)).issubset(dist)):
@@ -142,20 +243,22 @@ class Dispatcher(object):
                     seen[w], paths[w] = (vw_dist, paths[v] + [w])
                     heappush(fringe, (vw_dist, wait_inputs, w))
                     if start: continue
-                    args = list(node['inputs'].values())
-                    if node_type == 'data':
-                        node['outputs'] = (
-                            node['function'](*args) if 'function' in node else mean(args)) if wait_inputs else args[0]
-                    elif node_type == 'function':
-                        if 'input_domain' in node and not node['input_domain'](*args): continue
-                        node['outputs'] = {k: res for res, (k, v) in
-                                           zip(node['function'](*args), node['outputs'].items())}
+                    set_node_output(self.node_values,w,node_type,node)
 
             start = False
 
-        return dist, paths
+    def get_dispatcher_without_cycles(self,sources=None):
+        """
+        Example:
+            >>> dsp = Dispatcher()
+            >>> dsp.add_data(data_id='/a',value=0)
+            >>> dsp.add_data(data_id='/b',value=1)
+            >>> dsp.add_function(function=sum,inputs=['/a','/b'],outputs=['/c'])
+            >>> dsp.add_function(function=sum,inputs=['/c','/b'],outputs=['/a'])
+            >>> dsp_woc = dsp.get_dispatcher_without_cycles()
+            >>> dsp_woc = dsp.get_dispatcher_without_cycles(sources=['/a','/b'])
+        """
 
-    def remove_cycles(self):
         from networkx import single_source_dijkstra
         from itertools import product
         from heapq import heappush
@@ -197,7 +300,9 @@ class Dispatcher(object):
             return active_nodes, edge_deleted
 
         network = self.copy()
-        network.set_starting_node()
+
+        set_starting_node(network.graph,network.start,sources if sources else network.get_data_sources())
+
         active_nodes, edge_deleted = delete_cycles(network.graph, sources=[self.start])
 
         network.graph = network.graph.subgraph(active_nodes)
@@ -209,29 +314,71 @@ class Dispatcher(object):
         return network
 
     def copy(self):
+        """
+        Example:
+            >>> dsp = Dispatcher()
+            >>> dsp_copy=dsp.copy()
+        """
         from copy import deepcopy
 
         return deepcopy(self)
 
-    def plot(self):
-        from networkx import spring_layout, draw_networkx_nodes, draw_networkx_edges, draw_networkx_labels, \
-            get_node_attributes
+    def plot(self,*args,**kwargs):
+        """
+        Example:
+            >>> dsp = Dispatcher()
+            >>> dsp.add_function(function=sum,inputs=['/a','/b'],outputs=['/c','/d'])
+            >>> dsp.plot()
+        """
+        plt.figure(*args,**kwargs)
+        from networkx import spring_layout, draw_networkx_nodes, draw_networkx_edges, draw_networkx_labels
 
         pos = spring_layout(self.graph)
+
         start, data, function = ([], [], [])
+
         for k, node_type in ((k, v.get('type', None)) for k, v in self.graph.node.items()):
             eval(node_type).append(k)
-        labels = get_node_attributes(self.graph, 'outputs')
-        labels = {k: '%s:%s' % (str(k), str(v)) for k, v in labels.items()}
-        labels[self.start] = 'start'
+
+        labels = {k:'%s'%(k) for k in self.graph.node.keys()}
+
+        labels.update({k: '%s:%s' % (str(k), str(v)) for k, v in self.node_values.items()})
+
+        if self.start in self.graph.node: labels[self.start] = 'start'
+
         draw_networkx_nodes(self.graph, pos, node_shape='^', nodelist=start, node_color='b')
+
         draw_networkx_nodes(self.graph, pos, node_shape='o', nodelist=data, node_color='r')
+
         draw_networkx_nodes(self.graph, pos, node_shape='s', nodelist=function, node_color='y')
+
         draw_networkx_labels(self.graph, pos, labels=labels)
+
         draw_networkx_edges(self.graph, pos, alpha=0.5)
+
         plt.axis('off')
 
     def import_graph_from_lists(self, data_list, fun_list):
+        """
+        Example:
+            >>> def fun(a, b):
+            ...     return a + b
+            >>> dsp = Dispatcher()
+            >>> data_list = [
+            ...     {'data_id': '/a'},
+            ...     {'data_id': '/b'},
+            ...     {'data_id': '/c'},
+            ... ]
+            >>> fun_list = [
+            ...     {
+            ...         'function': fun,
+            ...         'inputs': ['/a', '/b'],
+            ...         'outputs': ['/c'],
+            ...     },
+            ... ]
+            >>> dsp.import_graph_from_lists(data_list, fun_list)
+        """
+    
         for v in data_list: self.add_data(**v)
         for v in fun_list: self.add_function(**v)
 
@@ -279,12 +426,12 @@ def define_network():
         functions_list[i]={'function':fun(len(outputs)),'outputs':outputs,'inputs':inputs}
 
     '''
-    for v in [(fun(1), {v: {'weight': 1} for v in [3]}, OrderedDict([(v, {'weight': 1}) for v in [1, 2]])),
-              (fun(1), {v: {'weight': 1} for v in [4]}, OrderedDict([(v, {'weight': 1}) for v in [2, 3]])),
-              (fun(2), {v: {'weight': 1} for v in [2, 4]}, OrderedDict([(v, {'weight': 1}) for v in [0, 1]])),
-              (fun(1), {v: {'weight': 1} for v in [5]}, OrderedDict([(v, {'weight': 1}) for v in [4]])),
-              (fun(2), {v: {'weight': 1} for v in [3, 0]}, OrderedDict([(v, {'weight': 1}) for v in [5]])),
-              (fun(2), {v: {'weight': 1} for v in [0, 1]}, OrderedDict([(v, {'weight': 1}) for v in [2]]))]:
+    for v in [(fun(1), [3], [1, 2]),
+              (fun(1), [4], [2, 3]),
+              (fun(2), [2, 4], [0, 1]),
+              (fun(1), [5],[4]),
+              (fun(2), [3, 0], [5]),
+              (fun(2), [0, 1], [2])]:
         functions_list.append({'function': v[0], 'outputs': v[1], 'inputs': v[2]})
 
     network.import_graph_from_lists(data_list, functions_list)
@@ -295,9 +442,9 @@ def define_network():
 if __name__ == '__main__':
 
     network = define_network()
-    network_without_cycles = network.remove_cycles()
+    network_without_cycles = network.get_dispatcher_without_cycles()
 
-    plt.figure()
+
     network.populate_output()
     network.plot()
 
@@ -305,7 +452,7 @@ if __name__ == '__main__':
     network_without_cycles.populate_output()
     network_without_cycles.plot()
 
-    for (k, v) in network_without_cycles.graph.node.items():
+    for (k, v) in network_without_cycles.node_values.items():
         print(k, v)
 
     plt.show()
