@@ -886,10 +886,35 @@ class TestPstep(unittest.TestCase):
             with self.assertRaises(AssertionError, msg=f):
                 f(p),
 
-    def test_renames(self):
-        p = Pstep('root')
-        p.abc('BAR')['def']('DEF')['123']
-        self.assertListEqual(p._paths, ['root/BAR/DEF/123'])
+    def test_pmods(self):
+        p = Pstep(pmods={'MISS': 'BOO'})
+        self.assertEquals(p, '.', (p, p._paths))
+        p = Pstep('foo', pmods={'MISS': 'BOO'})
+        self.assertEquals(p, 'foo', (p, p._paths))
+
+        p = Pstep(pmods={'.': 'bar'})
+        p.a
+        self.assertEquals(p, 'bar', (p, p._paths))
+
+        p = Pstep('root', pmods={'root': 'bar'})
+        p.a
+        self.assertEquals(p, 'bar', (p, p._paths))
+
+        p = Pstep(pmods={'_csteps': {'a': 'b'}})
+        self.assertEquals(p.a, 'b', (p, p._paths))
+
+        p = Pstep(pmods={'_csteps': {
+            'a': 'b',
+            'abc': 'BAR', '_csteps': {
+                'def': 'DEF', '_csteps': {
+                    '123': '234'
+                },
+            }
+        }})
+        p.a
+        p.abc['def']['123']
+        self.assertListEqual(sorted(p._paths), sorted(['./b', './BAR/DEF/234']),
+                             (p, p._paths))
 
     def test_assign(self):
         p1 = Pstep('root')

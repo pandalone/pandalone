@@ -1023,9 +1023,11 @@ class Pstep(str):
     leading to this step.  That name can be modified with :class:`Pmods`
     so the same data-accessing code can consume differently-named data-trees.
 
-    :ivar str _name:    this renameble path-steps's name
-    :ivar bool _locked: if it is possible to rename it
-    :ivar dict _meta:   TODO: jsonschema data
+    :ivar str pname:     this pstep's name (stored at super-str object)
+    :ivar Pstep _csteps: the child-psteps
+    :ivar dict _pmods:   path-modifications used to construct this and relayed to children
+    :ivar bool _locked:  if it is possible to rename it
+    :ivar dict _schema:  TODO: jsonschema data
 
     Usage:
 
@@ -1050,17 +1052,20 @@ class Pstep(str):
 
     """
 
-    def __new__(cls, value='.', pmods=None, **kws):
-        return str.__new__(cls, value, **kws)
-
-    def __init__(self, fixed=False, **schema_kws):
+    def __new__(cls, pname='.', pmods=None, locked=False, **schema_kws):
+        if pmods:
+            pname = pmods.get(pname, pname)
+        self = str.__new__(cls, pname)
+        
         self._csteps = {}
-        self._locked = bool(fixed)
+        self._locked = bool(locked)
+        self._pmods = pmods
         self._schema = schema_kws
+        
+        return self
 
-    def __call__(self, fixed=None, **schema_kws):
-        if fixed is not None:
-            self._locked = fixed
+    def __call__(self, locked=None, **schema_kws):
+        self._locked = locked
         self._schema = schema_kws
 
         return self
@@ -1086,33 +1091,38 @@ class Pstep(str):
         else:
             paths.append(prefix)
 
-    def __missing__(self, key):
-        child = Pstep(key)
-        self._csteps[key] = child
+    def __missing__(self, cpname):
+        try:
+            cpname = self._pmods.get(cpname, cpname)
+            pmods = self._pmods['_csteps']
+        except:
+            pmods = None
+        child = Pstep(cpname, pmods=pmods)
+        self._csteps[cpname] = child
         return child
 
-    def __getitem__(self, key):
-        child = self._csteps.get(key, None)
-        return child or self.__missing__(key)
+    def __getitem__(self, cpname):
+        child = self._csteps.get(cpname, None)
+        return child or self.__missing__(cpname)
 
-    def __setitem__(self, key, value):
-        raise self._ex_invalid_assignment(key, value)
+    def __setitem__(self, cpname, value):
+        raise self._ex_invalid_assignment(cpname, value)
 
-    def __getattr__(self, key):
-        if key.startswith('_'):
+    def __getattr__(self, cpname):
+        if cpname.startswith('_'):
             msg = "'%s' object has no attribute '%s'"
-            raise AttributeError(msg % (self, key))
-        return self.__missing__(key)
+            raise AttributeError(msg % (self, cpname))
+        return self.__missing__(cpname)
 
-    def __setattr__(self, key, value):
-        if key.startswith('_'):
-            str.__setattr__(self, key, value)
+    def __setattr__(self, cpname, value):
+        if cpname.startswith('_'):
+            str.__setattr__(self, cpname, value)
         else:
-            raise self._ex_invalid_assignment(key, value)
+            raise self._ex_invalid_assignment(cpname, value)
 
-    def _ex_invalid_assignment(self, key, value):
+    def _ex_invalid_assignment(self, cpname, value):
         msg = "Cannot assign `%s` to '%s/%s'!  Only other psteps allowed."
-        return AssertionError(msg % (value, self, key))
+        return AssertionError(msg % (value, self, cpname))
 
 
 class JsonPointerException(Exception):
