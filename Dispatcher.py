@@ -448,7 +448,6 @@ if __name__ == '__main__':
     network.populate_output()
     network.plot()
 
-    plt.figure()
     network_without_cycles.populate_output()
     network_without_cycles.plot()
 
