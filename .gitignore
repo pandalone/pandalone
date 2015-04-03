@@ -53,10 +53,14 @@ docs/_build/
 # PyBuilder
 target/
 
+## IDEs
 # Eclipse/Liclipse
 .pydevproject
 .project
 .settings
+# PyCharm
+.idea/
 
 # doit task-runner
 .doit*
+
