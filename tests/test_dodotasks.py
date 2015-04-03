@@ -8,10 +8,85 @@
 
 from __future__ import division, print_function, unicode_literals
 
-import unittest
+from contextlib import contextmanager
 import doctest
-import pandalone.utils
+import dodo
+from doit.cmd_base import ModuleTaskLoader
+from doit.doit_cmd import DoitMain
+from doit.reporter import JsonReporter
+import sys
+import unittest
 
-def load_tests(loader, tests, ignore):
-    tests.addTests(doctest.DocTestSuite(pandalone.utils))
+import six
+
+import dodo as mydodo
+
+
+def test_doctests(loader, tests, ignore):
+    tests.addTests(doctest.DocTestSuite(dodo))
     return tests
+
+
+@contextmanager
+def capture(command, *args, **kwargs):
+    # Unused
+    out, sys.stdout = sys.stdout, six.StringIO()
+    err, sys.stderr = sys.stderr, six.StringIO()
+    try:
+        command(*args, **kwargs)
+        sys.stdout.seek(0)
+        yield (sys.stdout.getvalue(), sys.stderr.getvalue())
+    finally:
+        sys.stdout = out
+        sys.stderr = err
+
+
+class CaptureDodo(object):
+
+    """
+    Run doit capturing stdout/err in `captured` self.out. 
+
+    :param reporter_opts: show_out
+    """
+
+    def run(self, cmdline, dodo=mydodo):
+        self.out = '<not_run>'
+        outfile = six.StringIO()
+        dodo.DOIT_CONFIG['reporter'] = JsonReporter(outfile)
+        try:
+            args = cmdline.split()
+            DoitMain(ModuleTaskLoader(dodo)).run(args)
+        finally:
+            self.out = outfile.getvalue()
+
+
+class TestCreateSamples(unittest.TestCase):
+
+    def test_no_arg(self):
+        cdodo = CaptureDodo()
+        cdodo.run('-v 2 createsam')
+        self.assertIn('simple_rpw.pndl', cdodo.out, cdodo.out)
+
+    def test_target(self):
+        cdodo = CaptureDodo()
+        cdodo.run('-v 2 createsam sometarg')
+        self.assertIn('sometarg', cdodo.out, cdodo.out)
+        self.assertIn('simple_rpw.pndl', cdodo.out, cdodo.out)
+        self.assertNotIn('sometarg.pndl', cdodo.out, cdodo.out)
+
+    def test_sample_target(self):
+        cdodo = CaptureDodo()
+        cdodo.run('-v 2 createsam --sample simple_rpw sometarg')
+        self.assertIn('sometarg', cdodo.out, cdodo.out)
+        self.assertIn('simple_rpw.pndl', cdodo.out, cdodo.out)
+        self.assertNotIn('sometarg.pndl', cdodo.out, cdodo.out)
+
+    def test_multiple_targets(self):
+        cdodo = CaptureDodo()
+        cdodo.run('-v 2 createsam t1 t2')
+        self.assertIn('Too many', cdodo.out, cdodo.out)
+
+    def test_bad_sample(self):
+        cdodo = CaptureDodo()
+        cdodo.run('-v 2 createsam --sample bad_sample')
+        self.assertIn('bad_sample', cdodo.out, cdodo.out)
