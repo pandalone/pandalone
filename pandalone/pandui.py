@@ -31,7 +31,7 @@ except ImportError:
         "TkPandalone is only supported on Python-3; not in Python-%s!" % sys.version_info[0])
 
 
-__commit__ = "01b872f"
+__commit__ = ""
 log = logging.getLogger(__name__)
 
 _bw = 2

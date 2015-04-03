@@ -8,6 +8,7 @@
 
 from __future__ import division, print_function, unicode_literals
 
+import doctest
 import json
 import unittest
 
@@ -16,6 +17,13 @@ import numpy.testing as npt
 from pandalone import pandata
 from pandalone.pandata import JSONCodec, Pstep, JsonPointerException
 import pandas as pd
+
+
+class TestDoctest(unittest.TestCase):
+
+    def runTest(self):
+        failure_count, test_count = doctest.testmod(pandata)
+        self.assertEquals(failure_count, 0, (failure_count, test_count))
 
 
 class TestPstep(unittest.TestCase):
@@ -93,13 +101,13 @@ class TestPstep(unittest.TestCase):
         p.a
         self.assertEquals(p, 'bar', (p, p._paths))
 
-        p = Pstep(pmods={'_csteps': {'a': 'b'}})
+        p = Pstep(pmods={'_cpmods': {'a': 'b'}})
         self.assertEquals(p.a, 'b', (p, p._paths))
 
-        p = Pstep(pmods={'_csteps': {
+        p = Pstep(pmods={'_cpmods': {
             'a': 'b',
-            'abc': 'BAR', '_csteps': {
-                'def': 'DEF', '_csteps': {
+            'abc': 'BAR', '_cpmods': {
+                'def': 'DEF', '_cpmods': {
                     '123': '234'
                 },
             }

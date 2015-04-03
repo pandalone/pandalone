@@ -10,12 +10,14 @@ Check pandfunc's function-dependencies exploration, reporting and classes .
 '''
 
 from collections import OrderedDict
+import doctest
 import logging
 import unittest
 
 from networkx.classes.digraph import DiGraph
 
 import itertools as it
+from pandalone import pandfunc
 from pandalone.pandfunc import (
     execute_funcs_map, execute_plan,
     _research_calculation_routes,
@@ -119,6 +121,13 @@ def funcs_fact2_1(params, engine, dfin, dfout):
         dfout['fc_norm'] = dfout.fc / dfout.p
 
     return (f11, f12, f13)
+
+
+class TestDoctest(unittest.TestCase):
+
+    def runTest(self):
+        failure_count, test_count = doctest.testmod(pandfunc)
+        self.assertEquals(failure_count, 0, (failure_count, test_count))
 
 
 class TestHarvest(unittest.TestCase):

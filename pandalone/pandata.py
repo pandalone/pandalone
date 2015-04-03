@@ -12,7 +12,7 @@ from __future__ import division, unicode_literals
 
 import abc
 import binascii
-from collections import Mapping, Sequence, OrderedDict, namedtuple, defaultdict
+from collections import Mapping, Sequence, OrderedDict, namedtuple
 from json.decoder import JSONDecoder
 from json.encoder import JSONEncoder
 import numbers
@@ -32,7 +32,7 @@ import pandas as pd
 try:
     from unittest.mock import MagicMock
 except ImportError:
-    from mock import MagicMock
+    from mock import MagicMock  # @UnusedImport
 
 
 try:
@@ -40,7 +40,7 @@ try:
 except ImportError:
     from urlparse import urljoin
 
-__commit__ = "01b872f"
+__commit__ = ""
 
 _value_with_units_regex = re.compile(r'''^\s*
                                         (?P<name>[^([]+?)   # column-name
@@ -713,7 +713,7 @@ class Pandel(object):
         >>> mm.add_submodel({'a': 1})               ## According to the schema, this should have been a string,
         >>> mm.add_submodel({'b': 'string'})        ## and this one, a number.
 
-        >>> sorted(mm.build_iter(), key=lambda ex: ex.message)                   ## Fetch a list with all validation errors.
+        >>> sorted(mm.build_iter(), key=lambda ex: ex.message)    ## Fetch a list with all validation errors. # doctest: +NORMALIZE_WHITESPACE
         [<ValidationError: "'string' is not of type 'number'">,
          <ValidationError: "1 is not of type 'string'">,
          <ValidationError: 'Gave-up building model after step 1.prevalidate (out of 4).'>]
@@ -729,7 +729,7 @@ class Pandel(object):
         >>> mm.add_submodel({'a': 'a str'})
         >>> mm.add_submodel({'c': 1})
 
-        >>> sorted(mm.build_iter(), key=lambda ex: ex.message)        ## Missing required('b') prop rom merged-model.
+        >>> sorted(mm.build_iter(), key=lambda ex: ex.message)  # doctest: +NORMALIZE_WHITESPACE
         [<ValidationError: "'b' is a required property">,
          <ValidationError: 'Gave-up building model after step 3.validate (out of 4).'>]
 
@@ -1023,12 +1023,6 @@ class Pstep(str):
     leading to this step.  That name can be modified with :class:`Pmods`
     so the same data-accessing code can consume differently-named data-trees.
 
-    :ivar str pname:     this pstep's name (stored at super-str object)
-    :ivar Pstep _csteps: the child-psteps
-    :ivar dict _pmods:   path-modifications used to construct this and relayed to children
-    :ivar bool _locked:  if it is possible to rename it
-    :ivar dict _schema:  jsonschema data.
-
     Usage:
 
     .. Warning::
@@ -1041,28 +1035,62 @@ class Pstep(str):
     - TODO: psteps have 2 "modes", lockes / locked (no new children allowed)
       ie for detecting violations.
 
-    Example::
+    Examples:
 
-        >>> m = {'a': 1, 'abc': 2, '321': {'cc': 33}}
-        >>> p = Pstep()
-        >>> assert m[p] == 1
-        >>> assert m[p.abc] == 2
-        >>> assert m[p['321'].cc] == 33
-        >>> p._some_hidden = 12
+        Construction::
 
+            >>> Pstep()
+            `.`
+            >>> Pstep('a')
+            `a`
+
+        Paths are created implicitely as they are referenced::
+
+            >>> m = {'a': 1, 'abc': 2, 'cc': 33}
+            >>> p = Pstep('a')
+            >>> assert m[p] == 1
+            >>> assert m[p.abc] == 2
+            >>> assert m[p['321'].cc] == 33
+
+            >>> sorted(p._paths)
+            ['a/321/cc', 'a/abc']
+
+        Its is possible to define "path-renames" on construction::
+
+            >>> pmods = {'_cpmods': {'abc': 'ABC', '_cpmods': {'foo': 'BAR'}}}
+            >>> p = Pstep('root', pmods=pmods)
+            >>> p.abc.foo
+            `BAR`
+            >>> p._paths
+            ['root/ABC/BAR']
+
+        Assignments are allowed only to special attributes::
+
+            >>> p.assignments = 'FAIL!'
+            Traceback (most recent call last):
+            AssertionError: Cannot assign 'FAIL!' to 'root/assignments'!  Only other psteps allowed.
+            >>> p._but_hidden = 'Ok'
+
+
+    Details:
+
+    :ivar str pname:     this pstep's name (stored at super-str object)
+    :ivar Pstep _csteps: the child-psteps
+    :ivar dict _pmods:   path-modifications used to construct this and relayed to children
+    :ivar bool _locked:  if it is possible to rename it
+    :ivar dict _schema:  jsonschema data.
     """
 
     def __new__(cls, pname='.', pmods=None, locked=False, **schema_kws):
         if pmods:
             pname = pmods.get(pname, pname)
         self = str.__new__(cls, pname)
-        
+
         self._csteps = {}
         self._locked = bool(locked)
         self._pmods = pmods
-        self._schema = schema_kws ## TODO: jsonschema on Pstep.
+        self._schema = schema_kws  # TODO: jsonschema on Pstep.
 
-        
         return self
 
     def __call__(self, locked=None, **schema_kws):
@@ -1095,7 +1123,7 @@ class Pstep(str):
     def __missing__(self, cpname):
         try:
             cpname = self._pmods.get(cpname, cpname)
-            pmods = self._pmods['_csteps']
+            pmods = self._pmods['_cpmods']
         except:
             pmods = None
         child = Pstep(cpname, pmods=pmods)
@@ -1122,7 +1150,7 @@ class Pstep(str):
             raise self._ex_invalid_assignment(cpname, value)
 
     def _ex_invalid_assignment(self, cpname, value):
-        msg = "Cannot assign `%s` to '%s/%s'!  Only other psteps allowed."
+        msg = "Cannot assign '%s' to '%s/%s'!  Only other psteps allowed."
         return AssertionError(msg % (value, self, cpname))
 
 
@@ -1160,6 +1188,26 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
     :param doc: the referrant document
     :param str jsonpointer: a jsonpointer to resolve within document
     :return: the resolved doc-item or raises :class:`RefResolutionError` 
+    :raises: JsonPointerException (if cannot resolve jsonpointer path)
+
+    Examples:
+
+        >>> dt = {
+        ...     'pi':3.14,
+        ...     'foo':'bar',
+        ...     'df': pd.DataFrame(np.ones((3,2)), columns=list('VN')),
+        ...     'sub': {
+        ...         'sr': pd.Series({'abc':'def'}),
+        ...     }
+        ... }
+        >>> resolve_jsonpointer(dt, '/pi', default=_scream)
+        3.14
+
+        >>> resolve_jsonpointer(dt, '/pi/BAD', 'Hi!')
+        'Hi!'
+        >>> resolve_jsonpointer(dt, '/pi/BAD')
+        Traceback (most recent call last):
+        pandalone.pandata.JsonPointerException: Unresolvable JSON pointer('/pi/BAD')@(BAD)
 
     :author: Julian Berman, ankostis
     """
@@ -1284,20 +1332,21 @@ class JSONCodec():
 
     Example::
 
+        >>> import json
         >>> obj_list = [
-                    3.14,
-                    {
-                         'aa': pd.DataFrame([]),
-                         2: np.array([]),
-                         33: {'foo': 'bar'},
-                     },
-                     pd.DataFrame(np.random.randn(10, 2)),
-                     ('b', pd.Series({})),
-                 ]
+        ...    3.14,
+        ...    {
+        ...         'aa': pd.DataFrame([]),
+        ...         2: np.array([]),
+        ...         33: {'foo': 'bar'},
+        ...     },
+        ...     pd.DataFrame(np.random.randn(10, 2)),
+        ...     ('b', pd.Series({})),
+        ... ]
         >>> for o in obj_list + [obj_list]:
-        ...    s = json.dumps(o, cls=JSONCodec.Encoder)
-        ...    oo = json.loads(s, cls=pandata.JSONCodec.Decoder)
-        ...    assert trees_equal(o, oo)
+        ...     s = json.dumps(o, cls=JSONCodec.Encoder)
+        ...     oo = json.loads(s, cls=JSONCodec.Decoder)
+        ...     assert trees_equal(o, oo)
         ...
 
     .. seealso::

@@ -22,9 +22,11 @@ import six
 import dodo as mydodo
 
 
-def test_doctests(loader, tests, ignore):
-    tests.addTests(doctest.DocTestSuite(dodo))
-    return tests
+class TestDoctest(unittest.TestCase):
+
+    def runTest(self):
+        failure_count, test_count = doctest.testmod(dodo)
+        self.assertEquals(failure_count, 0, (failure_count, test_count))
 
 
 @contextmanager

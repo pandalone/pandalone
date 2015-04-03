@@ -35,7 +35,7 @@ import re
 from setuptools import setup
 
 
-__commit__ = "de375b8"
+__commit__ = ""
 
 # Fail early on ancient python-versions
 #

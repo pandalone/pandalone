@@ -32,11 +32,11 @@ Overview
 
 An "execution" or a "run" of a calculation is depicted in the following diagram::
 
-           .---------------------.     _____________       .----------------------------.
-          ;       DataTree      ;     |             |      ;          DataTree          ;
-         ;---------------------;  ==> | <some code> | ==> ;----------------------------;
-        ;                     ;       |_____________|    ;                            ;
-       '---------------------'                         '----------------------------.
+        .---------------------.     _____________       .----------------------------.
+       ;       DataTree      ;     |             |      ;          DataTree          ;
+      ;---------------------;  ==> | <some code> | ==> ;----------------------------;
+     ;                     ;       |_____________|    ;                            ;
+    '---------------------'                         '----------------------------.
 
 The *Input & Output Data* are instances of :dfn:`data-tree`, trees of strings and numbers, assembled with:
 
