@@ -1027,7 +1027,7 @@ class Pstep(str):
     :ivar Pstep _csteps: the child-psteps
     :ivar dict _pmods:   path-modifications used to construct this and relayed to children
     :ivar bool _locked:  if it is possible to rename it
-    :ivar dict _schema:  TODO: jsonschema data
+    :ivar dict _schema:  jsonschema data.
 
     Usage:
 
@@ -1060,7 +1060,8 @@ class Pstep(str):
         self._csteps = {}
         self._locked = bool(locked)
         self._pmods = pmods
-        self._schema = schema_kws
+        self._schema = schema_kws ## TODO: jsonschema on Pstep.
+
         
         return self
 

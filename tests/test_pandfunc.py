@@ -8,22 +8,26 @@
 '''
 Check pandfunc's function-dependencies exploration, reporting and classes .
 '''
+
 from collections import OrderedDict
 import logging
-import logging
-import unittest
 import unittest
 
 from networkx.classes.digraph import DiGraph
 
 import itertools as it
 from pandalone.pandfunc import (
-    DependenciesError, execute_funcs_map, execute_plan,
-    Dependencies, _research_calculation_routes,
-    tell_paths_from_named_args
+    execute_funcs_map, execute_plan,
+    _research_calculation_routes,
+    tell_paths_from_named_args,
+    _build_func_dependencies_graph,
+    harvest_func,
+    harvest_funcs_factory,
+    _filter_common_prefixes,
+    Dependencies,
+    DependenciesError,
+    _validate_func_relations
 )
-from pandalone.pandfunc import _build_func_dependencies_graph, harvest_func, harvest_funcs_factory, _filter_common_prefixes, \
-    Dependencies, DependenciesError, _validate_func_relations
 import pandas as pd
 
 
