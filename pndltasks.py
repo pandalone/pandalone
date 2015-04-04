@@ -20,7 +20,7 @@ DOIT_CONFIG = {
     'default_tasks': [],
 }
 
-SAMPLES_FOLDER = os.path.join(mydir, 'pandalone', 'projects/')
+SAMPLES_FOLDER = os.path.join(mydir, 'pandalone', 'sample_projects/')
 SAMPLE_NAMES = [os.path.splitext(f)[0]
                 for f in glob.glob1(SAMPLES_FOLDER, "*")]
 SAMPLE_EXT = '.pndl'
