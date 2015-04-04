@@ -33,8 +33,8 @@ opt_sample = {
 }
 
 
-def task_createsam():
-    """doit createsam [target_dir]: Create new sample pandalone project as `target_dir`. """
+def task_makesam():
+    """doit makesam [target_dir]: Create new sample pandalone project as `target_dir`. """
 
     def copy_sample(sample, target_dir=None):
         if sample not in SAMPLE_NAMES:
@@ -46,7 +46,7 @@ def task_createsam():
         else:
             if len(target_dir) > 1:
                 msg = 'Too many `target_dir`s! \n\nUsage: \n  %s'
-                raise InvalidTask(msg % task_createsam.__doc__)
+                raise InvalidTask(msg % task_makesam.__doc__)
             target_dir = target_dir[0]
         target_dir = utils.make_unique_filename(target_dir)
         print('Creating {sample} --> {target_dir}'.format(sample=sample, target_dir=target_dir))

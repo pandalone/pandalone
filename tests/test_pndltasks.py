@@ -61,7 +61,7 @@ class CaptureDodo(object):
             self.out = outfile.getvalue()
 
 
-class TestCreateSamples(unittest.TestCase):
+class TestMakeSamples(unittest.TestCase):
 
     def test_projects_folder(self):
         self.assertTrue(
@@ -69,29 +69,29 @@ class TestCreateSamples(unittest.TestCase):
 
     def test_no_arg(self):
         cdodo = CaptureDodo()
-        cdodo.run('-v 2 createsam')
+        cdodo.run('-v 2 makesam')
         self.assertIn('simple_rpw.pndl', cdodo.out, cdodo.out)
 
     def test_target(self):
         cdodo = CaptureDodo()
-        cdodo.run('-v 2 createsam sometarg')
+        cdodo.run('-v 2 makesam sometarg')
         self.assertIn('sometarg', cdodo.out, cdodo.out)
         self.assertIn('simple_rpw.pndl', cdodo.out, cdodo.out)
         self.assertNotIn('sometarg.pndl', cdodo.out, cdodo.out)
 
     def test_sample_target(self):
         cdodo = CaptureDodo()
-        cdodo.run('-v 2 createsam --sample simple_rpw sometarg')
+        cdodo.run('-v 2 makesam --sample simple_rpw sometarg')
         self.assertIn('sometarg', cdodo.out, cdodo.out)
         self.assertIn('simple_rpw.pndl', cdodo.out, cdodo.out)
         self.assertNotIn('sometarg.pndl', cdodo.out, cdodo.out)
 
     def test_multiple_targets(self):
         cdodo = CaptureDodo()
-        cdodo.run('-v 2 createsam t1 t2')
+        cdodo.run('-v 2 makesam t1 t2')
         self.assertIn('Too many', cdodo.out, cdodo.out)
 
     def test_bad_sample(self):
         cdodo = CaptureDodo()
-        cdodo.run('-v 2 createsam --sample bad_sample')
+        cdodo.run('-v 2 makesam --sample bad_sample')
         self.assertIn('bad_sample', cdodo.out, cdodo.out)
