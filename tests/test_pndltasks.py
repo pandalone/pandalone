@@ -18,6 +18,7 @@ import sys
 import unittest
 
 import six
+import os
 
 
 class TestDoctest(unittest.TestCase):
@@ -61,6 +62,10 @@ class CaptureDodo(object):
 
 
 class TestCreateSamples(unittest.TestCase):
+
+    def test_projects_folder(self):
+        self.assertTrue(
+            os.path.exists(pndltasks.SAMPLES_FOLDER), pndltasks.SAMPLES_FOLDER)
 
     def test_no_arg(self):
         cdodo = CaptureDodo()
