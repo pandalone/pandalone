@@ -1,6 +1,6 @@
-import unittest
 import doctest
 import pandalone.utils
+import unittest
 
 
 class TestDoctest(unittest.TestCase):
