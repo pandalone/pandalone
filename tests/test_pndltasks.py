@@ -10,22 +10,20 @@ from __future__ import division, print_function, unicode_literals
 
 from contextlib import contextmanager
 import doctest
-import dodo
 from doit.cmd_base import ModuleTaskLoader
 from doit.doit_cmd import DoitMain
 from doit.reporter import JsonReporter
+import pndltasks
 import sys
 import unittest
 
 import six
 
-import dodo as mydodo
-
 
 class TestDoctest(unittest.TestCase):
 
     def runTest(self):
-        failure_count, test_count = doctest.testmod(dodo)
+        failure_count, test_count = doctest.testmod(pndltasks)
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
 
@@ -51,13 +49,13 @@ class CaptureDodo(object):
     :param reporter_opts: show_out
     """
 
-    def run(self, cmdline, dodo=mydodo):
+    def run(self, cmdline, pndltasks=pndltasks):
         self.out = '<not_run>'
         outfile = six.StringIO()
-        dodo.DOIT_CONFIG['reporter'] = JsonReporter(outfile)
+        pndltasks.DOIT_CONFIG['reporter'] = JsonReporter(outfile)
         try:
             args = cmdline.split()
-            DoitMain(ModuleTaskLoader(dodo)).run(args)
+            DoitMain(ModuleTaskLoader(pndltasks)).run(args)
         finally:
             self.out = outfile.getvalue()
 

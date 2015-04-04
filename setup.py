@@ -197,7 +197,7 @@ setup(
     test_suite='nose.collector',
     entry_points={
         'console_scripts': [
-            '%s = %s.__main__:main' % (proj_name, proj_name),
+            'pndl = %s.__main__:main' % proj_name,
         ],
     },
     zip_safe=True,
