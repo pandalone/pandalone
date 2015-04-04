@@ -7,20 +7,21 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """Delegates to *pandalone* `doit` tasks."""
 
-import pndltasks
 from doit.cmd_base import ModuleTaskLoader
 from doit.doit_cmd import DoitMain
-import os
+from os import path
+import pndltasks
 import sys
 
 
 def main(argv=None):
-    myname = os.path.basename(sys.argv[0])  # @UnusedVariable
-    mydir = os.path.dirname(__file__)  # @UnusedVariable
+    myname = path.basename(sys.argv[0])  # @UnusedVariable
+    mydir = path.dirname(__file__)  # @UnusedVariable
     if argv is None:
         argv = sys.argv[1:]
     commander = DoitMain(ModuleTaskLoader(pndltasks))
-    commander.run(argv)
+    opt_vals = {}#'dep_file': path.abspath(path.join(mydir, '.doit.db'))}
+    commander.run(argv, opt_vals)
 
 
 if __name__ == "__main__":

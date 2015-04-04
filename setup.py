@@ -176,10 +176,10 @@ setup(
         'six',
         'jsonschema>=2.4',
         'numpy',
-        'pandas',  # 'openpyxl', 'xlrd',
-        'Pillow',  # For UI About boxes
+        'pandas',   # 'openpyxl', 'xlrd',
+        'Pillow',   # For UI About boxes
         'xlwings',  # For Excel integration
-        'doit',
+        'doit',     # >= 0.28 but unreleased yet.
     ],
     setup_requires=[
         'setuptools',

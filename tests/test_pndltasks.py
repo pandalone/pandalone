@@ -10,10 +10,9 @@ from __future__ import division, print_function, unicode_literals
 
 from contextlib import contextmanager
 import doctest
-from doit.cmd_base import ModuleTaskLoader
-from doit.doit_cmd import DoitMain
 from doit.reporter import JsonReporter
 import os
+from pandalone.__main__ import main as pndlcmd
 import pndltasks
 import sys
 import tempfile
@@ -54,6 +53,8 @@ def chdir(dirname=None):
     finally:
         os.chdir(curdir)
 
+mydir = os.path.dirname(__file__)  # @UnusedVariable
+
 
 class CaptureDodo(object):
 
@@ -69,12 +70,13 @@ class CaptureDodo(object):
         pndltasks.DOIT_CONFIG['reporter'] = JsonReporter(outfile)
         try:
             args = cmdline.split()
-            DoitMain(ModuleTaskLoader(pndltasks)).run(args)
+            pndlcmd(args)
         finally:
             self.out = outfile.getvalue()
 
 
 def_sample = '%s.pndl' % pndltasks.opt_sample['default']
+_doitdb_files = '.doit.db.dat'
 
 
 class TestMakeSamples(unittest.TestCase, CustomAssertions):
@@ -90,6 +92,7 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
                 self.assertIn(def_sample, cdodo.out, cdodo.out)
                 self.assertFileExists(def_sample)
                 self.assertFileExists(os.path.join(def_sample, 'dodo.py'))
+                self.assertFileExists(_doitdb_files)
 
     def test_no_sample_with_extension(self):
         cdodo = CaptureDodo()
@@ -99,6 +102,7 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
                 self.assertIn(def_sample, cdodo.out, cdodo.out)
                 self.assertFileExists(def_sample)
                 self.assertFileExists(os.path.join(def_sample, 'dodo.py'))
+                self.assertFileExists(_doitdb_files)
 
     def test_target(self):
         cdodo = CaptureDodo()
@@ -111,6 +115,7 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
                 self.assertNotIn('%s.pndl' % targetdir, cdodo.out, cdodo.out)
                 self.assertFileExists(targetdir)
                 self.assertFileExists(os.path.join(targetdir, 'dodo.py'))
+                self.assertFileExists(_doitdb_files)
 
     def test_sample_target(self):
         cdodo = CaptureDodo()
@@ -124,6 +129,7 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
                 self.assertNotIn('%s.pndl' % targetdir, cdodo.out, cdodo.out)
                 self.assertFileExists(targetdir)
                 self.assertFileExists(os.path.join(targetdir, 'dodo.py'))
+                self.assertFileExists(_doitdb_files)
 
     def test_multiple_targets(self):
         cdodo = CaptureDodo()
@@ -133,6 +139,7 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
                 self.assertIn('Too many', cdodo.out, cdodo.out)
                 self.assertFileNotExists('t1')
                 self.assertFileNotExists('t2')
+                self.assertFileExists(_doitdb_files)
 
     def test_bad_sample(self):
         cdodo = CaptureDodo()
@@ -141,3 +148,4 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
                 cdodo.run('-v 2 makesam --sample bad_sample')
                 self.assertIn('bad_sample', cdodo.out, cdodo.out)
                 self.assertFileNotExists(def_sample)
+                self.assertFileExists(_doitdb_files)
