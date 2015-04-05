@@ -10,7 +10,7 @@
 from doit.cmd_base import ModuleTaskLoader
 from doit.doit_cmd import DoitMain
 from os import path
-import pndltasks
+from pandalone import pndlcmd
 import sys
 
 
@@ -19,8 +19,8 @@ def main(argv=None):
     mydir = path.dirname(__file__)  # @UnusedVariable
     if argv is None:
         argv = sys.argv[1:]
-    commander = DoitMain(ModuleTaskLoader(pndltasks))
-    opt_vals = {}#'dep_file': path.abspath(path.join(mydir, '.doit.db'))}
+    commander = DoitMain(ModuleTaskLoader(pndlcmd))
+    opt_vals = {}  # 'dep_file': path.abspath(path.join(mydir, '.doit.db'))}
     commander.run(argv, opt_vals)
 
 

@@ -12,8 +12,7 @@ from contextlib import contextmanager
 import doctest
 from doit.reporter import JsonReporter
 import os
-from pandalone.__main__ import main as pndlcmd
-import pndltasks
+from pandalone import __main__, pndlcmd
 import sys
 import tempfile
 from tests.assertutils import CustomAssertions
@@ -25,7 +24,7 @@ import six
 class TestDoctest(unittest.TestCase):
 
     def runTest(self):
-        failure_count, test_count = doctest.testmod(pndltasks)
+        failure_count, test_count = doctest.testmod(pndlcmd)
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
 
@@ -64,25 +63,25 @@ class CaptureDodo(object):
     :param reporter_opts: show_out
     """
 
-    def run(self, cmdline, pndltasks=pndltasks):
+    def run(self, cmdline, pndlcmd=pndlcmd):
         self.out = '<not_run>'
         outfile = six.StringIO()
-        pndltasks.DOIT_CONFIG['reporter'] = JsonReporter(outfile)
+        pndlcmd.DOIT_CONFIG['reporter'] = JsonReporter(outfile)
         try:
             args = cmdline.split()
-            pndlcmd(args)
+            __main__.main(args)
         finally:
             self.out = outfile.getvalue()
 
 
-def_sample = '%s.pndl' % pndltasks.opt_sample['default']
+def_sample = '%s.pndl' % pndlcmd.opt_sample['default']
 _doitdb_files = '.doit.db.dat'
 
 
 class TestMakeSamples(unittest.TestCase, CustomAssertions):
 
     def test_projects_folder(self):
-        self.assertFileExists(pndltasks.SAMPLES_FOLDER)
+        self.assertFileExists(pndlcmd.SAMPLES_FOLDER)
 
     def test_no_arg(self):
         cdodo = CaptureDodo()
