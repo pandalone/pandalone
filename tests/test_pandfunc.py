@@ -127,6 +127,7 @@ class TestDoctest(unittest.TestCase):
 
     def runTest(self):
         failure_count, test_count = doctest.testmod(pandfunc)
+        self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
 

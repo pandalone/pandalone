@@ -21,7 +21,7 @@ import re
 
 from jsonschema import Draft3Validator, Draft4Validator, ValidationError
 import jsonschema
-from jsonschema.exceptions import SchemaError
+from jsonschema.exceptions import SchemaError, RefResolutionError
 from pandas.core.generic import NDFrame
 from six import string_types
 
@@ -1154,10 +1154,6 @@ class Pstep(str):
         return AssertionError(msg % (value, self, cpname))
 
 
-class JsonPointerException(Exception):
-    pass
-
-
 def jsonpointer_parts(jsonpointer):
     """
     Iterates over the ``jsonpointer`` parts.
@@ -1171,7 +1167,7 @@ def jsonpointer_parts(jsonpointer):
     if jsonpointer:
         parts = jsonpointer.split(u"/")
         if parts.pop(0) != '':
-            raise JsonPointerException('Location must starts with /')
+            raise RefResolutionError('Location must starts with /')
 
         for part in parts:
             part = part.replace(u"~1", u"/").replace(u"~0", u"~")
@@ -1188,7 +1184,7 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
     :param doc: the referrant document
     :param str jsonpointer: a jsonpointer to resolve within document
     :return: the resolved doc-item or raises :class:`RefResolutionError` 
-    :raises: JsonPointerException (if cannot resolve jsonpointer path)
+    :raises: RefResolutionError (if cannot resolve jsonpointer path)
 
     Examples:
 
@@ -1203,11 +1199,12 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
         >>> resolve_jsonpointer(dt, '/pi', default=_scream)
         3.14
 
-        >>> resolve_jsonpointer(dt, '/pi/BAD', 'Hi!')
-        'Hi!'
         >>> resolve_jsonpointer(dt, '/pi/BAD')
         Traceback (most recent call last):
-        pandalone.pandata.JsonPointerException: Unresolvable JSON pointer('/pi/BAD')@(BAD)
+        jsonschema.exceptions.RefResolutionError: Unresolvable JSON pointer('/pi/BAD')@(BAD)
+
+        >>> resolve_jsonpointer(dt, '/pi/BAD', 'Hi!')
+        'Hi!'
 
     :author: Julian Berman, ankostis
     """
@@ -1222,7 +1219,7 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
             doc = doc[part]
         except (TypeError, LookupError):
             if default is _scream:
-                raise JsonPointerException(
+                raise RefResolutionError(
                     "Unresolvable JSON pointer(%r)@(%s)" % (jsonpointer, part))
             else:
                 return default
@@ -1236,7 +1233,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
 
     :param doc: the referrant document
     :param str jsonpointer: a jsonpointer to the node to modify 
-    :raises: JsonPointerException (if jsonpointer empty, missing, invalid-contet)
+    :raises: RefResolutionError (if jsonpointer empty, missing, invalid-contet)
     """
 
     parts = list(jsonpointer_parts(jsonpointer))
@@ -1256,11 +1253,11 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
                 try:
                     part = int(part)
                 except ValueError:
-                    raise JsonPointerException(
+                    raise RefResolutionError(
                         "Expected numeric index(%s) for sequence at (%r)[%i]" % (part, jsonpointer, i))
                 else:
                     if part > doclen:
-                        raise JsonPointerException(
+                        raise RefResolutionError(
                             "Index(%s) out of bounds(%i) of (%r)[%i]" % (part, doclen, jsonpointer, i))
         try:
             ndoc = doc[part]
@@ -1294,7 +1291,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
 
 #    except (IndexError, TypeError) as ex:
 # if isinstance(ex, IndexError) or 'list indices must be integers' in str(ex):
-#        raise JsonPointerException("Incompatible content of JSON pointer(%r)@(%s)" % (jsonpointer, part))
+#        raise RefResolutionError("Incompatible content of JSON pointer(%r)@(%s)" % (jsonpointer, part))
 #        else:
 #            doc = {}
 #            parent_doc[parent_part] = doc

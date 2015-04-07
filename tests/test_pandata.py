@@ -15,7 +15,8 @@ import unittest
 import numpy as np
 import numpy.testing as npt
 from pandalone import pandata
-from pandalone.pandata import JSONCodec, Pstep, JsonPointerException
+from pandalone.pandata import JSONCodec, Pstep
+from jsonschema.exceptions import RefResolutionError
 import pandas as pd
 
 
@@ -23,6 +24,7 @@ class TestDoctest(unittest.TestCase):
 
     def runTest(self):
         failure_count, test_count = doctest.testmod(pandata)
+        self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
 
@@ -240,7 +242,7 @@ class TestJsonPointer(unittest.TestCase):
         doc = {}
 
         path = '/foo'
-        with self.assertRaises(JsonPointerException):
+        with self.assertRaises(RefResolutionError):
             pandata.resolve_jsonpointer(doc, path)
 
     def test_resolve_jsonpointer_empty_path(self):
@@ -299,11 +301,11 @@ class TestJsonPointer(unittest.TestCase):
     def test_resolve_jsonpointer_root_path_only(self):
         doc = {}
         path = '/'
-        with self.assertRaises(JsonPointerException):
+        with self.assertRaises(RefResolutionError):
             self.assertEqual(pandata.resolve_jsonpointer(doc, path), doc)
 
         doc = {'foo': 1}
-        with self.assertRaises(JsonPointerException):
+        with self.assertRaises(RefResolutionError):
             self.assertEqual(pandata.resolve_jsonpointer(doc, path), doc)
 
         doc = {'': 1}
@@ -405,14 +407,14 @@ class TestJsonPointer(unittest.TestCase):
         doc = [0, 1]
         path = '/3'
         value = 'value'
-        with self.assertRaises(JsonPointerException):
+        with self.assertRaises(RefResolutionError):
             pandata.set_jsonpointer(doc, path, value)
 
     def test_set_jsonpointer_sequence_with_str_screams(self):
         doc = [0, 1]
         path = '/str'
         value = 'value'
-        with self.assertRaises(JsonPointerException):
+        with self.assertRaises(RefResolutionError):
             pandata.set_jsonpointer(doc, path, value)
 
     def test_build_all_jsonpaths(self):

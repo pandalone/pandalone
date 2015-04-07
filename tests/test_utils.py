@@ -6,5 +6,6 @@ import unittest
 class TestDoctest(unittest.TestCase):
 
     def test_doctests(self):
-        suite = doctest.DocTestSuite(pandalone.utils)
-        unittest.TextTestRunner(verbosity=2).run(suite)
+        failure_count, test_count = doctest.testmod(pandalone.utils)
+        self.assertGreater(test_count, 0, (failure_count, test_count))
+        self.assertEquals(failure_count, 0, (failure_count, test_count))
