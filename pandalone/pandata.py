@@ -1306,7 +1306,7 @@ def build_all_jsonpaths(schema):
         for f in forks:
             objlist = schema.get(f)
             if objlist:
-                for obj in schema.get(f):
+                for obj in objlist:
                     _visit(obj, path, paths)
 
         props = schema.get('properties')
