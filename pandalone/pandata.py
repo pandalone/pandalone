@@ -19,6 +19,7 @@ import numbers
 import pickle
 import re
 
+from enum import IntEnum
 from jsonschema import Draft3Validator, Draft4Validator, ValidationError
 import jsonschema
 from jsonschema.exceptions import SchemaError, RefResolutionError
@@ -1041,10 +1042,29 @@ class Pandel(object):
         return self.model
 
 
+_NONE = object()
+"""Denotes non-existent json-schema attribute in :meth:`jschema()`."""
+
+
+def jschema(
+    type='object',  # @ReservedAssignment
+    properties=_NONE,
+    required=_NONE,
+    title=_NONE,
+    description=_NONE,
+):
+    """Create a json-schema node as a dict.
+
+     It does just rudimentary args-name check.   Further validations 
+     should apply using a proper json-schema validator.
+     """
+    return dict()
+
+
 class Pstep(str):
 
     """
-    Automagically-constructed *renamable* paths for accessing data-trees. 
+    Automagically-constructed *renamable* paths for accessing data-tree. 
 
     The "magic" autocreates psteps as they referenced, making writting code 
     that access data-tree paths, natural, while at the same time the "model" 
@@ -1061,96 +1081,90 @@ class Pstep(str):
         String's slicing operations do not work on this string-subclass!
 
     - Just by referencing (non_private) attributes, they are created.
+
     - It raises :exc:`AssertionError` if any non-pstep value gets assigned 
       as dict-item or as non-private attribute (ie `_name` is indeed allowed).
+
     - Use :meth:`_paths()` to get all defined paths so far.
-    - TODO: psteps have 2 "modes", lockes / locked (no new children allowed)
-      ie for detecting violations.
 
-    Examples:
+    - Construction::
 
-        Construction::
+        >>> Pstep()
+        `.`
+        >>> Pstep('a')
+        `a`
 
-            >>> Pstep()
-            `.`
-            >>> Pstep('a')
-            `a`
+    - Paths are created implicitely as they are referenced::
 
-        Paths are created implicitely as they are referenced::
+        >>> m = {'a': 1, 'abc': 2, 'cc': 33}
+        >>> p = Pstep('a')
+        >>> assert m[p] == 1
+        >>> assert m[p.abc] == 2
+        >>> assert m[p['321'].cc] == 33
 
-            >>> m = {'a': 1, 'abc': 2, 'cc': 33}
-            >>> p = Pstep('a')
-            >>> assert m[p] == 1
-            >>> assert m[p.abc] == 2
-            >>> assert m[p['321'].cc] == 33
+        >>> sorted(p._paths)
+        ['a/321/cc', 'a/abc']
 
-            >>> sorted(p._paths)
-            ['a/321/cc', 'a/abc']
+    - Its is possible to define "path-renames" on construction::
 
-        Its is possible to define "path-renames" on construction::
+        >>> pmods = {'root':'/deeper/ROOT',
+        ...    '_cpmods': {'abc': 'ABC', '_cpmods': {'foo': 'BAR'}}}
+        >>> p = Pstep('root', pmods=pmods)
+        >>> p.abc.foo
+        `BAR`
+        >>> p._paths
+        ['/deeper/ROOT/ABC/BAR']
 
-            >>> pmods = {'_cpmods': {'abc': 'ABC', '_cpmods': {'foo': 'BAR'}}}
-            >>> p = Pstep('root', pmods=pmods)
-            >>> p.abc.foo
-            `BAR`
-            >>> p._paths
-            ['root/ABC/BAR']
+    - but if exceptions are thrown if marked as "locked":
 
-        Assignments are allowed only to special attributes::
 
-            >>> p.assignments = 'FAIL!'
-            Traceback (most recent call last):
-            AssertionError: Cannot assign 'FAIL!' to 'root/assignments'!  Only other psteps allowed.
-            >>> p._but_hidden = 'Ok'
+    - Assignments are allowed only to special attributes::
+
+        >>> p.assignments = 'FAIL!'
+        Traceback (most recent call last):
+        AssertionError: Cannot assign 'FAIL!' to '/deeper/ROOT/assignments'!  Only other psteps allowed.
+
+        >>> p._but_hidden = 'Ok'
 
 
     Details:
 
-    :ivar str pname:     this pstep's name (stored at super-str object)
+    :param str pname:    this pstep's name (stored at super-str object)
     :ivar Pstep _csteps: the child-psteps
-    :ivar dict _pmods:   path-modifications used to construct this and relayed to children
-    :ivar bool _locked:  if it is possible to rename it
+    :ivar dict _pmods:   path-modifications used to construct this and 
+                         relayed to children
+    :ivar int _lock:     one of
+                         - :const:`Pstep.CAN_RELOCATE`(default, reparenting allowed),
+                         - :const:`Pstep.CAN_RENAME`, 
+                         - :const:`Pstep.LOCKED' (neither from the above).
     :ivar dict _schema:  jsonschema data.
     """
 
-    def __new__(cls, pname='.', pmods=None, locked=False, **schema_kws):
+    CAN_RELOCATE = 3
+    CAN_RENAME = 1
+    LOCKED = 0
+
+    @staticmethod
+    def lockstr(lock):
+        if lock >= Pstep.CAN_RELOCATE:
+            return 'CAN_RELOCATE'
+        if Pstep.LOCKED <= lock < Pstep.CAN_RELOCATE:
+            return 'LOCKED'
+        return 'LOCKED'
+
+    def __new__(cls, pname='.', pmods=None):
+        orig = pname
         if pmods:
             pname = pmods.get(pname, pname)
         self = str.__new__(cls, pname)
+        self._orig = orig
 
         self._csteps = {}
-        self._locked = bool(locked)
         self._pmods = pmods
-        self._schema = schema_kws  # TODO: jsonschema on Pstep.
+        self.__dict__['_lock'] = Pstep.CAN_RELOCATE
+        self._schema = None
 
         return self
-
-    def __call__(self, locked=None, **schema_kws):
-        self._locked = locked
-        self._schema = schema_kws
-
-        return self
-
-    def __repr__(self):
-        return '`%s`' % self
-
-    @property
-    def _paths(self):
-        p = []
-        self._paths_(p)
-        return p
-
-    def _paths_(self, paths, prefix=None):
-        """:return: all child/steps constructed so far, in a list"""
-        if prefix:
-            prefix = '%s/%s' % (prefix, self)
-        else:
-            prefix = self
-        if self._csteps:
-            for _, v in self._csteps.items():
-                v._paths_(paths, prefix)
-        else:
-            paths.append(prefix)
 
     def __missing__(self, cpname):
         try:
@@ -1184,6 +1198,53 @@ class Pstep(str):
     def _ex_invalid_assignment(self, cpname, value):
         msg = "Cannot assign '%s' to '%s/%s'!  Only other psteps allowed."
         return AssertionError(msg % (value, self, cpname))
+
+    def __repr__(self):
+        return '`%s`' % self
+
+    @property
+    def _lock(self):
+        """One of `CAN_RELOCATE`, `CAN_RENAME`, `LOCKED'
+
+        :raise: ValueError when setting stricter lock-value on a renamed/relocated pstep
+        """
+        return self.__dict__['_lock']
+
+    @_lock.setter
+    def _lock(self, lock):
+        if self != self._orig:
+            if lock < Pstep.CAN_RENAME or (lock < Pstep.CAN_RELOCATE and '/' in self):
+                msg = "Cannot rename/relocate '%s'-->'%s' due to %s!"
+                raise ValueError(msg % (self._orig, self, Pstep.lockstr(lock)))
+        self.__dict__['_lock'] = int(lock)
+
+    @property
+    def _schema(self):
+        """A json-schema dict as build from :func:`jschema()`"""
+        return self.__dict__['_schema']
+
+    @_schema.setter
+    def _schema(self, schema):
+        self.__dict__['_schema'] = schema
+        # TODO: jsonschema on Pstep.
+
+    @property
+    def _paths(self):
+        p = []
+        self._paths_(p)
+        return p
+
+    def _paths_(self, paths, prefix=None):
+        """:return: all child/steps constructed so far, in a list"""
+        if prefix:
+            prefix = '%s/%s' % (prefix, self)
+        else:
+            prefix = self
+        if self._csteps:
+            for _, v in self._csteps.items():
+                v._paths_(paths, prefix)
+        else:
+            paths.append(prefix)
 
 
 def jsonpointer_parts(jsonpointer):

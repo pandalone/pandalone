@@ -173,6 +173,7 @@ setup(
     #    proj_name: ['*.vba', '*.ico'],
     #},
     install_requires=[
+        'enum34',
         'six',
         'jsonschema>=2.4',
         'numpy',

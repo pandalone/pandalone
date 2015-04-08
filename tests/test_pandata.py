@@ -91,6 +91,23 @@ class TestPstep(unittest.TestCase):
             with self.assertRaises(AssertionError, msg=f):
                 f(p),
 
+    
+    def PMODS(self):
+        return {
+            '.': 'root',
+            '_cpmods': {
+                'a': 'b',
+                'abc': 'BAR',
+                'for': 'sub/path',
+                '_cpmods': {
+                    'def': 'DEF',
+                    '_cpmods': {
+                        '123': '234'
+                    },
+                }
+            }
+        }
+
     def test_pmods(self):
         p = Pstep(pmods={'MISS': 'BOO'})
         self.assertEquals(p, '.', (p, p._paths))
@@ -108,18 +125,61 @@ class TestPstep(unittest.TestCase):
         p = Pstep(pmods={'_cpmods': {'a': 'b'}})
         self.assertEquals(p.a, 'b', (p, p._paths))
 
-        p = Pstep(pmods={'_cpmods': {
-            'a': 'b',
-            'abc': 'BAR', '_cpmods': {
-                'def': 'DEF', '_cpmods': {
-                    '123': '234'
-                },
-            }
-        }})
+        p = Pstep(pmods=self.PMODS())
         p.a
         p.abc['def']['123']
-        self.assertListEqual(sorted(p._paths), sorted(['./b', './BAR/DEF/234']),
-                             (p, p._paths))
+        self.assertListEqual(
+            sorted(p._paths),
+            sorted(['root/b', 'root/BAR/DEF/234']),
+            (p, p._paths))
+
+    def test_pmods_lock_not_applying(self):
+        p = Pstep('not dot', pmods=self.PMODS())
+        p.nota
+
+        pmods = self.PMODS()
+        pmods.pop('.')
+        p = Pstep(pmods=pmods)
+
+    def test_pmods_lock_CAN_RELOCATE(self):
+        pmods = self.PMODS()
+        pmods['.'] = 'deep/root'
+        p = Pstep(pmods=pmods)
+        p._lock=Pstep.CAN_RELOCATE
+        p['for']._lock=Pstep.CAN_RELOCATE
+
+    def test_pmods_lock_CAN_RENAME(self):
+        pmods = self.PMODS()
+        pmods['.'] = 'deep/root'
+        p = Pstep(pmods=pmods)
+        with self.assertRaises(ValueError, msg=p._paths):
+            p._lock=Pstep.CAN_RENAME
+
+        p = Pstep(pmods=self.PMODS())
+        with self.assertRaises(ValueError, msg=p._paths):
+            p['for']._lock=Pstep.CAN_RENAME
+
+    def test_pmods_lock_LOCKED(self):
+        p = Pstep(pmods=self.PMODS())
+        with self.assertRaises(ValueError, msg=p._paths):
+            p._lock=Pstep.LOCKED
+
+        pmods = self.PMODS()
+        pmods['.'] = 'deep/root'
+        with self.assertRaises(ValueError, msg=p._paths):
+            p._lock=Pstep.LOCKED
+
+        pmods = self.PMODS()
+        pmods.pop('.')
+        p = Pstep(pmods=pmods)
+        with self.assertRaises(ValueError, msg=p._paths):
+            p.abc._lock=Pstep.LOCKED
+
+        pmods = self.PMODS()
+        pmods.pop('.')
+        p = Pstep(pmods=pmods)
+        with self.assertRaises(ValueError, msg=p._paths):
+            p['for']._lock=Pstep.LOCKED
 
     def test_assign(self):
         p1 = Pstep('root')
