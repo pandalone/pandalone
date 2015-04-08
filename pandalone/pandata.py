@@ -59,7 +59,8 @@ _units_cleaner_regex = re.compile(r'^[[<]|[\]>]$')
 
 
 """An item-descriptor with units, i.e. used as a table-column header."""
-_U=namedtuple('United', ('name', 'units'))
+_U = namedtuple('United', ('name', 'units'))
+
 
 def parse_value_with_units(arg):
     """
@@ -69,7 +70,7 @@ def parse_value_with_units(arg):
                 note that ``name=''`` but ``units=None`` when missing. 
 
     Examples::
-    
+
         >>> parse_value_with_units('value [units]')
         United(name='value', units='units')
 
@@ -78,13 +79,20 @@ def parse_value_with_units(arg):
 
         >>> parse_value_with_units('no units')
         United(name='no units', units=None)
-        
+
+        >>> parse_value_with_units('')
+        United(name='', units=None)
+
     But notice::
-    
+
         >>> assert parse_value_with_units('ok but [bad units') is None
 
         >>> parse_value_with_units('<only units>')
         United(name='', units='only units')
+
+        >>> parse_value_with_units(None)
+        Traceback (most recent call last):
+        TypeError: expected string or buffer
 
     """
 
@@ -140,7 +148,7 @@ class ModelOperations(namedtuple('ModelOperations', 'inp out conv')):
         pass
 
 
-# FIXME: PathMaps as ModelOperations is unimplemented
+# TODO: ImplementPathMaps as ModelOperations.
 class PathMaps(object):
 
     """

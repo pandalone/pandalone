@@ -12,18 +12,20 @@ import doctest
 import json
 import unittest
 
+from jsonschema.exceptions import RefResolutionError
+
 import numpy as np
 import numpy.testing as npt
 from pandalone import pandata
 from pandalone.pandata import JSONCodec, Pstep
-from jsonschema.exceptions import RefResolutionError
 import pandas as pd
 
 
 class TestDoctest(unittest.TestCase):
 
     def runTest(self):
-        failure_count, test_count = doctest.testmod(pandata)
+        failure_count, test_count = doctest.testmod(
+            pandata, optionflags=doctest.NORMALIZE_WHITESPACE)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 

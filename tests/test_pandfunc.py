@@ -126,7 +126,8 @@ def funcs_fact2_1(params, engine, dfin, dfout):
 class TestDoctest(unittest.TestCase):
 
     def runTest(self):
-        failure_count, test_count = doctest.testmod(pandfunc)
+        failure_count, test_count = doctest.testmod(
+            pandfunc, optionflags=doctest.NORMALIZE_WHITESPACE)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 

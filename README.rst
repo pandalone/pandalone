@@ -526,6 +526,17 @@ Authors
 
 
 
+FAQ
+===
+
+Why another XXX?  What about YYY?
+---------------------------------
+- These are known related python projects: 
+  - OpenMDAO,
+  - PyDSTool,
+
+
+
 .. _begin-glossary:
 
 Glossary
