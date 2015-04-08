@@ -43,34 +43,58 @@ except ImportError:
 __commit__ = ""
 
 _value_with_units_regex = re.compile(r'''^\s*
-                                        (?P<name>[^([]+?)   # column-name
+                                        (?P<name>[^[<]*?)   # column-name
                                         \s*
                                         (?P<units>          # start parenthesized-units optional-group
                                             \[              # units enclosed in []
                                                 [^\]]*
                                             \]
                                             |
-                                            \(              # units enclosed in ()
+                                            <              # units enclosed in <>
                                                 [^)]*
-                                            \)
+                                            >
                                         )?                  # end parenthesized-units
                                         \s*$''', re.X)
-_units_cleaner_regex = re.compile(r'^[[(]|[\])]$')
+_units_cleaner_regex = re.compile(r'^[[<]|[\]>]$')
 
+
+"""An item-descriptor with units, i.e. used as a table-column header."""
+_U=namedtuple('United', ('name', 'units'))
 
 def parse_value_with_units(arg):
     """
-    Something like `value [units]` or `foo (bar/krow).
+    Parses *name-units* pairs (i.e. used as a table-column header). 
 
-    :return: dict(name, units) or None if unparseable as column-suntax
+    :return:    a United(name, units) named-tuple, or `None` if bad syntax;
+                note that ``name=''`` but ``units=None`` when missing. 
+
+    Examples::
+    
+        >>> parse_value_with_units('value [units]')
+        United(name='value', units='units')
+
+        >>> parse_value_with_units('foo   bar  <bar/krow>')
+        United(name='foo   bar', units='bar/krow')
+
+        >>> parse_value_with_units('no units')
+        United(name='no units', units=None)
+        
+    But notice::
+    
+        >>> assert parse_value_with_units('ok but [bad units') is None
+
+        >>> parse_value_with_units('<only units>')
+        United(name='', units='only units')
+
     """
 
     m = _value_with_units_regex.match(arg)
-    res = m.groupdict()
-    units = res['units']
-    if units:
-        res['units'] = _units_cleaner_regex.sub('', units)
-    return res
+    if m:
+        res = m.groupdict()
+        units = res['units']
+        if units:
+            res['units'] = _units_cleaner_regex.sub('', units)
+        return _U(**res)
 
 
 class ModelOperations(namedtuple('ModelOperations', 'inp out conv')):
