@@ -526,14 +526,26 @@ Authors
 
 
 
+.. _begin-faq:
+
 FAQ
 ===
 
 Why another XXX?  What about YYY?
 ---------------------------------
-- These are known related python projects: 
-  - OpenMDAO,
-  - PyDSTool,
+- These are the knowngly related python projects: 
+
+  OpenMDAO: 
+    It has influenced pandalone's design. 
+    It is planned to interoperate by converting to and from it's data-types.
+    But it works on python-2 only and its architecture needs attending from 
+    programmers (no `setup.py`, no official test-cases).  
+  
+  PyDSTool:
+    It does not overlap, since it does not cover IO and dependencies of data.  
+    Also planned to interoperate with it (as soon as we have 
+    a better grasp of it :-).
+    It has some issues with the documentation, but they are working on it.
 
 
 
