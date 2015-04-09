@@ -521,8 +521,14 @@ Development procedure
 .. _dev-team:
 
 Authors
-----------------
+-------
 .. include:: ../AUTHORS.rst
+
+
+Design
+------
+See `architecture live-document 
+<https://docs.google.com/document/d/1P73jgcAEzR_Vw491DQR0zogdunJOj3qh0h_lvphdaHk>`_.
 
 
 
