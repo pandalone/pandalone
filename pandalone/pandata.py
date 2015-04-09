@@ -1043,22 +1043,39 @@ class Pandel(object):
 
 
 _NONE = object()
-"""Denotes non-existent json-schema attribute in :meth:`jschema()`."""
+"""Denotes non-existent json-schema attribute in :class:`JSchema`."""
 
 
-def jschema(
-    type='object',  # @ReservedAssignment
-    properties=_NONE,
-    required=_NONE,
-    title=_NONE,
-    description=_NONE,
-):
-    """Create a json-schema node as a dict.
+class JSchema(object):
 
-     It does just rudimentary args-name check.   Further validations 
-     should apply using a proper json-schema validator.
-     """
-    return dict()
+    """
+    Facilitates the construction of json-schema-v4 nodes in :class:`PStep` code.
+
+    It does just rudimentary args-name check.   Further validations 
+    should apply using a proper json-schema validator.
+
+    :param type: if omitted, derrived as 'object' if it has children 
+    :param kws:  for all the rest see http://json-schema.org/latest/json-schema-validation.html
+
+    """
+    type = _NONE,  # @ReservedAssignment
+    items = _NONE,  # @ReservedAssignment
+    required = _NONE,
+    title = _NONE,
+    description = _NONE,
+    minimum = _NONE,
+    exclusiveMinimum = _NONE,
+    maximum = _NONE,
+    exclusiveMaximum = _NONE,
+    patternProperties = _NONE,
+    pattern = _NONE,
+    enum = _NONE,
+    allOf = _NONE,
+    oneOf = _NONE,
+    anyOf = _NONE,
+
+    def todict(self):
+        return {k: v for k, v in vars(self).items() if v is not _NONE}
 
 
 class Pstep(str):
@@ -1161,8 +1178,7 @@ class Pstep(str):
 
         self._csteps = {}
         self._pmods = pmods
-        self.__dict__['_lock'] = Pstep.CAN_RELOCATE
-        self._schema = None
+        vars(self)['_lock'] = Pstep.CAN_RELOCATE
 
         return self
 
@@ -1208,7 +1224,7 @@ class Pstep(str):
 
         :raise: ValueError when setting stricter lock-value on a renamed/relocated pstep
         """
-        return self.__dict__['_lock']
+        return vars(self)['_lock']
 
     @_lock.setter
     def _lock(self, lock):
@@ -1216,17 +1232,7 @@ class Pstep(str):
             if lock < Pstep.CAN_RENAME or (lock < Pstep.CAN_RELOCATE and '/' in self):
                 msg = "Cannot rename/relocate '%s'-->'%s' due to %s!"
                 raise ValueError(msg % (self._orig, self, Pstep.lockstr(lock)))
-        self.__dict__['_lock'] = int(lock)
-
-    @property
-    def _schema(self):
-        """A json-schema dict as build from :func:`jschema()`"""
-        return self.__dict__['_schema']
-
-    @_schema.setter
-    def _schema(self, schema):
-        self.__dict__['_schema'] = schema
-        # TODO: jsonschema on Pstep.
+        vars(self)['_lock'] = int(lock)
 
     @property
     def _paths(self):
@@ -1245,6 +1251,23 @@ class Pstep(str):
                 v._paths_(paths, prefix)
         else:
             paths.append(prefix)
+
+    @property
+    def _schema(self):
+        """Updates json-schema-v4 on this pstep (see :class:`JSchema`)."""
+
+        # Lazy create it
+        #    (clients should check before`_schema_exists()`)
+        #
+        jschema = vars(self).get('_schema')
+        if jschema is None:
+            jschema = JSchema()
+            vars(self)['_schema'] = jschema
+        return jschema
+
+    def _schema_exists(self):
+        """Always use this to avoid needless schema-instantiations."""
+        return '_schema' in vars(self)
 
 
 def jsonpointer_parts(jsonpointer):

@@ -91,7 +91,6 @@ class TestPstep(unittest.TestCase):
             with self.assertRaises(AssertionError, msg=f):
                 f(p),
 
-    
     def PMODS(self):
         return {
             '.': 'root',
@@ -145,41 +144,41 @@ class TestPstep(unittest.TestCase):
         pmods = self.PMODS()
         pmods['.'] = 'deep/root'
         p = Pstep(pmods=pmods)
-        p._lock=Pstep.CAN_RELOCATE
-        p['for']._lock=Pstep.CAN_RELOCATE
+        p._lock = Pstep.CAN_RELOCATE
+        p['for']._lock = Pstep.CAN_RELOCATE
 
     def test_pmods_lock_CAN_RENAME(self):
         pmods = self.PMODS()
         pmods['.'] = 'deep/root'
         p = Pstep(pmods=pmods)
         with self.assertRaises(ValueError, msg=p._paths):
-            p._lock=Pstep.CAN_RENAME
+            p._lock = Pstep.CAN_RENAME
 
         p = Pstep(pmods=self.PMODS())
         with self.assertRaises(ValueError, msg=p._paths):
-            p['for']._lock=Pstep.CAN_RENAME
+            p['for']._lock = Pstep.CAN_RENAME
 
     def test_pmods_lock_LOCKED(self):
         p = Pstep(pmods=self.PMODS())
         with self.assertRaises(ValueError, msg=p._paths):
-            p._lock=Pstep.LOCKED
+            p._lock = Pstep.LOCKED
 
         pmods = self.PMODS()
         pmods['.'] = 'deep/root'
         with self.assertRaises(ValueError, msg=p._paths):
-            p._lock=Pstep.LOCKED
+            p._lock = Pstep.LOCKED
 
         pmods = self.PMODS()
         pmods.pop('.')
         p = Pstep(pmods=pmods)
         with self.assertRaises(ValueError, msg=p._paths):
-            p.abc._lock=Pstep.LOCKED
+            p.abc._lock = Pstep.LOCKED
 
         pmods = self.PMODS()
         pmods.pop('.')
         p = Pstep(pmods=pmods)
         with self.assertRaises(ValueError, msg=p._paths):
-            p['for']._lock=Pstep.LOCKED
+            p['for']._lock = Pstep.LOCKED
 
     def test_assign(self):
         p1 = Pstep('root')
@@ -211,9 +210,15 @@ class TestPstep(unittest.TestCase):
         self.assertEqual(m[p], m[n])
         self.assertEqual(m[p[n]], m[n])
 
-    def test_json(self):
+    def test_schema(self):
         json.dumps(Pstep())
         json.dumps({Pstep(): 1})
+
+    def test_json(self):
+        p = Pstep()
+        p._schema.allOf = {}
+        p._schema.type = 'list'
+        p.a._schema.kws = {'minimum': 1}
 
     @unittest.skip('Unknwon why sets fail with Pstep!')
     def test_json_sets(self):
