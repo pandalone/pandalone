@@ -53,10 +53,12 @@ def task_makesam():
         opening = ("Dir '%s' already exists! " % target_dir
                    if target_dir != target_dir_unique
                    else '')
+        
         print('%sCopying %s --> %s' % (opening, sample_dir, target_dir_unique))
-
-        shutil.copytree(
-            os.path.join(SAMPLES_FOLDER, sample_dir), target_dir_unique)
+        
+        srcdir = os.path.join(SAMPLES_FOLDER, sample_dir)
+        shutil.copytree(srcdir, target_dir_unique)
+        shutil.copy(os.path.join(mydir, '..', '.gitignore'), target_dir_unique)
 
     return {
         'actions': [copy_sample],

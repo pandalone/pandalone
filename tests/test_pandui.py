@@ -9,7 +9,6 @@
 from __future__ import division, unicode_literals
 
 import unittest
-from unittest.case import skipIf
 
 import six
 
@@ -25,7 +24,7 @@ except (ImportError, NotImplementedError):
 
 class TkUiTest(unittest.TestCase):
 
-    @skipIf(utils.is_travis() or six.PY2, "TravisCI has no XServer!")
+    @unittest.skipIf(utils.is_travis() or six.PY2, "TravisCI has no XServer!")
     def test_smoke_test_no_event_loop(self):
         root = tk.Tk()
         try:
@@ -34,7 +33,7 @@ class TkUiTest(unittest.TestCase):
         finally:
             root.destroy()
 
-    @skipIf(utils.is_travis() or six.PY2, "TravisCI has no XServer!")
+    @unittest.skipIf(utils.is_travis() or six.PY2, "TravisCI has no XServer!")
     def test_smoke_test_with_event_loop(self):
         root = tk.Tk()
         try:

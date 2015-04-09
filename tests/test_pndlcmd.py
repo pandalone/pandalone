@@ -12,17 +12,19 @@ from contextlib import contextmanager
 import doctest
 from doit.reporter import JsonReporter
 import os
-from pandalone import __main__, pndlcmd
 import sys
 import tempfile
-from tests.assertutils import CustomAssertions
 import unittest
 
 import six
 
+from pandalone import __main__, pndlcmd
+from tests.assertutils import CustomAssertions
+
 
 class TestDoctest(unittest.TestCase):
 
+    @unittest.skip('No doctests in `pndl` cmd.')
     def runTest(self):
         failure_count, test_count = doctest.testmod(
             pndlcmd, optionflags=doctest.NORMALIZE_WHITESPACE)
@@ -82,6 +84,15 @@ _doitdb_files = '.doit.db.dat'
 
 class TestMakeSamples(unittest.TestCase, CustomAssertions):
 
+    def assertGoodSample(self, targetdir, dodo_out, user_msg=None):
+        if not user_msg:
+            user_msg = dodo_out
+        self.assertIn(targetdir, dodo_out, user_msg)
+        self.assertFileExists(targetdir, user_msg)
+        self.assertFileExists(os.path.join(targetdir, 'dodo.py'), user_msg)
+        self.assertFileExists(os.path.join(targetdir, '.gitignore'), user_msg)
+        self.assertFileExists(_doitdb_files, user_msg)
+
     def test_projects_folder(self):
         self.assertFileExists(pndlcmd.SAMPLES_FOLDER)
 
@@ -89,21 +100,17 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
         cdodo = CaptureDodo()
         with tempfile.TemporaryDirectory() as tmpdir:
             with chdir(tmpdir):
+                targetdir = def_sample
                 cdodo.run('-v 2 makesam')
-                self.assertIn(def_sample, cdodo.out, cdodo.out)
-                self.assertFileExists(def_sample)
-                self.assertFileExists(os.path.join(def_sample, 'dodo.py'))
-                self.assertFileExists(_doitdb_files)
+                self.assertGoodSample(targetdir, cdodo.out)
 
     def test_no_sample_with_extension(self):
         cdodo = CaptureDodo()
         with tempfile.TemporaryDirectory() as tmpdir:
             with chdir(tmpdir):
+                targetdir = def_sample
                 cdodo.run('-v 2 makesam --sample %s' % def_sample)
-                self.assertIn(def_sample, cdodo.out, cdodo.out)
-                self.assertFileExists(def_sample)
-                self.assertFileExists(os.path.join(def_sample, 'dodo.py'))
-                self.assertFileExists(_doitdb_files)
+                self.assertGoodSample(targetdir, cdodo.out)
 
     def test_target(self):
         cdodo = CaptureDodo()
@@ -111,12 +118,9 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
             with chdir(tmpdir):
                 targetdir = 'sometarg'
                 cdodo.run('-v 2 makesam %s' % targetdir)
-                self.assertIn(targetdir, cdodo.out, cdodo.out)
+                self.assertGoodSample(targetdir, cdodo.out)
                 self.assertIn('simple_rpw.pndl', cdodo.out, cdodo.out)
                 self.assertNotIn('%s.pndl' % targetdir, cdodo.out, cdodo.out)
-                self.assertFileExists(targetdir)
-                self.assertFileExists(os.path.join(targetdir, 'dodo.py'))
-                self.assertFileExists(_doitdb_files)
 
     def test_sample_target(self):
         cdodo = CaptureDodo()
@@ -125,28 +129,25 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
                 targetdir = 'sometarg'
                 cdodo.run('-v 2 makesam --sample %s %s' %
                           (def_sample, targetdir))
-                self.assertIn(targetdir, cdodo.out, cdodo.out)
+                self.assertGoodSample(targetdir, cdodo.out)
                 self.assertIn(def_sample, cdodo.out, cdodo.out)
                 self.assertNotIn('%s.pndl' % targetdir, cdodo.out, cdodo.out)
-                self.assertFileExists(targetdir)
-                self.assertFileExists(os.path.join(targetdir, 'dodo.py'))
-                self.assertFileExists(_doitdb_files)
 
-    def test_multiple_targets(self):
+    def test_FAILS_multiple_targets(self):
         cdodo = CaptureDodo()
         with tempfile.TemporaryDirectory() as tmpdir:
             with chdir(tmpdir):
                 cdodo.run('-v 2 makesam t1 t2')
                 self.assertIn('Too many', cdodo.out, cdodo.out)
-                self.assertFileNotExists('t1')
-                self.assertFileNotExists('t2')
-                self.assertFileExists(_doitdb_files)
+                self.assertFileNotExists('t1', cdodo.out)
+                self.assertFileNotExists('t2', cdodo.out)
+                self.assertFileExists(_doitdb_files, cdodo.out)
 
-    def test_bad_sample(self):
+    def test_FAILS_bad_sample(self):
         cdodo = CaptureDodo()
         with tempfile.TemporaryDirectory() as tmpdir:
             with chdir(tmpdir):
                 cdodo.run('-v 2 makesam --sample bad_sample')
                 self.assertIn('bad_sample', cdodo.out, cdodo.out)
-                self.assertFileNotExists(def_sample)
-                self.assertFileExists(_doitdb_files)
+                self.assertFileNotExists(def_sample, cdodo.out)
+                self.assertFileExists(_doitdb_files, cdodo.out)
