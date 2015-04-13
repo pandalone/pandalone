@@ -1,4 +1,4 @@
-from networkx import DiGraph
+import networkx as nx
 import matplotlib.pyplot as plt
 
 from functools import reduce
@@ -92,7 +92,7 @@ def set_starting_node(graph,start_id, sources):
 
 class Dispatcher(object):
     def __init__(self, *args, **kwargs):
-        self.graph = DiGraph(*args, **kwargs)
+        self.graph = nx.DiGraph(*args, **kwargs)
         self.counter = Counter()
         self.start = 'start'
         self.node_values = {}
@@ -177,7 +177,7 @@ class Dispatcher(object):
         if not data_id in self.graph.node:
             self.add_data(data_id=data_id,value=value,**kwargs)
         else:
-            if self.graph.node[data_id].get('type', None) == 'data':
+            if self.graph.node[data_id]['type'] == 'data':
                 self.node_values[data_id]={'outputs':value}
             else:
                 raise ValueError('Input error:','%s is not a data node'%(data_id))
@@ -192,8 +192,8 @@ class Dispatcher(object):
             ['/a']
         """
 
-        return [k for k, v in self.graph.node.items()
-                if (v.get('type', None) == 'data')
+        return [k for k, v in self.graph.nodes_iter(True)
+                if (v['type'] == 'data')
                 and k in self.node_values
                 and self.node_values[k].get('outputs', None) is not None]
 
@@ -230,7 +230,7 @@ class Dispatcher(object):
                 vw_dist = dist[v] + edge_data.get('weight', 1)
 
                 node = self.graph.node[w]
-                node_type, wait_inputs = (node.get('type', None), node.get('wait_inputs', False))
+                node_type, wait_inputs = (node['type'], node.get('wait_inputs', False))
 
                 if not start and (node_type in ('data', 'function')):
                     set_node_input(self.node_values,v,w,node_type)
@@ -274,9 +274,11 @@ class Dispatcher(object):
 
                 if len(v) < 2: continue
 
-                function_nodes, data_nodes, min_distance, e_del, no_delete = ([], [], [], [], True)
+                function_nodes, data_nodes, min_distance, e_del = ([], [], [], [])
 
-                for u, n, node_type in ((u, n, n.get('type', None)) for u, n in ((u, graph.node[u]) for u in v)):
+                no_delete = True
+
+                for u, n, node_type in ((u, n, n['type']) for u, n in ((u, graph.node[u]) for u in v)):
                     if node_type == 'function':
                         heappush(function_nodes, (graph.out_degree(u), u))
                     elif node_type == 'data':
@@ -342,7 +344,7 @@ class Dispatcher(object):
 
         start, data, function = ([], [], [])
 
-        for k, node_type in ((k, v.get('type', None)) for k, v in self.graph.node.items()):
+        for k, node_type in ((k, v['type']) for k, v in self.graph.nodes_iter(True)):
             eval(node_type).append(k)
 
         labels = {k:'%s'%(k) for k in self.graph.node.keys()}
@@ -409,7 +411,8 @@ def define_network():
         # print('data',network.add_data(data=None if i>2 else random()*6,wait_inputs=False if i!=4 else True))
         data = {'value': i + 1.0 if i < 2 else None}
 
-        if False if i < 2 else choice([True, False]):
+        condition = False if i < 2 else choice([True, False])
+        if condition:
             data.update({'wait_inputs':True,'function': lambda *x: sum(x)/len(x)})
         data_list.append(data)
 
