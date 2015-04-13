@@ -1041,6 +1041,9 @@ class Pandel(object):
 
         return self.model
 
+    def get(self, path, **kws):
+        resolve_jsonpointer(self.model, path, **kws)
+
 
 _NONE = object()
 """Denotes non-existent json-schema attribute in :class:`JSchema`."""

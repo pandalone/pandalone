@@ -19,12 +19,7 @@ from .pandata import Pstep, resolve_jsonpointer
 __commit__ = ""
 
 
-def component_from_cfunc(cfunc):
-    comp = Component(cfunc)
-    mm = MagicMock()
-    cfunc(comp, mm)
-
-    # Component's validation pending now.
+name_uniqueizer = None  # TODO: Handle clashes on component-names.
 
 
 class Component(object, metaclass=ABCMeta):
@@ -43,29 +38,20 @@ class Component(object, metaclass=ABCMeta):
     :ivar list _out:     list/of/paths modified on the data-tree (must not overlap with `inp`)
     """
 
-#     def __init__(self, func, **kws):
-#         self.func = func
-#         self.inp = kws.get('inp')
-#         self.out = kws.get('out')
-#         self.name = str(kws.get('name', func.__name__))
+    def __init__(self, name):
+        if name_uniqueizer:
+            name = name_uniqueizer(name)
+        self._name = name
+        self._inp = None
+        self._out = None
 
     @abstractmethod
     def __call__(self, *agrs, **kws):
         pass
 
-    @abstractproperty
-    def _name(self):
-        pass
-
-    @abstractproperty
-    def _inp(self):
-        pass
-
-    @abstractproperty
-    def _out(self):
-        pass
-
-    def _build(self):
+    @abstractmethod
+    def _build(self, pmods=None):
+        """Invoked once before run-time and should apply `pmaps` when given."""
         pass
 
     def _iter_validations(self):
@@ -73,6 +59,8 @@ class Component(object, metaclass=ABCMeta):
 
         Invoke it after :meth:`_build()` component.
         """
+        # TODO: Implement Component's validation.
+
         if False:
             yield
 #         expected_attrs = ['name', 'inp', 'out']
@@ -84,99 +72,162 @@ class Component(object, metaclass=ABCMeta):
 class FuncComponent(Component):
 
     """
-    A utility to developers of a cfuncs, which is passed as their 1st arg.
+    Converts a "cfunc" into a component.
 
-    CFuncs may use :meth:`pinp` and :meth:`pout` when accessing 
-    their input and output data-tree values respectively.  
-    But if CFuncs access additional values with "fixed' paths, then they 
-    have to manually add those paths into the :attr:`inp` and :attr:`out`
-    lists.
+    A cfunc is a function that modifies the values-tree with this signature::
+
+        cfunc_XXXX(comp, vtree)
+
+    where:
+
+    comp: 
+        the  :class:`FuncComponent` associated with the cfunc
+
+    vtree: 
+        the part of the data-tree involving the values to be modified
+        by the cfunc
+
+    It works also as a utility to developers of a cfuncs, since it is passed 
+    as their 1st arg.
+
+    The cfuncs may use :meth:`pinp` and :meth:`pout` when accessing 
+    its input and output data-tree values respectively.  
+    Note that accessing any of those attributes from outside of cfunc,
+    would result in an error.
+
+    If a cfunc access additional values with "fixed' paths, then it has to
+    manually add those paths into the :attr:`_inp` and :attr:`_out`
+    lists.  
+
 
     Example:
 
     This would be a fully "relocatable" cfunc::
 
-        >>> from pandalone.pandata import resolve_jsonpointer
-        >>> def cfunc_calc_rate(comp, vtree):
+        >>> def cfunc_calc_foobar_rate(comp, value_tree):
         ...     pi = comp.pinp()
-        ...     po = comp.pout('deep/results')
+        ...     po = comp.pout()
         ...
-        ...     df1 = comp.walk(vtree, pi.foo)
-        ...     df2 = comp.walk(vtree, pi.bar)
-        ...     df = comp.walk(vtree, po)
+        ...     df = value_tree.get(pi)
         ...
-        ...     df[po.R] = df2[pi.V] / df2[pi.A]
+        ...     df[po.Acc] = df[pi.V] / df[pi.T]
 
-    After build time, it will be a valid component::
+    To get the unmodified component-paths, use::
 
-        >>> comp = FuncComponent(cfunc_calc_rate)
+        >>> comp = FuncComponent(cfunc_calc_foobar_rate)
         >>> comp._build()
         >>> assert list(comp._iter_validations()) == []
+        >>> sorted(comp._inp + comp._out)
+        ['calc_foobar_rate/Acc', 'calc_foobar_rate/T', 'calc_foobar_rate/V']
 
+    To get the path-modified component-paths, use::
+
+        >>> pmods = {'calc_foobar_rate': '/A/B', '_cpmods':{'foo': 'FOO'}}
+        >>> comp._build(pmods)
+        >>> sorted(comp._inp + comp._out)
+        ['/A/B/Acc', '/A/B/T', '/A/B/V']
+        
+        >>> comp._build(pmods)
+        >>> sorted(comp._inp + comp._out)
+        ['/A/B/Acc', '/A/B/T', '/A/B/V']
 
     """
 
-    def __init__(self, cfunc):
-        self.__inp = []
-        self.__out = []
+    def __init__(self, cfunc, name=None):
         self._cfunc = cfunc
-        self.__name = str(cfunc)  # TODO: Remove prefix from cfunc-names.
-        self.pinps = {}
-        self.pouts = {}
+        if name is None:
+            name = cfunc.__name__
+            prefix = 'cfunc_'
+            if name.startswith(prefix):
+                name = name[len(prefix):]
+        Component.__init__(self, name=name)
+
+        # The following are initialized in _build():
+        # self._inp = None
+        # self._out = None
+        # self._pmods = None
+        # self._pinp = None
+        # self._pout = None
 
     def __call__(self, *args, **kws):
         self._cfunc(self, *args, **kws)
 
-    @property
-    def _name(self):
-        self.__name
-
-    @property
-    def _inp(self):
-        self.__inp
-
-    @property
-    def _out(self):
-        self.__out
-
-    def _build(self):
-        """
-        Invoked once before run-time to extract inputs/outputs from cfunc.
-
-        Example:
-
-
-        """
-#             >>> from unittest.mock import MagicMock
-#             >>> comp = FuncComponent(cfunc_calc_rate)
-#             >>> vtree = MagicMock()
-#             >>> cfunc_calc_rate(comp, vtree)
-        vtree = MagicMock()
-        self._cfunc(self, vtree)
-        self.__inp.extend(self._fetch_all_paths(self.pinps))
-        self.__out.extend(self._fetch_all_paths(self.pouts))
-
-    def _fetch_all_paths(self, psteps_map):
-        return itt.chain(p._paths for p in psteps_map.values())
-
-    def _getadd_pstep(self, psteps_map, path):
-        p = psteps_map.get(path)
-        if p is None:
-            p = Pstep(path)
-            psteps_map[path] = p
-        return p
+    def _fetch_all_paths(self, pstep):
+        return pstep._paths if pstep else []
 
     def pinp(self, path=None):
-        """The suggested :class:`Pstep` for accessing inputs."""
-        return self._getadd_pstep(self.pinps, path)
+        """The suggested :class:`Pstep` for cfunc to use to access inputs."""
+        p = self._pinp
+        if p is None:
+            p = Pstep(path or self._name, pmods=self._pmods)
+            self._pinp = p
+        return p
 
     def pout(self, path=None):
-        """The suggested :class:`Pstep` for accessing outputs."""
-        return self._getadd_pstep(self.pouts, path)
+        """The suggested :class:`Pstep` for cfunc to use to access outputs."""
+        p = self._pout
+        if p is None:
+            p = Pstep(path or self._name, pmods=self._pmods)
+            self._pout = p
+        return p
 
-    def walk(self, doc, path):
-        # FIXME: javadoc hack for absolute-path.
-        return resolve_jsonpointer(doc, '/' + path)
+    def _build(self, pmods=None):
+        """Extracts inputs/outputs from cfunc. """
+        vtree = MagicMock()
+        self._inp = []
+        self._out = []
+        self._pinp = None
+        self._pout = None
+        self._pmods = pmods
+
+        self._cfunc(self, vtree)
+
+        self._inp.extend(self._fetch_all_paths(self._pinp))
+        self._out.extend(self._fetch_all_paths(self._pout))
+
+
+class Assembly(Component):  # TODO: Assembly inherit Component
+
+    """
+    Example:
+
+        >>> def cfunc_f1(comp, value_tree):
+        ...     comp.pinp().A
+        ...     comp.pout().B
+        >>> def cfunc_f2(comp, value_tree):
+        ...     comp.pinp().B
+        ...     comp.pout().C
+        >>> ass = Assembly(FuncComponent(cfunc) for cfunc in [cfunc_f1, cfunc_f2])
+        >>> ass._build()
+        >>> assert list(ass._iter_validations()) == []
+        >>> ass._inp
+        ['f1/A', 'f2/B']
+        >>> ass._out
+        ['f1/B', 'f2/C']
+
+        >>> pmods = {'f1':'/root', 'f2':'/root'}
+        >>> ass._build(pmods)
+        >>> sorted(ass._inp + ass._out)
+        ['/root/A', '/root/B', '/root/B', '/root/C']
+
+    """
+
+    def __init__(self, components, name=None):
+        Component.__init__(self, name=name or 'assembly')
+        self._comps = list(components)
+
+    def __call__(self, *args, **kws):
+        pass #TODO: Invoke Dispatcher with Assembly's child-components.
+        
+    def _build(self, pmods=None):
+        inp = set()
+        out = set()
+        for c in self._comps:
+            c._build(pmods)
+            inp.update(c._inp)
+            out.update(c._out)
+        self._inp = sorted(inp)
+        self._out = sorted(out)
 
 
 if __name__ == '__main__':
