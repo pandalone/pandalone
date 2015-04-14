@@ -179,7 +179,7 @@ setup(
         'pandas',  # 'openpyxl', 'xlrd',
         'Pillow',  # For UI About boxes
         'xlwings',  # For Excel integration
-        'doit',
+        'doit', 'networkx', 'matplotlib',
     ],
     setup_requires=[
         'setuptools',
