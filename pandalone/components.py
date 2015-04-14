@@ -5,16 +5,121 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
+"""
+Defines the building-blocks of a "model":
 
+components and assemblies:
+    See :class:`Component`, :class:`FuncComponent` and :class:`Assembly`
+
+paths and path-mappings (pmods):
+    See :func:`build_pmods_from_tuples`, :class:`Pstep`
+"""
 from __future__ import division, unicode_literals
 
 from abc import ABCMeta, abstractmethod, abstractproperty
 from unittest.mock import MagicMock
 
-import itertools as itt
+from pandalone.pandata import iter_jsonpointer_parts
+import pandas as pd
+from collections import OrderedDict
 
 
 __commit__ = ""
+
+
+_CPMODS = '_cpmods'
+"""The key for the child-pmods within a pmods ordered-dict-hierarchy."""
+
+
+def build_pmods_from_tuples(pmods_tuples):
+    """
+    Turns a list of 2-tuples into a pmods ordered-dict-hierarchy.
+
+    :rtype: dict
+
+    Example::
+
+        >>> pmods_tuples = [
+        ...     ('/a', 'A1/A2'),
+        ...     ('/a/b', 'B'),
+        ... ]
+        >>> pmods = build_pmods_from_tuples(pmods_tuples)
+        >>> pmods
+        OrderedDict([('a', 'A1/A2'), ('_cpmods', OrderedDict([('b', 'B')]))])
+    """
+    pmods = OrderedDict()
+    for tp in pmods_tuples:
+        ppmods = pmods
+        f,t = tp
+        srcstep = None
+        for srcstep in iter_jsonpointer_parts(f):
+            try:
+                child = ppmods[_CPMODS]
+            except KeyError:
+                ppmods[_CPMODS] = child = OrderedDict({srcstep: None})
+            ppmods = child
+        if srcstep and t:
+            ppmods[srcstep] = t
+    
+    ## Skip 1st dummy-parent.
+    pmods = pmods.get(_CPMODS, {})
+
+    return pmods
+
+
+def convert_df_as_pmods_tuples(df_pmods, col_from='from', col_to='to'):
+    """
+    Turns a a dataframe with `col_from`, `col_to` columns into a list of 2-tuples.
+
+    :return: a list of 2-tuples that can be fed into :func:`build_pmods_from_tuples`.
+    :rtype: list
+
+    Example::
+
+        >>> pmods_tuples = [
+        ...     ('/a', 'A1/A2'),
+        ...     ('/a/b', 'B'),
+        ... ]
+        >>> df_pmods = pd.DataFrame(pmods_tuples)
+        >>> res = convert_df_as_pmods_tuples(df_pmods)
+        >>> res
+        rec.array([('/a', 'A1/A2'), ('/a/b', 'B')], 
+              dtype=[('from', 'O'), ('to', 'O')]) 
+
+        >>> df_pmods.columns = ['Rename from', 'Rename to']
+        >>> df_pmods['extra columns'] = ['not', 'used']
+        >>> res = convert_df_as_pmods_tuples(
+        ...         df_pmods, col_from='Rename from', col_to='Rename to')
+        >>> res
+        rec.array([('/a', 'A1/A2'), ('/a/b', 'B')], 
+              dtype=[('Rename from', 'O'), ('Rename to', 'O')])
+        """
+    if df_pmods.empty:
+        return []
+    cols_df = set(df_pmods.columns)
+    if col_from not in cols_df or col_to not in cols_df:
+        if df_pmods.shape[1] != 2:
+            cols_miss = cols_df - set([col_from, col_to])
+            msg = "Missing pmods-columns%s, and shape%s is not just 2 columns!"
+            raise ValueError(msg % (cols_miss, df_pmods.shape))
+        else:
+            df_pmods.columns = [col_from, col_to]
+    df = df_pmods[[col_from, col_to]]
+
+    return df.to_records(index=False)
+
+    ppmods = {}
+    for _, row in df_pmods.iterrows():
+        srcstep = None
+        for srcstep in iter_jsonpointer_parts(row[col_from]):
+            ppmods = ppmods[_CPMODS] = {srcstep: None}
+        if srcstep is not None:
+            ppmods[srcstep] = row[col_to]
+
+    # Skip 1st dummy-parent.
+    pmods = ppmods.get(_CPMODS, {})
+
+    return pmods
 
 
 _NONE = object()
@@ -160,7 +265,7 @@ class Pstep(str):
     def __missing__(self, cpname):
         try:
             cpname = self._pmods.get(cpname, cpname)
-            pmods = self._pmods['_cpmods']
+            pmods = self._pmods[_CPMODS]
         except:
             pmods = None
         child = Pstep(cpname, pmods=pmods)
@@ -262,6 +367,9 @@ class Component(object, metaclass=ABCMeta):
     :ivar list _name:    identifier
     :ivar list _inp:     list/of/paths required on the data-tree (must not overlap with `out`)
     :ivar list _out:     list/of/paths modified on the data-tree (must not overlap with `inp`)
+
+    Mostly defined through *cfuncs*, which provide for defining a component 
+    with a single function with a special signature, see :class:`FuncComponent`.
     """
 
     def __init__(self, name):

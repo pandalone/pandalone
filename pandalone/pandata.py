@@ -1046,7 +1046,7 @@ class Pandel(object):
 
 
 
-def jsonpointer_parts(jsonpointer):
+def iter_jsonpointer_parts(jsonpointer):
     """
     Iterates over the ``jsonpointer`` parts.
 
@@ -1100,7 +1100,7 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
 
     :author: Julian Berman, ankostis
     """
-    for part in jsonpointer_parts(jsonpointer):
+    for part in iter_jsonpointer_parts(jsonpointer):
         if isinstance(doc, Sequence):
             # Array indexes should be turned into integers
             try:
@@ -1128,7 +1128,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
     :raises: RefResolutionError (if jsonpointer empty, missing, invalid-contet)
     """
 
-    parts = list(jsonpointer_parts(jsonpointer))
+    parts = list(iter_jsonpointer_parts(jsonpointer))
 
     # Will scream if used on 1st iteration.
     #

@@ -1,19 +1,64 @@
 import doctest
 import json
+from textwrap import dedent
 import unittest
 
-from pandalone.components import Assembly, FuncComponent, Pstep
+import six
+
+import numpy.testing as npt
+from pandalone.components import Assembly, FuncComponent, Pstep, convert_df_as_pmods_tuples,\
+    build_pmods_from_tuples
 import pandalone.components
+import pandas as pd
+from collections import OrderedDict
+
 
 
 class TestDoctest(unittest.TestCase):
 
     def test_doctests(self):
         failure_count, test_count = doctest.testmod(
-            pandalone.components, optionflags=doctest.NORMALIZE_WHITESPACE)
+            pandalone.components,
+            optionflags=doctest.NORMALIZE_WHITESPACE)# | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
+
+class TestPmods(unittest.TestCase):
+
+    def test_convert_df_empty(self):
+        df_orig = pd.DataFrame([])
+
+        df = df_orig.copy()
+        pmods = convert_df_as_pmods_tuples(df)
+        self.assertEqual(pmods, [])
+        npt.assert_array_equal(df, df_orig)
+
+        df = df_orig.copy()
+        pmods = convert_df_as_pmods_tuples(df, col_from='A', col_to='B')
+        self.assertEqual(pmods, [])
+        npt.assert_array_equal(df, df_orig)
+
+    def test_convert_df_no_colnames(self):
+        df_orig = pd.DataFrame([['/a/b', '/A/B']])
+
+        df = df_orig.copy()
+        pmods = convert_df_as_pmods_tuples(df)
+        self.assertEqual(tuple(pmods[0]), ('/a/b', '/A/B'))
+        npt.assert_array_equal(df, df_orig)
+
+        df = df_orig.copy()
+        pmods = convert_df_as_pmods_tuples(df, col_from='A', col_to='B')
+        self.assertEqual(tuple(pmods[0]), ('/a/b', '/A/B'))
+        npt.assert_array_equal(df, df_orig)
+
+    def test_build_pmods_orderedDict(self):
+        pmods_tuples = [
+            ('/a', 'A1/A2'),
+            ('/a/b', 'B'),
+        ]
+        pmods = build_pmods_from_tuples(pmods_tuples)
+        self.assertTrue(isinstance(pmods, OrderedDict))
 
 class TestPstep(unittest.TestCase):
 
