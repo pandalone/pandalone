@@ -1,6 +1,11 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 from heapq import heappush, heappop
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
 
 def pairwise(iterable):
     """s -> (s0,s1), (s1,s2), (s2, s3), ..."""
@@ -144,7 +149,7 @@ def dijkstra(G, source, targets=[], cutoff=None):
     """
 
 
-    if source == targets:
+    if len(targets)==1 and source == targets[0]:
         return ({source: 0}, {source: [source]})
 
     if targets:
@@ -184,7 +189,7 @@ def dijkstra(G, source, targets=[], cutoff=None):
                 seen[w] = vw_dist
                 heappush(fringe, (vw_dist, c(), w))
                 paths[w] = paths[v] + [w]
-    return (dist, paths)
+    return dist, paths
 
 
 def set_data_node_output(graph, graph_output, node_id, node_attr, empty_fun,
@@ -223,8 +228,7 @@ def set_function_node_output(graph, graph_output, node_id, node_attr, empty_fun,
         graph_output.remove_node(node_id)
         return False
 
-    # args is a list of the function's arguments
-    args = graph_output.pred[node_id]
+    args = graph_output.pred[node_id] # list of the function's arguments
     args = [args[k]['value'] for k in node_attr['inputs']]
 
     # list of function results and node status
@@ -299,8 +303,6 @@ def set_node_output(graph, graph_output, data_output, node_id,
     elif node_type == 'function':
         return set_function_node_output(graph, graph_output, node_id, node_attr,
                               empty_fun,visited_nodes)
-    else:
-        return False
 
 
 def set_starting_node(graph, graph_output, start_id, data_in, sources,
@@ -334,7 +336,7 @@ def populate_output(dsp, sources, targets, cutoff, empty_fun):
     else:
         check_targets = lambda n: False
 
-    set_starting_node(dsp.graph, graph_output, dsp.start, dsp.data_inputs,
+    set_starting_node(dsp.graph, graph_output, dsp.start, dsp.data_values,
                       sources, empty_fun)
 
     dist = {}  # dict of final distances
@@ -400,62 +402,73 @@ def get_dsp_without_cycles(dispatcher, sources=None):
     >>> edges
     [('/b', 'builtins:sum<1>'), ('/c', 'builtins:sum<1>'), ('builtins:sum<1>', '/a'), ('start', '/b'), ('start', '/c')]
     """
-    from itertools import product
     from heapq import heappush
 
     active_nodes = set()
     edge_deleted = []
 
+    def order_nodes_by_relevance(graph,scc):
+        function_nodes, data_nodes = ([], [])
+
+        no_cycles_to_be_deleted = True
+
+        for u, n in ((u, graph.node[u]) for u in scc):
+
+            node_type = n['type']
+
+            if node_type == 'function':
+                heappush(function_nodes, (graph.out_degree(u), u))
+            elif node_type == 'data':
+                if not n['wait_inputs']:
+                    no_cycles_to_be_deleted = False
+                heappush(data_nodes, (graph.in_degree(u), u))
+
+        return no_cycles_to_be_deleted, function_nodes, data_nodes
+
+    def min_cycles_ord_by_relevance(data_nodes,fun_nodes,graph):
+        min_d = []
+        c=Counter()
+        for in_d,i in data_nodes:
+            f_n = [j for _,j in fun_nodes if i in graph[j]]
+            dist,path = dijkstra(graph, i, f_n, None)
+            for j in (j for j in f_n if j in dist):
+                d = dist[j]
+                p = path[j] + [i]
+                heappush(min_d,(d, len(p), 1/in_d, c(), list(pairwise(p))))
+        return [p[-1] for p in min_d]
+
     def delete_cycles(graph, nbunch=['start']):
-        for v in strongly_connected_components_function(graph, nbunch):
-            active_nodes.update(v)
+        for scc in strongly_connected_components_function(graph, nbunch):
+            active_nodes.update(scc)
 
-            if len(v) < 2:
-                continue
+            if len(scc) < 2: # single node
+                continue # not a cycle
 
-            function_nodes, data_nodes = ([], [])
+            no_cycles, function_n, data_n = order_nodes_by_relevance(graph,scc)
 
-            no_delete = True
+            if no_cycles: # no cycles to be deleted
+                continue  # cycles are deleted by populate_output algorithm
 
-            for u, n in ((u, graph.node[u]) for u in v):
+            sub_g = graph.subgraph(scc)
 
-                node_type = n['type']
+            data_n.reverse()
 
-                if node_type == 'function':
-                    heappush(function_nodes, (graph.out_degree(u), u))
-                elif node_type == 'data':
-                    if not n.get('wait_inputs', False):
-                        no_delete = False
-                    heappush(data_nodes, (graph.in_degree(u), u))
+            cycles = min_cycles_ord_by_relevance(data_n,function_n,sub_g)
 
-            if no_delete:
-                continue
+            e_del = []
 
-            sub_network = graph.subgraph(v)
-            data_nodes.reverse()
-
-            min_d, e_del = ([], [])
-
-            for in_d,i in data_nodes:
-                f_n = [j for _,j in function_nodes if i in sub_network[j]]
-                dist,path = dijkstra(sub_network, i, f_n, None)
-                for j in (j for j in f_n if j in dist):
-                    d = dist[j]
-                    p = path[j] + [i]
-                    heappush(min_d,(d, len(p), 1/in_d, list(pairwise(p))))
-
-            for e in (p[3][-1] for p in min_d if set(p[3]).isdisjoint(e_del)):
+            for e in (c[-1] for c in cycles if set(c).isdisjoint(e_del)):
                 e_del.append(e)
-                sub_network.remove_edge(*e)
+                sub_g.remove_edge(*e)
                 edge_deleted.append(e)
 
-            delete_cycles(sub_network, list(i[1] for i in data_nodes))
+            delete_cycles(sub_g, list(i[1] for i in data_n))
 
     dsp = dispatcher.copy()
 
     empty_fun = sources is not None
 
-    set_starting_node(dsp.graph, nx.DiGraph(), dsp.start, dsp.data_inputs,
+    set_starting_node(dsp.graph, nx.DiGraph(), dsp.start, dsp.data_values,
                       sources, empty_fun)
 
     delete_cycles(dsp.graph, nbunch=[dsp.start])
@@ -475,9 +488,9 @@ def sub_dispatcher(dispatcher, nodes, edges = None):
 
     dsp.graph = dsp.graph.subgraph(nodes)
 
-    dsp.data_inputs = {k:dsp.data_inputs[k]
+    dsp.data_inputs = {k:dsp.data_values[k]
                        for k in nodes
-                       if k in dsp.data_inputs}
+                       if k in dsp.data_values}
 
     if edges is not None:
         for e in list(dsp.graph.edges_iter()):
@@ -526,7 +539,7 @@ class Dispatcher(object):
         self.graph = nx.DiGraph(*args, **kwargs)
         self.counter = Counter()
         self.start = 'start'
-        self.data_inputs = {}
+        self.data_values = {}
 
     def add_data(self, data_id=None, value=None, wait_inputs=False, 
                  function=None, callback=None, **kwargs):
@@ -567,7 +580,7 @@ class Dispatcher(object):
                 data_id = self.counter()
 
         if value is not None:
-            self.data_inputs[data_id] = value
+            self.data_values[data_id] = value
 
         self.graph.add_node(data_id, attr_dict=attr_dict)
 
@@ -650,7 +663,7 @@ class Dispatcher(object):
             self.add_data(data_id=data_id, value=value, **kwargs)
         else:
             if self.graph.node[data_id]['type'] == 'data':
-                self.data_inputs[data_id] = value
+                self.data_values[data_id] = value
             else:
                 raise ValueError('Input error:','%s is not a data node'%data_id)
 
@@ -720,11 +733,11 @@ class Dispatcher(object):
         [('/a', 'dispatcher:my_log<0>'), ('/b', 'dispatcher:my_log<0>'), ('start', '/a'), ('start', '/b')]
         """
         if rm_cycles:
-            dsp = get_dsp_without_cycles(self, sources=self.data_inputs)
+            dsp = get_dsp_without_cycles(self, sources=self.data_values)
         else:
             dsp = self.copy()
 
-        graph_output,dsp.data_inputs = populate_output(dsp, self.data_inputs,
+        graph_output,dsp.data_inputs = populate_output(dsp, self.data_values,
                                                        targets, cutoff, False)
 
         nodes = graph_output.nodes()
@@ -763,7 +776,7 @@ class Dispatcher(object):
         label_nodes = {k: '%s' % k for k in self.graph.nodes_iter()}
 
         label_nodes.update({k: '%s:%s' % (str(k), str(v))
-                            for k, v in self.data_inputs.items()})
+                            for k, v in self.data_values.items()})
 
         if self.start in self.graph.node:
             label_nodes[self.start] = 'start'
@@ -791,7 +804,7 @@ class Dispatcher(object):
 
         plt.axis('off')
 
-    def import_graph_from_lists(self, data_list, fun_list):
+    def load_dsp_from_lists(self, data_list=[], fun_list = []):
         """
         Example:
         >>> def fun(a, b):
@@ -809,7 +822,7 @@ class Dispatcher(object):
         ...         'outputs': ['/c'],
         ...     },
         ... ]
-        >>> dsp.import_graph_from_lists(data_list, fun_list)
+        >>> dsp.load_dsp_from_lists(data_list, fun_list)
         """
 
         for v in data_list: self.add_data(**v)
@@ -822,7 +835,6 @@ class Dispatcher(object):
         >>> dsp = Dispatcher()
         >>> dsp.save_dispatcher("test.dispatcher")
         """
-        from networkx import write_gpickle
         try:
             import cPickle as pickle
         except ImportError:
@@ -835,36 +847,63 @@ class Dispatcher(object):
         """
         Example:
         >>> dsp = Dispatcher()
+        >>> dsp.add_data()
+        0
         >>> dsp.save_dispatcher("test.dispatcher")
         >>> dsp_loaded = Dispatcher()
         >>> dsp_loaded.load_dispatcher("test.dispatcher")
+        >>> dsp.graph.node[0]['type']
+        'data'
         """
-        from networkx import write_gpickle
-        try:
-            import cPickle as pickle
-        except ImportError:
-            import pickle
 
-        pickle.load(path)
+        self.__dict__ = pickle.load(path).__dict__
 
-    def write_graph_pickle(self, path):
+    @nx.utils.open_file(1,mode='wb')
+    def save_data_values(self,path):
         """
         Example:
-            >>> dsp = Dispatcher()
-            >>> dsp.write_graph_pickle("test.dispatcher_graph")
+        >>> dsp = Dispatcher()
+        >>> dsp.save_dispatcher("test.dispatcher")
         """
-        from networkx import write_gpickle
 
-        write_gpickle(self.graph, path)
+        pickle.dump(self.data_values, path, pickle.HIGHEST_PROTOCOL)
 
-    def load_graph_from_pickled_graph(self, path):
+    @nx.utils.open_file(1,mode='rb')
+    def load_data_values(self,path):
         """
         Example:
-            >>> dsp = Dispatcher()
-            >>> dsp.write_graph_pickle("test.dispatcher_graph")
-            >>> dsp_loaded = Dispatcher()
-            >>> dsp_loaded.load_graph_from_pickled_graph("test.dispatcher_graph")
+        >>> dsp = Dispatcher()
+        >>> dsp.save_dispatcher("test.dispatcher")
+        >>> dsp.add_data(value=5)
+        0
+        >>> dsp_loaded = Dispatcher()
+        >>> dsp_loaded.load_dispatcher("test.dispatcher")
+        >>> dsp.data_values[0]
+        5
         """
-        from networkx import read_gpickle
 
-        self.graph = read_gpickle(path)
+        self.data_values = pickle.load(path)
+
+    def save_graph(self, path):
+        """
+        Example:
+        >>> dsp = Dispatcher()
+        >>> dsp.save_graph("test.dispatcher_graph")
+        """
+
+        nx.write_gpickle(self.graph, path)
+
+    def load_graph(self, path):
+        """
+        Example:
+        >>> dsp = Dispatcher()
+        >>> dsp.save_graph("test.dispatcher_graph")
+        >>> dsp.add_data()
+        0
+        >>> dsp_loaded = Dispatcher()
+        >>> dsp_loaded.load_graph("test.dispatcher_graph")
+        >>> dsp.graph.node[0]['type']
+        'data'
+        """
+
+        self.graph = nx.read_gpickle(path)
