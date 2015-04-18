@@ -180,6 +180,7 @@ setup(
         'Pillow',  # For UI About boxes
         'xlwings',  # For Excel integration
         'doit',
+        'xlrd',
     ],
     setup_requires=[
         'setuptools',
