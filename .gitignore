@@ -64,3 +64,6 @@ target/
 # doit task-runner
 .doit*
 
+# Temporary-files
+~*
+*scratch*

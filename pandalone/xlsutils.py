@@ -28,7 +28,7 @@ except ImportError:
     pip.main('install easygui'.split())  # @UndefinedVariable
     import easygui
 
-__commit__ = "01b872f"
+__commit__ = ""
 
 log = logging.getLogger(__name__)
 log.trace = lambda *args, **kws: log.log(0, *args, **kws)

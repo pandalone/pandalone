@@ -13,7 +13,6 @@ import os
 import sys
 import tempfile
 import unittest
-from unittest.case import skipIf
 
 from numpy import testing as npt
 from pandas.core.generic import NDFrame
@@ -56,7 +55,7 @@ def close_workbook(wb):
         log.warning('Minor failure while closing Workbook!', exc_info=True)
 
 
-@skipIf(not ('darwin' in sys.platform or 'win32' in sys.platform), "Cannot test xlwings in Linux")
+@unittest.skipIf(not ('darwin' in sys.platform or 'win32' in sys.platform), "Cannot test xlwings in Linux")
 class TestExcel(unittest.TestCase):
 
     def test_build_excel(self):
