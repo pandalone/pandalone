@@ -19,6 +19,7 @@ import unittest
 import pandalone.xlsreader as xr
 import pandas as pd
 import xlrd as xd
+from contextlib import contextmanager
 
 
 
@@ -34,7 +35,6 @@ def _init_logging(loglevel):
 
     return log
 log = _init_logging(DEFAULT_LOG_LEVEL)
-
 
 def from_my_path(*parts):
     return os.path.join(os.path.dirname(__file__), *parts)
@@ -60,6 +60,7 @@ class TestGetNoEmptyCells(unittest.TestCase):
 
     def test_get_no_empty_cells(self):
         with tempfile.TemporaryDirectory() as tmpdir:
+            whith os.
             file_path = tmpdir + '/sample.xlsx'
             _make_sample_workbook(file_path,
                                   [[None, None, None], [5, 6, 7]], 
