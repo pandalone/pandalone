@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import networkx as nx
 import matplotlib.pyplot as plt
+
 try:
     from cPickle import dump, load, HIGHEST_PROTOCOL
 except ImportError:
@@ -32,7 +33,8 @@ class Dispatcher(object):
     '/a'
     >>> add_data(dsp, data_id='/b', default_value=1)
     '/b'
-    >>> def average_fun(*x):
+    >>> def average_fun(kwargs):
+    ...     x = kwargs.values()
     ...     return sum(x) / len(x)
 
     >>> def callback_fun(*x):
@@ -52,7 +54,6 @@ class Dispatcher(object):
         self.counter = Counter()
         self.start = 'start'
         self.default_values = {}
-
 
 def pairwise(iterable):
     """s -> (s0,s1), (s1,s2), (s2, s3), ..."""
@@ -251,10 +252,10 @@ def dijkstra(graph, source, targets=None, cutoff=None):
 def set_data_node_output(graph, graph_output, node_id, node_attr, empty_fun,
                          data_output):
     # args is a list of all estimations available for the given node
-    args = [v['value'] for v in graph_output.pred[node_id].values()]
+    kwargs = {k: v['value'] for k, v in graph_output.pred[node_id].items()}
 
     # final estimation of the node and node status
-    value, status = evaluate_node_fun(node_id, node_attr, args, empty_fun)
+    value, status = evaluate_node_fun(node_id, node_attr, (kwargs, ), empty_fun)
 
     if not status:  # is missing estimation function of data node
         return False
@@ -306,7 +307,7 @@ def evaluate_node_fun(node_id, node_attr, args, empty_fun):
 
     if not node_attr['wait_inputs']:
         # it is a data node that has just one estimation value
-        return args[0], True
+        return list(args[0].values())[0], True
     elif empty_fun:
         return [None] * n_output, True
     elif not 'function' in node_attr:
@@ -379,14 +380,25 @@ def populate_output(dsp, data_sources, targets, cutoff, empty_fun):
 
     data_output = {}
 
+    trg_except_counter = {}
+
     if targets:
         targets_copy = targets.copy()
 
         def check_targets(n):
+
             if n in targets_copy:
-                targets_copy.remove(n)
-                if not targets_copy:
-                    return True
+                e = trg_except_counter.get(n, 0)
+                if e > 0:
+                    targets_copy.remove(n)
+                    if not targets_copy:
+                        return True
+                else:
+                    if e == 1:
+                        trg_except_counter.pop(n)
+                    else:
+                        trg_except_counter[n] = e - 1
+
     else:
         check_targets = lambda n: False
 
@@ -419,8 +431,11 @@ def populate_output(dsp, data_sources, targets, cutoff, empty_fun):
             wait_in = node['wait_inputs']
 
             if (cutoff is not None and vw_dist > cutoff) or \
-               (wait_in and not set(dsp.graph.predecessors(w)).issubset(dist)):
-                continue
+                    (wait_in and not set(dsp.graph.pred[w]).issubset(dist)):
+                if v not in node.get('wait_exceptions', []):
+                    continue
+                elif targets:
+                    trg_except_counter[w] = trg_except_counter.get(w, 0) + 1
 
             if w in dist:
                 if vw_dist < dist[w]:
@@ -588,7 +603,7 @@ def data_function_from_dsp(dispatcher, dsp_inputs, dsp_outputs, fun_name=None,
 
 
 def add_data(dsp, data_id=None, default_value=None, wait_inputs=False,
-             function=None, callback=None, **kwargs):
+             function=None, callback=None, wait_exceptions=None, **kwargs):
     """
     Example:
     >>> dsp = Dispatcher()
@@ -625,6 +640,9 @@ def add_data(dsp, data_id=None, default_value=None, wait_inputs=False,
 
     if callback is not None:
         attr_dict['callback'] = callback
+
+    if wait_exceptions is not None:
+        attr_dict['wait_exceptions'] = wait_exceptions
 
     attr_dict.update(kwargs)
 
