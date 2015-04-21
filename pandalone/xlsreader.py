@@ -17,18 +17,6 @@ def col2num(upper_col_str):
     702
     >>> col2num('')
     -1
-    >>> col2num('a')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported column name format 'a'
-    >>> col2num(1)
-    Traceback (most recent call last):
-        ...
-    TypeError: expected a 'str' object
-    >>> col2num('@_')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported column name format '@_'
     """
     if not isinstance(upper_col_str, str):
         raise TypeError("expected a 'str' object")
@@ -60,34 +48,6 @@ def str2cells_range(xls_range):
     [(0, None), (1, 1)]
     >>> str2cells_range(':')
     [(None, None), (None, None)]
-    >>> str2cells_range(1)
-    Traceback (most recent call last):
-        ...
-    TypeError: expected a 'str' object
-    >>> str2cells_range('')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported range format ''
-    >>> str2cells_range('b:a')
-    Traceback (most recent call last):
-        ...
-    ValueError: ['A', '0'] >= ['B', '0']
-    >>> str2cells_range('a:b2:')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported range format 'a:b2:'
-    >>> str2cells_range('ab2a2')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported range format 'ab2a2'
-    >>> str2cells_range('a2a')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported range format 'a2a'
-    >>> str2cells_range('@2')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported column name format '@'
     """
     if not isinstance(xls_range, str):
         raise TypeError("expected a 'str' object")
@@ -122,7 +82,7 @@ def str2cells_range(xls_range):
     raise ValueError('%s >= %s' % (cells[1], cells[0]))
 
 
-def check_cell(cell):
+def check_cell(cell_tuple):
     """
     Example:
     >>> check_cell((1, 2))
@@ -137,16 +97,12 @@ def check_cell(cell):
     False
     >>> check_cell(('1', '2'))
     False
-    >>> check_cell(1)
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported cell format '1'
     """
     try:
-        return len(cell) == 2 and all(
-            ((isinstance(c, int) and c >=0) or c is None) for c in cell)
+        return len(cell_tuple) == 2 and all(
+            ((isinstance(c, int) and c >=0) or c is None) for c in cell_tuple)
     except:
-        raise ValueError("unsupported cell format '%s'" % str(cell))
+        raise ValueError("unsupported cell format '%s'" % str(cell_tuple))
 
 
 def cells_parser(*args):
@@ -168,34 +124,6 @@ def cells_parser(*args):
     [Cell(col=None, row=0), Cell(col=3, row=1)]
     >>> cells_parser('A:2')
     [Cell(col=0, row=None), Cell(col=None, row=1)]
-    >>> cells_parser('b1', 'a2')
-    Traceback (most recent call last):
-        ...
-    ValueError: (0, 1) >= (1, 0)
-    >>> cells_parser('b1', 'a2', (None, None))
-    Traceback (most recent call last):
-        ...
-    TypeError: get_cells() takes at most 2 argument (3 given)
-    >>> cells_parser('b1:', 'a2')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported cell format 'b1:'
-    >>> cells_parser((1, -3))
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported cell format '(1, -3)'
-    >>> cells_parser((None, None))
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported cell format '(None, None)'
-    >>> cells_parser((1.0, None))
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported cell format '(1.0, None)'
-    >>> cells_parser()
-    Traceback (most recent call last):
-        ...
-    TypeError: get_cells expected 1 arguments, got 0
     """
     n_args = len(args)
     if n_args > 2:
@@ -242,18 +170,6 @@ def sheet_parser(*args):
     >>> writer.save()
     >>> sheet_parser('sample.xlsx', 'Sheet1') #doctest: +ELLIPSIS
     <xlrd.sheet.Sheet object at 0x...>
-    >>> sheet_parser('sample.xlsx', 'Sheet1', ':')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported sheet format '('sample.xlsx', 'Sheet1', ':')'
-    >>> sheet_parser('sample.xlsx', ('Sheet1', ))
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported sheet format '('Sheet1',)'
-    >>> sheet_parser(('sample.xlsx',), 'Sheet1')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported workbook format '('sample.xlsx',)'
     >>> from xlrd import open_workbook
     >>> wb = open_workbook('sample.xlsx')
     >>> sheet_parser(wb, 'Sheet1') #doctest: +ELLIPSIS
@@ -296,18 +212,6 @@ def args_parser(sheet, *args):
     >>> args_parser(('sample.xlsx', 'Sheet1'), ':') #doctest: +ELLIPSIS
     (<xlrd.sheet.Sheet object at 0x...>, Cell(col=None, row=None), \
 Cell(col=None, row=None))
-    >>> args_parser('sample.xlsx', 'Sheet1', ':')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported sheet format '('sample.xlsx',)'
-    >>> args_parser(('sample.xlsx', ('Sheet1', )), ':')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported sheet format '('Sheet1',)'
-    >>> args_parser((('sample.xlsx',), 'Sheet1'), ':')
-    Traceback (most recent call last):
-        ...
-    ValueError: unsupported workbook format '('sample.xlsx',)'
     >>> from xlrd import open_workbook
     >>> wb = open_workbook('sample.xlsx')
     >>> args_parser((wb, 'Sheet1'), (None, None), (None, None)) #doctest: +ELLIPSIS
