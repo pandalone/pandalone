@@ -10,7 +10,14 @@ Cell = namedtuple('Cell', ['col', 'row'])
 
 def col2num(upper_col_str):
     """
-    Example:
+    converts the Excel 'str' column ref in a 'int' column ref
+
+    :param upper_col_str: uppercase excel column ref
+
+    :return:  excel column number [-1, ..]
+    :rtype: int
+
+    Example::
     >>> col2num('D')
     3
     >>> col2num('AAA')
@@ -31,9 +38,16 @@ def col2num(upper_col_str):
     return num - 1
 
 
-def str2cells_range(xls_range):
+def str2cells_range(xls_str_rng):
     """
-    Example:
+    converts the Excel 'str' column ref in a 'int' column ref
+
+    :param xls_str_rng: a string containing an excel range ref
+
+    :return:  excel column number [-1, ..]
+    :rtype: int
+
+    Example::
     >>> str2cells_range('a1')
     [(0, 0), None]
     >>> str2cells_range('a1:')
@@ -49,15 +63,15 @@ def str2cells_range(xls_range):
     >>> str2cells_range(':')
     [(None, None), (None, None)]
     """
-    if not isinstance(xls_range, str):
+    if not isinstance(xls_str_rng, str):
         raise TypeError("expected a 'str' object")
 
-    cells = xls_range.upper().split(':')
+    cells = xls_str_rng.upper().split(':')
 
     n_cells = len(cells)
 
-    if n_cells > 2 or xls_range == '':
-        raise ValueError("unsupported range format '%s'" % xls_range)
+    if n_cells > 2 or xls_str_rng == '':
+        raise ValueError("unsupported range format '%s'" % xls_str_rng)
 
     for i, cl in enumerate(split('(\d+)', n) for n in cells):
         l = len(cl)
@@ -65,10 +79,10 @@ def str2cells_range(xls_range):
             cells[i] = cl + ['0']
         elif l == 3:
             if cl[-1] != '':
-                raise ValueError("unsupported range format '%s'" % xls_range)
+                raise ValueError("unsupported range format '%s'" % xls_str_rng)
             cells[i] = cl[:-1]
         else:
-            raise ValueError("unsupported range format '%s'" % xls_range)
+            raise ValueError("unsupported range format '%s'" % xls_str_rng)
 
     rng = [(col2num(c), int(r) - 1) for c, r in cells]
 
@@ -84,7 +98,14 @@ def str2cells_range(xls_range):
 
 def check_cell(cell_tuple):
     """
-    Example:
+    checks if a cell tuple is well formatted
+
+    :param cell_tuple: a tuple containing an excel cell ref (column, row)
+
+    :return: True if the cell tuple is well formatted, False otherwise
+    :rtype: bool
+
+    Example::
     >>> check_cell((1, 2))
     True
     >>> check_cell((1, None))
@@ -105,9 +126,23 @@ def check_cell(cell_tuple):
         raise ValueError("unsupported cell format '%s'" % str(cell_tuple))
 
 
-def cells_parser(*args):
+def cells_parser(cell_up_or_cells_str, cell_down=None):
     """
-    Example:
+    parses cell up and/or down
+
+    :param cell_up_or_cells_str:
+        a tuple containing an excel cell ref (column, row), or
+        a str containing an excel range ref (colum1row1:colum2row2), or
+        a str containing an excel cell ref (colum1row1)
+
+    :param cell_down:
+        a tuple containing an excel cell ref (column, row), or
+        a str containing an excel cell ref (colum2row2)
+
+    :return: cell_up, cell_down
+    :rtype: (Cell, Cell)
+
+    Example::
     >>> cells_parser('A1', 'B2')
     [Cell(col=0, row=0), Cell(col=1, row=1)]
     >>> cells_parser('a1', 'B2')
@@ -125,27 +160,25 @@ def cells_parser(*args):
     >>> cells_parser('A:2')
     [Cell(col=0, row=None), Cell(col=None, row=1)]
     """
-    n_args = len(args)
-    if n_args > 2:
-        raise TypeError(
-            'get_cells() takes at most 2 argument (%d given)' % n_args)
-    elif n_args == 0:
-        raise TypeError('get_cells expected 1 arguments, got 0')
-
     def get_cell(arg, none=False):
         if isinstance(arg, str):
             c = str2cells_range(arg)
-            if n_args == 1:
+            if cell_down is None:
                 return c
             elif c[1] is None:
                 return c[0]
             else:
-                raise ValueError("unsupported cell format '%s'" % str(args[0]))
+                raise ValueError(
+                    "unsupported cell format '%s'" % str(cell_up_or_cells_str))
         elif check_cell(arg) or (none and arg is None):
             return arg
         raise ValueError("unsupported cell format '%s'" % str(arg))
 
-    res = [get_cell(a, bool(j)) for j, a in enumerate(args)]
+    it = [cell_up_or_cells_str]
+    if cell_down is not None:
+        it += [cell_down]
+
+    res = [get_cell(a, bool(j)) for j, a in enumerate(it)]
 
     if len(res) < 2:
         res = res[0] if isinstance(res[0], list) else res + [None]
@@ -155,132 +188,140 @@ def cells_parser(*args):
             raise ValueError('%s >= %s' % (res[1], res[0]))
     else:
         if res[0][0] is None and res[0][1] is None:
-            raise ValueError("unsupported cell format '%s'" % str(args[0]))
+            raise ValueError(
+                "unsupported cell format '%s'" % str(cell_up_or_cells_str))
 
     return [Cell(*v) if v else None for v in res]
 
 
-def sheet_parser(*args):
+def sheet_parser(obj, sheet_name = None):
     """
-    Example:
+    parses an excel sheet
+
+    :param obj:
+        a xlrd Sheet object, or
+        a xlrd Book object, or
+        a file path to excel file
+
+    :param sheet_name:
+        a int that is the sheet index, or
+        a str with the sheet name
+
+    :return: xlrd Sheet object
+    :rtype: xlrd.sheet.Sheet
+
+    Example::
     >>> from pandas import DataFrame, ExcelWriter
     >>> df = DataFrame([[None, None, None], [5, 6, 7]])
     >>> writer = ExcelWriter('sample.xlsx')
     >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
     >>> writer.save()
-    >>> sheet_parser('sample.xlsx', 'Sheet1') #doctest: +ELLIPSIS
+    >>> sheet_parser('sample.xlsx', 'Sheet1') 
     <xlrd.sheet.Sheet object at 0x...>
     >>> from xlrd import open_workbook
     >>> wb = open_workbook('sample.xlsx')
-    >>> sheet_parser(wb, 'Sheet1') #doctest: +ELLIPSIS
+    >>> sheet_parser(wb, 'Sheet1') 
     <xlrd.sheet.Sheet object at 0x...>
-    >>> sheet_parser(wb, 0) #doctest: +ELLIPSIS
+    >>> sheet_parser(wb, 0) 
     <xlrd.sheet.Sheet object at 0x...>
     >>> st = wb.sheet_by_name('Sheet1')
-    >>> sheet_parser(st) #doctest: +ELLIPSIS
+    >>> sheet_parser(st) 
     <xlrd.sheet.Sheet object at 0x...>
     """
-    if len(args) == 1 and isinstance(args[0], Sheet):
-        return args[0]
-    elif len(args) == 2:
-        if isinstance(args[0], Book):
-            wb = args[0]
-        elif isinstance(args[0], str):
-            wb = open_workbook(args[0])
+    if sheet_name is None and isinstance(obj, Sheet):
+        return obj
+    elif sheet_name is not None:
+        if isinstance(obj, Book):
+            wb = obj
+        elif isinstance(obj, str):
+            wb = open_workbook(obj)
         else:
             raise ValueError(
-                "unsupported workbook format '%s'" % str(args[0]))
+                "unsupported workbook format '%s'" % str(obj))
 
-        if isinstance(args[1], int):
-            return wb.sheet_by_index(args[1])
-        elif isinstance(args[1], str):
-            return wb.sheet_by_name(args[1])
+        if isinstance(sheet_name, int):
+            return wb.sheet_by_index(sheet_name)
+        elif isinstance(sheet_name, str):
+            return wb.sheet_by_name(sheet_name)
         else:
-            raise ValueError("unsupported sheet format '%s'" % str(args[1]))
+            raise ValueError("unsupported sheet format '%s'" % str(sheet_name))
     else:
-        raise ValueError("unsupported sheet format '%s'" % str(args))
-
-
-def args_parser(sheet, *args):
-    """
-    Example:
-    >>> from pandas import DataFrame, ExcelWriter
-    >>> df = DataFrame([[None, None, None], [5, 6, 7]])
-    >>> writer = ExcelWriter('sample.xlsx')
-    >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
-    >>> writer.save()
-    >>> args_parser(('sample.xlsx', 'Sheet1'), ':') #doctest: +ELLIPSIS
-    (<xlrd.sheet.Sheet object at 0x...>, Cell(col=None, row=None), \
-Cell(col=None, row=None))
-    >>> from xlrd import open_workbook
-    >>> wb = open_workbook('sample.xlsx')
-    >>> args_parser((wb, 'Sheet1'), (None, None), (None, None)) #doctest: +ELLIPSIS
-    (<xlrd.sheet.Sheet object at 0x...>, Cell(col=None, row=None), \
-Cell(col=None, row=None))
-    >>> args_parser((wb, 0), ':') #doctest: +ELLIPSIS
-    (<xlrd.sheet.Sheet object at 0x...>, Cell(col=None, row=None), \
-Cell(col=None, row=None))
-    >>> st = wb.sheet_by_name('Sheet1')
-    >>> args_parser(st, ':') #doctest: +ELLIPSIS
-    (<xlrd.sheet.Sheet object at 0x...>, Cell(col=None, row=None), \
-Cell(col=None, row=None))
-    """
-    if isinstance(sheet, str) or not isinstance(sheet, Sequence):
-        sheet = sheet_parser(sheet)
-    else:
-        sheet = sheet_parser(*sheet)
-
-    cell_up, cell_down = cells_parser(*args)
-
-    return sheet, cell_up, cell_down
+        raise ValueError("unsupported sheet format '%s'" % str(sheet_name))
 
 
 def get_no_empty_cells(sheet, cell_up, cell_down=None):
     """
-    Example::
+    parses an excel sheet
 
+    :param sheet:
+        a xlrd Sheet object
+
+    :param cell_up:
+        a Cell object
+
+    :param cell_down:
+        a Cell object
+
+    :return: matrix or vector
+    :rtype: dict
+
+    Example::
     >>> from pandas import DataFrame, ExcelWriter
     >>> df = DataFrame([[None, None, None], [5, 6, 7]])
     >>> writer = ExcelWriter('sample.xlsx')
     >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
     >>> writer.save()
 
-    >>> sheet, cell_up, cell_down = args_parser(('sample.xlsx', 'Sheet1'), ':')
-    >>> get_no_empty_cells(sheet, cell_up, cell_down)
-    {0: {1: 0.0, 2: 1.0, 3: 2.0}, 1: {0: 0.0}, 2: {0: 1.0, 1: 5.0, 2: 6.0, 3: \
-7.0}}
-    >>> sheet, cell_up, cell_down = args_parser(('sample.xlsx', 'Sheet1'), 'D7')
+    >>> sheet = sheet_parser('sample.xlsx', 'Sheet1')
+
+    # minimum matrix in the sheet
     >>> get_no_empty_cells(sheet,  Cell(None, None), Cell(None, None))
-    {0: {1: 0.0, 2: 1.0, 3: 2.0}, 1: {0: 0.0}, 2: {0: 1.0, 1: 5.0, 2: 6.0, 3: \
-7.0}}
+    {0: {1: 0.0, 2: 1.0, 3: 2.0},
+     1: {0: 0.0},
+     2: {0: 1.0, 1: 5.0, 2: 6.0, 3: 7.0}}
+
+    # up-left delimited minimum matrix
+    >>> get_no_empty_cells(sheet, Cell(0, 0), Cell(None, None))
+    {5: {4: 0.0, 5: 1.0, 6: 2.0},
+     6: {3: 0.0},
+     7: {3: 1.0, 4: 5.0, 5: 6.0, 6: 7.0}}
     >>> get_no_empty_cells(sheet, Cell(3, 6)) # get single value
     0.0
-    >>> get_no_empty_cells(sheet, Cell(0, 0))
-
-    >>> get_no_empty_cells(sheet, Cell(3, None)) # get column
-    {6: 0.0, 7: 1.0}
-    >>> get_no_empty_cells(sheet, Cell(None, 5)) # get row
+    >>> get_no_empty_cells(sheet, Cell(3, None)) # get column vector
+    {6: 0.0,
+     7: 1.0}
+    >>> get_no_empty_cells(sheet, Cell(None, 5)) # get row vector
     {4: 0.0, 5: 1.0, 6: 2.0}
+
+    # up-left delimited minimum matrix
     >>> get_no_empty_cells(sheet, Cell(4, None), Cell(None, None))
-    {0: {0: 0.0, 1: 1.0, 2: 2.0}, 2: {0: 5.0, 1: 6.0, 2: 7.0}}
-    >>> get_no_empty_cells(sheet, Cell(4, 6), Cell(None, None))
-    {1: {0: 5.0, 1: 6.0, 2: 7.0}}
+    {0: {0: 0.0, 1: 1.0, 2: 2.0},
+     2: {0: 5.0, 1: 6.0, 2: 7.0}}
+
+    # delimited matrix
     >>> get_no_empty_cells(sheet, Cell(3, 5), Cell(5, 7))
-    {0: {1: 0.0, 2: 1.0}, 1: {0: 0.0}, 2: {0: 1.0, 1: 5.0, 2: 6.0}}
+    {0: {1: 0.0, 2: 1.0},
+     1: {0: 0.0},
+     2: {0: 1.0, 1: 5.0, 2: 6.0}}
+
+    # down-right delimited minimum matrix
     >>> get_no_empty_cells(sheet, Cell(None, None), Cell(5, 7))
-    {0: {1: 0.0, 2: 1.0}, 1: {0: 0.0}, 2: {0: 1.0, 1: 5.0, 2: 6.0}}
+    {0: {1: 0.0, 2: 1.0},
+     1: {0: 0.0},
+     2: {0: 1.0, 1: 5.0, 2: 6.0}}
+
+    # up-down-right delimited minimum matrix
     >>> get_no_empty_cells(sheet, Cell(None, 6), Cell(5, 7))
-    {0: {0: 0.0}, 1: {0: 1.0, 1: 5.0, 2: 6.0}}
-    >>> get_no_empty_cells(sheet, Cell(4, None), Cell(5, 7))
-    {0: {0: 0.0, 1: 1.0}, 2: {0: 5.0, 1: 6.0}}
+    {0: {0: 0.0},
+     1: {0: 1.0, 1: 5.0, 2: 6.0}}
+
+    # down delimited minimum vector (i.e., column)
+    >>> get_no_empty_cells(sheet, Cell(5, None), Cell(5, 7))
+    {0: 1.0, 2: 6.0}
+
+    # right delimited minimum vector (i.e., row)
     >>> get_no_empty_cells(sheet, Cell(2, 5), Cell(None, 5))
     {2: 0.0, 3: 1.0, 4: 2.0}
-    >>> get_no_empty_cells(sheet, Cell(0, 0), Cell(5, 7))
-    {5: {4: 0.0, 5: 1.0}, 6: {3: 0.0}, 7: {3: 1.0, 4: 5.0, 5: 6.0}}
-    >>> get_no_empty_cells(sheet, Cell(6, 8), Cell(None, None))
-    {}
-    >>> get_no_empty_cells(sheet, Cell(5, 8), Cell(None, None))
-    {}
     """
 
     def no_emp_vec(fix_i, it_ind, inverse_fix=False, dbl_res=False):
@@ -358,13 +399,13 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
                     vect.items()}
 
         if c1[0] < 0 and isinstance(start['col'], int):
-            return shift_k(table, start.get('row', 0), start['col'])
+            table =  shift_k(table, start.get('row', 0), start['col'])
         elif start.get('row', 0) > 0:
-            return shift_k(table, start['row'])
+            table = shift_k(table, start['row'])
 
         if table:
             if cell_down.col is not None and cell_down.col == cell_up.col:
-                table = {k: v[0] for k, v in table}
+                table = {k: v[0] for k, v in table.items()}
             if cell_down.row is not None and cell_down.row == cell_up.row:
                 table = table[0]
 

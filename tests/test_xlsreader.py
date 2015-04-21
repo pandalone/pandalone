@@ -51,21 +51,22 @@ class TestDoctest(unittest.TestCase):
 
     def runTest(self):
         failure_count, test_count = doctest.testmod(
-            xr, optionflags=doctest.NORMALIZE_WHITESPACE)
+            xr, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
+
 
 class TestGetNoEmptyCells(unittest.TestCase):
 
     def test_get_no_empty_cells(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            file_path = tmpdir + 'sample.xlsx'
+            file_path = tmpdir + '/sample.xlsx'
             _make_sample_workbook(file_path,
                                   [[None, None, None], [5, 6, 7]], 
                                   'Sheet1', 
                                   startrow=5, startcol=3)
             
-            sheet = xr.args_parser((file_path, 'Sheet1'), ':')[0]
+            sheet = xr.sheet_parser(file_path, 'Sheet1')
             Cell = xr.Cell
 
             # minimum matrix in the sheet [:]
@@ -168,49 +169,6 @@ class TestGetNoEmptyCells(unittest.TestCase):
             res = {}
             self.assertEqual(xr.get_no_empty_cells(*args), res)
 
-    def test_args_parser(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            file_path = tmpdir + 'sample.xlsx'
-            _make_sample_workbook(file_path,
-                                  [[None, None, None], [5, 6, 7]],
-                                  'Sheet1',
-                                  startrow=5, startcol=3)
-
-            wb = xd.open_workbook(file_path)
-            st = wb.sheet_by_name('Sheet1')
-
-            Cell = xr.Cell
-
-            args = ((file_path, 'Sheet1'), ':')
-            res = xr.args_parser(*args)
-            rng = (Cell(col=None, row=None), Cell(col=None, row=None))
-            self.assertIsInstance(res[0], xd.sheet.Sheet)
-            self.assertEqual(res[1:], rng)
-
-            args = ((wb, 'Sheet1'), (None, None), (None, None))
-            res = xr.args_parser(*args)
-            self.assertIsInstance(res[0], xd.sheet.Sheet)
-            self.assertEqual(res[1:], rng)
-
-            args = ((wb, 0), ':')
-            res = xr.args_parser(*args)
-            self.assertIsInstance(res[0], xd.sheet.Sheet)
-            self.assertEqual(res[1:], rng)
-
-            args = (st, ':')
-            res = xr.args_parser(*args)
-            self.assertIsInstance(res[0], xd.sheet.Sheet)
-            self.assertEqual(res[1:], rng)
-
-            args = (file_path, 'Sheet1', ':')
-            self.assertRaises(ValueError, xr.args_parser, *args)
-
-            args = ((file_path, ('Sheet1', )), ':')
-            self.assertRaises(ValueError, xr.args_parser, *args)
-
-            args = (((file_path,), 'Sheet1'), ':')
-            self.assertRaises(ValueError, xr.args_parser, *args)
-
     def test_sheet_parser(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             file_path = tmpdir + 'sample.xlsx'
@@ -237,7 +195,7 @@ class TestGetNoEmptyCells(unittest.TestCase):
             self.assertEqual(xr.sheet_parser(*args), st)
 
             args = (file_path, 'Sheet1', ':')
-            self.assertRaises(ValueError, xr.sheet_parser, *args)
+            self.assertRaises(TypeError, xr.sheet_parser, *args)
 
             args = (file_path, ('Sheet1', ))
             self.assertRaises(ValueError, xr.sheet_parser, *args)
