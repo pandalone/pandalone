@@ -8,19 +8,16 @@
 
 from __future__ import division, print_function, unicode_literals
 
+import doctest
 import logging
 import os
-import sys
 import tempfile
-import doctest
 import unittest
-
 
 import pandalone.xlsreader as xr
 import pandas as pd
+from tests.test_utils import chdir
 import xlrd as xd
-from contextlib import contextmanager
-
 
 
 DEFAULT_LOG_LEVEL = logging.INFO
@@ -35,6 +32,7 @@ def _init_logging(loglevel):
 
     return log
 log = _init_logging(DEFAULT_LOG_LEVEL)
+
 
 def from_my_path(*parts):
     return os.path.join(os.path.dirname(__file__), *parts)
@@ -59,15 +57,14 @@ class TestDoctest(unittest.TestCase):
 class TestGetNoEmptyCells(unittest.TestCase):
 
     def test_get_no_empty_cells(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            whith os.
-            file_path = tmpdir + '/sample.xlsx'
+        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+            file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
-                                  [[None, None, None], [5, 6, 7]], 
-                                  'Sheet1', 
+                                  [[None, None, None], [5, 6, 7]],
+                                  'Sheet1',
                                   startrow=5, startcol=3)
-            
-            sheet = xr.sheet_parser(file_path, 'Sheet1')
+
+            sheet = xr.open_xl_sheet(file_path, 'Sheet1')
             Cell = xr.Cell
 
             # minimum matrix in the sheet [:]
@@ -170,7 +167,7 @@ class TestGetNoEmptyCells(unittest.TestCase):
             res = {}
             self.assertEqual(xr.get_no_empty_cells(*args), res)
 
-    def test_sheet_parser(self):
+    def test_open_xl_sheet(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             file_path = tmpdir + 'sample.xlsx'
             _make_sample_workbook(file_path,
@@ -181,28 +178,26 @@ class TestGetNoEmptyCells(unittest.TestCase):
             wb = xd.open_workbook(file_path)
             st = wb.sheet_by_name('Sheet1')
 
-
-
             args = (file_path, 'Sheet1')
-            self.assertIsInstance(xr.sheet_parser(*args), xd.sheet.Sheet)
+            self.assertIsInstance(xr.open_xl_sheet(*args), xd.sheet.Sheet)
 
             args = (wb, 'Sheet1')
-            self.assertIsInstance(xr.sheet_parser(*args), xd.sheet.Sheet)
+            self.assertIsInstance(xr.open_xl_sheet(*args), xd.sheet.Sheet)
 
             args = (wb, 0)
-            self.assertIsInstance(xr.sheet_parser(*args), xd.sheet.Sheet)
+            self.assertIsInstance(xr.open_xl_sheet(*args), xd.sheet.Sheet)
 
             args = (st, )
-            self.assertEqual(xr.sheet_parser(*args), st)
+            self.assertEqual(xr.open_xl_sheet(*args), st)
 
             args = (file_path, 'Sheet1', ':')
-            self.assertRaises(TypeError, xr.sheet_parser, *args)
+            self.assertRaises(TypeError, xr.open_xl_sheet, *args)
 
             args = (file_path, ('Sheet1', ))
-            self.assertRaises(ValueError, xr.sheet_parser, *args)
+            self.assertRaises(ValueError, xr.open_xl_sheet, *args)
 
             args = ((file_path,), 'Sheet1')
-            self.assertRaises(ValueError, xr.sheet_parser, *args)
+            self.assertRaises(ValueError, xr.open_xl_sheet, *args)
 
     def test_cells_parser(self):
 
