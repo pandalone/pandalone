@@ -25,6 +25,11 @@ class TestDoctest(unittest.TestCase):
 
 class Test_Pmod(unittest.TestCase):
 
+    def assert_Pmod_class_attributes_not_modified(self):
+        self.assertIsNone(_Pmod._name)
+        self.assertEqual(_Pmod._children, [])
+        self.assertEqual(_Pmod._regexps, [])
+
     def test_Pmod_merge_name(self):
         pm1 = _Pmod(_name='pm1')
         pm2 = _Pmod(_name='pm2')
@@ -48,6 +53,8 @@ class Test_Pmod(unittest.TestCase):
         self.assertEqual(pm1._name, None)
         self.assertEqual(pm2._name, 'pm2')
 
+        self.assert_Pmod_class_attributes_not_modified()
+
     def test_Pmod_merge_name_recurse(self):
         pm1 = _Pmod(_name='pm1', _children={'a': _Pmod(_name='R1')})
         pm2 = _Pmod(_name='pm2', _children={'a': _Pmod(_name='R2'),
@@ -64,6 +71,8 @@ class Test_Pmod(unittest.TestCase):
         self.assertEqual(pm2._children['a']._name, 'R2')
         self.assertEqual(len(pm1._children), 1)
         self.assertEqual(len(pm2._children), 2)
+
+        self.assert_Pmod_class_attributes_not_modified()
 
     def test_Pmod_merge_children(self):
         pm1 = _Pmod(_name='pm1', _children={'a': _Pmod(_name='A'),
@@ -90,18 +99,20 @@ class Test_Pmod(unittest.TestCase):
         self.assertEqual(pm._children['a']._name, 'AA')
         self.assertEqual(len(pm1._children), 2)
         self.assertEqual(len(pm2._children), 3)
-        self.assertIsEqual(pm._regexps, [])
-        self.assertIsEqual(pm1._regexps, [])
-        self.assertIsEqual(pm2._regexps, [])
+        self.assertEqual(pm._regexps, [])
+        self.assertEqual(pm1._regexps, [])
+        self.assertEqual(pm2._regexps, [])
 
         pm = pm2.merge(pm1)
         self.assertEqual(sorted(pm._children.keys()), list('abcd'))
         self.assertEqual(pm._children['a']._name, 'A')
         self.assertEqual(len(pm1._children), 2)
         self.assertEqual(len(pm2._children), 3)
-        self.assertIsEqual(pm._regexps, [])
-        self.assertIsEqual(pm1._regexps, [])
-        self.assertIsEqual(pm2._regexps, [])
+        self.assertEqual(pm._regexps, [])
+        self.assertEqual(pm1._regexps, [])
+        self.assertEqual(pm2._regexps, [])
+
+        self.assert_Pmod_class_attributes_not_modified()
 
     def test_Pmod_merge_regexps(self):
         pm1 = _Pmod(_name='pm1', _regexps=OrderedDict([
@@ -132,10 +143,37 @@ class Test_Pmod(unittest.TestCase):
         self.assertEqual(pm1._children, [])
         self.assertEqual(pm2._children, [])
 
+        self.assert_Pmod_class_attributes_not_modified()
+
     def test_Pmod_merge_all(self):
-        pm1 = _Pmod(_name='pm1')
-        pm2 = _Pmod(_name='pm2')
-        print(_Pmod.merge_all([pm1, pm2]))
+        pm1 = _Pmod(_children={'a': _Pmod(_name='A')})
+        pm2 = _Pmod(_name='pm2',
+                    _regexps=OrderedDict([
+                        ('b', _Pmod(_name='BB')),
+                        ('a', _Pmod(_name='AA'))
+                    ]))
+        pm3 = _Pmod(_name='PM3',
+                    _children={'c': _Pmod(_name='CCC'),
+                               'b': _Pmod(_name='BBB'), },
+                    _regexps=OrderedDict([
+                        ('b', _Pmod(_name='AAA')),
+                        ('a', _Pmod(_name='BBB')),
+                        ('c', _Pmod(_name='CCC')),
+                    ]))
+        pm = _Pmod.merge_all([pm1, pm2, pm3])
+        print(pm)
+
+        self.assertSetEqual(set(pm._children.keys()), set(list('abc')))
+        self.assertSetEqual(set(pm1._children.keys()), set(list('a')))
+        self.assertEqual(pm2._children, [])
+        self.assertSetEqual(set(pm3._children.keys()), set(list('bc')))
+
+        self.assertEqual(list(pm._regexps.keys()), list('bac'))
+        self.assertEqual(pm1._regexps, [])
+        self.assertEqual(list(pm2._regexps.keys()), list('ba'))
+        self.assertEqual(list(pm3._regexps.keys()), list('bac'))
+
+        self.assert_Pmod_class_attributes_not_modified()
 
 
 class TestPmods(unittest.TestCase):

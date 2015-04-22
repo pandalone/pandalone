@@ -161,51 +161,31 @@ class _Pmod(object):
         """
         Examples::
 
-            >>> pm1 = _Pmod(_name='pm1')
+            >>> pm1 = _Pmod()
             >>> pm2 = _Pmod(_name='pm2')
-            >>> _Pmod.merge_all([pm1, pm2])
-            gg
+            >>> pm3 = _Pmod(_name='PM3')
+            >>> _Pmod.merge_all([pm1, pm2, pm3])
+            pmod('PM3')
         """
         return ft.reduce(_Pmod.merge, pmods)
 
     def _merge_dicts(self, attr, other):
         """
-        Override this pmod's dict-attr with other's, recursively (but children-pmod are cloned).
+        Override this pmod's dict-attr with other's, recursively.
 
         - It may "share" (crosslink) the dict and/or its child-pmods 
           between the two pmod args (`self` and `other`).
-        - No existing dict is modified, in case it has been "shared".
+        - No dict is modified (apart from self, which must have been cloned 
+          previously by :meth:`_Pmod.merge()`), to avoid side-effects 
+          in case they were "shared".
         - It preserves dict-ordering so that `other` order takes precedence 
           (its elements are the last ones). 
 
         :param str attr:     either "_children" or "_regexps"
         :param _Pmod self:   contains the dict that would be overridden
         :param _Pmod other:  contains the dict with the overrides
-
-
-        Example::
-
-            >>> pm1 = _Pmod(_name='pm1', _regexps=OrderedDict([
-            ...     ('a', _Pmod(_name='A')), 
-            ...     ('c', _Pmod(_name='C'))]))
-            >>> pm2 = _Pmod(_name='pm2', _regexps=OrderedDict([
-            ...     ('b', _Pmod(_name='B')), 
-            ...     ('a', _Pmod(_name='AA')),
-            ...     ('d', _Pmod(_name='DD')),
-            ...     ]))
-            >>> pm1.merge(pm2)
-            pmod(pm2, [], OrderedDict([('c', pmod(C, [], [])),
-                                       ('b', pmod(B, [], [])), 
-                                       ('a', pmod(AA, [], [])), 
-                                       ('d', pmod(DD, [], []))]))
-
-            >>> pm2.merge(pm1)
-            pmod(pm1, [], OrderedDict([('b', pmod(B, [], [])),
-                                       ('d', pmod(DD, [], [])),
-                                       ('a', pmod(A, [], [])), 
-                                       ('c', pmod(C, [], []))]))
-
         """
+
         opmods = getattr(other, attr)
         if opmods:
             spmods = getattr(self, attr)
@@ -264,13 +244,20 @@ class _Pmod(object):
             ...     ('a', _Pmod(_name='A')), 
             ...     ('c', _Pmod(_name='C'))]))
             >>> pm2 = _Pmod(_name='pm2', _regexps=OrderedDict([
-            ...     ('b', _Pmod(_name='B')), 
+            ...     ('b', _Pmod(_name='BB')), 
             ...     ('a', _Pmod(_name='AA'))]))
+
             >>> pm1.merge(pm2)
-            pmod(pm2, [], OrderedDict([('d', pmod(D, [], [])), 
-                                       ('c', pmod(C, [], [])), 
-                                       ('b', pmod(B, [], [])), 
-                                       ('a', pmod(AA, [], []))]))
+            pmod('pm2', OrderedDict([('d', pmod('D')), 
+                                     ('c', pmod('C')), 
+                                     ('b', pmod('BB')), 
+                                     ('a', pmod('AA'))]))
+
+            >>> pm2.merge(pm1)
+            pmod('pm1', OrderedDict([('b', pmod('BB')),
+                                     ('d', pmod('D')),
+                                     ('a', pmod('A')), 
+                                     ('c', pmod('C'))]))
         """
         self = copy(self)
 
@@ -302,7 +289,12 @@ class _Pmod(object):
         return _Pmod.merge_all(pmods)  # Prepend base of the merge.
 
     def __repr__(self):
-        return 'pmod({}, {}, {})'.format(self._name, self._children, self._regexps)
+        args = [repr(a) 
+                for a in [self._name, self._children, self._regexps]
+                if a]
+        
+        args = ', '.join(args)
+        return 'pmod({})'.format(args)
 
 
 def convert_df_as_pmods_tuples(df_pmods, col_from='from', col_to='to'):
