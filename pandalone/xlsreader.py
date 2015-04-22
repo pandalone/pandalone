@@ -1,6 +1,5 @@
 from string import ascii_uppercase
-from re import compile
-from xlrd import open_workbook
+import re
 from collections import namedtuple
 from json import loads
 
@@ -38,7 +37,7 @@ def col2num(upper_col_str):
     return num - 1
 
 
-_re_cell_parser = compile(
+_re_cell_parser = re.compile(
     r'^\s*(?P<col>[^\d]+)?'  # column [opt]
     r'(?P<row>[\d]+)?'  # row [opt]
     r'\s*$')
@@ -65,6 +64,9 @@ def cell_parser(cell):
         >>> cell_parser('')
         Cell(col=None, row=None)
     """
+
+    cell = cell.replace('_', '')
+
     res = _re_cell_parser.match(cell)
     if res:
         if res.string == '':
@@ -137,22 +139,17 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
     :rtype: dict
 
     Example::
-    
-        >>> from tempfile import gettempdir
+
         >>> from pandas import DataFrame, ExcelWriter
+        >>> import os, tempfile, xlrd
+        >>> os.chdir(tempfile.mkdtemp())
         >>> df = DataFrame([[None, None, None], [5, 6, 7]])
-        >>> tmp = '/'.join([gettempdir(),'sample.xlsx'])
+        >>> tmp = 'sample.xlsx'
         >>> writer = ExcelWriter(tmp)
         >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
         >>> writer.save()
-    
-        >>> import os, pandas as pd, tempfile
-        >>> os.chdir(tempfile.mkdtemp())
 
-        >>> url = '%s#%s!A1:C2[1,2]{"1":4,"2":"ciao"}'%(tmp, 'Sheet1')
-        >>> res = url_parser(url)
-
-        >>> sheet = res['xl_sheet']
+        >>> sheet = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
 
         # minimum matrix in the sheet
         >>> get_no_empty_cells(sheet,  Cell(None, None), Cell(None, None))
@@ -291,32 +288,26 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
         return table
 
 
-_re_url_parser = compile(
-    r'^\s*(?:(?P<xl_file_path>[^#\'\[\]?@!]+)\#{1})'  # xl file path
-    r'(?:(?P<sheet_name>[^#!]+)\!){1}'  # xl sheet name
-    r'(?P<cell_up>[A-Z]*\d*)'  # cell up
-    r'(?:\:(?P<cell_down>[A-Z]*\d*))?'  # cell down [opt]
+_re_url_fragment_parser = re.compile(
+    r'^\s*(?P<xl_sheet_name>[^#!]+)!'  # xl sheet name
+    r'(?P<cell_up>(([A-Z]+|_)(\d+|_)|:\s*$|))'  # cell up
+    r'(?::(?P<cell_down>(([A-Z]+|_)(\d+|_)|)))?'  # cell down [opt]
     r'(?P<json_args>\[.*\])?'  # json args [opt]
     r'(?P<json_kwargs>\{.*\})?'  # json kwargs [opt]
     r'\s*$')
 
 
-def url_parser(url, xl_workbook=None):
+def url_fragment_parser(url_fragment):
     """
-    Parses and fetches the contents of an 'excel_url'.
+    Parses and fetches the contents of excel url_fragment.
 
-    :param url:
+    :param url_fragment:
         a string with the following format:
-        <xl_file_path>#<xl_sheet>!<cell_up>:<cell_down><json_args><json_kwargs>
-
-    :param xl_workbook:
-        a new xl workbook is opened if this is None
-        type xlrd.book.Book
+        <xl_sheet_name>!<cell_up>:<cell_down><json_args><json_kwargs>
 
     :return:
         dictionary containing the following parameters:
-        - xl_workbook
-        - xl_sheet
+        - xl_sheet_name
         - cell_up
         - cell_down
         - json_args
@@ -324,33 +315,23 @@ def url_parser(url, xl_workbook=None):
     :rtype: dict
 
     Example::
-    
-        >>> from tempfile import gettempdir
-        >>> from pandas import DataFrame, ExcelWriter
-        >>> df = DataFrame([[None, None, None], [5, 6, 7]])
-        >>> tmp = '/'.join([gettempdir(), 'sample.xlsx'])
-        >>> writer = ExcelWriter(tmp)
-        >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
-        >>> writer.save()
 
-        >>> url = '%s#%s!A1:C2[1,2]{"1":4,"2":"ciao"}' %(tmp, 'Sheet1')
-        >>> res = url_parser(url)
+        >>> url = 'Sheet1!:[1,2]{"1":4,"2":"ciao"}'
+        >>> res = url_fragment_parser(url)
 
-        >>> res['xl_workbook']
-        <xlrd.book.Book object at 0x...>
-        >>> res['xl_sheet']
-        <xlrd.sheet.Sheet object at 0x...>
+        >>> res['xl_sheet_name']
+        'Sheet1'
         >>> res['cell_up']
-        Cell(col=0, row=0)
+        Cell(col=None, row=None)
         >>> res['cell_down']
-        Cell(col=2, row=1)
+        Cell(col=None, row=None)
         >>> res['json_args']
         [1, 2]
         >>> res['json_kwargs'] == {'2': 'ciao', '1': 4}
         True
     """
 
-    res = _re_url_parser.match(url)
+    res = _re_url_fragment_parser.match(url_fragment)
     try:
         res = res.groupdict(None)
 
@@ -363,16 +344,6 @@ def url_parser(url, xl_workbook=None):
 
         # check range
         check_range(res['cell_up'], res['cell_down'])
-
-        # open workbook
-        if xl_workbook is None:
-            res['xl_workbook'] = open_workbook(res.pop('xl_file_path'))
-        else:
-            res['xl_workbook'] = xl_workbook
-
-        # open sheet
-        res['xl_sheet'] = res['xl_workbook'].sheet_by_name(
-            res.pop('sheet_name'))
 
         # resolve json_args
         if res['json_args'] is not None:
@@ -388,4 +359,4 @@ def url_parser(url, xl_workbook=None):
 
         return res
     except:
-        raise ValueError("Invalid excel-url(%s)!" % url)
+        raise ValueError("Invalid excel-url(%s)!" % url_fragment)
