@@ -60,13 +60,13 @@ class _Pmod(object):
       the component-paths of their input & output onto the actual 
       value-tree paths.
 
-    :ivar str _name:            (optional) the mapped-name of the pstep for  
-                                this pmod 
+    :ivar str _alias:            (optional) the mapped-name of the pstep for  
+                                 this pmod 
     :ivar dict _children:        {original_name --> pmod}
     :ivar OrderedDict _regexps:  {regex_on_originals --> pmod}
 
     """
-    _name = None
+    _alias = None
 
     # Knowingly volatile class-attributes,
     #    with invalid types (acting as sentinels),
@@ -162,21 +162,21 @@ class _Pmod(object):
         Examples::
 
             >>> pm1 = _Pmod()
-            >>> pm2 = _Pmod(_name='pm2')
-            >>> pm3 = _Pmod(_name='PM3')
+            >>> pm2 = _Pmod(_alias='pm2')
+            >>> pm3 = _Pmod(_alias='PM3')
             >>> _Pmod.merge_all([pm1, pm2, pm3])
             pmod('PM3')
         """
-        return ft.reduce(_Pmod.merge, pmods)
+        return ft.reduce(_Pmod._merge, pmods)
 
-    def _merge_dicts(self, attr, other):
+    def _override_dict(self, attr, other):
         """
         Override this pmod's dict-attr with other's, recursively.
 
         - It may "share" (crosslink) the dict and/or its child-pmods 
           between the two pmod args (`self` and `other`).
         - No dict is modified (apart from self, which must have been cloned 
-          previously by :meth:`_Pmod.merge()`), to avoid side-effects 
+          previously by :meth:`_Pmod._merge()`), to avoid side-effects 
           in case they were "shared".
         - It preserves dict-ordering so that `other` order takes precedence 
           (its elements are the last ones). 
@@ -191,14 +191,14 @@ class _Pmod(object):
             spmods = getattr(self, attr)
             if spmods:
                 # Like `dict.update()` but
-                # with recursive merge on common items,
+                # with recursive _merge on common items,
                 # and preserving order.
                 #
                 opairs = []
                 for name, opmod in opmods.items():
                     spmod = spmods.get(name)
                     if spmod:
-                        mpmod = spmod.merge(opmod)
+                        mpmod = spmod._merge(opmod)
                     else:
                         mpmod = opmod  # Share other-pmod.
                     opairs.append((name, mpmod))
@@ -213,7 +213,7 @@ class _Pmod(object):
             # Share other dict if self hadn't its own.
             setattr(self, attr, opmods)
 
-    def merge(self, other):
+    def _merge(self, other):
         """
         Clone this and override its props with props from other-pmod, recursively.
 
@@ -228,32 +228,32 @@ class _Pmod(object):
 
         Look how `_children` are merged::
 
-            >>> pm1 = _Pmod(_name='pm1', _children={
-            ...     'a':_Pmod(_name='A'), 'c':_Pmod(_name='C')})
-            >>> pm2 = _Pmod(_name='pm2', _children={
-            ...     'b':_Pmod(_name='B'), 'a':_Pmod(_name='AA')})
-            >>> pm = pm1.merge(pm2)
+            >>> pm1 = _Pmod(_alias='pm1', _children={
+            ...     'a':_Pmod(_alias='A'), 'c':_Pmod(_alias='C')})
+            >>> pm2 = _Pmod(_alias='pm2', _children={
+            ...     'b':_Pmod(_alias='B'), 'a':_Pmod(_alias='AA')})
+            >>> pm = pm1._merge(pm2)
             >>> sorted(pm._children.keys())
             ['a', 'b', 'c']
 
 
         And here it is `_regexps` merging, which preserves order::
 
-            >>> pm1 = _Pmod(_name='pm1', _regexps=OrderedDict([
-            ...     ('d', _Pmod(_name='D')), 
-            ...     ('a', _Pmod(_name='A')), 
-            ...     ('c', _Pmod(_name='C'))]))
-            >>> pm2 = _Pmod(_name='pm2', _regexps=OrderedDict([
-            ...     ('b', _Pmod(_name='BB')), 
-            ...     ('a', _Pmod(_name='AA'))]))
+            >>> pm1 = _Pmod(_alias='pm1', _regexps=OrderedDict([
+            ...     ('d', _Pmod(_alias='D')), 
+            ...     ('a', _Pmod(_alias='A')), 
+            ...     ('c', _Pmod(_alias='C'))]))
+            >>> pm2 = _Pmod(_alias='pm2', _regexps=OrderedDict([
+            ...     ('b', _Pmod(_alias='BB')), 
+            ...     ('a', _Pmod(_alias='AA'))]))
 
-            >>> pm1.merge(pm2)
+            >>> pm1._merge(pm2)
             pmod('pm2', OrderedDict([('d', pmod('D')), 
                                      ('c', pmod('C')), 
                                      ('b', pmod('BB')), 
                                      ('a', pmod('AA'))]))
 
-            >>> pm2.merge(pm1)
+            >>> pm2._merge(pm1)
             pmod('pm1', OrderedDict([('b', pmod('BB')),
                                      ('d', pmod('D')),
                                      ('a', pmod('A')), 
@@ -261,12 +261,12 @@ class _Pmod(object):
         """
         self = copy(self)
 
-        if other._name:
-            self._name = other._name
+        if other._alias:
+            self._alias = other._alias
         if other._children:
-            self._merge_dicts('_children', other)
+            self._override_dict('_children', other)
         if other._regexps:
-            self._merge_dicts('_regexps', other)
+            self._override_dict('_regexps', other)
 
         return self
 
@@ -286,13 +286,13 @@ class _Pmod(object):
         if cpmod:
             pmods.append(cpmod)
 
-        return _Pmod.merge_all(pmods)  # Prepend base of the merge.
+        return _Pmod.merge_all(pmods)  # Prepend base of the _merge.
 
     def __repr__(self):
-        args = [repr(a) 
-                for a in [self._name, self._children, self._regexps]
+        args = [repr(a)
+                for a in [self._alias, self._children, self._regexps]
                 if a]
-        
+
         args = ', '.join(args)
         return 'pmod({})'.format(args)
 
