@@ -35,7 +35,7 @@ import re
 from setuptools import setup
 
 
-__commit__ = "de375b8"
+__commit__ = ""
 
 # Fail early on ancient python-versions
 #
@@ -173,11 +173,12 @@ setup(
     #    proj_name: ['*.vba', '*.ico'],
     #},
     install_requires=[
+        'enum34',
         'six',
         'jsonschema>=2.4',
         'numpy',
-        'pandas',  # 'openpyxl', 'xlrd',
-        'Pillow',  # For UI About boxes
+        'pandas',   # 'openpyxl', 'xlrd',
+        'Pillow',   # For UI About boxes
         'xlwings',  # For Excel integration
         'doit',
         'networkx',
@@ -199,7 +200,7 @@ setup(
     test_suite='nose.collector',
     entry_points={
         'console_scripts': [
-            '%s = %s.__main__:main' % (proj_name, proj_name),
+            'pndl = %s.__main__:main' % proj_name,
         ],
     },
     zip_safe=True,

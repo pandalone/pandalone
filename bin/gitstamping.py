@@ -35,7 +35,6 @@ import sys
 
 def filter_or_smudge(clean):
     rexp1 = re.compile(r'__commit__(\s*)=(\s*)".*')
-    rexp2 = re.compile('\r\n')
     if clean:
         for line in sys.stdin:
             line = re.sub(rexp1, r'__commit__\1=\2""', line)
@@ -46,7 +45,6 @@ def filter_or_smudge(clean):
         git_id = re.sub(r'[\n\r\t"\']', "", git_id)
         for line in sys.stdin:
             line = re.sub(rexp1, r'__commit__\1=\2"%s"' % git_id, line)
-            line = re.sub(rexp2, '\n', line)
             sys.stdout.write(line)
 
 

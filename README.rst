@@ -32,11 +32,11 @@ Overview
 
 An "execution" or a "run" of a calculation is depicted in the following diagram::
 
-           .---------------------.     _____________       .----------------------------.
-          ;       DataTree      ;     |             |      ;          DataTree          ;
-         ;---------------------;  ==> | <some code> | ==> ;----------------------------;
-        ;                     ;       |_____________|    ;                            ;
-       '---------------------'                         '----------------------------.
+        .---------------------.     _____________       .----------------------------.
+       ;       DataTree      ;     |             |      ;          DataTree          ;
+      ;---------------------;  ==> | <some code> | ==> ;----------------------------;
+     ;                     ;       |_____________|    ;                            ;
+    '---------------------'                         '----------------------------.
 
 The *Input & Output Data* are instances of :dfn:`data-tree`, trees of strings and numbers, assembled with:
 
@@ -76,9 +76,9 @@ you can try the following commands:
     .. code-block:: bash
 
         $ pip install pandalone                 ## Use `--pre` if version-string has a build-suffix.
-    
+
     Or in case you need the very latest from `master` branch :
-    
+
     .. code-block:: bash
 
         $ pip install git+https://github.com/pandalone/pandalone.git
@@ -111,7 +111,7 @@ Python installation
 .. Warning:: 
     On *Windows* it is strongly suggested **NOT to install the standard CPython distribution**,
     unless:
-    
+
     a) you have *administrative priviledges*, 
     b) you are an experienced python programmer, so that 
     c) you know how to hunt dependencies from *PyPi* repository and/or 
@@ -123,7 +123,7 @@ To avoid this hassle, you should choose one of the user-friendly distributions s
 
 Below is a matrix of the two suggested self-wrapped python distributions for running this program
 (we excluded here default *python* included in *linux*). Both distributions:
- 
+
 - are free (as of freedom), 
 - do not require *admin-rights* for installation in *Windows*, and 
 - have been tested to run successfully this program (also tested on default *linux* distros). 
@@ -185,7 +185,7 @@ To cleanly uninstall it, run this command until you cannot find any project inst
 .. code-block:: bash
 
     $ pip uninstall pandalone                   ## Use `pip3` if both python-2 & 3 are in PATH.
-    
+
 
 You can install the project directly from the |pypi|_ the "standard" way, 
 by typing the :command:`pip` in the console:
@@ -246,7 +246,7 @@ or alternatively straight from the sources:
   .. code-block:: bash
 
       $ pip install git+https://github.com/pandalone/pandalone.git@v0.0.9-alpha.3.1  --pre
-  
+
 Of course you can substitute `v0.0.9-alpha.3.1` with any slug from "commits", "branches" or "releases" 
 that you will find on project's `github-repo <https://github.com/pandalone/pandalone>`_).
 
@@ -271,13 +271,13 @@ There are various methods to get hold of them:
 
   Assuming you have a working installation of `git <http://git-scm.com/>`_
   you can fetch and install the latest version of the project with the following series of commands:
-  
+
   .. code-block:: bash
-  
+
       $ git clone "https://github.com/pandalone/pandalone.git" pandalone.git
       $ cd pandalone.git
       $ python setup.py install                                 ## Use `python3` if both python-2 & 3 installed.
-  
+
 
 When working with sources, you need to have installed all libraries that the project depends on: 
 
@@ -358,7 +358,7 @@ To create the necessary template-files in your current-directory you should ente
 .. code-block:: console
 
      $ pandalone excel
-     
+
 
 You could type instead :samp:`pandalone excel {file_path}` to specify a different destination path.
 
@@ -372,7 +372,7 @@ Python usage
 ------------
 Example python :abbr:`REPL (Read-Eval-Print Loop)` example-commands  are given below 
 that setup and run an *experiment*.
-  
+
 First run :command:`python` or :command:`ipython` and try to import the project to check its version:
 
 .. doctest::
@@ -390,7 +390,7 @@ First run :command:`python` or :command:`ipython` and try to import the project 
     The use :command:`ipython` is preffered over :command:`python` since it offers various user-friendly 
     facilities, such as pressing :kbd:`Tab` for completions, or allowing you to suffix commands with `?` or `??` 
     to get help and read their source-code.
-    
+
     Additionally you can <b>copy any python commands starting with ``>>>`` and ``...``</b> and copy paste them directly
     into the ipython interpreter; it will remove these prefixes.  
     But in :command:`python` you have to remove it youself.
@@ -451,13 +451,13 @@ First you need to download the latest sources:
 
     Within the sources there are two sample files for the comprehensive
     `LiClipse IDE <http://www.liclipse.com/>`_:
-    
+
     * :file:`eclipse.project` 
     * :file:`eclipse.pydevproject` 
-    
+
     Remove the `eclipse` prefix, (but leave the dot(`.`)) and import it as "existing project" from 
     Eclipse's `File` menu.
-    
+
     Another issue is caused due to the fact that LiClipse contains its own implementation of *Git*, *EGit*,
     which badly interacts with unix *symbolic-links*, such as the :file:`docs/docs`, and it detects
     working-directory changes even after a fresh checkout.  To workaround this, Right-click on the above file
@@ -521,8 +521,48 @@ Development procedure
 .. _dev-team:
 
 Authors
-----------------
+-------
 .. include:: ../AUTHORS.rst
+
+
+Design
+------
+See `architecture live-document 
+<https://docs.google.com/document/d/1P73jgcAEzR_Vw491DQR0zogdunJOj3qh0h_lvphdaHk>`_.
+
+
+
+.. _begin-faq:
+
+FAQ
+===
+
+Why another XXX?  What about YYY?
+---------------------------------
+- These are the knowngly related python projects: 
+
+  `OpenMDAO <http://openmdao.org/>`_: 
+    It has influenced pandalone's design. 
+    It is planned to interoperate by converting to and from it's data-types.
+    But it works on python-2 only and its architecture needs attending from 
+    programmers (no `setup.py`, no official test-cases).  
+
+  `PyDSTool <http://www2.gsu.edu/~matrhc/PyDSTool.htm>`_:
+    It does not overlap, since it does not cover IO and dependencies of data.  
+    Also planned to interoperate with it (as soon as we have 
+    a better grasp of it :-).
+    It has some issues with the documentation, but they are working on it.
+
+  `xray <http://xray.readthedocs.org/en/stable/faq.html>`_:
+    pandas for higher dimensions; should in principle work "xray" data-trees.
+
+  `netCDF4 <http://unidata.github.io/netcdf4-python/>`_:
+    Hierarchical file-data-format similar to `hdf5`.
+
+  `hdf5 <http://www.h5py.org/>`_:
+    Hierarchical file-data-format, `supported natively by pandas 
+    <http://pandas.pydata.org/pandas-docs/version/0.15.2/io.html#io-hdf5>`_.
+
 
 
 

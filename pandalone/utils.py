@@ -14,7 +14,7 @@ import sys
 import unittest
 
 
-__commit__ = "01b872f"
+__commit__ = ""
 
 ##############
 #  Compatibility
