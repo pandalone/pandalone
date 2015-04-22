@@ -12,120 +12,60 @@ def col2num(upper_col_str):
 
     :param upper_col_str: uppercase excel column ref
 
-    :return:  excel column number [-1, ..]
+    :return:  excel column number [0, ...]
     :rtype: int
 
     Example::
     
         >>> col2num('D')
         3
-        >>> col2num('AAA')
-        702
-        >>> col2num('')
-        -1
     """
-    if not isinstance(upper_col_str, str):
-        raise TypeError("expected a 'str' object")
 
     num = 0
-    try:
-        for c in upper_col_str:
-            num = num * 26 + ascii_uppercase.rindex(c) + 1
-    except:
-        raise ValueError("unsupported column name format '%s'" % upper_col_str)
+    for c in upper_col_str:
+        num = num * 26 + ascii_uppercase.rindex(c) + 1
 
     return num - 1
 
 
-_re_cell_parser = re.compile(
-    r'^\s*(?P<col>[^\d]+)?'  # column [opt]
-    r'(?P<row>[\d]+)?'  # row [opt]
-    r'\s*$')
-
-
-def cell_parser(cell):
+def fetch_cell(cell, cell_col, cell_row):
     """
-    Parses a cell reference string.
+    Fetch a cell reference string.
 
     :param cell:
-        a cell reference string
+        whole cell reference string
+
+    :param cell_col:
+        col reference string
+
+    :param cell_row:
+        row reference string
 
     :return:
         a formatted cell
     :rtype: Cell
 
     Example::
-        >>> cell_parser('A1')
+        >>> fetch_cell('A1', 'A', '1')
         Cell(col=0, row=0)
-        >>> cell_parser('1')
+        >>> fetch_cell('_1', '_', '1')
         Cell(col=None, row=0)
-        >>> cell_parser('A')
+        >>> fetch_cell('A_', 'A', '_')
         Cell(col=0, row=None)
-        >>> cell_parser('')
+        >>> fetch_cell(':', None, None)
         Cell(col=None, row=None)
+        >>> fetch_cell(None, None, None)
+
     """
+    if cell is None:
+        return None
 
-    cell = cell.replace('_', '')
+    if cell_row != '0':
+        row = int(cell_row) - 1 if cell_row and cell_row != '_' else None
+        col = col2num(cell_col) if cell_col and cell_col != '_' else None
+        return Cell(col=col, row=row)
 
-    res = _re_cell_parser.match(cell)
-    if res:
-        if res.string == '':
-            return Cell(col=None, row=None)
-
-        res = res.groupdict(None)
-
-        # parse col
-        if res['col']:
-            res['col'] = col2num(res['col'])
-
-        # parse row
-        if res['row'] is not None:
-            if res['row'] == '0':
-                raise ValueError('unsupported row format %s' % res['row'])
-            res['row'] = int(res['row']) - 1
-
-        return Cell(**res)
-
-    raise ValueError("unsupported cell format '%s'" % cell)
-
-
-def check_range(cell_up, cell_down):
-    """
-    Checks if the range is valid.
-
-    :param cell_up:
-        a Cell object
-
-    :param cell_down:
-        a Cell object
-
-    :return:
-        it raise if the range does not pas the check
-    :rtype: nothing
-
-    Example::
-    
-        >>> check_range(Cell(1, 2), Cell(None, None))
-
-        >>> check_range(Cell(None, None), None)
-        Traceback (most recent call last):
-        ...
-        ValueError: unsupported range format 'Cell(col=None, row=None), None'
-        >>> check_range(Cell(1, 0), Cell(0, 1))
-        Traceback (most recent call last):
-        ...
-        ValueError: Cell(col=0, row=1) < Cell(col=1, row=0)
-    """
-    if cell_down is not None:
-
-        def check_crossing(up, down):
-            return down is not None and up is not None and down < up
-
-        if check_crossing(cell_up.row, cell_down.row) or \
-                check_crossing(cell_up.col, cell_down.col):
-            raise ValueError('%s < %s' % (str(cell_down), str(cell_up)))
-    elif cell_up.row is None and cell_up.col is None:
-        raise ValueError("unsupported range format '%s, None'" % str(cell_up))
+    raise ValueError('unsupported row format %s' % cell_row)
 
 
 def get_no_empty_cells(sheet, cell_up, cell_down=None):
@@ -140,12 +80,11 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
 
     Example::
 
-        >>> from pandas import DataFrame, ExcelWriter
-        >>> import os, tempfile, xlrd
+        >>> import os, tempfile, xlrd, pandas as pd
         >>> os.chdir(tempfile.mkdtemp())
-        >>> df = DataFrame([[None, None, None], [5, 6, 7]])
+        >>> df = pd.DataFrame([[None, None, None], [5, 6, 7]])
         >>> tmp = 'sample.xlsx'
-        >>> writer = ExcelWriter(tmp)
+        >>> writer = pd.ExcelWriter(tmp)
         >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
         >>> writer.save()
 
@@ -222,59 +161,58 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
         elif cell_up.row is None:  # return column
             return no_emp_vec(cell_up.col, enumerate(range(sheet.nrows)), True)
         else:  # return cell
-            if cell_up.row < sheet.nrows and cell_up.col < sheet.ncols \
-                    and sheet.cell_type(cell_up.row, cell_up.col) > 0:
-                return sheet.cell_value(cell_up.row, cell_up.col)
+            if cell_up.row < sheet.nrows and cell_up.col < sheet.ncols:
+                if sheet.cell_type(cell_up.row, cell_up.col) > 0:
+                    return sheet.cell_value(cell_up.row, cell_up.col)
             return None
     else:  # return table
-        c1 = [-1 if i is None else i for i in cell_up]
-        c2 = [-1 if i is None else i for i in cell_down]
+        up = [-1 if i is None else i for i in cell_up]
+        dn = [-1 if i is None else i for i in cell_down]
 
         def set_lower_limits(j, max_i):
-            if c2[j] < 0:
-                if max_i <= c1[j]:
+            if dn[j] < 0:
+                if max_i <= up[j]:
                     return True
-                c2[j] = max_i
+                dn[j] = max_i
             else:
-                c2[j] = min(c2[j] + 1, max_i)
+                dn[j] = min(dn[j] + 1, max_i)
             return False
 
         if set_lower_limits(0, sheet.ncols) or set_lower_limits(1, sheet.nrows):
             return {}
 
-        it_col = list(enumerate(range(max(0, c1[0]), c2[0])))
+        it_col = list(enumerate(range(max(0, up[0]), dn[0])))
 
-        it_row = enumerate(range(max(0, c1[1]), c2[1]))
+        it_row = enumerate(range(max(0, up[1]), dn[1]))
 
         rows = ((r, no_emp_vec(r_s, it_col, dbl_res=True)) for r, r_s in it_row)
 
         start = {'col': float('inf')}
 
-        if c1[1] < 0 and c1[0] < 0:
-            def set_min(min_c, r):
-                start['col'] = min(min_c, start['col'])
+        if up[1] < 0:
+            def set_min_row(r):
                 if 'row' not in start:
                     start['row'] = r
                 return True
-        elif c1[1] < 0:
-            def set_min(min_c, r):
-                if 'row' not in start:
-                    start['row'] = r
-                return True
-        elif c1[0] < 0:
-            def set_min(min_c, r):
+        else:
+            set_min_row =lambda x: True
+
+        if up[0] < 0:
+            def set_min_col(min_c):
                 start['col'] = min(min_c, start['col'])
                 return True
         else:
-            set_min = lambda min_c, r: True
+            set_min_col = lambda x: True
+
+        def set_min(min_c, r):
+            return set_min_row(r) and set_min_col(min_c)
 
         table = {r: t_r for r, (t_r, m_c) in rows if t_r and set_min(m_c, r)}
 
-        def shift_k(vect, k0, *ki):
-            return {k - k0: shift_k(v, *ki) if ki else v for k, v in
-                    vect.items()}
+        def shift_k(vt, k0, *ki):
+            return {k - k0: shift_k(v, *ki) if ki else v for k, v in vt.items()}
 
-        if c1[0] < 0 and isinstance(start['col'], int):
+        if up[0] < 0 and isinstance(start['col'], int):
             table = shift_k(table, start.get('row', 0), start['col'])
         elif start.get('row', 0) > 0:
             table = shift_k(table, start['row'])
@@ -289,11 +227,17 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
 
 
 _re_url_fragment_parser = re.compile(
-    r'^\s*(?P<xl_sheet_name>[^#!]+)!'  # xl sheet name
-    r'(?P<cell_up>(([A-Z]+|_)(\d+|_)|:\s*$|))'  # cell up
-    r'(?::(?P<cell_down>(([A-Z]+|_)(\d+|_)|)))?'  # cell down [opt]
-    r'(?P<json_args>\[.*\])?'  # json args [opt]
-    r'(?P<json_kwargs>\{.*\})?'  # json kwargs [opt]
+    r'^\s*(?:(?P<xl_st>[^!]+)!{1})?'            # xl sheet name
+    r'(?P<cl_up>'                               # cell up [opt]
+        r'(?P<up_col>[A-Z]+|_)'                 # up col
+        r'(?P<up_row>\d+|_)'                    # up row
+    r')?'
+    r'(?:(?P<cl_dn>:(?:'                        # cell down [opt]
+        r'(?P<dn_col>[A-Z]+|_)'                 # down col
+        r'(?P<dn_row>\d+|_)'                    # down col
+    r')?))?'
+    r'(?P<js_ar>\[.*\])?'                       # json args [opt]
+    r'(?P<js_kw>\{.*\})?'                       # json kwargs [opt]
     r'\s*$')
 
 
@@ -316,8 +260,8 @@ def url_fragment_parser(url_fragment):
 
     Example::
 
-        >>> url = 'Sheet1!:[1,2]{"1":4,"2":"ciao"}'
-        >>> res = url_fragment_parser(url)
+        >>> url_frg = 'Sheet1!:[1,2]{"1":4,"2":"ciao"}'
+        >>> res = url_fragment_parser(url_frg)
 
         >>> res['xl_sheet_name']
         'Sheet1'
@@ -331,31 +275,39 @@ def url_fragment_parser(url_fragment):
         True
     """
 
-    res = _re_url_fragment_parser.match(url_fragment)
     try:
-        res = res.groupdict(None)
+        r = _re_url_fragment_parser.match(url_fragment).groupdict(None)
 
-        # parse cell_up
-        res['cell_up'] = cell_parser(res['cell_up'])
-
-        # parse cell_down
-        if res['cell_down'] is not None:
-            res['cell_down'] = cell_parser(res['cell_down'])
-
-        # check range
-        check_range(res['cell_up'], res['cell_down'])
+        res = {'xl_sheet_name': r['xl_st']}
 
         # resolve json_args
-        if res['json_args'] is not None:
-            res['json_args'] = loads(res['json_args'])
-        else:
-            res.pop('json_args')
+        res['json_args'] = loads(r['js_ar']) if r['js_ar'] else None
 
         # resolve json_kwargs
-        if res['json_kwargs'] is not None:
-            res['json_kwargs'] = loads(res['json_kwargs'])
-        else:
-            res.pop('json_kwargs')
+        res['json_kwargs'] = loads(r['js_kw']) if r['js_kw'] else None
+
+        # fetch cell_down
+        res['cell_down'] = fetch_cell(r['cl_dn'], r['dn_col'], r['dn_row'])
+
+        # fetch cell_up
+        if r['cl_up'] is None:
+            if r['cl_dn']:
+                res['cell_up'] = Cell(None, None)
+            else:
+                res['cell_up'], res['cell_down'] = (Cell(0, 0), Cell(None, None))
+            return res
+
+        res['cell_up'] = fetch_cell(r['cl_up'], r['up_col'], r['up_row'])
+
+        # check range
+        if res['cell_down'] is not None:
+
+            def check_crossing(up, down):
+                return down is not None and up is not None and down < up
+
+            if check_crossing(res['cell_up'].row, res['cell_down'].row) or \
+                    check_crossing(res['cell_up'].col, res['cell_down'].col):
+                raise ValueError('%s < %s' % (r['cl_dn'], r['cl_up']))
 
         return res
     except:
