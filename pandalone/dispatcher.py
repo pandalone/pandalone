@@ -10,47 +10,80 @@ except ImportError:
     from pickle import dump, load, HIGHEST_PROTOCOL
 
 
-class Dispatcher(object):
+class DispatcherMap(object):
     """
-    Example:
-    >>> dsp = Dispatcher()
+    Base class for dispatcher maps.
 
-    >>> def diff_function(a, b):
-    ...     return b - a
+    A DispatcherMap stores data and function nodes with optional attributes as
+    NetworkX DiGraphs.
 
-    >>> add_function(dsp, function=diff_function, inputs=['/a', '/b'], \
-                         outputs=['/c'])
-    '...dispatcher:diff_function<0>'
-    >>> from math import log
+    :ivar graph: An directed graph that map the workflow of the used functions.
+    :type graph: NetworkX DiGraph
 
-    >>> def log_domain(x):
-    ...     return x > 0
+    :ivar default_values: A dictionary of the data node default values.
+    :type default_values: dict
 
-    >>> add_function(dsp, function=log, inputs=['/c'], outputs=['/d'], \
-                         input_domain=log_domain)
-    'math:log<0>'
-    >>> add_data(dsp, data_id='/a', default_value=0)
-    '/a'
-    >>> add_data(dsp, data_id='/b', default_value=1)
-    '/b'
-    >>> def average_fun(kwargs):
-    ...     x = kwargs.values()
-    ...     return sum(x) / len(x)
+    :ivar start: label used has starting node.
+    :type start: hashable Python object
 
-    >>> def callback_fun(*x):
-    ...     print('(log(1)+1)/2=%.1f'%x)
+    Example::
+    Create an empty graph structure (a "null graph") with no nodes and
+    no edges.
+        >>> dsp = DispatcherMap()
 
-    >>> add_data(dsp, data_id='/d', default_value=1, wait_inputs=True, \
-                     function=average_fun, callback=callback_fun)
-    '/d'
-    >>> outputs, dsp_out = run_output(dsp, {})
-    (log(1)+1)/2=0.5
-    >>> outputs == {'/a': 0, '/b': 1, '/d': 0.5, '/c': 1}
-    True
+    Add data node to the dispatcher map.
+        >>> add_data(dsp, data_id='/a')
+        '/a'
+        >>> add_data(dsp, data_id='/c')
+        '/c'
+
+    Add data node with a default value to the dispatcher map.
+        >>> add_data(dsp, data_id='/b', default_value=1)
+        '/b'
+
+    Create a function node.
+        >>> def diff_function(a, b):
+        ...     return b - a
+
+        >>> add_function(dsp, function=diff_function, inputs=['/a', '/b'], \
+                              outputs=['/c'])
+        '...dispatcher:diff_function<0>'
+
+    Create a function node with domain.
+        >>> from math import log
+
+        >>> def log_domain(x):
+        ...     return x > 0
+
+        >>> add_function(dsp, function=log, inputs=['/c'], outputs=['/d'], \
+                              input_domain=log_domain)
+        'math:log<0>'
+
+    Create a data node with function estimation and callback function.
+        - function estimation:
+            estimate one unique output from multiple estimations.
+        - callback function:
+            is invoked after computing the output.
+        >>> def average_fun(kwargs):
+        ...     x = kwargs.values()
+        ...     return sum(x) / len(x)
+
+        >>> def callback_fun(*x):
+        ...     print('(log(1)+1)/2=%.1f'%x)
+
+        >>> add_data(dsp, data_id='/d', default_value=1, wait_inputs=True, \
+                          function=average_fun, callback=callback_fun)
+        '/d'
+
+    Run the dispatcher output assuming that data node '/a' has value 1.
+        >>> outputs, dsp_out = run_output(dsp, {'/a': 0})
+        (log(1)+1)/2=0.5
+        >>> outputs == {'/a': 0, '/b': 1, '/d': 0.5, '/c': 1}
+        True
     """
 
     def __init__(self, *args, **kwargs):
-        self.graph = nx.DiGraph(*args, **kwargs)
+        self.graph = nx.DiGraph()
         self.counter = Counter()
         self.start = 'start'
         self.default_values = {}
@@ -59,32 +92,33 @@ class Dispatcher(object):
 def add_data(dsp, data_id=None, default_value=None, wait_inputs=False,
              function=None, callback=None, wait_exceptions=None, **kwargs):
     """
-    Example:
-    >>> dsp = Dispatcher()
+    Example::
 
-    # data to be calculated, i.e., internal data
-    >>> add_data(dsp, data_id='/a')
-    '/a'
+        >>> dsp = DispatcherMap()
 
-    # data with a initial value, i.e., initial data
-    >>> add_data(dsp, data_id='/b', default_value='value of the data')
-    '/b'
+        # data to be calculated, i.e., internal data
+        >>> add_data(dsp, data_id='/a')
+        '/a'
 
-    >>> def average_fun(*x):
-    ...     return sum(x) / len(x)
+        # data with a initial value, i.e., initial data
+        >>> add_data(dsp, data_id='/b', default_value='value of the data')
+        '/b'
 
-    # internal data that is calculated as the average of all estimations
-    >>> add_data(dsp, data_id='/c', wait_inputs=True, function=average_fun)
-    '/c'
+        >>> def average_fun(*x):
+        ...     return sum(x) / len(x)
 
-    # initial data that is calculated as the average of all estimations
-    >>> add_data(dsp, data_id='/d', default_value='value of the data', \
-                     wait_inputs=True, function=average_fun)
-    '/d'
+        # internal data that is calculated as the average of all estimations
+        >>> add_data(dsp, data_id='/c', wait_inputs=True, function=average_fun)
+        '/c'
 
-    # create an internal data and return the generated id
-    >>> add_data(dsp, )
-    0
+        # initial data that is calculated as the average of all estimations
+        >>> add_data(dsp, data_id='/d', default_value='value of the data', \
+                          wait_inputs=True, function=average_fun)
+        '/d'
+
+        # create an internal data and return the generated id
+        >>> add_data(dsp, )
+        0
     """
 
     attr_dict = {'type': 'data', 'wait_inputs': wait_inputs}
@@ -119,28 +153,29 @@ def add_function(dsp, function=lambda x: None, outputs=None, inputs=None,
                  input_domain=None, weight=None, edge_weight=None,
                  **kwargs):
     """
-    Example:
-    >>> dsp = Dispatcher()
+    Example::
 
-    >>> def my_function(a, b):
-    ...     c = a + b
-    ...     d = a - b
-    ...     return c, d
+        >>> dsp = DispatcherMap()
 
-    >>> add_function(dsp, function=my_function, inputs=['/a', '/b'], \
-                         outputs=['/c', '/d'])
-    '...dispatcher:my_function<0>'
+        >>> def my_function(a, b):
+        ...     c = a + b
+        ...     d = a - b
+        ...     return c, d
 
-    >>> from math import log
-    >>> def my_log(a, b):
-    ...     log(b - a)
+        >>> add_function(dsp, function=my_function, inputs=['/a', '/b'], \
+                              outputs=['/c', '/d'])
+        '...dispatcher:my_function<0>'
 
-    >>> def my_domain(a, b):
-    ...     return a < b
+        >>> from math import log
+        >>> def my_log(a, b):
+        ...     log(b - a)
 
-    >>> add_function(dsp, function=my_log, inputs=['/a', '/b'], \
-                         outputs=['/e'], input_domain=my_domain)
-    '...dispatcher:my_log<0>'
+        >>> def my_domain(a, b):
+        ...     return a < b
+
+        >>> add_function(dsp, function=my_log, inputs=['/a', '/b'], \
+                              outputs=['/e'], input_domain=my_domain)
+        '...dispatcher:my_log<0>'
     """
 
     if outputs is None:
@@ -197,22 +232,23 @@ def add_function(dsp, function=lambda x: None, outputs=None, inputs=None,
 
 def set_default_value(dsp, data_id=None, value=None, **kwargs):
     """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> add_data(dsp, data_id='/a')
-    '/a'
-    >>> set_default_value(dsp, data_id='/a', value='value of the data')
+    Example::
 
-    >>> set_default_value(dsp, data_id='/b', value='value of the data')
+        >>> dsp = DispatcherMap()
+        >>> add_data(dsp, data_id='/a')
+        '/a'
+        >>> set_default_value(dsp, data_id='/a', value='value of the data')
 
-    >>> add_function(dsp, function=sum, inputs=['/a', '/b'], \
-                         outputs=['/c', '/d'])
-    'builtins:sum<0>'
-    >>> set_default_value(dsp, data_id='builtins:sum<0>', \
-                                value='value of the data')
-    Traceback (most recent call last):
-        ...
-    ValueError: ('Input error:', 'builtins:sum<0> is not a data node')
+        >>> set_default_value(dsp, data_id='/b', value='value of the data')
+
+        >>> add_function(dsp, function=sum, inputs=['/a', '/b'], \
+                              outputs=['/c', '/d'])
+        'builtins:sum<0>'
+        >>> set_default_value(dsp, data_id='builtins:sum<0>', \
+                                    value='value of the data')
+        Traceback (most recent call last):
+            ...
+        ValueError: ('Input error:', 'builtins:sum<0> is not a data node')
     """
 
     if not data_id in dsp.graph.node:
@@ -253,24 +289,21 @@ class Counter(object):
         return self.value
 
 
-# modified from networkx library
-def scc_fun(graph, nbunch = None):
-    """Return nodes in strongly connected components of the reachable graph.
+# modified from NetworkX library
+def scc_fun(graph, nbunch=None):
+    """
+    Return nodes in strongly connected components (SCC) of the reachable graph.
 
     Recursive version of algorithm.
 
-    Parameters
-    ----------
-    G : NetworkX Graph
-       An directed graph.
+    :param graph: An directed graph.
+    :type graph: NetworkX DiGraph
 
-    nbunch : list, iterable
-            A container of nodes which will be iterated through once.
+    :param nbunch: A container of nodes which will be iterated through once.
+    :type nbunch: list, iterable
 
-    Returns
-    -------
-    comp : list of lists
-       A list of nodes for each component of G.
+    :return comp: A list of nodes for each SCC of the reachable graph.
+    :rtype: list
 
     Notes
     -----
@@ -319,60 +352,57 @@ def scc_fun(graph, nbunch = None):
                         scc_queue.append(v)
 
 
-# modified from networkx library
+# modified from NetworkX library
 def dijkstra(graph, source, targets=None, cutoff=None):
-    """Compute shortest paths and lengths in a weighted graph G.
+    """
+    Compute shortest paths and lengths in a weighted graph.
 
     Uses Dijkstra's algorithm for shortest paths.
 
-    Parameters
-    ----------
-    G : NetworkX graph
+    :param graph: An directed graph.
+    :type graph: NetworkX DiGraph
 
-    source : node label
-       Starting node for path
+    :param source: Starting node for path.
+    :type source: node label
 
-    targets : node labels, optional
-       Ending nodes for paths
+    :param targets: Ending nodes for paths.
+    :type targets: iterable node labels, optional
 
-    cutoff : integer or float, optional
-       Depth to stop the search. Only paths of length <= cutoff are returned.
+    :param cutoff:
+        Depth to stop the search. Only paths of length <= cutoff are returned.
+    :type cutoff: integer or float, optional
 
-    Returns
-    -------
-    distance,path : dictionaries
-       Returns a tuple of two dictionaries keyed by node.
-       The first dictionary stores distance from the source.
-       The second stores the path from the source to that node.
+    :return  distance,path:
+        Returns a tuple of two dictionaries keyed by node.
+        The first dictionary stores distance from the source.
+        The second stores the path from the source to that node.
+    :rtype: dictionaries
 
+    Example::
 
-    Examples
-    --------
-    >>> G = nx.path_graph(5)
-    >>> length, path = dijkstra(G, 0)
-    >>> print(length[4])
-    4
-    >>> print(length)
-    {0: 0, 1: 1, 2: 2, 3: 3, 4: 4}
-    >>> path[4]
-    [0, 1, 2, 3, 4]
+        >>> G = nx.path_graph(5)
+        >>> length, path = dijkstra(G, 0)
+        >>> print(length[4])
+        4
+        >>> print(length)
+        {0: 0, 1: 1, 2: 2, 3: 3, 4: 4}
+        >>> path[4]
+        [0, 1, 2, 3, 4]
 
     Notes
     ---------
     Edge weight attributes must be numerical.
     Distances are calculated as sums of weighted edges traversed.
 
-    Based on the Python cookbook recipe (119466) at
-    http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/119466
+    Based on the NetworkX library at
+    http://networkx.lanl.gov/reference/generated/networkx.algorithms.\
+    shortest_paths.weighted.single_source_dijkstra.html#networkx.algorithms.\
+    shortest_paths.weighted.single_source_dijkstra
 
     This algorithm is not guaranteed to work if edge weights
     are negative or are floating point numbers
     (overflows and roundoff errors can cause problems).
 
-    See Also
-    --------
-    single_source_dijkstra_path()
-    single_source_dijkstra_path_length()
     """
 
     if targets is not None:
@@ -501,10 +531,10 @@ def set_node_output(graph, graph_output, data_output, node_id,
 
     Parameters
     ----------
-    graph : NetworkX Graph
+    graph : NetworkX DiGraph
         An Dispatcher graph.
 
-    graph_output : NetworkX Graph
+    graph_output : NetworkX DiGraph
         An directed graph that has nodes' inputs and outputs in edges
         attributes.
 
@@ -546,7 +576,8 @@ def set_starting_node(graph, graph_output, start_id, data_sources):
         graph_output.add_edge(start_id, k, attr_dict={'value': v})
 
 
-def populate_output(dsp, data_sources, targets, cutoff, empty_fun, weight=False):
+def populate_output(dsp, data_sources, targets, cutoff, empty_fun,
+                    weight=False):
     graph_output = nx.DiGraph()
 
     data_output = {}
@@ -638,30 +669,31 @@ def populate_output(dsp, data_sources, targets, cutoff, empty_fun, weight=False)
 
 def get_dsp_without_cycles(dispatcher, data_sources):
     """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> add_data(dsp, data_id='/a')
-    '/a'
-    >>> add_data(dsp, data_id='/b')
-    '/b'
-    >>> add_function(dsp, function=sum, inputs=['/a', '/b'], outputs=['/c'])
-    'builtins:sum<0>'
-    >>> add_function(dsp, function=sum, inputs=['/c', '/b'], outputs=['/a'])
-    'builtins:sum<1>'
+    Example::
 
-    >>> dsp_woc = get_dsp_without_cycles(dsp, {'/a': None, '/b': None})
-    >>> edges = dsp_woc.graph.edges()
-    >>> edges.sort()
-    >>> edges
-    [('/a', 'builtins:sum<0>'), ('/b', 'builtins:sum<0>'), ('builtins:sum<0>',\
- '/c'), ('start', '/a'), ('start', '/b')]
+        >>> dsp = DispatcherMap()
+        >>> add_data(dsp, data_id='/a')
+        '/a'
+        >>> add_data(dsp, data_id='/b')
+        '/b'
+        >>> add_function(dsp, function=sum, inputs=['/a', '/b'], outputs=['/c'])
+        'builtins:sum<0>'
+        >>> add_function(dsp, function=sum, inputs=['/c', '/b'], outputs=['/a'])
+        'builtins:sum<1>'
 
-    >>> dsp_woc = get_dsp_without_cycles(dsp, {'/c': None, '/b': None})
-    >>> edges = dsp_woc.graph.edges()
-    >>> edges.sort()
-    >>> edges
-    [('/b', 'builtins:sum<1>'), ('/c', 'builtins:sum<1>'), ('builtins:sum<1>',\
- '/a'), ('start', '/b'), ('start', '/c')]
+        >>> dsp_woc = get_dsp_without_cycles(dsp, {'/a': None, '/b': None})
+        >>> edges = dsp_woc.graph.edges()
+        >>> edges.sort()
+        >>> edges
+        [('/a', 'builtins:sum<0>'), ('/b', 'builtins:sum<0>'),
+         ('builtins:sum<0>', '/c'), ('start', '/a'), ('start', '/b')]
+
+        >>> dsp_woc = get_dsp_without_cycles(dsp, {'/c': None, '/b': None})
+        >>> edges = dsp_woc.graph.edges()
+        >>> edges.sort()
+        >>> edges
+        [('/b', 'builtins:sum<1>'), ('/c', 'builtins:sum<1>'),
+         ('builtins:sum<1>',  '/a'), ('start', '/b'), ('start', '/c')]
     """
     from heapq import heappush
 
@@ -761,19 +793,21 @@ def sub_dispatcher(dispatcher, nodes, edges=None):
 def data_function_from_dsp(dispatcher, dsp_inputs, dsp_outputs, fun_name=None,
                            rm_cycles=False):
     """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> add_function(dsp, function=sum, inputs=['/a', '/b'], outputs=['/c'])
-    'builtins:sum<0>'
-    >>> add_function(dsp, function=sum, inputs=['/c', '/b'], outputs=['/a'])
-    'builtins:sum<1>'
-    >>> res = data_function_from_dsp(dsp, ['/c', '/b'], ['/a'], fun_name='myF')
-    >>> res['inputs'] == ['/c', '/b']
-    True
-    >>> res['outputs'] == ['/a']
-    True
-    >>> res['function'].__name__
-    'myF'
+    Example::
+
+        >>> dsp = DispatcherMap()
+        >>> add_function(dsp, function=sum, inputs=['/a', '/b'], outputs=['/c'])
+        'builtins:sum<0>'
+        >>> add_function(dsp, function=sum, inputs=['/c', '/b'], outputs=['/a'])
+        'builtins:sum<1>'
+        >>> res = data_function_from_dsp(dsp, ['/c', '/b'], ['/a'], \
+                                         fun_name='myF')
+        >>> res['inputs'] == ['/c', '/b']
+        True
+        >>> res['outputs'] == ['/a']
+        True
+        >>> res['function'].__name__
+        'myF'
     """
 
     dsp = resolve_route(dispatcher, dsp_inputs, dsp_outputs, rm_cycles)
@@ -790,32 +824,33 @@ def data_function_from_dsp(dispatcher, dsp_inputs, dsp_outputs, fun_name=None,
 def resolve_route(dsp, input_values=None, output_targets=None,
                   rm_cycles=False):
     """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> add_function(dsp, function=sum, inputs=['/a', '/b'], outputs=['/c'])
-    'builtins:sum<0>'
-    >>> add_function(dsp, function=sum, inputs=['/b', '/d'], outputs=['/e'])
-    'builtins:sum<1>'
-    >>> add_function(dsp, function=sum, inputs=['/d', '/e'], \
-                         outputs=['/c','/f'])
-    'builtins:sum<2>'
-    >>> add_function(dsp, function=sum, inputs=['/d', '/f'], outputs=['/g'])
-    'builtins:sum<3>'
-    >>> dsp_route = resolve_route(dsp, input_values=['/a', '/b', '/d'], \
-                                      output_targets=['/c', '/e', '/f'])
-    >>> nodes = dsp_route.graph.nodes()
-    >>> nodes.sort()
-    >>> nodes
-    ['/a', '/b', '/c', '/d', '/e', '/f', 'builtins:sum<0>', \
-'builtins:sum<1>', 'builtins:sum<2>', 'start']
-    >>> edges = dsp_route.graph.edges()
-    >>> edges.sort()
-    >>> edges
-    [('/a', 'builtins:sum<0>'), ('/b', 'builtins:sum<0>'), \
-('/b', 'builtins:sum<1>'), ('/d', 'builtins:sum<1>'), \
-('/d', 'builtins:sum<2>'), ('/e', 'builtins:sum<2>'), \
-('builtins:sum<0>', '/c'), ('builtins:sum<1>', '/e'), \
-('builtins:sum<2>', '/f'), ('start', '/a'), ('start', '/b'), ('start', '/d')]
+    Example::
+
+        >>> dsp = DispatcherMap()
+        >>> add_function(dsp, function=sum, inputs=['/a', '/b'], outputs=['/c'])
+        'builtins:sum<0>'
+        >>> add_function(dsp, function=sum, inputs=['/b', '/d'], outputs=['/e'])
+        'builtins:sum<1>'
+        >>> add_function(dsp, function=sum, inputs=['/d', '/e'], \
+                             outputs=['/c','/f'])
+        'builtins:sum<2>'
+        >>> add_function(dsp, function=sum, inputs=['/d', '/f'], outputs=['/g'])
+        'builtins:sum<3>'
+        >>> dsp_route = resolve_route(dsp, input_values=['/a', '/b', '/d'], \
+                                          output_targets=['/c', '/e', '/f'])
+        >>> nodes = dsp_route.graph.nodes()
+        >>> nodes.sort()
+        >>> nodes
+        ['/a', '/b', '/c', '/d', '/e', '/f', 'builtins:sum<0>', \
+    'builtins:sum<1>', 'builtins:sum<2>', 'start']
+        >>> edges = dsp_route.graph.edges()
+        >>> edges.sort()
+        >>> edges
+        [('/a', 'builtins:sum<0>'), ('/b', 'builtins:sum<0>'), \
+    ('/b', 'builtins:sum<1>'), ('/d', 'builtins:sum<1>'), \
+    ('/d', 'builtins:sum<2>'), ('/e', 'builtins:sum<2>'), \
+    ('builtins:sum<0>', '/c'), ('builtins:sum<1>', '/e'), \
+    ('builtins:sum<2>', '/f'), ('start', '/a'), ('start', '/b'), ('start', '/d')]
     """
 
     data_values = dict.fromkeys(dsp.default_values, None)
@@ -842,50 +877,51 @@ def resolve_route(dsp, input_values=None, output_targets=None,
 def run_output(dsp, input_values=None, output_targets=None, cutoff=None,
                rm_cycles=False):
     """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> from math import log
-    >>> add_data(dsp, data_id='/a', default_value=0)
-    '/a'
-    >>> add_data(dsp, data_id='/b', default_value=1)
-    '/b'
+    Example::
 
-    >>> def my_log(a, b):
-    ...     return log(b - a)
+        >>> dsp = DispatcherMap()
+        >>> from math import log
+        >>> add_data(dsp, data_id='/a', default_value=0)
+        '/a'
+        >>> add_data(dsp, data_id='/b', default_value=1)
+        '/b'
 
-    >>> def my_domain(a, b):
-    ...     return a < b
+        >>> def my_log(a, b):
+        ...     return log(b - a)
 
-    >>> add_function(dsp, function=my_log, inputs=['/a', '/b'], \
-                         outputs=['/c'], input_domain=my_domain)
-    '...dispatcher:my_log<0>'
-    >>> outputs, dsp_output = run_output(dsp, input_values={}, \
-                                             output_targets=['/c'])
-    >>> outputs
-    {'/c': 0.0}
-    >>> nodes = dsp_output.graph.nodes()
-    >>> nodes.sort()
-    >>> nodes
-    ['/a', '/b', '/c', '...dispatcher:my_log<0>', 'start']
-    >>> edges = dsp_output.graph.edges()
-    >>> edges.sort()
-    >>> edges
-    [('/a', '...dispatcher:my_log<0>'), ('/b', '...dispatcher:my_log<0>'), \
-('...dispatcher:my_log<0>', '/c'), ('start', '/a'), ('start', '/b')]
+        >>> def my_domain(a, b):
+        ...     return a < b
 
-    >>> outputs, dsp_output = run_output(dsp, input_values={'/b': 0}, \
-                                             output_targets=['/c'])
-    >>> outputs
-    {}
-    >>> nodes = dsp_output.graph.nodes()
-    >>> nodes.sort()
-    >>> nodes
-    ['/a', '/b', '...dispatcher:my_log<0>', 'start']
-    >>> edges = dsp_output.graph.edges()
-    >>> edges.sort()
-    >>> edges
-    [('/a', '...dispatcher:my_log<0>'), ('/b', '...dispatcher:my_log<0>'), \
-('start', '/a'), ('start', '/b')]
+        >>> add_function(dsp, function=my_log, inputs=['/a', '/b'], \
+                             outputs=['/c'], input_domain=my_domain)
+        '...dispatcher:my_log<0>'
+        >>> outputs, dsp_output = run_output(dsp, input_values={}, \
+                                                 output_targets=['/c'])
+        >>> outputs
+        {'/c': 0.0}
+        >>> nodes = dsp_output.graph.nodes()
+        >>> nodes.sort()
+        >>> nodes
+        ['/a', '/b', '/c', '...dispatcher:my_log<0>', 'start']
+        >>> edges = dsp_output.graph.edges()
+        >>> edges.sort()
+        >>> edges
+        [('/a', '...dispatcher:my_log<0>'), ('/b', '...dispatcher:my_log<0>'), \
+    ('...dispatcher:my_log<0>', '/c'), ('start', '/a'), ('start', '/b')]
+
+        >>> outputs, dsp_output = run_output(dsp, input_values={'/b': 0}, \
+                                                 output_targets=['/c'])
+        >>> outputs
+        {}
+        >>> nodes = dsp_output.graph.nodes()
+        >>> nodes.sort()
+        >>> nodes
+        ['/a', '/b', '...dispatcher:my_log<0>', 'start']
+        >>> edges = dsp_output.graph.edges()
+        >>> edges.sort()
+        >>> edges
+        [('/a', ...dispatcher:my_log<0>'), ('/b', '...dispatcher:my_log<0>'),
+         ('start', '/a'), ('start', '/b')]
     """
 
     data_values = dsp.default_values.copy()
@@ -919,23 +955,23 @@ def run_output(dsp, input_values=None, output_targets=None, cutoff=None,
 
 def load_dsp_from_lists(dsp, data_list=None, fun_list=None):
     """
-    Example:
+    Example::
 
-    >>> dsp = Dispatcher()
-    >>> data_list = [
-    ...     {'data_id': '/a'},
-    ...     {'data_id': '/b'},
-    ...     {'data_id': '/c'},
-    ... ]
+        >>> dsp = DispatcherMap()
+        >>> data_list = [
+        ...     {'data_id': '/a'},
+        ...     {'data_id': '/b'},
+        ...     {'data_id': '/c'},
+        ... ]
 
-    >>> def fun(a, b):
-    ...     return a + b
+        >>> def fun(a, b):
+        ...     return a + b
 
-    >>> fun_list = [
-    ...     {'function': fun, 'inputs': ['/a', '/b'], 'outputs': ['/c']},
-    ...     {'function': fun, 'inputs': ['/c', '/d'], 'outputs': ['/a']},
-    ... ]
-    >>> dsp = load_dsp_from_lists(dsp, data_list, fun_list)
+        >>> fun_list = [
+        ...     {'function': fun, 'inputs': ['/a', '/b'], 'outputs': ['/c']},
+        ...     {'function': fun, 'inputs': ['/c', '/d'], 'outputs': ['/a']},
+        ... ]
+        >>> dsp = load_dsp_from_lists(dsp, data_list, fun_list)
     """
     if data_list:
         for v in data_list:
@@ -950,9 +986,12 @@ def load_dsp_from_lists(dsp, data_list=None, fun_list=None):
 @nx.utils.open_file(1, mode='wb')
 def save_dispatcher(dsp, path):
     """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> save_dispatcher(dsp, "test.dispatcher")
+    Example::
+
+        >>> from tempfile import gettempdir
+        >>> dsp = DispatcherMap()
+        >>> tmp = '/'.join([gettempdir(),'test.dispatcher'])
+        >>> save_dispatcher(dsp, tmp)
     """
     # noinspection PyArgumentList
     dump(dsp, path, HIGHEST_PROTOCOL)
@@ -961,14 +1000,17 @@ def save_dispatcher(dsp, path):
 @nx.utils.open_file(0, mode='rb')
 def load_dispatcher(path):
     """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> add_data(dsp)
-    0
-    >>> save_dispatcher(dsp, "test.dispatcher")
-    >>> dsp_loaded = load_dispatcher("test.dispatcher")
-    >>> dsp.graph.node[0]['type']
-    'data'
+    Example::
+
+        >>> from tempfile import gettempdir
+        >>> dsp = DispatcherMap()
+        >>> add_data(dsp)
+        0
+        >>> tmp = '/'.join([gettempdir(),'test.dispatcher'])
+        >>> save_dispatcher(dsp, tmp)
+        >>> dsp_loaded = load_dispatcher(tmp)
+        >>> dsp.graph.node[0]['type']
+        'data'
     """
     # noinspection PyArgumentList
     return load(path)
@@ -977,9 +1019,12 @@ def load_dispatcher(path):
 @nx.utils.open_file(1, mode='wb')
 def save_default_values(dsp, path):
     """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> save_dispatcher(dsp, "test.dispatcher")
+    Example::
+
+        >>> from tempfile import gettempdir
+        >>> dsp = DispatcherMap()
+        >>> tmp = '/'.join([gettempdir(),'test.dispatcher_default'])
+        >>> save_default_values(dsp, tmp)
     """
     # noinspection PyArgumentList
     dump(dsp.default_values, path, HIGHEST_PROTOCOL)
@@ -988,15 +1033,18 @@ def save_default_values(dsp, path):
 @nx.utils.open_file(1, mode='rb')
 def load_default_values(dsp, path):
     """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> save_default_values(dsp, "test.dispatcher_data")
-    >>> add_data(dsp, default_value=5)
-    0
-    >>> dsp_loaded = Dispatcher()
-    >>> load_default_values(dsp_loaded, "test.dispatcher_data")
-    >>> dsp.default_values[0]
-    5
+    Example::
+
+        >>> from tempfile import gettempdir
+        >>> tmp = '/'.join([gettempdir(),'test.dispatcher_default'])
+        >>> dsp = DispatcherMap()
+        >>> add_data(dsp, default_value=5)
+        0
+        >>> save_default_values(dsp, tmp)
+        >>> dsp_loaded = DispatcherMap()
+        >>> load_default_values(dsp_loaded, tmp)
+        >>> dsp_loaded.default_values == dsp.default_values
+        True
     """
     # noinspection PyArgumentList
     dsp.default_values = load(path)
@@ -1004,32 +1052,39 @@ def load_default_values(dsp, path):
 
 def save_graph(dsp, path):
     """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> save_graph(dsp, "test.dispatcher_graph")
+    Example::
+
+        >>> from tempfile import gettempdir
+        >>> tmp = '/'.join([gettempdir(),'test.dispatcher_graph'])
+        >>> dsp = DispatcherMap()
+        >>> save_graph(dsp, tmp)
     """
     nx.write_gpickle(dsp.graph, path)
 
 
 def load_graph(dsp, path):
     """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> save_graph(dsp, "test.dispatcher_graph")
-    >>> add_data(dsp)
-    0
-    >>> dsp_loaded = Dispatcher()
-    >>> load_graph(dsp_loaded, "test.dispatcher_graph")
-    >>> dsp.graph.node[0]['type']
-    'data'
+    Example::
+
+        >>> from tempfile import gettempdir
+        >>> tmp = '/'.join([gettempdir(),'test.dispatcher_graph'])
+        >>> dsp = DispatcherMap()
+        >>> fun_node = add_function(dsp, function=sum, inputs=['/a'])
+        >>> fun_node
+        '...builtins:sum<0>'
+        >>> save_graph(dsp, tmp)
+        >>> dsp_loaded = DispatcherMap()
+        >>> load_graph(dsp_loaded, tmp)
+        >>> dsp_loaded.graph.degree(fun_node) == dsp.graph.degree(fun_node)
+        True
     """
     dsp.graph = nx.read_gpickle(path)
 
 
 def plot_dsp(dsp, *args, **kwargs):
     """
-    Example:
-    >>> dsp = Dispatcher()
+    Example::
+    >>> dsp = DispatcherMap()
     >>> add_function(dsp, function=sum, inputs=['/a', '/b'], \
                          outputs=['/c', '/d'])
     'builtins:sum<0>'

@@ -23,7 +23,8 @@ import networkx as nx
 
 
 DEFAULT_LOG_LEVEL = logging.INFO
-
+__name__ = 'dispatcher'
+__path__ = ''
 
 def _init_logging(loglevel):
     logging.basicConfig(level=loglevel)
@@ -34,17 +35,6 @@ def _init_logging(loglevel):
 
     return log
 log = _init_logging(DEFAULT_LOG_LEVEL)
-
-
-def from_my_path(*parts):
-    return os.path.join(os.path.dirname(__file__), *parts)
-
-
-def _make_sample_workbook(path, matrix, sheet_name, startrow=0, startcol=0):
-    df = pd.DataFrame(matrix)
-    writer = pd.ExcelWriter(path)
-    df.to_excel(writer, sheet_name, startrow=startrow, startcol=startcol)
-    writer.save()
 
 
 class TestDoctest(unittest.TestCase):
@@ -59,7 +49,7 @@ class TestDoctest(unittest.TestCase):
 class TestDispatcher(unittest.TestCase):
 
     def test_add_data(self):
-        d = dsp.Dispatcher()
+        d = dsp.DispatcherMap()
 
         self.assertEquals(dsp.add_data(d, data_id='/a'), '/a')
         self.assertEquals(dsp.add_data(d, data_id='/a'), '/a')
