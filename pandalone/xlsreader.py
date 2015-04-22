@@ -17,12 +17,13 @@ def col2num(upper_col_str):
     :rtype: int
 
     Example::
-    >>> col2num('D')
-    3
-    >>> col2num('AAA')
-    702
-    >>> col2num('')
-    -1
+    
+        >>> col2num('D')
+        3
+        >>> col2num('AAA')
+        702
+        >>> col2num('')
+        -1
     """
     if not isinstance(upper_col_str, str):
         raise TypeError("expected a 'str' object")
@@ -101,6 +102,7 @@ def check_range(cell_up, cell_down):
     :rtype: nothing
 
     Example::
+    
         >>> check_range(Cell(1, 2), Cell(None, None))
 
         >>> check_range(Cell(None, None), None)
@@ -126,21 +128,16 @@ def check_range(cell_up, cell_down):
 
 def get_no_empty_cells(sheet, cell_up, cell_down=None):
     """
-    Parses an excel sheet.
+    Discovers a non-empty tabular-shaped region in the xl-sheet from a range.
 
-    :param sheet:
-        a xlrd Sheet object
-
-    :param cell_up:
-        a Cell object
-
-    :param cell_down:
-        a Cell object
-
+    :param sheet:     a xlrd Sheet object
+    :param cell_up:   a Cell object
+    :param cell_down: a Cell object
     :return: matrix or vector
     :rtype: dict
 
     Example::
+    
         >>> from tempfile import gettempdir
         >>> from pandas import DataFrame, ExcelWriter
         >>> df = DataFrame([[None, None, None], [5, 6, 7]])
@@ -148,6 +145,9 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
         >>> writer = ExcelWriter(tmp)
         >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
         >>> writer.save()
+    
+        >>> import os, pandas as pd, tempfile
+        >>> os.chdir(tempfile.mkdtemp())
 
         >>> url = '%s#%s!A1:C2[1,2]{"1":4,"2":"ciao"}'%(tmp, 'Sheet1')
         >>> res = url_parser(url)
@@ -324,6 +324,7 @@ def url_parser(url, xl_workbook=None):
     :rtype: dict
 
     Example::
+    
         >>> from tempfile import gettempdir
         >>> from pandas import DataFrame, ExcelWriter
         >>> df = DataFrame([[None, None, None], [5, 6, 7]])

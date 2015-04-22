@@ -13,9 +13,9 @@ import os
 import tempfile
 import doctest
 import unittest
-
 import pandalone.xlsreader as xr
 import pandas as pd
+from tests.test_utils import chdir
 import xlrd as xd
 
 DEFAULT_LOG_LEVEL = logging.INFO
@@ -34,10 +34,6 @@ def _init_logging(loglevel):
 log = _init_logging(DEFAULT_LOG_LEVEL)
 
 
-def from_my_path(*parts):
-    return os.path.join(os.path.dirname(__file__), *parts)
-
-
 def _make_sample_workbook(path, matrix, sheet_name, startrow=0, startcol=0):
     df = pd.DataFrame(matrix)
     writer = pd.ExcelWriter(path)
@@ -46,6 +42,7 @@ def _make_sample_workbook(path, matrix, sheet_name, startrow=0, startcol=0):
 
 
 class TestDoctest(unittest.TestCase):
+
     def runTest(self):
         failure_count, test_count = doctest.testmod(
             xr, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
@@ -54,9 +51,10 @@ class TestDoctest(unittest.TestCase):
 
 
 class TestGetNoEmptyCells(unittest.TestCase):
+
     def test_get_no_empty_cells(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            file_path = '/'.join([tmpdir, 'sample.xlsx'])
+        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+            file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
                                   [[None, None, None], [5, 6, 7]],
                                   'Sheet1',
@@ -168,9 +166,9 @@ class TestGetNoEmptyCells(unittest.TestCase):
             self.assertEqual(xr.get_no_empty_cells(*args), res)
 
     def test_url_parser(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            file_path = '/'.join([tmpdir, 'sample.xlsx'])
-
+        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+            file_path = 'sample.xlsx'
+            
             _make_sample_workbook(file_path,
                                   [[None, None, None], [5, 6, 7]],
                                   'Sheet1',
@@ -206,18 +204,6 @@ class TestGetNoEmptyCells(unittest.TestCase):
             url = '%s#%s!A' % (file_path, 'Sheet1')
             res = xr.url_parser(url)
             self.assertEquals(res['cell_up'], Cell(col=0, row=None))
-
-            url = '%s#%s!:' % (file_path, 'Sheet1')
-            res = xr.url_parser(url)
-            self.assertEquals(res['cell_up'], Cell(col=None, row=None))
-            self.assertEquals(res['cell_down'], Cell(col=None, row=None))
-
-            url = '%s#%s!:' % (file_path, 'Sheet1')
-            res = xr.url_parser(url, xl_workbook=wb)
-            self.assertEquals(res['xl_workbook'], wb)
-
-            url = '%s#%s#!A1' % (file_path, 'Sheet1')
-            self.assertRaises(ValueError, xr.url_parser, url)
 
             url = '%s#%s!A1::' % (file_path, 'Sheet1')
             self.assertRaises(ValueError, xr.url_parser, url)
