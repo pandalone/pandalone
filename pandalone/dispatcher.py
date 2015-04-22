@@ -20,7 +20,7 @@ class Dispatcher(object):
 
     >>> add_function(dsp, function=diff_function, inputs=['/a', '/b'], \
                          outputs=['/c'])
-    'dispatcher:diff_function<0>'
+    '...dispatcher:diff_function<0>'
     >>> from math import log
 
     >>> def log_domain(x):
@@ -55,6 +55,176 @@ class Dispatcher(object):
         self.start = 'start'
         self.default_values = {}
 
+
+def add_data(dsp, data_id=None, default_value=None, wait_inputs=False,
+             function=None, callback=None, wait_exceptions=None, **kwargs):
+    """
+    Example:
+    >>> dsp = Dispatcher()
+
+    # data to be calculated, i.e., internal data
+    >>> add_data(dsp, data_id='/a')
+    '/a'
+
+    # data with a initial value, i.e., initial data
+    >>> add_data(dsp, data_id='/b', default_value='value of the data')
+    '/b'
+
+    >>> def average_fun(*x):
+    ...     return sum(x) / len(x)
+
+    # internal data that is calculated as the average of all estimations
+    >>> add_data(dsp, data_id='/c', wait_inputs=True, function=average_fun)
+    '/c'
+
+    # initial data that is calculated as the average of all estimations
+    >>> add_data(dsp, data_id='/d', default_value='value of the data', \
+                     wait_inputs=True, function=average_fun)
+    '/d'
+
+    # create an internal data and return the generated id
+    >>> add_data(dsp, )
+    0
+    """
+
+    attr_dict = {'type': 'data', 'wait_inputs': wait_inputs}
+
+    if function is not None:
+        attr_dict['function'] = function
+
+    if callback is not None:
+        attr_dict['callback'] = callback
+
+    if wait_exceptions is not None:
+        attr_dict['wait_exceptions'] = wait_exceptions
+
+    attr_dict.update(kwargs)
+
+    if data_id is None:
+        data_id = dsp.counter()
+        while dsp.graph.has_node(data_id):
+            data_id = dsp.counter()
+
+    if default_value is not None:
+        dsp.default_values[data_id] = default_value
+    elif data_id in dsp.default_values:
+        dsp.default_values.pop(data_id)
+
+    dsp.graph.add_node(data_id, attr_dict=attr_dict)
+
+    return data_id
+
+
+def add_function(dsp, function=lambda x: None, outputs=None, inputs=None,
+                 input_domain=None, weight=None, edge_weight=None,
+                 **kwargs):
+    """
+    Example:
+    >>> dsp = Dispatcher()
+
+    >>> def my_function(a, b):
+    ...     c = a + b
+    ...     d = a - b
+    ...     return c, d
+
+    >>> add_function(dsp, function=my_function, inputs=['/a', '/b'], \
+                         outputs=['/c', '/d'])
+    '...dispatcher:my_function<0>'
+
+    >>> from math import log
+    >>> def my_log(a, b):
+    ...     log(b - a)
+
+    >>> def my_domain(a, b):
+    ...     return a < b
+
+    >>> add_function(dsp, function=my_log, inputs=['/a', '/b'], \
+                         outputs=['/e'], input_domain=my_domain)
+    '...dispatcher:my_log<0>'
+    """
+
+    if outputs is None:
+        outputs = [add_data(dsp)]
+
+    attr_dict = {'type': 'function',
+                 'inputs': inputs,
+                 'outputs': outputs,
+                 'function': function,
+                 'wait_inputs': True}
+
+    if input_domain:
+        attr_dict['input_domain'] = input_domain
+
+    n = Counter()
+
+    # noinspection PyUnresolvedReferences
+    function_name = '%s:%s' % (function.__module__, function.__name__)
+
+    function_id = '%s<%d>' % (function_name, n())
+
+    while dsp.graph.has_node(function_id):
+        function_id = '%s<%d>' % (function_name, n())
+
+    if weight is not None:
+        attr_dict['weight'] = weight
+
+    attr_dict.update(kwargs)
+
+    dsp.graph.add_node(function_id, attr_dict=attr_dict)
+
+    if edge_weight is not None:
+        def add_edge(*e):
+            if e not in edge_weight:
+                dsp.graph.add_edge(*e)
+            else:
+                dsp.graph.add_edge(*e, attr_dict={'weight': edge_weight[e]})
+    else:
+        def add_edge(*e):
+            dsp.graph.add_edge(*e)
+
+    for u in inputs:
+        if not dsp.graph.has_node(u):
+            add_data(dsp, data_id=u)
+        add_edge(u, function_id)
+
+    for v in outputs:
+        if not dsp.graph.has_node(v):
+            add_data(dsp, data_id=v)
+        add_edge(function_id, v)
+
+    return function_id
+
+
+def set_default_value(dsp, data_id=None, value=None, **kwargs):
+    """
+    Example:
+    >>> dsp = Dispatcher()
+    >>> add_data(dsp, data_id='/a')
+    '/a'
+    >>> set_default_value(dsp, data_id='/a', value='value of the data')
+
+    >>> set_default_value(dsp, data_id='/b', value='value of the data')
+
+    >>> add_function(dsp, function=sum, inputs=['/a', '/b'], \
+                         outputs=['/c', '/d'])
+    'builtins:sum<0>'
+    >>> set_default_value(dsp, data_id='builtins:sum<0>', \
+                                value='value of the data')
+    Traceback (most recent call last):
+        ...
+    ValueError: ('Input error:', 'builtins:sum<0> is not a data node')
+    """
+
+    if not data_id in dsp.graph.node:
+        add_data(dsp, data_id=data_id, default_value=value, **kwargs)
+    else:
+        if dsp.graph.node[data_id]['type'] == 'data':
+            dsp.default_values[data_id] = value
+        else:
+            raise ValueError('Input error:',
+                             '%s is not a data node' % data_id)
+
+
 def pairwise(iterable):
     """s -> (s0,s1), (s1,s2), (s2, s3), ..."""
     from itertools import tee
@@ -84,7 +254,7 @@ class Counter(object):
 
 
 # modified from networkx library
-def scc_fun(graph, nbunch):
+def scc_fun(graph, nbunch = None):
     """Return nodes in strongly connected components of the reachable graph.
 
     Recursive version of algorithm.
@@ -217,6 +387,7 @@ def dijkstra(graph, source, targets=None, cutoff=None):
                 targets_copy.remove(n)
                 if not targets_copy:
                     return True
+
     else:
         check_targets = lambda n: False
 
@@ -375,7 +546,7 @@ def set_starting_node(graph, graph_output, start_id, data_sources):
         graph_output.add_edge(start_id, k, attr_dict={'value': v})
 
 
-def populate_output(dsp, data_sources, targets, cutoff, empty_fun):
+def populate_output(dsp, data_sources, targets, cutoff, empty_fun, weight=False):
     graph_output = nx.DiGraph()
 
     data_output = {}
@@ -402,6 +573,21 @@ def populate_output(dsp, data_sources, targets, cutoff, empty_fun):
     else:
         check_targets = lambda n: False
 
+    if cutoff is not None:
+        check_cutoff = lambda d: d > cutoff
+    else:
+        check_cutoff = lambda d: False
+
+    def check_wait_input_flag(wait_in, node, visited_nodes):
+        return wait_in and not set(dsp.graph.pred[node]).issubset(visited_nodes)
+
+    if weight:
+        def edge_weight(edge_data, node_out):
+            return edge_data.get('weight', 1) + node_out.get('weight', 0)
+    else:
+        def edge_weight(*args):
+            return 1
+
     set_starting_node(dsp.graph, graph_output, dsp.start, data_sources)
 
     dist = {}  # dict of final distances
@@ -424,14 +610,13 @@ def populate_output(dsp, data_sources, targets, cutoff, empty_fun):
             break
 
         for w, edge_data in dsp.graph[v].items():
-            vw_dist = dist[v] + edge_data.get('weight', 1)
-
             node = dsp.graph.node[w]
+
+            vw_dist = dist[v] + edge_weight(edge_data, node)
 
             wait_in = node['wait_inputs']
 
-            if (cutoff is not None and vw_dist > cutoff) or \
-                    (wait_in and not set(dsp.graph.pred[w]).issubset(dist)):
+            if check_cutoff(vw_dist) or check_wait_input_flag(wait_in, w, dist):
                 if v not in node.get('wait_exceptions', []):
                     continue
                 elif targets:
@@ -602,159 +787,6 @@ def data_function_from_dsp(dispatcher, dsp_inputs, dsp_outputs, fun_name=None,
     return {'function': dsp_fun, 'inputs': dsp_inputs, 'outputs': dsp_outputs}
 
 
-def add_data(dsp, data_id=None, default_value=None, wait_inputs=False,
-             function=None, callback=None, wait_exceptions=None, **kwargs):
-    """
-    Example:
-    >>> dsp = Dispatcher()
-
-    # data to be calculated, i.e., internal data
-    >>> add_data(dsp, data_id='/a')
-    '/a'
-
-    # data with a initial value, i.e., initial data
-    >>> add_data(dsp, data_id='/b', default_value='value of the data')
-    '/b'
-
-    >>> def average_fun(*x):
-    ...     return sum(x) / len(x)
-
-    # internal data that is calculated as the average of all estimations
-    >>> add_data(dsp, data_id='/c', wait_inputs=True, function=average_fun)
-    '/c'
-
-    # initial data that is calculated as the average of all estimations
-    >>> add_data(dsp, data_id='/d', default_value='value of the data', \
-                     wait_inputs=True, function=average_fun)
-    '/d'
-
-    # create an internal data and return the generated id
-    >>> add_data(dsp, )
-    0
-    """
-
-    attr_dict = {'type': 'data', 'wait_inputs': wait_inputs}
-
-    if function is not None:
-        attr_dict['function'] = function
-
-    if callback is not None:
-        attr_dict['callback'] = callback
-
-    if wait_exceptions is not None:
-        attr_dict['wait_exceptions'] = wait_exceptions
-
-    attr_dict.update(kwargs)
-
-    if data_id is None:
-        data_id = dsp.counter()
-        while dsp.graph.has_node(data_id):
-            data_id = dsp.counter()
-
-    if default_value is not None:
-        dsp.default_values[data_id] = default_value
-
-    dsp.graph.add_node(data_id, attr_dict=attr_dict)
-
-    return data_id
-
-
-def add_function(dsp, function=lambda x: None, outputs=None, inputs=None,
-                 input_domain=None, **kwargs):
-    """
-    Example:
-    >>> dsp = Dispatcher()
-
-    >>> def my_function(a, b):
-    ...     c = a + b
-    ...     d = a - b
-    ...     return c, d
-
-    >>> add_function(dsp, function=my_function, inputs=['/a', '/b'], \
-                         outputs=['/c', '/d'])
-    'dispatcher:my_function<0>'
-
-    >>> from math import log
-    >>> def my_log(a, b):
-    ...     log(b - a)
-
-    >>> def my_domain(a, b):
-    ...     return a < b
-
-    >>> add_function(dsp, function=my_log, inputs=['/a', '/b'], \
-                         outputs=['/e'], input_domain=my_domain)
-    'dispatcher:my_log<0>'
-    """
-
-    if outputs is None:
-        outputs = [add_data(dsp)]
-
-    attr_dict = {'type': 'function',
-                 'inputs': inputs,
-                 'outputs': outputs,
-                 'function': function,
-                 'wait_inputs': True}
-
-    if input_domain:
-        attr_dict['input_domain'] = input_domain
-
-    n = Counter()
-
-    # noinspection PyUnresolvedReferences
-    function_name = '%s:%s' % (function.__module__, function.__name__)
-
-    function_id = '%s<%d>' % (function_name, n())
-
-    while dsp.graph.has_node(function_id):
-        function_id = '%s<%d>' % (function_name, n())
-
-    attr_dict.update(kwargs)
-
-    dsp.graph.add_node(function_id, attr_dict=attr_dict)
-
-    for u in inputs:
-        if not dsp.graph.has_node(u):
-            add_data(dsp, data_id=u)
-        dsp.graph.add_edge(u, function_id)
-
-    for v in outputs:
-        if not dsp.graph.has_node(v):
-            add_data(dsp, data_id=v)
-        dsp.graph.add_edge(function_id, v)
-
-    return function_id
-
-
-def set_default_value(dsp, data_id=None, value=None, **kwargs):
-    """
-    Example:
-    >>> dsp = Dispatcher()
-    >>> add_data(dsp, data_id='/a')
-    '/a'
-    >>> set_default_value(dsp, data_id='/a', value='value of the data')
-
-    >>> set_default_value(dsp, data_id='/b', value='value of the data')
-
-    >>> add_function(dsp, function=sum, inputs=['/a', '/b'], \
-                         outputs=['/c', '/d'])
-    'builtins:sum<0>'
-    >>> set_default_value(dsp, data_id='builtins:sum<0>', \
-                                value='value of the data')
-    Traceback (most recent call last):
-        ...
-    ValueError: ('Input error:', 'builtins:sum<0> is not a data node')
-    """
-
-    if not data_id in dsp.graph.node:
-        add_data(dsp, data_id=data_id, default_value=value, **kwargs)
-    else:
-        if dsp.graph.node[data_id]['type'] == 'data':
-            dsp.default_values[data_id] = value
-        else:
-            raise ValueError('Input error:',
-                             '%s is not a data node' % data_id)
-
-
 def resolve_route(dsp, input_values=None, output_targets=None,
                   rm_cycles=False):
     """
@@ -826,7 +858,7 @@ def run_output(dsp, input_values=None, output_targets=None, cutoff=None,
 
     >>> add_function(dsp, function=my_log, inputs=['/a', '/b'], \
                          outputs=['/c'], input_domain=my_domain)
-    'dispatcher:my_log<0>'
+    '...dispatcher:my_log<0>'
     >>> outputs, dsp_output = run_output(dsp, input_values={}, \
                                              output_targets=['/c'])
     >>> outputs
@@ -834,12 +866,12 @@ def run_output(dsp, input_values=None, output_targets=None, cutoff=None,
     >>> nodes = dsp_output.graph.nodes()
     >>> nodes.sort()
     >>> nodes
-    ['/a', '/b', '/c', 'dispatcher:my_log<0>', 'start']
+    ['/a', '/b', '/c', '...dispatcher:my_log<0>', 'start']
     >>> edges = dsp_output.graph.edges()
     >>> edges.sort()
     >>> edges
-    [('/a', 'dispatcher:my_log<0>'), ('/b', 'dispatcher:my_log<0>'), \
-('dispatcher:my_log<0>', '/c'), ('start', '/a'), ('start', '/b')]
+    [('/a', '...dispatcher:my_log<0>'), ('/b', '...dispatcher:my_log<0>'), \
+('...dispatcher:my_log<0>', '/c'), ('start', '/a'), ('start', '/b')]
 
     >>> outputs, dsp_output = run_output(dsp, input_values={'/b': 0}, \
                                              output_targets=['/c'])
@@ -848,11 +880,11 @@ def run_output(dsp, input_values=None, output_targets=None, cutoff=None,
     >>> nodes = dsp_output.graph.nodes()
     >>> nodes.sort()
     >>> nodes
-    ['/a', '/b', 'dispatcher:my_log<0>', 'start']
+    ['/a', '/b', '...dispatcher:my_log<0>', 'start']
     >>> edges = dsp_output.graph.edges()
     >>> edges.sort()
     >>> edges
-    [('/a', 'dispatcher:my_log<0>'), ('/b', 'dispatcher:my_log<0>'), \
+    [('/a', '...dispatcher:my_log<0>'), ('/b', '...dispatcher:my_log<0>'), \
 ('start', '/a'), ('start', '/b')]
     """
 
