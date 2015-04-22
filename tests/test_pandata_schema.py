@@ -72,7 +72,7 @@ class TestIterErrors(unittest.TestCase):
         self.validator = PandelVisitor(schema)
         return self.validator.iter_errors(instance, *args, **kwds)
 
-    #@skip("For Draft3Validator only!")
+    #@unittest.skip("For Draft3Validator only!")
     def test_iter_errors(self):
         data = [1, 2]
         for instance in wrap_in_pandas(data):
@@ -129,7 +129,7 @@ class TestValidationErrorMessages(unittest.TestCase):
         message = self.message_for(instance=1, schema={u"type": list(types)})
         self.assertEqual(message, "1 is not of type %r, %r" % types)
 
-    #@skip("For Draft3Validator only!")
+    #@unittest.skip("For Draft3Validator only!")
     def test_object_without_title_type_failure(self):
         atype = {
             u"type": [{u"minimum": 3}],
@@ -141,7 +141,7 @@ class TestValidationErrorMessages(unittest.TestCase):
         message = self.message_for(instance=1, schema=schema)
         self.assertEqual(message, "1 is not of type %r" % (atype,))
 
-    #@skip("For Draft3Validator only!")
+    #@unittest.skip("For Draft3Validator only!")
     def test_object_with_name_type_failure(self):
         name = "Foo"
         schema = {
@@ -294,7 +294,7 @@ class TestValidationErrorDetails(unittest.TestCase):
 
         self.assertEqual(len(e2.context), 0)
 
-    #@skip("For Draft3Validator only!")
+    #@unittest.skip("For Draft3Validator only!")
     def test_type(self):
         instance = {"foo": 1}
         schema = {
@@ -416,7 +416,7 @@ class TestValidationErrorDetails(unittest.TestCase):
             self.assertEqual(e3.validator, "maximum")
             self.assertEqual(e4.validator, "type")
 
-    #@skip("For Draft3Validator only!")
+    #@unittest.skip("For Draft3Validator only!")
     def test_multiple_nesting(self):
         instance = [1, {"foo": 2, "bar": {"baz": [1]}}, "quux"]
         schema = {
@@ -635,16 +635,16 @@ class TestDraft3lValidator(ValidatorTestMixin, unittest.TestCase):
             "$schema": "http://json-schema.org/draft-03/schema#"
         })
 
-    #@skip("For Draft3Validator only!")
+    #@unittest.skip("For Draft3Validator only!")
     def test_is_type_is_true_for_any_type(self):
         self.assertTrue(self.validator.is_valid(mock.Mock(), {"type": "any"}))
 
-    #@skip("For Draft3Validator only!")
+    #@unittest.skip("For Draft3Validator only!")
     def test_is_type_does_not_evade_bool_if_it_is_being_tested(self):
         self.assertTrue(self.validator.is_type(True, "boolean"))
         self.assertTrue(self.validator.is_valid(True, {"type": "any"}))
 
-    #@skip("The schema below in invalid under Draft3/4, but original test had averted meta-validation.")
+    #@unittest.skip("The schema below in invalid under Draft3/4, but original test had averted meta-validation.")
     def test_non_string_custom_types(self):
         schema = {
             "$schema": "http://json-schema.org/draft-03/schema#",

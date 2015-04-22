@@ -12,16 +12,17 @@ from __future__ import division, unicode_literals
 
 import abc
 import binascii
-from collections import Mapping, Sequence, OrderedDict, namedtuple, defaultdict
+from collections import Mapping, Sequence, OrderedDict, namedtuple
 from json.decoder import JSONDecoder
 from json.encoder import JSONEncoder
 import numbers
 import pickle
 import re
 
+from enum import IntEnum
 from jsonschema import Draft3Validator, Draft4Validator, ValidationError
 import jsonschema
-from jsonschema.exceptions import SchemaError
+from jsonschema.exceptions import SchemaError, RefResolutionError
 from pandas.core.generic import NDFrame
 from six import string_types
 
@@ -32,7 +33,7 @@ import pandas as pd
 try:
     from unittest.mock import MagicMock
 except ImportError:
-    from mock import MagicMock
+    from mock import MagicMock  # @UnusedImport
 
 
 try:
@@ -40,37 +41,69 @@ try:
 except ImportError:
     from urlparse import urljoin
 
-__commit__ = "01b872f"
+__commit__ = ""
 
 _value_with_units_regex = re.compile(r'''^\s*
-                                        (?P<name>[^([]+?)   # column-name
+                                        (?P<name>[^[<]*?)   # column-name
                                         \s*
                                         (?P<units>          # start parenthesized-units optional-group
                                             \[              # units enclosed in []
                                                 [^\]]*
                                             \]
                                             |
-                                            \(              # units enclosed in ()
+                                            <              # units enclosed in <>
                                                 [^)]*
-                                            \)
+                                            >
                                         )?                  # end parenthesized-units
                                         \s*$''', re.X)
-_units_cleaner_regex = re.compile(r'^[[(]|[\])]$')
+_units_cleaner_regex = re.compile(r'^[[<]|[\]>]$')
+
+
+"""An item-descriptor with units, i.e. used as a table-column header."""
+_U = namedtuple('United', ('name', 'units'))
 
 
 def parse_value_with_units(arg):
     """
-    Something like `value [units]` or `foo (bar/krow).
+    Parses *name-units* pairs (i.e. used as a table-column header). 
 
-    :return: dict(name, units) or None if unparseable as column-suntax
+    :return:    a United(name, units) named-tuple, or `None` if bad syntax;
+                note that ``name=''`` but ``units=None`` when missing. 
+
+    Examples::
+
+        >>> parse_value_with_units('value [units]')
+        United(name='value', units='units')
+
+        >>> parse_value_with_units('foo   bar  <bar/krow>')
+        United(name='foo   bar', units='bar/krow')
+
+        >>> parse_value_with_units('no units')
+        United(name='no units', units=None)
+
+        >>> parse_value_with_units('')
+        United(name='', units=None)
+
+    But notice::
+
+        >>> assert parse_value_with_units('ok but [bad units') is None
+
+        >>> parse_value_with_units('<only units>')
+        United(name='', units='only units')
+
+        >>> parse_value_with_units(None)
+        Traceback (most recent call last):
+        TypeError: expected string or buffer
+
     """
 
     m = _value_with_units_regex.match(arg)
-    res = m.groupdict()
-    units = res['units']
-    if units:
-        res['units'] = _units_cleaner_regex.sub('', units)
-    return res
+    if m:
+        res = m.groupdict()
+        units = res['units']
+        if units:
+            res['units'] = _units_cleaner_regex.sub('', units)
+        return _U(**res)
 
 
 class ModelOperations(namedtuple('ModelOperations', 'inp out conv')):
@@ -116,7 +149,7 @@ class ModelOperations(namedtuple('ModelOperations', 'inp out conv')):
         pass
 
 
-# FIXME: PathMaps as ModelOperations is unimplemented
+# TODO: ImplementPathMaps as ModelOperations.
 class PathMaps(object):
 
     """
@@ -713,7 +746,7 @@ class Pandel(object):
         >>> mm.add_submodel({'a': 1})               ## According to the schema, this should have been a string,
         >>> mm.add_submodel({'b': 'string'})        ## and this one, a number.
 
-        >>> sorted(mm.build_iter(), key=lambda ex: ex.message)                   ## Fetch a list with all validation errors.
+        >>> sorted(mm.build_iter(), key=lambda ex: ex.message)    ## Fetch a list with all validation errors. # doctest: +NORMALIZE_WHITESPACE
         [<ValidationError: "'string' is not of type 'number'">,
          <ValidationError: "1 is not of type 'string'">,
          <ValidationError: 'Gave-up building model after step 1.prevalidate (out of 4).'>]
@@ -729,7 +762,7 @@ class Pandel(object):
         >>> mm.add_submodel({'a': 'a str'})
         >>> mm.add_submodel({'c': 1})
 
-        >>> sorted(mm.build_iter(), key=lambda ex: ex.message)        ## Missing required('b') prop rom merged-model.
+        >>> sorted(mm.build_iter(), key=lambda ex: ex.message)  # doctest: +NORMALIZE_WHITESPACE
         [<ValidationError: "'b' is a required property">,
          <ValidationError: 'Gave-up building model after step 3.validate (out of 4).'>]
 
@@ -1008,129 +1041,12 @@ class Pandel(object):
 
         return self.model
 
-
-class Pstep(str):
-
-    """
-    Automagically-constructed *renamable* paths for accessing data-trees. 
-
-    The "magic" autocreates psteps as they referenced, making writting code 
-    that access data-tree paths, natural, while at the same time the "model" 
-    of those tree-data gets discovered.
-
-    Each pstep keeps internaly the *name* of a data-tree step, which, when
-    created through recursive referencing, coincedes with parent's branch 
-    leading to this step.  That name can be modified with :class:`Pmods`
-    so the same data-accessing code can consume differently-named data-trees.
-
-    :ivar str pname:     this pstep's name (stored at super-str object)
-    :ivar Pstep _csteps: the child-psteps
-    :ivar dict _pmods:   path-modifications used to construct this and relayed to children
-    :ivar bool _locked:  if it is possible to rename it
-    :ivar dict _schema:  jsonschema data.
-
-    Usage:
-
-    .. Warning::
-        String's slicing operations do not work on this string-subclass!
-
-    - Just by referencing (non_private) attributes, they are created.
-    - It raises :exc:`AssertionError` if any non-pstep value gets assigned 
-      as dict-item or as non-private attribute (ie `_name` is indeed allowed).
-    - Use :meth:`_paths()` to get all defined paths so far.
-    - TODO: psteps have 2 "modes", lockes / locked (no new children allowed)
-      ie for detecting violations.
-
-    Example::
-
-        >>> m = {'a': 1, 'abc': 2, '321': {'cc': 33}}
-        >>> p = Pstep()
-        >>> assert m[p] == 1
-        >>> assert m[p.abc] == 2
-        >>> assert m[p['321'].cc] == 33
-        >>> p._some_hidden = 12
-
-    """
-
-    def __new__(cls, pname='.', pmods=None, locked=False, **schema_kws):
-        if pmods:
-            pname = pmods.get(pname, pname)
-        self = str.__new__(cls, pname)
-        
-        self._csteps = {}
-        self._locked = bool(locked)
-        self._pmods = pmods
-        self._schema = schema_kws ## TODO: jsonschema on Pstep.
-
-        
-        return self
-
-    def __call__(self, locked=None, **schema_kws):
-        self._locked = locked
-        self._schema = schema_kws
-
-        return self
-
-    def __repr__(self):
-        return '`%s`' % self
-
-    @property
-    def _paths(self):
-        p = []
-        self._paths_(p)
-        return p
-
-    def _paths_(self, paths, prefix=None):
-        """:return: all child/steps constructed so far, in a list"""
-        if prefix:
-            prefix = '%s/%s' % (prefix, self)
-        else:
-            prefix = self
-        if self._csteps:
-            for _, v in self._csteps.items():
-                v._paths_(paths, prefix)
-        else:
-            paths.append(prefix)
-
-    def __missing__(self, cpname):
-        try:
-            cpname = self._pmods.get(cpname, cpname)
-            pmods = self._pmods['_csteps']
-        except:
-            pmods = None
-        child = Pstep(cpname, pmods=pmods)
-        self._csteps[cpname] = child
-        return child
-
-    def __getitem__(self, cpname):
-        child = self._csteps.get(cpname, None)
-        return child or self.__missing__(cpname)
-
-    def __setitem__(self, cpname, value):
-        raise self._ex_invalid_assignment(cpname, value)
-
-    def __getattr__(self, cpname):
-        if cpname.startswith('_'):
-            msg = "'%s' object has no attribute '%s'"
-            raise AttributeError(msg % (self, cpname))
-        return self.__missing__(cpname)
-
-    def __setattr__(self, cpname, value):
-        if cpname.startswith('_'):
-            str.__setattr__(self, cpname, value)
-        else:
-            raise self._ex_invalid_assignment(cpname, value)
-
-    def _ex_invalid_assignment(self, cpname, value):
-        msg = "Cannot assign `%s` to '%s/%s'!  Only other psteps allowed."
-        return AssertionError(msg % (value, self, cpname))
+    def get(self, path, **kws):
+        resolve_jsonpointer(self.model, path, **kws)
 
 
-class JsonPointerException(Exception):
-    pass
 
-
-def jsonpointer_parts(jsonpointer):
+def iter_jsonpointer_parts(jsonpointer):
     """
     Iterates over the ``jsonpointer`` parts.
 
@@ -1143,7 +1059,7 @@ def jsonpointer_parts(jsonpointer):
     if jsonpointer:
         parts = jsonpointer.split(u"/")
         if parts.pop(0) != '':
-            raise JsonPointerException('Location must starts with /')
+            raise RefResolutionError('Location must starts with /')
 
         for part in parts:
             part = part.replace(u"~1", u"/").replace(u"~0", u"~")
@@ -1160,10 +1076,31 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
     :param doc: the referrant document
     :param str jsonpointer: a jsonpointer to resolve within document
     :return: the resolved doc-item or raises :class:`RefResolutionError` 
+    :raises: RefResolutionError (if cannot resolve jsonpointer path)
+
+    Examples:
+
+        >>> dt = {
+        ...     'pi':3.14,
+        ...     'foo':'bar',
+        ...     'df': pd.DataFrame(np.ones((3,2)), columns=list('VN')),
+        ...     'sub': {
+        ...         'sr': pd.Series({'abc':'def'}),
+        ...     }
+        ... }
+        >>> resolve_jsonpointer(dt, '/pi', default=_scream)
+        3.14
+
+        >>> resolve_jsonpointer(dt, '/pi/BAD')
+        Traceback (most recent call last):
+        jsonschema.exceptions.RefResolutionError: Unresolvable JSON pointer('/pi/BAD')@(BAD)
+
+        >>> resolve_jsonpointer(dt, '/pi/BAD', 'Hi!')
+        'Hi!'
 
     :author: Julian Berman, ankostis
     """
-    for part in jsonpointer_parts(jsonpointer):
+    for part in iter_jsonpointer_parts(jsonpointer):
         if isinstance(doc, Sequence):
             # Array indexes should be turned into integers
             try:
@@ -1174,7 +1111,7 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
             doc = doc[part]
         except (TypeError, LookupError):
             if default is _scream:
-                raise JsonPointerException(
+                raise RefResolutionError(
                     "Unresolvable JSON pointer(%r)@(%s)" % (jsonpointer, part))
             else:
                 return default
@@ -1188,10 +1125,10 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
 
     :param doc: the referrant document
     :param str jsonpointer: a jsonpointer to the node to modify 
-    :raises: JsonPointerException (if jsonpointer empty, missing, invalid-contet)
+    :raises: RefResolutionError (if jsonpointer empty, missing, invalid-contet)
     """
 
-    parts = list(jsonpointer_parts(jsonpointer))
+    parts = list(iter_jsonpointer_parts(jsonpointer))
 
     # Will scream if used on 1st iteration.
     #
@@ -1208,11 +1145,11 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
                 try:
                     part = int(part)
                 except ValueError:
-                    raise JsonPointerException(
+                    raise RefResolutionError(
                         "Expected numeric index(%s) for sequence at (%r)[%i]" % (part, jsonpointer, i))
                 else:
                     if part > doclen:
-                        raise JsonPointerException(
+                        raise RefResolutionError(
                             "Index(%s) out of bounds(%i) of (%r)[%i]" % (part, doclen, jsonpointer, i))
         try:
             ndoc = doc[part]
@@ -1246,7 +1183,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
 
 #    except (IndexError, TypeError) as ex:
 # if isinstance(ex, IndexError) or 'list indices must be integers' in str(ex):
-#        raise JsonPointerException("Incompatible content of JSON pointer(%r)@(%s)" % (jsonpointer, part))
+#        raise RefResolutionError("Incompatible content of JSON pointer(%r)@(%s)" % (jsonpointer, part))
 #        else:
 #            doc = {}
 #            parent_doc[parent_part] = doc
@@ -1261,7 +1198,7 @@ def build_all_jsonpaths(schema):
         for f in forks:
             objlist = schema.get(f)
             if objlist:
-                for obj in schema.get(f):
+                for obj in objlist:
                     _visit(obj, path, paths)
 
         props = schema.get('properties')
@@ -1284,20 +1221,21 @@ class JSONCodec():
 
     Example::
 
+        >>> import json
         >>> obj_list = [
-                    3.14,
-                    {
-                         'aa': pd.DataFrame([]),
-                         2: np.array([]),
-                         33: {'foo': 'bar'},
-                     },
-                     pd.DataFrame(np.random.randn(10, 2)),
-                     ('b', pd.Series({})),
-                 ]
+        ...    3.14,
+        ...    {
+        ...         'aa': pd.DataFrame([]),
+        ...         2: np.array([]),
+        ...         33: {'foo': 'bar'},
+        ...     },
+        ...     pd.DataFrame(np.random.randn(10, 2)),
+        ...     ('b', pd.Series({})),
+        ... ]
         >>> for o in obj_list + [obj_list]:
-        ...    s = json.dumps(o, cls=JSONCodec.Encoder)
-        ...    oo = json.loads(s, cls=pandata.JSONCodec.Decoder)
-        ...    assert trees_equal(o, oo)
+        ...     s = json.dumps(o, cls=JSONCodec.Encoder)
+        ...     oo = json.loads(s, cls=JSONCodec.Decoder)
+        ...     assert trees_equal(o, oo)
         ...
 
     .. seealso::

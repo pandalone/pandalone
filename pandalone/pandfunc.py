@@ -28,7 +28,7 @@ from pandalone._mock import MagicMock
 import pandas as pd
 
 
-__commit__ = "01b872f"
+__commit__ = ""
 DEBUG = False
 
 _root_name = 'R'
