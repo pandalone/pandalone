@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import doctest
 import json
 from textwrap import dedent
@@ -6,12 +7,10 @@ import unittest
 import six
 
 import numpy.testing as npt
-from pandalone.components import Assembly, FuncComponent, Pstep, convert_df_as_pmods_tuples,\
-    build_pmods_from_tuples
+from pandalone.components import (
+    Assembly, FuncComponent, Pstep, convert_df_as_pmods_tuples, _Pmod)
 import pandalone.components
 import pandas as pd
-from collections import OrderedDict
-
 
 
 class TestDoctest(unittest.TestCase):
@@ -19,9 +18,79 @@ class TestDoctest(unittest.TestCase):
     def test_doctests(self):
         failure_count, test_count = doctest.testmod(
             pandalone.components,
-            optionflags=doctest.NORMALIZE_WHITESPACE)# | doctest.ELLIPSIS)
+            optionflags=doctest.NORMALIZE_WHITESPACE)  # | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
+
+
+class Test_Pmod(unittest.TestCase):
+
+    def test_Pmod_merge_name(self):
+        pm1 = _Pmod(_name='pm1')
+        pm2 = _Pmod(_name='pm2')
+        pm = pm1.merge(pm2)
+        self.assertEqual(pm._name, 'pm2')
+        self.assertEqual(pm1._name, 'pm1')
+        self.assertEqual(pm2._name, 'pm2')
+        pm = pm2.merge(pm1)
+        self.assertEqual(pm._name, 'pm1')
+        self.assertEqual(pm1._name, 'pm1')
+        self.assertEqual(pm2._name, 'pm2')
+
+        pm1 = _Pmod()
+        pm2 = _Pmod(_name='pm2')
+        pm = pm1.merge(pm2)
+        self.assertEqual(pm._name, 'pm2')
+        self.assertEqual(pm1._name, None)
+        self.assertEqual(pm2._name, 'pm2')
+        pm = pm2.merge(pm1)
+        self.assertEqual(pm._name, 'pm2')
+        self.assertEqual(pm1._name, None)
+        self.assertEqual(pm2._name, 'pm2')
+
+    def test_Pmod_merge_name_recurse(self):
+        pm1 = _Pmod(_name='pm1', _children={'a': _Pmod(_name='R1')})
+        pm2 = _Pmod(_name='pm2', _children={'a': _Pmod(_name='R2')})
+        pm = pm1.merge(pm2)
+        self.assertEqual(pm._children['a']._name, 'R2')
+        self.assertEqual(pm1._children['a']._name, 'R1')
+        self.assertEqual(pm2._children['a']._name, 'R2')
+        pm = pm2.merge(pm1)
+        self.assertEqual(pm._children['a']._name, 'R1')
+        self.assertEqual(pm1._children['a']._name, 'R1')
+        self.assertEqual(pm2._children['a']._name, 'R2')
+
+    def test_Pmod_merge_children(self):
+        pm1 = _Pmod(
+            _name='pm1', _children={'a': _Pmod(_name='A'), 'c': _Pmod(_name='C')})
+        pm2 = _Pmod(
+            _name='pm2', _children={'b': _Pmod(_name='B'), 'a': _Pmod(_name='AA')})
+        pm = pm1.merge(pm2)
+        self.assertEqual(sorted(pm._children.keys()), list('abc'))
+        pm = pm2.merge(pm1)
+        self.assertEqual(sorted(pm._children.keys()), list('abc'))
+
+        pm1 = _Pmod(
+            _children={'a': _Pmod(_name='A'), 'c': _Pmod(_name='C')})
+        pm2 = _Pmod(
+            _name='pm2', _children={'b': _Pmod(_name='B'), 'a': _Pmod(_name='AA')})
+        pm = pm1.merge(pm2)
+        self.assertEqual(sorted(pm._children.keys()), list('abc'))
+        pm = pm2.merge(pm1)
+        self.assertEqual(sorted(pm._children.keys()), list('abc'))
+        print(pm)
+
+    def test_Pmod_merge_regexps(self):
+        pm1 = _Pmod(_name='pm1', _regexps=OrderedDict([
+            ('a', _Pmod(_name='A')), ('c', _Pmod(_name='C'))]))
+        pm2 = _Pmod(_name='pm2', _regexps=OrderedDict([
+            ('b', _Pmod(_name='B')), ('a', _Pmod(_name='AA'))]))
+        print(pm1.merge(pm2))
+
+    def test_Pmod_merge_all(self):
+        pm1 = _Pmod(_name='pm1')
+        pm2 = _Pmod(_name='pm2')
+        print(_Pmod.merge_all([pm1, pm2]))
 
 
 class TestPmods(unittest.TestCase):
@@ -52,13 +121,26 @@ class TestPmods(unittest.TestCase):
         self.assertEqual(tuple(pmods[0]), ('/a/b', '/A/B'))
         npt.assert_array_equal(df, df_orig)
 
-    def test_build_pmods_orderedDict(self):
-        pmods_tuples = [
-            ('/a', 'A1/A2'),
-            ('/a/b', 'B'),
-        ]
-        pmods = build_pmods_from_tuples(pmods_tuples)
-        self.assertTrue(isinstance(pmods, OrderedDict))
+#     def test_build_pmods_names_orderedDict(self):
+#         pmods_tuples = [
+#             ('/a', 'A1/A2'),
+#             ('/a/b', 'B'),
+#         ]
+#         pmods = build_pmods_from_tuples(pmods_tuples)
+#         self.assertIsInstance(pmods, dict)
+#         self.assertIsInstance(pmods[_PMOD_CHILD], OrderedDict)
+#
+#     def test_build_pmods_regex_orderedDict(self):
+#         pmods_tuples = [
+#             ('/a*', 'A1/A2'),
+#             ('/a/b?', 'B'),
+#         ]
+#         pmods = build_pmods_from_tuples(pmods_tuples)
+#         self.assertIsInstance(pmods, dict)
+#         self.assertIsInstance(pmods[_PMOD_REGEX], OrderedDict)
+#         self.assertIsInstance(pmods[_PMOD_CHILD], OrderedDict)
+#         self.assertIsInstance(pmods[_PMOD_CHILD]['a'], OrderedDict)
+
 
 class TestPstep(unittest.TestCase):
 
@@ -124,13 +206,13 @@ class TestPstep(unittest.TestCase):
     def PMODS(self):
         return {
             '.': 'root',
-            '_cpmods': {
+            '_child_': {
                 'a': 'b',
                 'abc': 'BAR',
                 'for': 'sub/path',
-                '_cpmods': {
+                '_child_': {
                     'def': 'DEF',
-                    '_cpmods': {
+                    '_child_': {
                         '123': '234'
                     },
                 }
@@ -151,7 +233,7 @@ class TestPstep(unittest.TestCase):
         p.a
         self.assertEquals(p, 'bar', (p, p._paths))
 
-        p = Pstep(pmods={'_cpmods': {'a': 'b'}})
+        p = Pstep(pmods={'_child_': {'a': 'b'}})
         self.assertEquals(p.a, 'b', (p, p._paths))
 
         p = Pstep(pmods=self.PMODS())
