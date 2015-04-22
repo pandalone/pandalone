@@ -213,49 +213,40 @@ class TestGetNoEmptyCells(unittest.TestCase):
             res = xr.url_fragment_parser(url)
             self.assertEquals(res['cell_up'], Cell(col=0, row=None))
 
-            url = 'Sheet1!A'
-            self.assertRaises(ValueError, xr.url_fragment_parser, url)
-
-            url = 'Sheet1!A1:!'
-            self.assertRaises(ValueError, xr.url_fragment_parser, url)
-
             url = 'Sheet1![1,2,3]'
-            self.assertRaises(ValueError, xr.url_fragment_parser, url)
+            res = xr.url_fragment_parser(url)
+            self.assertEquals(res['cell_up'], Cell(col=0, row=0))
+            self.assertEquals(res['cell_down'], Cell(col=None, row=None))
 
-            url = 'Sheet1!1:2'
-            self.assertRaises(ValueError, xr.url_fragment_parser, url)
+            url = ':[1,2,3]'
+            res = xr.url_fragment_parser(url)
+            self.assertEquals(res['cell_up'], Cell(col=None, row=None))
+            self.assertEquals(res['cell_down'], Cell(col=None, row=None))
 
-    def test_cell_parser(self):
+
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's![[]')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's![[]{]}')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!{}[]')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!{}[]')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!A')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!A1:!')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!1:2')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!B3:A1')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!B3:A0')
+
+    def test_fetch_cell(self):
         Cell = xr.Cell
 
-        self.assertEquals(xr.cell_parser('A1'), Cell(col=0, row=0))
+        self.assertEquals(xr.fetch_cell('A1', 'A', '1'), Cell(col=0, row=0))
 
-        self.assertEquals(xr.cell_parser('A'), Cell(col=0, row=None))
+        self.assertEquals(xr.fetch_cell('A_', 'A', '_'), Cell(col=0, row=None))
 
-        self.assertEquals(xr.cell_parser('1'), Cell(col=None, row=0))
+        self.assertEquals(xr.fetch_cell('_1', '_','1'), Cell(col=None, row=0))
 
-        self.assertEquals(xr.cell_parser(''), Cell(col=None, row=None))
+        self.assertEquals(xr.fetch_cell('__', '_', '_'), Cell(col=None, row=None))
 
-        self.assertRaises(ValueError, xr.cell_parser, '@')
-
-        self.assertRaises(ValueError, xr.cell_parser, 'A1A')
-
-        self.assertRaises(ValueError, xr.cell_parser, 'R1C1')
-
-    def test_check_range(self):
-        Cell = xr.Cell
-
-        self.assertEquals(xr.check_range(Cell(1, 2), Cell(None, None)), None)
-        self.assertRaises(ValueError, xr.check_range, *(Cell(None, None), None))
-        self.assertRaises(ValueError, xr.check_range, *(Cell(1, 0), Cell(0, 1)))
+        self.assertRaises(ValueError, xr.fetch_cell, *('_0', '_', '0'))
 
     def test_col2num(self):
         self.assertEqual(xr.col2num('D'), 3)
         self.assertEqual(xr.col2num('AAA'), 702)
-        self.assertEqual(xr.col2num(''), -1)
-
-        self.assertRaises(TypeError, xr.col2num, 1)
-
-        self.assertRaises(ValueError, xr.col2num, 'a')
-        self.assertRaises(ValueError, xr.col2num, '@_')
-        self.assertRaises(ValueError, xr.col2num, '_')
