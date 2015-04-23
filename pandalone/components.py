@@ -37,12 +37,15 @@ log = logging.getLogger(__name__)
 class Pmod(object):
 
     """
-    A path-step mapping, which along with its child-pmods, forms a pmods-hierarchy.
+    A path-step mapping forming the pmods-hierarchy.
 
-    - The :term:`pmods` denotes the hierarchy of all path-step mappings,
+    - The :term:`pmods` denotes the hierarchy of all :term:`mappings`,
       that either *rename* or *relocate* path-steps.
-    - The :term:`pmod` is the mapping of a single path-step.
-    - A mapping always refers to the *final* path-step, like that::
+
+    - A single :term:`mapping` transforms an "origin" path to 
+      a "destination" one (also called as "from" and "to" paths).
+
+    - A mapping always transforms the *final* path-step, like that::
 
         FROM_PATH       TO_PATH       RESULT_PATH
         ---------       -------       -----------
@@ -50,8 +53,11 @@ class Pmod(object):
         /relocate/path  foo/bar   --> /relocate/foo/bar  ## relocation
         /root           a/b/c     --> /a/b/c             ## Relocates all /root sub-paths.
 
+    - The :term:`pmod` is the mapping of that single path-step.
+
     - It is possible to match fully on path-steps using regular-expressions,
-      and then to use any captured-groups in the mapped value::
+      and then to use any captured-groups from the *final* step into 
+      the mapped value::
 
         (/all(.*)/path, foo)   + all_1/path --> /all_1/foo
                                + allXXX     --> /allXXX          ## no change
@@ -59,8 +65,11 @@ class Pmod(object):
 
       If more than one regex match, they are merged in the order declared
       (the latest one overrides a previous one).
+
     - Any exact child-name matches are applied and merged after regexs.
+
     - Use :func:`pmods_from_tuples()` to construct the pmods-hierarchy.
+
     - The pmods are used internally by class:`Pstep` to correspond
       the component-paths of their input & output onto the actual
       value-tree paths.

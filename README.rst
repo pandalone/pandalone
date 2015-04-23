@@ -573,22 +573,73 @@ Glossary
 .. glossary::
 
     data-tree
-        The *container* of data that the gear-shift calculator consumes and produces.
-        It is implemented by :class:`pandalone.pandata.Pandel` as a mergeable stack of 
-        :term:`JSON-schema` abiding trees of strings and numbers, formed with sequences, dictionaries, 
-        :mod:`pandas`-instances and URI-references.
+        The *container* of data consumed and produced by a :term`model`, which
+        may contain also the model.
+        Its values are accessed using :term:`path`s.
+        It is implemented by :class:`pandalone.pandata.Pandel` as 
+        a mergeable stack of :term:`JSON-schema` abiding trees of strings and 
+        numbers, formed with:
+        
+            - sequences, 
+            - dictionaries, 
+            - :mod:`pandas` instances, and 
+            - URI-references.
 
+    value-tree
+        That part of the :term:`data-tree`  that relates only to the I/O data 
+        processed.
+
+    model
+        A collection of :term:`component`s and accompanying :term:`mappings`.
+    
+    component
+        Encapsulates a data-transformation function, using :term:`paths` 
+        to refer to its inputs/outputs within the :term:`value-tree`.
+ 
+    path
+        A `/file/like` string functioning as the *id* of data-values 
+        in the :term:`data-tree`.
+        It is composed of :term:`steps`, and it follows the syntax of
+        the :term:`JSON-pointer`.
+    
+    step
+        The parts between between two conjecutive slashes(`/`) within 
+        a :term:`path`.
+        
+    mappings
+        A list of :term:`mapping`s.
+        
+    mapping
+        Specifies a transformation of an "origin" path to 
+        a "destination" one (also called as "from" and "to" paths).
+        The mapping always transforms the *final* path-step, and it can 
+        either *rename* or *relocate* that step, like that::
+
+            ORIGIN          DESTINATION   RESULT_PATH
+            ------          -----------   -----------
+            /rename/path    foo       --> /rename/foo        ## renaming
+            /relocate/path  foo/bar   --> /relocate/foo/bar  ## relocation
+            /root           a/b/c     --> /a/b/c             ## Relocates all /root sub-paths.
+
+    pmods
+        Denotes the hierarchy formed by :class:`Pmod` instances, 
+        which is build when parsing the :term:`mappings` list.
+        
     JSON-schema
-        The `JSON schema <http://json-schema.org/>`_ is an `IETF draft <http://tools.ietf.org/html/draft-zyp-json-schema-03>`_
-        that provides a *contract* for what JSON-data is required for a given application and how to interact
-        with it.  JSON Schema is intended to define validation, documentation, hyperlink navigation, and
-        interaction control of JSON data.
-        You can learn more about it from this `excellent guide <http://spacetelescope.github.io/understanding-json-schema/>`_,
+        The `JSON schema <http://json-schema.org/>`_ is an `IETF draft 
+        <http://tools.ietf.org/html/draft-zyp-json-schema-03>`_
+        that provides a *contract* for what JSON-data is required for 
+        a given application and how to interact with it.  
+        JSON Schema is intended to define validation, documentation, 
+        hyperlink navigation, and interaction control of JSON data.
+        You can learn more about it from this `excellent guide 
+        <http://spacetelescope.github.io/understanding-json-schema/>`_,
         and experiment with this `on-line validator <http://www.jsonschema.net/>`_.
 
     JSON-pointer
-        JSON Pointer(:rfc:`6901`) defines a string syntax for identifying a specific value within
-        a JavaScript Object Notation (JSON) document. It aims to serve the same purpose as *XPath* from the XML world,
+        JSON Pointer(:rfc:`6901`) defines a string syntax for identifying 
+        a specific value within a JavaScript Object Notation (JSON) document. 
+        It aims to serve the same purpose as *XPath* from the XML world,
         but it is much simpler.
 
 
