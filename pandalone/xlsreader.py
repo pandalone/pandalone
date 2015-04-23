@@ -1,5 +1,5 @@
 from string import ascii_uppercase
-import re
+import re, numpy as np
 from collections import namedtuple
 from json import loads
 
@@ -140,12 +140,11 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
 
     Example::
 
-        >>> from pandas import DataFrame, ExcelWriter
-        >>> import os, tempfile, xlrd
+        >>> import os, tempfile, xlrd, pandas as pd
         >>> os.chdir(tempfile.mkdtemp())
-        >>> df = DataFrame([[None, None, None], [5, 6, 7]])
+        >>> df = pd.DataFrame([[None, None, None], [5, 6, 7]])
         >>> tmp = 'sample.xlsx'
-        >>> writer = ExcelWriter(tmp)
+        >>> writer = pd.ExcelWriter(tmp)
         >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
         >>> writer.save()
 
@@ -200,90 +199,50 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
         >>> get_no_empty_cells(sheet, Cell(2, 5), Cell(None, 5))
         {2: 0.0, 3: 1.0, 4: 2.0}
     """
-
-    def no_emp_vec(fix_i, it_ind, inverse_fix=False, dbl_res=False):
-        if inverse_fix:
-            set_cell = lambda i_s: (i_s, fix_i)
-        else:
-            set_cell = lambda i_s: (fix_i, i_s)
-
-        vect = {k: sheet.cell_value(*c)
-                for k, c in ((i, set_cell(i_s)) for i, i_s in it_ind)
-                if sheet.cell_type(*c) > 0}
-
-        if dbl_res:
-            return vect, min(vect) if vect else None
-        else:
-            return vect
+    def fetch_cell(cell):
+        if cell.ctype in (2,3):
+            return float(cell.value)
+        elif cell.ctype in (1,6):
+            return int(cell.value)
+        return None
 
     if cell_down is None:
         if cell_up.col is None:  # return row
-            return no_emp_vec(cell_up.row, enumerate(range(sheet.ncols)))
+            return list(map(fetch_cell, sheet.row(cell_up.row)))
         elif cell_up.row is None:  # return column
-            return no_emp_vec(cell_up.col, enumerate(range(sheet.nrows)), True)
+            return list(map(fetch_cell, sheet.col(cell_up.col)))
         else:  # return cell
-            if cell_up.row < sheet.nrows and cell_up.col < sheet.ncols \
-                    and sheet.cell_type(cell_up.row, cell_up.col) > 0:
-                return sheet.cell_value(cell_up.row, cell_up.col)
+            if cell_up.row < sheet.nrows and cell_up.col < sheet.ncols:
+                return fetch_cell(sheet.cell(1,1))
             return None
     else:  # return table
-        c1 = [-1 if i is None else i for i in cell_up]
-        c2 = [-1 if i is None else i for i in cell_down]
+        up = [0 if i is None else i for i in cell_up]
 
-        def set_lower_limits(j, max_i):
-            if c2[j] < 0:
-                if max_i <= c1[j]:
-                    return True
-                c2[j] = max_i
-            else:
-                c2[j] = min(c2[j] + 1, max_i)
-            return False
+        if up[1] >= sheet.nrows or up[0] >= sheet.ncols:
+            return None
 
-        if set_lower_limits(0, sheet.ncols) or set_lower_limits(1, sheet.nrows):
-            return {}
+        dn_row = cell_down.row + 1 if cell_down.row is not None else sheet.nrows
 
-        it_col = list(enumerate(range(max(0, c1[0]), c2[0])))
-
-        it_row = enumerate(range(max(0, c1[1]), c2[1]))
-
-        rows = ((r, no_emp_vec(r_s, it_col, dbl_res=True)) for r, r_s in it_row)
-
-        start = {'col': float('inf')}
-
-        if c1[1] < 0 and c1[0] < 0:
-            def set_min(min_c, r):
-                start['col'] = min(min_c, start['col'])
-                if 'row' not in start:
-                    start['row'] = r
-                return True
-        elif c1[1] < 0:
-            def set_min(min_c, r):
-                if 'row' not in start:
-                    start['row'] = r
-                return True
-        elif c1[0] < 0:
-            def set_min(min_c, r):
-                start['col'] = min(min_c, start['col'])
-                return True
-        else:
-            set_min = lambda min_c, r: True
-
-        table = {r: t_r for r, (t_r, m_c) in rows if t_r and set_min(m_c, r)}
+        table = [list(map(fetch_cell, sheet.row_slice(r, up[0], cell_down.col))) for r in range(dn_row)]
 
         def shift_k(vect, k0, *ki):
-            return {k - k0: shift_k(v, *ki) if ki else v for k, v in
-                    vect.items()}
+            return [shift_k(v, *ki) if ki else v for v in vect[k0:]]
 
-        if c1[0] < 0 and isinstance(start['col'], int):
-            table = shift_k(table, start.get('row', 0), start['col'])
-        elif start.get('row', 0) > 0:
-            table = shift_k(table, start['row'])
+        ki = [next((r for r, v in enumerate(t) if not all(v)), 0)
+              for t,c in [(table, cell_up.row is None),
+                          (table[0], cell_up.col is None)] if c]
+        ki = [v for v in ki if v > 0]
 
-        if table:
+        if ki:
+            table = shift_k(table, *ki)
+
+        if table[0]:
             if cell_down.col is not None and cell_down.col == cell_up.col:
-                table = {k: v[0] for k, v in table.items()}
+                table = [v[0] for v in table]
             if cell_down.row is not None and cell_down.row == cell_up.row:
                 table = table[0]
+        else:
+            return None
 
         return table
 
