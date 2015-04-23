@@ -12,7 +12,7 @@ components and assemblies:
     See :class:`Component`, :class:`FuncComponent` and :class:`Assembly`
 
 paths and path-mappings (pmods):
-    See :func:`build_pmods_from_tuples`, :class:`Pstep`
+    See :meth:`from_tuples`, :class:`Pstep`
 """
 
 from __future__ import division, unicode_literals
@@ -20,6 +20,7 @@ from __future__ import division, unicode_literals
 from abc import ABCMeta, abstractmethod, abstractproperty
 from collections import OrderedDict
 from copy import copy
+import logging
 import re
 from unittest.mock import MagicMock
 
@@ -29,6 +30,8 @@ import pandas as pd
 
 
 __commit__ = ""
+
+log = logging.getLogger(__name__)
 
 
 class _Pmod(object):
@@ -87,10 +90,45 @@ class _Pmod(object):
         else:
             self._regxs = _regxs
 
-    def _append_regx(self, regx, rpmod=None):
-        if not self._regs:
-            self._regs = OrderedDict()
-        self._regs[regx] = rpmod
+    def _append_into_steps(self, key):
+        """ 
+        Inserts a child-mappings into `_steps` dict. 
+
+        :param str key:    the step-name to add
+        """
+
+        cpmod = None
+        d = self._steps
+        if not d:
+            self._steps = d = {}  # Do not modify init-defaults.
+        else:
+            cpmod = d.get(key)
+        if not cpmod:
+            d[key] = cpmod = _Pmod()
+
+        return cpmod
+
+    def _append_into_regxs(self, key):
+        """
+        Inserts a child-mappings into `_steps` dict. 
+
+        :param str key:    the regex-pattern to add
+        """
+        key = re.compile(key)
+        cpmod = None
+        d = self._regxs
+        if not d:
+            self._regxs = d = OrderedDict()  # Do not modify init-defaults.
+        else:
+            cpmod = d.get(key)
+            if cpmod:
+                # Remove it, to append it at then end.
+                del d[key]
+        if not cpmod:
+            cpmod = _Pmod()
+        d[key] = cpmod
+
+        return cpmod
 
     @classmethod
     def from_tuples(cls, pmods_tuples):
@@ -121,59 +159,42 @@ class _Pmod(object):
             ...     ('/a', 'A1/A2'),
             ...     ('/a/b', 'B'),
             ... ]
-            >>> pmods = build_pmods_from_tuples(pmods_tuples)
+            >>> pmods = _Pmod.from_tuples(pmods_tuples)
             >>> pmods
-            >>> pmods[_PMOD_CHILD]
-            {'a': {'_name_': 'A1/A2'},
-            '_child_':
-                [('b': {'_name_': 'B'})]}
+            pmod({'a': pmod('A1/A2', {'b': pmod('B')})})
 
             >>> pmods_tuples = [
             ...     ('/a*', 'A1/A2'),
             ...     ('/a/b[123]', 'B'),
             ... ]
-            >>> pmods = build_pmods_from_tuples(pmods_tuples)
-            >>> pmods[_PMOD_REGEX]
-            OrderedDict([('a*': {'_name_': 'A1/A2'])
-
-            >>> pmods[_PMOD_CHILD]
-            {'a': {'_regex_':
-                OrderedDict([('b[123]', {'_name_': 'B'})])}}
+            >>> pmods = _Pmod.from_tuples(pmods_tuples)
+            >>> pmods
+            pmod({'a': pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))}, 
+                 OrderedDict([(re.compile('a*'), pmod('A1/A2'))]))
 
         """
         root = _Pmod()
-        for f, t in pmods_tuples:
-            ppmods = root
-            srcstep = None
-            for srcstep in iter_jsonpointer_parts(f):
-                if any(set('[].*()') & set(srcstep)):
-                    # wildard-pattern
-                    try:
-                        # if not ppmods._regxs:
-                        child = ppmods[_PMOD_REGEX]
-                    except KeyError:
-                        ppmods[_PMOD_REGEX] = child = OrderedDict()
-                    try:
-                        child[srcstep]
-                    except KeyError:
-                        ppmods[_PMOD_REGEX] = child = OrderedDict(
-                            {srcstep: None})
+        for i, (f, t) in enumerate(pmods_tuples):
+            if not (f and t):
+                msg = 'pmod-tuple(%i): `source(%s)` and/or `to(%s)` were empty!'
+                log.warning(msg, i, f, t)
+                continue
 
+            pmod = root
+            for srcstep in iter_jsonpointer_parts(f):
+                is_regex = any(set('[]().*+?') & set(srcstep))
+                if is_regex:
+                    pmod = pmod._append_into_regxs(srcstep)
                 else:
-                    # regular step-name
-                    try:
-                        child = ppmods[_PMOD_CHILD]
-                    except KeyError:
-                        ppmods[_PMOD_CHILD] = child = {srcstep: None}
-                ppmods = child
-            if srcstep and t:
-                ppmods[srcstep] = t
+                    pmod = pmod._append_into_steps(srcstep)
+
+            pmod.alias = t
 
         return root
 
-    def _override_dict(self, attr, other):
+    def _override_dict(self, dattr, other):
         """
-        Override this pmod's dict-attr with other's, recursively.
+        Override this pmod's dict-dattr with other's, recursively.
 
         - It may "share" (crosslink) the dict and/or its child-pmods
           between the two pmod args (`self` and `other`).
@@ -183,14 +204,16 @@ class _Pmod(object):
         - It preserves dict-ordering so that `other` order takes precedence
           (its elements are the last ones).
 
-        :param str attr:     either "_steps" or "_regxs"
+        :param str dattr:    either "_steps" or "_regxs"
         :param _Pmod self:   contains the dict that would be overridden
         :param _Pmod other:  contains the dict with the overrides
+
+        TODO: Split in 2 methods for each pmods.dict to avoid ordering code.
         """
 
-        opmods = getattr(other, attr)
+        opmods = getattr(other, dattr)
         if opmods:
-            spmods = getattr(self, attr)
+            spmods = getattr(self, dattr)
             if spmods:
                 # Like `dict.update()` but
                 # with recursive _merge on common items,
@@ -213,11 +236,11 @@ class _Pmod(object):
                 opmods = type(spmods)(spairs + opairs)
 
             # Share other dict if self hadn't its own.
-            setattr(self, attr, opmods)
+            setattr(self, dattr, opmods)
 
-    def _merge(self, other):
+    def _merge_(self, other):
         """
-        Clone this and override its props with props from other-pmod, recursively.
+        Override all its props with props from other-pmod, recursively.
 
         Although it does not modify this, the `other` or their children pmods,
         it may "share" (crosslink) them, so pmods MUST NOT be modified later.
@@ -261,8 +284,6 @@ class _Pmod(object):
                         (re.compile('a'), pmod('A')),
                         (re.compile('c'), pmod('C'))]))
         """
-        self = copy(self)
-
         if other.alias:
             self.alias = other.alias
         if other._steps:
@@ -271,6 +292,11 @@ class _Pmod(object):
             self._override_dict('_regxs', other)
 
         return self
+
+    def _merge(self, other):
+        """Does the same as :meth:`_merge_()` but clones self."""
+        cp = copy(self)
+        return cp._merge_(other)
 
     def __getitem__(self, name):
         """
@@ -360,7 +386,7 @@ def convert_df_as_pmods_tuples(df_pmods, col_from='from', col_to='to'):
     """
     Turns a a dataframe with `col_from`, `col_to` columns into a list of 2-tuples.
 
-    :return: a list of 2-tuples that can be fed into :func:`build_pmods_from_tuples`.
+    :return: a list of 2-tuples that can be fed into :meth:`from_tuples`.
     :rtype: list
 
     Example::

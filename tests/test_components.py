@@ -12,6 +12,11 @@ import pandalone.components
 import pandas as pd
 
 
+def pmod2regexstrs(pmod):
+    if pmod._regxs:
+        return [r.pattern for r in list(pmod._regxs.keys())]
+
+
 class TestDoctest(unittest.TestCase):
 
     def test_doctests(self):
@@ -31,12 +36,8 @@ class Test_Pmod(unittest.TestCase):
         self.assert_Pmod_class_attributes_not_modified()
 
     def assert_Pmod_class_attributes_not_modified(self):
-        # @UndefinedVariable
-        self.assertEqual(_Pmod.__init__.__defaults__, (None, {}, {}))
-
-    def pmod2regexstrs(self, pmod):
-        if pmod._regxs:
-            return [r.pattern for r in list(pmod._regxs.keys())]
+        self.assertEqual(
+            _Pmod.__init__.__defaults__, (None, {}, {}))  # @UndefinedVariable
 
     def test_Pmod_merge_name(self):
         pm1 = _Pmod(alias='pm1')
@@ -128,19 +129,19 @@ class Test_Pmod(unittest.TestCase):
         ])
 
         pm = pm1._merge(pm2)
-        self.assertSequenceEqual(self.pmod2regexstrs(pm), list('ecbad'))
+        self.assertSequenceEqual(pmod2regexstrs(pm), list('ecbad'))
         self.assertEqual(pm._regxs[re.compile('a')].alias, 'AA')
-        self.assertSequenceEqual(self.pmod2regexstrs(pm1), list('eac'))
-        self.assertSequenceEqual(self.pmod2regexstrs(pm2), list('bad'))
+        self.assertSequenceEqual(pmod2regexstrs(pm1), list('eac'))
+        self.assertSequenceEqual(pmod2regexstrs(pm2), list('bad'))
         self.assertEqual(pm._steps, {})
         self.assertEqual(pm1._steps, {})
         self.assertEqual(pm2._steps, {})
 
         pm = pm2._merge(pm1)
-        self.assertSequenceEqual(self.pmod2regexstrs(pm), list('bdeac'))
+        self.assertSequenceEqual(pmod2regexstrs(pm), list('bdeac'))
         self.assertEqual(pm._regxs[re.compile('a')].alias, 'A')
-        self.assertSequenceEqual(self.pmod2regexstrs(pm1), list('eac'))
-        self.assertSequenceEqual(self.pmod2regexstrs(pm2), list('bad'))
+        self.assertSequenceEqual(pmod2regexstrs(pm1), list('eac'))
+        self.assertSequenceEqual(pmod2regexstrs(pm2), list('bad'))
         self.assertEqual(pm._steps, {})
         self.assertEqual(pm1._steps, {})
         self.assertEqual(pm2._steps, {})
@@ -171,10 +172,10 @@ class Test_Pmod(unittest.TestCase):
         self.assertEqual(pm2._steps, {})
         self.assertSetEqual(set(pm3._steps.keys()), set(list('bc')))
 
-        self.assertEqual(self.pmod2regexstrs(pm), list('bac'))
+        self.assertEqual(pmod2regexstrs(pm), list('bac'))
         self.assertEqual(pm1._regxs, {})
-        self.assertEqual(self.pmod2regexstrs(pm2), list('ba'))
-        self.assertEqual(self.pmod2regexstrs(pm3), list('bac'))
+        self.assertEqual(pmod2regexstrs(pm2), list('ba'))
+        self.assertEqual(pmod2regexstrs(pm3), list('bac'))
 
     def test_indexing_None(self):
         pm = _Pmod()
@@ -204,9 +205,6 @@ class Test_Pmod(unittest.TestCase):
         # Both regexps matches.
         self.assertDictEqual(pm['a1']._steps, {2: 22, 3: 33})
 
-
-class TestPmods(unittest.TestCase):
-
     def test_convert_df_empty(self):
         df_orig = pd.DataFrame([])
 
@@ -233,25 +231,46 @@ class TestPmods(unittest.TestCase):
         self.assertEqual(tuple(pmods[0]), ('/a/b', '/A/B'))
         npt.assert_array_equal(df, df_orig)
 
-#     def test_build_pmods_names_orderedDict(self):
-#         pmods_tuples = [
-#             ('/a', 'A1/A2'),
-#             ('/a/b', 'B'),
-#         ]
-#         pmods = build_pmods_from_tuples(pmods_tuples)
-#         self.assertIsInstance(pmods, dict)
-#         self.assertIsInstance(pmods[_PMOD_CHILD], OrderedDict)
-#
-#     def test_build_pmods_regex_orderedDict(self):
-#         pmods_tuples = [
-#             ('/a*', 'A1/A2'),
-#             ('/a/b?', 'B'),
-#         ]
-#         pmods = build_pmods_from_tuples(pmods_tuples)
-#         self.assertIsInstance(pmods, dict)
-#         self.assertIsInstance(pmods[_PMOD_REGEX], OrderedDict)
-#         self.assertIsInstance(pmods[_PMOD_CHILD], OrderedDict)
-#         self.assertIsInstance(pmods[_PMOD_CHILD]['a'], OrderedDict)
+    def test_build_pmods_steps_no_regxs(self):
+        pmods_tuples = [
+            ('/a', 'A1/A2'),
+            ('/a/b', 'B'),
+        ]
+        pmods = _Pmod.from_tuples(pmods_tuples)
+        # pmod({'a': pmod('A1/A2', {'b': pmod('B')})})
+
+        self.assertFalse(bool(pmods._regxs))
+        self.assertSetEqual(set(pmods._steps), {'a'})
+        self.assertEqual(pmods._steps['a'].alias, 'A1/A2')
+        self.assertEqual(pmods._steps['a']._steps['b'].alias, 'B')
+
+    def test_build_pmods_regex_no_steps(self):
+        pmods_tuples = [
+            ('/a*', 'A1/A2'),
+            ('/a[1]?/b?', 'B'),
+        ]
+        pmods = _Pmod.from_tuples(pmods_tuples)
+        # pmod(OrderedDict([(re.compile('a*'),
+        #        pmod('A1/A2')), (re.compile('a[1]'),
+        #        pmod(OrderedDict([(re.compile('b?'),
+        #        pmod('B'))])))]))
+
+        self.assertFalse(bool(pmods._steps))
+        self.assertEqual(pmod2regexstrs(pmods), ['a*', 'a[1]?'])
+
+    def test_build_pmods_repr(self):
+        pmods_tuples = [
+            ('/a', 'A'),
+            ('/a\w*', 'A1/A2'),
+            ('/a\d*/b?', 'D/D'),
+        ]
+        pmods = _Pmod.from_tuples(pmods_tuples)
+
+        s = [r"pmod({'a': pmod('A')}, OrderedDict([(re.compile('a\\w*'), "
+             r"pmod('A1/A2')), (re.compile('a\\d*'), "
+             r"pmod(OrderedDict([(re.compile('b?'), pmod('D/D'))])))]))"
+             ]
+        self.assertEqual(str(pmods), "".join(s))
 
 
 class TestPstep(unittest.TestCase):
