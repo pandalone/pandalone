@@ -62,10 +62,10 @@ class _Pmod(object):
       the component-paths of their input & output onto the actual 
       value-tree paths.
 
-    :ivar str alias:             (optional) the mapped-name of the pstep for  
-                                 this pmod 
-    :ivar dict _children:        {original_name --> pmod}
-    :ivar OrderedDict _regexps:  {regex_on_originals --> pmod}
+    :ivar str alias:           (optional) the mapped-name of the pstep for  
+                               this pmod 
+    :ivar dict _steps:         {original_name --> pmod}
+    :ivar OrderedDict _regxs:  {regex_on_originals --> pmod}
 
     TODO: Use __slot__ on _Pmod.
     """
@@ -74,15 +74,15 @@ class _Pmod(object):
     # Knowingly volatile class-attributes,
     #    with invalid types (acting as sentinels),
     #    never to be appended.
-    _children = []
-    _regexps = []
+    _steps = []
+    _regxs = []
 
-    def __init__(self, _regexps=None, **kws):
-        """Used internally, otherwise, remember `_regexps` to be (k,v) tuple-list!"""
+    def __init__(self, _regxs=None, **kws):
+        """Used internally, otherwise, remember `_regxs` to be (k,v) tuple-list!"""
         vars(self).update(**kws)
-        if _regexps:
-            self._regexps = OrderedDict(
-                (re.compile(k), v) for k, v in _regexps)
+        if _regxs:
+            self._regxs = OrderedDict(
+                (re.compile(k), v) for k, v in _regxs)
 
     @classmethod
     def from_tuples(cls, pmods_tuples):
@@ -127,6 +127,7 @@ class _Pmod(object):
             >>> pmods = build_pmods_from_tuples(pmods_tuples)
             >>> pmods[_PMOD_REGEX]
             OrderedDict([('a*': {'_name_': 'A1/A2'])
+
             >>> pmods[_PMOD_CHILD]
             {'a': {'_regex_': 
                 OrderedDict([('b[123]', {'_name_': 'B'})])}} 
@@ -188,7 +189,7 @@ class _Pmod(object):
         - It preserves dict-ordering so that `other` order takes precedence 
           (its elements are the last ones). 
 
-        :param str attr:     either "_children" or "_regexps"
+        :param str attr:     either "_steps" or "_regxs"
         :param _Pmod self:   contains the dict that would be overridden
         :param _Pmod other:  contains the dict with the overrides
         """
@@ -233,25 +234,25 @@ class _Pmod(object):
 
         Examples:
 
-        Look how `_children` are merged::
+        Look how `_steps` are merged::
 
-            >>> pm1 = _Pmod(alias='pm1', _children={
+            >>> pm1 = _Pmod(alias='pm1', _steps={
             ...     'a':_Pmod(alias='A'), 'c':_Pmod(alias='C')})
-            >>> pm2 = _Pmod(alias='pm2', _children={
+            >>> pm2 = _Pmod(alias='pm2', _steps={
             ...     'b':_Pmod(alias='B'), 'a':_Pmod(alias='AA')})
             >>> pm = pm1._merge(pm2)
-            >>> sorted(pm._children.keys())
+            >>> sorted(pm._steps.keys())
             ['a', 'b', 'c']
 
 
-        And here it is `_regexps` merging, which preserves order::
+        And here it is `_regxs` merging, which preserves order::
 
             >>> pm1 = _Pmod(alias='pm1', 
-            ...             _regexps=[('d', _Pmod(alias='D')), 
+            ...             _regxs=[('d', _Pmod(alias='D')), 
             ...                      ('a', _Pmod(alias='A')), 
             ...                      ('c', _Pmod(alias='C'))])
             >>> pm2 = _Pmod(alias='pm2', 
-            ...             _regexps=[('b', _Pmod(alias='BB')), 
+            ...             _regxs=[('b', _Pmod(alias='BB')), 
             ...                      ('a', _Pmod(alias='AA'))])
 
             >>> pm1._merge(pm2)
@@ -270,16 +271,16 @@ class _Pmod(object):
 
         if other.alias:
             self.alias = other.alias
-        if other._children:
-            self._override_dict('_children', other)
-        if other._regexps:
-            self._override_dict('_regexps', other)
+        if other._steps:
+            self._override_dict('_steps', other)
+        if other._regxs:
+            self._override_dict('_regxs', other)
 
         return self
 
     def __getitem__(self, name):
         """
-        Merges and returns the child pmod for matched regexs and direct-one.
+        Merges and returns the child pmod for matched regexps and direct-one.
 
         :param str name:    the child path-step name of the pmod to return
         :return:            the merged-child pmod or None
@@ -288,8 +289,8 @@ class _Pmod(object):
         Example::
 
             >>> pm = _Pmod( 
-            ...     _children={'a': _Pmod(alias='A')},
-            ...    _regexps=[('a\w*', _Pmod(alias='AWord')),
+            ...     _steps={'a': _Pmod(alias='A')},
+            ...     _regxs=[('a\w*', _Pmod(alias='AWord')),
             ...              ('a\d*', _Pmod(alias='ADigit')),
             ...    ])
             >>> pm['a']
@@ -301,24 +302,35 @@ class _Pmod(object):
             >>> pm['a12']
             pmod('ADigit')
 
+            >>> pm['BAD'] is None
+            True
 
-        And notice how children of regexeps are merged together
-        (note that the last csteps below are intentionally invalid numbers)::
+
+        Note that intentionally it does not support the `in` operator, 
+        to avoid needless merges::
+
+            >>> 'BAD' in pm
+            Traceback (most recent call last):
+            TypeError: expected string or buffer
+
+
+        And notice how children of regexps are merged together
+        (the final sub-steps below are intentionally invalid as _Pmods)::
 
             >>> pm = _Pmod( 
-            ...     _children={'a': 
-            ...        _Pmod(alias='A', _children={1: 11})},
-            ...    _regexps=[
-            ...        ('a\w*', _Pmod(alias='AWord', _children={2: 22})),
-            ...        ('a\d*', _Pmod(alias='ADigit', _children={3: 33})),
+            ...     _steps={'a': 
+            ...        _Pmod(alias='A', _steps={1: 11})},
+            ...     _regxs=[
+            ...        ('a\w*', _Pmod(alias='AWord', _steps={2: 22})),
+            ...        ('a\d*', _Pmod(alias='ADigit', _steps={3: 33})),
             ...    ])
-            >>> sorted(pm['a']._children)    ## All children and regexps match.
+            >>> sorted(pm['a']._steps)    ## All children and regexps match.
             [1, 2, 3]
 
-            >>> pm['aa']._children           ## Only 'a\w*' matches.
+            >>> pm['aa']._steps           ## Only 'a\w*' matches.
             {2: 22}
 
-            >>> sorted(pm['a1']._children )  ## Both regexps matches.
+            >>> sorted(pm['a1']._steps )  ## Both regexps matches.
             [2, 3]
 
         So it is possible to say::
@@ -327,17 +339,17 @@ class _Pmod(object):
             22
             >>> pm['a1'][3]
             33
-            >>> print(pm['a$'])
-            None
+            >>> pm['a$'] is None
+            True
         """
         pmods = []
-        if self._regexps:
+        if self._regxs:
             pmods = [rpmod
                      for regex, rpmod
-                     in self._regexps.items()
+                     in self._regxs.items()
                      if regex.fullmatch(name)]
-        if self._children:
-            cpmod = self._children.get(name)
+        if self._steps:
+            cpmod = self._steps.get(name)
             if cpmod:
                 pmods.append(cpmod)
 
@@ -345,7 +357,7 @@ class _Pmod(object):
 
     def __repr__(self):
         args = [repr(a)
-                for a in [self.alias, self._children, self._regexps]
+                for a in [self.alias, self._steps, self._regxs]
                 if a]
 
         args = ', '.join(args)
