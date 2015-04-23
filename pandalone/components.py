@@ -36,9 +36,9 @@ class _Pmod(object):
     """
     A path-step mapping, which along with its child-pmods, forms a pmods-hierarchy.
 
-    - The :term:`pmods` denotes the hierarchy of all path-step mappings, 
-      that either *rename* or *relocate* path-steps. 
-    - The :term:`pmod` is the mapping of a single path-step. 
+    - The :term:`pmods` denotes the hierarchy of all path-step mappings,
+      that either *rename* or *relocate* path-steps.
+    - The :term:`pmod` is the mapping of a single path-step.
     - A mapping always refers to the *final* path-step, like that::
 
         FROM_PATH       TO_PATH       RESULT_PATH
@@ -47,23 +47,23 @@ class _Pmod(object):
         /relocate/path  foo/bar   --> /relocate/foo/bar  ## relocation
         /root           a/b/c     --> /a/b/c             ## Relocates all /root sub-paths.
 
-    - It is possible to match fully on path-steps using regular-expressions, 
+    - It is possible to match fully on path-steps using regular-expressions,
       and then to use any captured-groups in the mapped value::
 
         (/all(.*)/path, foo)   + all_1/path --> /all_1/foo
                                + allXXX     --> /allXXX          ## no change
         (/all(.*)/path, foo\1) + all_1/path --> /all_1/foo_1
 
-      If more than one regex match, they are merged in the order declared 
-      (the latest one overrides a previous one).  
+      If more than one regex match, they are merged in the order declared
+      (the latest one overrides a previous one).
     - Any exact child-name matches are applied and merged after regexs.
     - Use :meth:`from_tuples()` to construct the pmods-hierarchy.
-    - The pmods are used internally by class:`Pstep` to correspond 
-      the component-paths of their input & output onto the actual 
+    - The pmods are used internally by class:`Pstep` to correspond
+      the component-paths of their input & output onto the actual
       value-tree paths.
 
-    :ivar str alias:           (optional) the mapped-name of the pstep for  
-                               this pmod 
+    :ivar str alias:           (optional) the mapped-name of the pstep for
+                               this pmod
     :ivar dict _steps:         {original_name --> pmod}
     :ivar OrderedDict _regxs:  {regex_on_originals --> pmod}
 
@@ -89,22 +89,22 @@ class _Pmod(object):
         """
         Turns a list of 2-tuples into a *pmods* hierarchy.
 
-        Each tuple defines the renaming-or-relocation of the *final* part 
+        Each tuple defines the renaming-or-relocation of the *final* part
         of some component path onto another one into value-trees, such as::
 
             (rename/path, foo)           --> rename/foo
             (relocate/path, foo/bar)     --> relocate/foo/bar
 
 
-        In case the the "from" path contains any of the `[].*()` chars, 
+        In case the the "from" path contains any of the `[].*()` chars,
         it is assumed to be a regular-expression::
 
             (all(.*)/path, foo)
             (some[\d+]/path, foo\1)
 
 
-        :return: a root pmod 
-        :rtype: _Pmod 
+        :return: a root pmod
+        :rtype: _Pmod
 
 
         Example::
@@ -116,8 +116,8 @@ class _Pmod(object):
             >>> pmods = build_pmods_from_tuples(pmods_tuples)
             >>> pmods
             >>> pmods[_PMOD_CHILD]
-            {'a': {'_name_': 'A1/A2'}, 
-            '_child_': 
+            {'a': {'_name_': 'A1/A2'},
+            '_child_':
                 [('b': {'_name_': 'B'})]}
 
             >>> pmods_tuples = [
@@ -129,8 +129,8 @@ class _Pmod(object):
             OrderedDict([('a*': {'_name_': 'A1/A2'])
 
             >>> pmods[_PMOD_CHILD]
-            {'a': {'_regex_': 
-                OrderedDict([('b[123]', {'_name_': 'B'})])}} 
+            {'a': {'_regex_':
+                OrderedDict([('b[123]', {'_name_': 'B'})])}}
 
         """
         pmods = {}
@@ -163,31 +163,17 @@ class _Pmod(object):
 
         return pmods
 
-    @staticmethod
-    def _merge_all(pmods):
-        """
-        Examples::
-
-            >>> pm1 = _Pmod()
-            >>> pm2 = _Pmod(alias='pm2')
-            >>> pm3 = _Pmod(alias='PM3')
-            >>> _Pmod._merge_all([pm1, pm2, pm3])
-            pmod('PM3')
-        """
-        if pmods:
-            return ft.reduce(_Pmod._merge, pmods)
-
     def _override_dict(self, attr, other):
         """
         Override this pmod's dict-attr with other's, recursively.
 
-        - It may "share" (crosslink) the dict and/or its child-pmods 
+        - It may "share" (crosslink) the dict and/or its child-pmods
           between the two pmod args (`self` and `other`).
-        - No dict is modified (apart from self, which must have been cloned 
-          previously by :meth:`_Pmod._merge()`), to avoid side-effects 
+        - No dict is modified (apart from self, which must have been cloned
+          previously by :meth:`_Pmod._merge()`), to avoid side-effects
           in case they were "shared".
-        - It preserves dict-ordering so that `other` order takes precedence 
-          (its elements are the last ones). 
+        - It preserves dict-ordering so that `other` order takes precedence
+          (its elements are the last ones).
 
         :param str attr:     either "_steps" or "_regxs"
         :param _Pmod self:   contains the dict that would be overridden
@@ -225,7 +211,7 @@ class _Pmod(object):
         """
         Clone this and override its props with props from other-pmod, recursively.
 
-        Although it does not modify this, the `other` or their children pmods, 
+        Although it does not modify this, the `other` or their children pmods,
         it may "share" (crosslink) them, so pmods MUST NOT be modified later.
 
         :param _Pmod other: contains the dicts with the overrides
@@ -247,24 +233,24 @@ class _Pmod(object):
 
         And here it is `_regxs` merging, which preserves order::
 
-            >>> pm1 = _Pmod(alias='pm1', 
-            ...             _regxs=[('d', _Pmod(alias='D')), 
-            ...                      ('a', _Pmod(alias='A')), 
+            >>> pm1 = _Pmod(alias='pm1',
+            ...             _regxs=[('d', _Pmod(alias='D')),
+            ...                      ('a', _Pmod(alias='A')),
             ...                      ('c', _Pmod(alias='C'))])
-            >>> pm2 = _Pmod(alias='pm2', 
-            ...             _regxs=[('b', _Pmod(alias='BB')), 
+            >>> pm2 = _Pmod(alias='pm2',
+            ...             _regxs=[('b', _Pmod(alias='BB')),
             ...                      ('a', _Pmod(alias='AA'))])
 
             >>> pm1._merge(pm2)
-            pmod('pm2', OrderedDict([(re.compile('d'), pmod('D')), 
-                       (re.compile('c'), pmod('C')), 
-                       (re.compile('b'), pmod('BB')), 
+            pmod('pm2', OrderedDict([(re.compile('d'), pmod('D')),
+                       (re.compile('c'), pmod('C')),
+                       (re.compile('b'), pmod('BB')),
                        (re.compile('a'), pmod('AA'))]))
 
             >>> pm2._merge(pm1)
             pmod('pm1', OrderedDict([(re.compile('b'), pmod('BB')),
                         (re.compile('d'), pmod('D')),
-                        (re.compile('a'), pmod('A')), 
+                        (re.compile('a'), pmod('A')),
                         (re.compile('c'), pmod('C'))]))
         """
         self = copy(self)
@@ -288,7 +274,7 @@ class _Pmod(object):
 
         Example::
 
-            >>> pm = _Pmod( 
+            >>> pm = _Pmod(
             ...     _steps={'a': _Pmod(alias='A')},
             ...     _regxs=[('a\w*', _Pmod(alias='AWord')),
             ...              ('a\d*', _Pmod(alias='ADigit')),
@@ -306,7 +292,7 @@ class _Pmod(object):
             True
 
 
-        Note that intentionally it does not support the `in` operator, 
+        Note that intentionally it does not support the `in` operator,
         to avoid needless merges::
 
             >>> 'BAD' in pm
@@ -317,8 +303,8 @@ class _Pmod(object):
         And notice how children of regexps are merged together
         (the final sub-steps below are intentionally invalid as _Pmods)::
 
-            >>> pm = _Pmod( 
-            ...     _steps={'a': 
+            >>> pm = _Pmod(
+            ...     _steps={'a':
             ...        _Pmod(alias='A', _steps={1: 11})},
             ...     _regxs=[
             ...        ('a\w*', _Pmod(alias='AWord', _steps={2: 22})),
@@ -353,7 +339,8 @@ class _Pmod(object):
             if cpmod:
                 pmods.append(cpmod)
 
-        return _Pmod._merge_all(pmods)
+        if pmods:
+            return ft.reduce(_Pmod._merge, pmods)
 
     def __repr__(self):
         args = [repr(a)
@@ -380,15 +367,15 @@ def convert_df_as_pmods_tuples(df_pmods, col_from='from', col_to='to'):
         >>> df_pmods = pd.DataFrame(pmods_tuples)
         >>> res = convert_df_as_pmods_tuples(df_pmods)
         >>> res
-        rec.array([('/a', 'A1/A2'), ('/a/b', 'B')], 
-              dtype=[('from', 'O'), ('to', 'O')]) 
+        rec.array([('/a', 'A1/A2'), ('/a/b', 'B')],
+              dtype=[('from', 'O'), ('to', 'O')])
 
         >>> df_pmods.columns = ['Rename from', 'Rename to']
         >>> df_pmods['extra columns'] = ['not', 'used']
         >>> res = convert_df_as_pmods_tuples(
         ...         df_pmods, col_from='Rename from', col_to='Rename to')
         >>> res
-        rec.array([('/a', 'A1/A2'), ('/a/b', 'B')], 
+        rec.array([('/a', 'A1/A2'), ('/a/b', 'B')],
               dtype=[('Rename from', 'O'), ('Rename to', 'O')])
         """
     if df_pmods.empty:
@@ -415,10 +402,10 @@ class JSchema(object):
     """
     Facilitates the construction of json-schema-v4 nodes on :class:`PStep` code.
 
-    It does just rudimentary args-name check.   Further validations 
+    It does just rudimentary args-name check.   Further validations
     should apply using a proper json-schema validator.
 
-    :param type: if omitted, derived as 'object' if it has children 
+    :param type: if omitted, derived as 'object' if it has children
     :param kws:  for all the rest see http://json-schema.org/latest/json-schema-validation.html
 
     """
@@ -445,24 +432,24 @@ class JSchema(object):
 class Pstep(str):
 
     """
-    Automagically-constructed *renamable* paths for accessing data-tree. 
+    Automagically-constructed *renamable* paths for accessing data-tree.
 
-    The "magic" autocreates psteps as they referenced, making writting code 
-    that access data-tree paths, natural, while at the same time the "model" 
+    The "magic" autocreates psteps as they referenced, making writting code
+    that access data-tree paths, natural, while at the same time the "model"
     of those tree-data gets discovered.
 
     Each pstep keeps internaly the *name* of a data-tree step, which, when
-    created through recursive referencing, coincedes with parent's branch 
+    created through recursive referencing, coincedes with parent's branch
     leading to this step.  That name can be modified with :class:`_Pmod`
     so the same data-accessing code can consume differently-named data-trees.
 
     :param str pname:    this pstep's name (stored at super-str object)
     :ivar Pstep _csteps: the child-psteps
-    :ivar dict _pmods:   path-modifications used to construct this and 
+    :ivar dict _pmods:   path-modifications used to construct this and
                          relayed to children
     :ivar int _lock:     one of
                          - :const:`Pstep.CAN_RELOCATE`(default, reparenting allowed),
-                         - :const:`Pstep.CAN_RENAME`, 
+                         - :const:`Pstep.CAN_RENAME`,
                          - :const:`Pstep.LOCKED' (neither from the above).
     :ivar dict _schema:  jsonschema data.
 
@@ -474,7 +461,7 @@ class Pstep(str):
 
     - Just by referencing (non_private) attributes, they are created.
 
-    - It raises :exc:`AssertionError` if any non-pstep value gets assigned 
+    - It raises :exc:`AssertionError` if any non-pstep value gets assigned
       as dict-item or as non-private attribute (ie `_name` is indeed allowed).
 
     - Use :meth:`_paths()` to get all defined paths so far.
@@ -643,17 +630,17 @@ class Component(object, metaclass=ABCMeta):
     """
     Encapsulates a function and its its inputs/outputs dependencies.
 
-    It should be callable, and when executed it may read/modify 
+    It should be callable, and when executed it may read/modify
     the data-tree given as its 1st input.
 
     An opportunity to fix the internal-state (i.e. inputs/output/name)
-    is when the  :meth:`_build()` is invoked. 
+    is when the  :meth:`_build()` is invoked.
 
     :ivar list _name:    identifier
     :ivar list _inp:     list/of/paths required on the data-tree (must not overlap with `out`)
     :ivar list _out:     list/of/paths modified on the data-tree (must not overlap with `inp`)
 
-    Mostly defined through *cfuncs*, which provide for defining a component 
+    Mostly defined through *cfuncs*, which provide for defining a component
     with a single function with a special signature, see :class:`FuncComponent`.
     """
 
@@ -674,7 +661,7 @@ class Component(object, metaclass=ABCMeta):
         pass
 
     def _iter_validations(self):
-        """ Yields a msg for each failed validation rule. 
+        """ Yields a msg for each failed validation rule.
 
         Invoke it after :meth:`_build()` component.
         """
@@ -699,24 +686,24 @@ class FuncComponent(Component):
 
     where:
 
-    comp: 
+    comp:
         the  :class:`FuncComponent` associated with the cfunc
 
-    vtree: 
+    vtree:
         the part of the data-tree involving the values to be modified
         by the cfunc
 
-    It works also as a utility to developers of a cfuncs, since it is passed 
+    It works also as a utility to developers of a cfuncs, since it is passed
     as their 1st arg.
 
-    The cfuncs may use :meth:`pinp` and :meth:`pout` when accessing 
-    its input and output data-tree values respectively.  
+    The cfuncs may use :meth:`pinp` and :meth:`pout` when accessing
+    its input and output data-tree values respectively.
     Note that accessing any of those attributes from outside of cfunc,
     would result in an error.
 
     If a cfunc access additional values with "fixed' paths, then it has to
     manually add those paths into the :attr:`_inp` and :attr:`_out`
-    lists.  
+    lists.
 
 
     Example:

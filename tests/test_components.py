@@ -4,6 +4,7 @@ import json
 import re
 import unittest
 
+import functools as ft
 import numpy.testing as npt
 from pandalone.components import (
     Assembly, FuncComponent, Pstep, convert_df_as_pmods_tuples, _Pmod)
@@ -145,11 +146,11 @@ class Test_Pmod(unittest.TestCase):
         self.assertEqual(pm1._steps, [])
         self.assertEqual(pm2._steps, [])
 
-    def test_Pmod_merge_all_empty(self):
-        pm = _Pmod._merge_all([])
-        self.assertIsNone(pm)
-
     def test_Pmod_merge_all(self):
+        """Check merge_all behavior, but function has been inlined in _Pmod. """
+        def merge_all(pmods):
+            return ft.reduce(_Pmod._merge, pmods)
+
         pm1 = _Pmod(_steps={'a': _Pmod(alias='A')})
         pm2 = _Pmod(alias='pm2',
                     _regxs=[
@@ -164,7 +165,7 @@ class Test_Pmod(unittest.TestCase):
                         ('a', _Pmod(alias='BBB')),
                         ('c', _Pmod(alias='CCC')),
                     ])
-        pm = _Pmod._merge_all([pm1, pm2, pm3])
+        pm = merge_all([pm1, pm2, pm3])
 
         self.assertSetEqual(set(pm._steps.keys()), set(list('abc')))
         self.assertSetEqual(set(pm1._steps.keys()), set(list('a')))
