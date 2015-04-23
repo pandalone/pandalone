@@ -9,7 +9,6 @@
 from __future__ import division, print_function, unicode_literals
 
 import logging
-import os
 import tempfile
 import doctest
 import unittest
@@ -17,6 +16,10 @@ import pandalone.xlsreader as xr
 import pandas as pd
 from tests.test_utils import chdir
 import xlrd as xd
+# noinspection PyUnresolvedReferences
+from six.moves.urllib.parse import urlparse
+# noinspection PyUnresolvedReferences
+from six.moves.urllib.request import urlopen
 
 DEFAULT_LOG_LEVEL = logging.INFO
 
@@ -60,9 +63,16 @@ class TestGetNoEmptyCells(unittest.TestCase):
                                   'Sheet1',
                                   startrow=5, startcol=3)
 
-            url = '%s#%s!A1:C2[1,2]{"1":4,"2":"ciao"}' % (file_path, 'Sheet1')
+            file_path = '/'.join([tmpdir, file_path])
 
-            sheet = xr.url_parser(url)['xl_sheet']
+            url = 'file:///%s#Sheet1!A1:C2[1,2]{"1":4,"2":"ciao"}' % file_path
+
+            res = urlparse(url)
+
+            wb = xd.open_workbook(file_contents=urlopen(url).read())
+
+            sheet_name = xr.url_fragment_parser(res.fragment)['xl_sheet_name']
+            sheet = wb.sheet_by_name(sheet_name)
             Cell = xr.Cell
 
             # minimum matrix in the sheet [:]
@@ -165,7 +175,7 @@ class TestGetNoEmptyCells(unittest.TestCase):
             res = {}
             self.assertEqual(xr.get_no_empty_cells(*args), res)
 
-    def test_url_parser(self):
+    def test_url_fragment_parser(self):
         with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
             
@@ -174,76 +184,69 @@ class TestGetNoEmptyCells(unittest.TestCase):
                                   'Sheet1',
                                   startrow=5, startcol=3)
 
-            wb = xd.open_workbook(file_path)
-
             Cell = xr.Cell
 
-            url = '%s#%s!A1:C2' % (file_path, 'Sheet1')
-            res = xr.url_parser(url)
+            url = 'Sheet1!A1:C2'
+            res = xr.url_fragment_parser(url)
             self.assertEquals(res['cell_up'], Cell(col=0, row=0))
             self.assertEquals(res['cell_down'], Cell(col=2, row=1))
 
-            url = '%s#%s!A1:C2[1,2]' % (file_path, 'Sheet1')
-            res = xr.url_parser(url)
+            url = 'Sheet1!A1:C2[1,2]'
+            res = xr.url_fragment_parser(url)
             self.assertEquals(res['json_args'], [1, 2])
             self.assertEquals(res['cell_up'], Cell(col=0, row=0))
             self.assertEquals(res['cell_down'], Cell(col=2, row=1))
 
-            url = '%s#%s!A1:C2{"1":4,"2":"ciao"}' % (file_path, 'Sheet1')
-            res = xr.url_parser(url)
+            url = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
+            res = xr.url_fragment_parser(url)
             self.assertEquals(res['json_kwargs'], {'2': 'ciao', '1': 4})
             self.assertEquals(res['cell_up'], Cell(col=0, row=0))
             self.assertEquals(res['cell_down'], Cell(col=2, row=1))
 
-            url = '%s#%s!A1[1,2]{"1":4,"2":"ciao"}' % (file_path, 'Sheet1')
-            res = xr.url_parser(url)
+            url = 'Sheet1!A1[1,2]{"1":4,"2":"ciao"}'
+            res = xr.url_fragment_parser(url)
             self.assertEquals(res['json_kwargs'], {'2': 'ciao', '1': 4})
             self.assertEquals(res['json_args'], [1, 2])
             self.assertEquals(res['cell_up'], Cell(col=0, row=0))
 
-            url = '%s#%s!A' % (file_path, 'Sheet1')
-            res = xr.url_parser(url)
+            url = 'Sheet1!A_'
+            res = xr.url_fragment_parser(url)
             self.assertEquals(res['cell_up'], Cell(col=0, row=None))
 
-            url = '%s#%s!A1::' % (file_path, 'Sheet1')
-            self.assertRaises(ValueError, xr.url_parser, url)
+            url = 'Sheet1![1,2,3]'
+            res = xr.url_fragment_parser(url)
+            self.assertEquals(res['cell_up'], Cell(col=0, row=0))
+            self.assertEquals(res['cell_down'], Cell(col=None, row=None))
 
-            url = '%s#%s!A1:!' % (file_path, 'Sheet1')
-            self.assertRaises(ValueError, xr.url_parser, url)
+            url = ':[1,2,3]'
+            res = xr.url_fragment_parser(url)
+            self.assertEquals(res['cell_up'], Cell(col=None, row=None))
+            self.assertEquals(res['cell_down'], Cell(col=None, row=None))
 
-            url = '%s#%s![1,2,3]' % (file_path, 'Sheet1')
-            self.assertRaises(ValueError, xr.url_parser, url)
 
-    def test_cell_parser(self):
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's![[]')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's![[]{]}')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!{}[]')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!{}[]')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!A')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!A1:!')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!1:2')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!B3:A1')
+            self.assertRaises(ValueError, xr.url_fragment_parser, 's!B3:A0')
+
+    def test_fetch_cell(self):
         Cell = xr.Cell
 
-        self.assertEquals(xr.cell_parser('A1'), Cell(col=0, row=0))
+        self.assertEquals(xr.fetch_cell('A1', 'A', '1'), Cell(col=0, row=0))
 
-        self.assertEquals(xr.cell_parser('A'), Cell(col=0, row=None))
+        self.assertEquals(xr.fetch_cell('A_', 'A', '_'), Cell(col=0, row=None))
 
-        self.assertEquals(xr.cell_parser('1'), Cell(col=None, row=0))
+        self.assertEquals(xr.fetch_cell('_1', '_','1'), Cell(col=None, row=0))
 
-        self.assertEquals(xr.cell_parser(''), Cell(col=None, row=None))
+        self.assertEquals(xr.fetch_cell('__', '_', '_'), Cell(col=None, row=None))
 
-        self.assertRaises(ValueError, xr.cell_parser, '@')
-
-        self.assertRaises(ValueError, xr.cell_parser, 'A1A')
-
-        self.assertRaises(ValueError, xr.cell_parser, 'R1C1')
-
-    def test_check_range(self):
-        Cell = xr.Cell
-
-        self.assertEquals(xr.check_range(Cell(1, 2), Cell(None, None)), None)
-        self.assertRaises(ValueError, xr.check_range, *(Cell(None, None), None))
-        self.assertRaises(ValueError, xr.check_range, *(Cell(1, 0), Cell(0, 1)))
+        self.assertRaises(ValueError, xr.fetch_cell, *('_0', '_', '0'))
 
     def test_col2num(self):
         self.assertEqual(xr.col2num('D'), 3)
         self.assertEqual(xr.col2num('AAA'), 702)
-        self.assertEqual(xr.col2num(''), -1)
-
-        self.assertRaises(TypeError, xr.col2num, 1)
-
-        self.assertRaises(ValueError, xr.col2num, 'a')
-        self.assertRaises(ValueError, xr.col2num, '@_')
