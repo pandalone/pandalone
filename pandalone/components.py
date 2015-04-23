@@ -14,11 +14,13 @@ components and assemblies:
 paths and path-mappings (pmods):
     See :func:`build_pmods_from_tuples`, :class:`Pstep`
 """
+
 from __future__ import division, unicode_literals
 
 from abc import ABCMeta, abstractmethod, abstractproperty
 from collections import OrderedDict
 from copy import copy
+import re
 from unittest.mock import MagicMock
 
 import functools as ft
@@ -60,13 +62,14 @@ class _Pmod(object):
       the component-paths of their input & output onto the actual 
       value-tree paths.
 
-    :ivar str _alias:            (optional) the mapped-name of the pstep for  
+    :ivar str alias:             (optional) the mapped-name of the pstep for  
                                  this pmod 
     :ivar dict _children:        {original_name --> pmod}
     :ivar OrderedDict _regexps:  {regex_on_originals --> pmod}
 
+    TODO: Use __slot__ on _Pmod.
     """
-    _alias = None
+    alias = None
 
     # Knowingly volatile class-attributes,
     #    with invalid types (acting as sentinels),
@@ -74,9 +77,12 @@ class _Pmod(object):
     _children = []
     _regexps = []
 
-    def __init__(self, **kws):
-        """Used internally, otherwise remember `_regexps` to be OrderedDict"""
+    def __init__(self, _regexps=None, **kws):
+        """Used internally, otherwise, remember `_regexps` to be (k,v) tuple-list!"""
         vars(self).update(**kws)
+        if _regexps:
+            self._regexps = OrderedDict(
+                (re.compile(k), v) for k, v in _regexps)
 
     @classmethod
     def from_tuples(cls, pmods_tuples):
@@ -157,17 +163,18 @@ class _Pmod(object):
         return pmods
 
     @staticmethod
-    def merge_all(pmods):
+    def _merge_all(pmods):
         """
         Examples::
 
             >>> pm1 = _Pmod()
-            >>> pm2 = _Pmod(_alias='pm2')
-            >>> pm3 = _Pmod(_alias='PM3')
-            >>> _Pmod.merge_all([pm1, pm2, pm3])
+            >>> pm2 = _Pmod(alias='pm2')
+            >>> pm3 = _Pmod(alias='PM3')
+            >>> _Pmod._merge_all([pm1, pm2, pm3])
             pmod('PM3')
         """
-        return ft.reduce(_Pmod._merge, pmods)
+        if pmods:
+            return ft.reduce(_Pmod._merge, pmods)
 
     def _override_dict(self, attr, other):
         """
@@ -228,10 +235,10 @@ class _Pmod(object):
 
         Look how `_children` are merged::
 
-            >>> pm1 = _Pmod(_alias='pm1', _children={
-            ...     'a':_Pmod(_alias='A'), 'c':_Pmod(_alias='C')})
-            >>> pm2 = _Pmod(_alias='pm2', _children={
-            ...     'b':_Pmod(_alias='B'), 'a':_Pmod(_alias='AA')})
+            >>> pm1 = _Pmod(alias='pm1', _children={
+            ...     'a':_Pmod(alias='A'), 'c':_Pmod(alias='C')})
+            >>> pm2 = _Pmod(alias='pm2', _children={
+            ...     'b':_Pmod(alias='B'), 'a':_Pmod(alias='AA')})
             >>> pm = pm1._merge(pm2)
             >>> sorted(pm._children.keys())
             ['a', 'b', 'c']
@@ -239,30 +246,30 @@ class _Pmod(object):
 
         And here it is `_regexps` merging, which preserves order::
 
-            >>> pm1 = _Pmod(_alias='pm1', _regexps=OrderedDict([
-            ...     ('d', _Pmod(_alias='D')), 
-            ...     ('a', _Pmod(_alias='A')), 
-            ...     ('c', _Pmod(_alias='C'))]))
-            >>> pm2 = _Pmod(_alias='pm2', _regexps=OrderedDict([
-            ...     ('b', _Pmod(_alias='BB')), 
-            ...     ('a', _Pmod(_alias='AA'))]))
+            >>> pm1 = _Pmod(alias='pm1', 
+            ...             _regexps=[('d', _Pmod(alias='D')), 
+            ...                      ('a', _Pmod(alias='A')), 
+            ...                      ('c', _Pmod(alias='C'))])
+            >>> pm2 = _Pmod(alias='pm2', 
+            ...             _regexps=[('b', _Pmod(alias='BB')), 
+            ...                      ('a', _Pmod(alias='AA'))])
 
             >>> pm1._merge(pm2)
-            pmod('pm2', OrderedDict([('d', pmod('D')), 
-                                     ('c', pmod('C')), 
-                                     ('b', pmod('BB')), 
-                                     ('a', pmod('AA'))]))
+            pmod('pm2', OrderedDict([(re.compile('d'), pmod('D')), 
+                       (re.compile('c'), pmod('C')), 
+                       (re.compile('b'), pmod('BB')), 
+                       (re.compile('a'), pmod('AA'))]))
 
             >>> pm2._merge(pm1)
-            pmod('pm1', OrderedDict([('b', pmod('BB')),
-                                     ('d', pmod('D')),
-                                     ('a', pmod('A')), 
-                                     ('c', pmod('C'))]))
+            pmod('pm1', OrderedDict([(re.compile('b'), pmod('BB')),
+                        (re.compile('d'), pmod('D')),
+                        (re.compile('a'), pmod('A')), 
+                        (re.compile('c'), pmod('C'))]))
         """
         self = copy(self)
 
-        if other._alias:
-            self._alias = other._alias
+        if other.alias:
+            self.alias = other.alias
         if other._children:
             self._override_dict('_children', other)
         if other._regexps:
@@ -270,27 +277,75 @@ class _Pmod(object):
 
         return self
 
-    def child(self, name):
+    def __getitem__(self, name):
         """
-        Merges and returns the child pmod for matched regexs and direct-one
+        Merges and returns the child pmod for matched regexs and direct-one.
 
         :param str name:    the child path-step name of the pmod to return
-        :return:            the child pmod
+        :return:            the merged-child pmod or None
         :rtype:             _Pmod
-        """
-        pmods = [rpmod
-                 for regex, rpmod
-                 in self._regexps.items()
-                 if regex.fullmatch(name)]
-        cpmod = self._children.get(name)
-        if cpmod:
-            pmods.append(cpmod)
 
-        return _Pmod.merge_all(pmods)  # Prepend base of the _merge.
+        Example::
+
+            >>> pm = _Pmod( 
+            ...     _children={'a': _Pmod(alias='A')},
+            ...    _regexps=[('a\w*', _Pmod(alias='AWord')),
+            ...              ('a\d*', _Pmod(alias='ADigit')),
+            ...    ])
+            >>> pm['a']
+            pmod('A')
+
+            >>> pm['abc']
+            pmod('AWord')
+
+            >>> pm['a12']
+            pmod('ADigit')
+
+
+        And notice how children of regexeps are merged together
+        (note that the last csteps below are intentionally invalid numbers)::
+
+            >>> pm = _Pmod( 
+            ...     _children={'a': 
+            ...        _Pmod(alias='A', _children={1: 11})},
+            ...    _regexps=[
+            ...        ('a\w*', _Pmod(alias='AWord', _children={2: 22})),
+            ...        ('a\d*', _Pmod(alias='ADigit', _children={3: 33})),
+            ...    ])
+            >>> sorted(pm['a']._children)    ## All children and regexps match.
+            [1, 2, 3]
+
+            >>> pm['aa']._children           ## Only 'a\w*' matches.
+            {2: 22}
+
+            >>> sorted(pm['a1']._children )  ## Both regexps matches.
+            [2, 3]
+
+        So it is possible to say::
+
+            >>> pm['a1'][2]
+            22
+            >>> pm['a1'][3]
+            33
+            >>> print(pm['a$'])
+            None
+        """
+        pmods = []
+        if self._regexps:
+            pmods = [rpmod
+                     for regex, rpmod
+                     in self._regexps.items()
+                     if regex.fullmatch(name)]
+        if self._children:
+            cpmod = self._children.get(name)
+            if cpmod:
+                pmods.append(cpmod)
+
+        return _Pmod._merge_all(pmods)
 
     def __repr__(self):
         args = [repr(a)
-                for a in [self._alias, self._children, self._regexps]
+                for a in [self.alias, self._children, self._regexps]
                 if a]
 
         args = ', '.join(args)
@@ -346,12 +401,12 @@ _NONE = object()
 class JSchema(object):
 
     """
-    Facilitates the construction of json-schema-v4 nodes in :class:`PStep` code.
+    Facilitates the construction of json-schema-v4 nodes on :class:`PStep` code.
 
     It does just rudimentary args-name check.   Further validations 
     should apply using a proper json-schema validator.
 
-    :param type: if omitted, derrived as 'object' if it has children 
+    :param type: if omitted, derived as 'object' if it has children 
     :param kws:  for all the rest see http://json-schema.org/latest/json-schema-validation.html
 
     """
@@ -388,6 +443,17 @@ class Pstep(str):
     created through recursive referencing, coincedes with parent's branch 
     leading to this step.  That name can be modified with :class:`_Pmod`
     so the same data-accessing code can consume differently-named data-trees.
+
+    :param str pname:    this pstep's name (stored at super-str object)
+    :ivar Pstep _csteps: the child-psteps
+    :ivar dict _pmods:   path-modifications used to construct this and 
+                         relayed to children
+    :ivar int _lock:     one of
+                         - :const:`Pstep.CAN_RELOCATE`(default, reparenting allowed),
+                         - :const:`Pstep.CAN_RENAME`, 
+                         - :const:`Pstep.LOCKED' (neither from the above).
+    :ivar dict _schema:  jsonschema data.
+
 
     Usage:
 
@@ -441,17 +507,7 @@ class Pstep(str):
         >>> p._but_hidden = 'Ok'
 
 
-    Details:
-
-    :param str pname:    this pstep's name (stored at super-str object)
-    :ivar Pstep _csteps: the child-psteps
-    :ivar dict _pmods:   path-modifications used to construct this and 
-                         relayed to children
-    :ivar int _lock:     one of
-                         - :const:`Pstep.CAN_RELOCATE`(default, reparenting allowed),
-                         - :const:`Pstep.CAN_RENAME`, 
-                         - :const:`Pstep.LOCKED' (neither from the above).
-    :ivar dict _schema:  jsonschema data.
+    TODO: Use __slot__ on Pstep.
     """
 
     CAN_RELOCATE = 3
