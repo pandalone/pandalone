@@ -67,22 +67,30 @@ class _Pmod(object):
     :ivar dict _steps:         {original_name --> pmod}
     :ivar OrderedDict _regxs:  {regex_on_originals --> pmod}
 
-    TODO: Use __slot__ on _Pmod.
     """
-    alias = None
 
-    # Knowingly volatile class-attributes,
-    #    with invalid types (acting as sentinels),
-    #    never to be appended.
-    _steps = []
-    _regxs = []
+    __slots__ = ['alias', '_steps', '_regxs']
 
-    def __init__(self, _regxs=None, **kws):
-        """Used internally, otherwise, remember `_regxs` to be (k,v) tuple-list!"""
-        vars(self).update(**kws)
+    def __init__(self, alias=None, _steps={}, _regxs={}):
+        """
+        Args passed only for testing, remember `_regxs` to be (k,v) tuple-list!
+
+        .. Note:: Volatile arg-defaults (empty dicts) are knowingly used , 
+            to preserve memory; should never append in them!
+
+        """
+        self.alias = alias
+        self._steps = _steps
         if _regxs:
             self._regxs = OrderedDict(
                 (re.compile(k), v) for k, v in _regxs)
+        else:
+            self._regxs = _regxs
+
+    def _append_regx(self, regx, rpmod=None):
+        if not self._regs:
+            self._regs = OrderedDict()
+        self._regs[regx] = rpmod
 
     @classmethod
     def from_tuples(cls, pmods_tuples):
@@ -133,15 +141,15 @@ class _Pmod(object):
                 OrderedDict([('b[123]', {'_name_': 'B'})])}}
 
         """
-        pmods = {}
-        for tp in pmods_tuples:
-            ppmods = pmods
-            f, t = tp
+        root = _Pmod()
+        for f, t in pmods_tuples:
+            ppmods = root
             srcstep = None
             for srcstep in iter_jsonpointer_parts(f):
                 if any(set('[].*()') & set(srcstep)):
                     # wildard-pattern
                     try:
+                        # if not ppmods._regxs:
                         child = ppmods[_PMOD_REGEX]
                     except KeyError:
                         ppmods[_PMOD_REGEX] = child = OrderedDict()
@@ -161,7 +169,7 @@ class _Pmod(object):
             if srcstep and t:
                 ppmods[srcstep] = t
 
-        return pmods
+        return root
 
     def _override_dict(self, attr, other):
         """
@@ -328,16 +336,13 @@ class _Pmod(object):
             >>> pm['a$'] is None
             True
         """
-        pmods = []
-        if self._regxs:
-            pmods = [rpmod
-                     for regex, rpmod
-                     in self._regxs.items()
-                     if regex.fullmatch(name)]
-        if self._steps:
-            cpmod = self._steps.get(name)
-            if cpmod:
-                pmods.append(cpmod)
+        pmods = [rpmod
+                 for regex, rpmod
+                 in self._regxs.items()
+                 if regex.fullmatch(name)]
+        cpmod = self._steps.get(name)
+        if cpmod:
+            pmods.append(cpmod)
 
         if pmods:
             return ft.reduce(_Pmod._merge, pmods)

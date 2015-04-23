@@ -31,9 +31,8 @@ class Test_Pmod(unittest.TestCase):
         self.assert_Pmod_class_attributes_not_modified()
 
     def assert_Pmod_class_attributes_not_modified(self):
-        self.assertIsNone(_Pmod.alias)
-        self.assertEqual(_Pmod._steps, [])
-        self.assertEqual(_Pmod._regxs, [])
+        # @UndefinedVariable
+        self.assertEqual(_Pmod.__init__.__defaults__, (None, {}, {}))
 
     def pmod2regexstrs(self, pmod):
         if pmod._regxs:
@@ -104,18 +103,18 @@ class Test_Pmod(unittest.TestCase):
         self.assertEqual(pm._steps['a'].alias, 'AA')
         self.assertEqual(len(pm1._steps), 2)
         self.assertEqual(len(pm2._steps), 3)
-        self.assertEqual(pm._regxs, [])
-        self.assertEqual(pm1._regxs, [])
-        self.assertEqual(pm2._regxs, [])
+        self.assertEqual(pm._regxs, {})
+        self.assertEqual(pm1._regxs, {})
+        self.assertEqual(pm2._regxs, {})
 
         pm = pm2._merge(pm1)
         self.assertEqual(sorted(pm._steps.keys()), list('abcd'))
         self.assertEqual(pm._steps['a'].alias, 'A')
         self.assertEqual(len(pm1._steps), 2)
         self.assertEqual(len(pm2._steps), 3)
-        self.assertEqual(pm._regxs, [])
-        self.assertEqual(pm1._regxs, [])
-        self.assertEqual(pm2._regxs, [])
+        self.assertEqual(pm._regxs, {})
+        self.assertEqual(pm1._regxs, {})
+        self.assertEqual(pm2._regxs, {})
 
     def test_Pmod_merge_regxs(self):
         pm1 = _Pmod(alias='pm1', _regxs=[
@@ -133,18 +132,18 @@ class Test_Pmod(unittest.TestCase):
         self.assertEqual(pm._regxs[re.compile('a')].alias, 'AA')
         self.assertSequenceEqual(self.pmod2regexstrs(pm1), list('eac'))
         self.assertSequenceEqual(self.pmod2regexstrs(pm2), list('bad'))
-        self.assertEqual(pm._steps, [])
-        self.assertEqual(pm1._steps, [])
-        self.assertEqual(pm2._steps, [])
+        self.assertEqual(pm._steps, {})
+        self.assertEqual(pm1._steps, {})
+        self.assertEqual(pm2._steps, {})
 
         pm = pm2._merge(pm1)
         self.assertSequenceEqual(self.pmod2regexstrs(pm), list('bdeac'))
         self.assertEqual(pm._regxs[re.compile('a')].alias, 'A')
         self.assertSequenceEqual(self.pmod2regexstrs(pm1), list('eac'))
         self.assertSequenceEqual(self.pmod2regexstrs(pm2), list('bad'))
-        self.assertEqual(pm._steps, [])
-        self.assertEqual(pm1._steps, [])
-        self.assertEqual(pm2._steps, [])
+        self.assertEqual(pm._steps, {})
+        self.assertEqual(pm1._steps, {})
+        self.assertEqual(pm2._steps, {})
 
     def test_Pmod_merge_all(self):
         """Check merge_all behavior, but function has been inlined in _Pmod. """
@@ -169,11 +168,11 @@ class Test_Pmod(unittest.TestCase):
 
         self.assertSetEqual(set(pm._steps.keys()), set(list('abc')))
         self.assertSetEqual(set(pm1._steps.keys()), set(list('a')))
-        self.assertEqual(pm2._steps, [])
+        self.assertEqual(pm2._steps, {})
         self.assertSetEqual(set(pm3._steps.keys()), set(list('bc')))
 
         self.assertEqual(self.pmod2regexstrs(pm), list('bac'))
-        self.assertEqual(pm1._regxs, [])
+        self.assertEqual(pm1._regxs, {})
         self.assertEqual(self.pmod2regexstrs(pm2), list('ba'))
         self.assertEqual(self.pmod2regexstrs(pm3), list('bac'))
 
