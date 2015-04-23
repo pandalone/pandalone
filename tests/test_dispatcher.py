@@ -151,3 +151,9 @@ class TestGraphAlgorithms(unittest.TestCase):
                9: [1, 2, 3, 9],
                10: [1, 2, 3, 9, 10]}
         self.assertEquals(paths, res)
+
+        res = {1: 0}
+        dist, paths = dsp.dijkstra(graph, 1, [1])
+        self.assertEquals(dist, res)
+        res = {1: [1]}
+        self.assertEquals(paths, res)
