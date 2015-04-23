@@ -12,7 +12,7 @@ components and assemblies:
     See :class:`Component`, :class:`FuncComponent` and :class:`Assembly`
 
 paths and path-mappings (pmods):
-    See :meth:`from_tuples`, :class:`Pstep`
+    See :func:`pmods_from_tuples`, :class:`Pstep`
 """
 
 from __future__ import division, unicode_literals
@@ -34,7 +34,7 @@ __commit__ = ""
 log = logging.getLogger(__name__)
 
 
-class _Pmod(object):
+class Pmod(object):
 
     """
     A path-step mapping, which along with its child-pmods, forms a pmods-hierarchy.
@@ -60,21 +60,46 @@ class _Pmod(object):
       If more than one regex match, they are merged in the order declared
       (the latest one overrides a previous one).
     - Any exact child-name matches are applied and merged after regexs.
-    - Use :meth:`from_tuples()` to construct the pmods-hierarchy.
+    - Use :func:`pmods_from_tuples()` to construct the pmods-hierarchy.
     - The pmods are used internally by class:`Pstep` to correspond
       the component-paths of their input & output onto the actual
       value-tree paths.
 
-    :ivar str alias:           (optional) the mapped-name of the pstep for
+    :ivar str _alias:          (optional) the mapped-name of the pstep for
                                this pmod
     :ivar dict _steps:         {original_name --> pmod}
     :ivar OrderedDict _regxs:  {regex_on_originals --> pmod}
 
+
+    Example:
+
+    .. Note:: 
+        Do not manually construct instances from this class!
+        To construct a hierarchy use the :func:`pmods_from_tuples()` and/or 
+        the :func:`convert_df_as_pmods_tuples()`. 
+
+    You can either use it for mass-converting paths like that::
+
+        >>> pmods = pmods_from_tuples([
+        ...         ('/a',           'A/AA'),
+        ...         ('/b(.*)',       'BB\\1'),
+        ...         ('/b.*/(c.*)',   'C/\\1'),
+        ... ])
+        >>> pmods.map_paths(['/a', '/a/foo', '/b/ok', '/big/stuff'])
+        ['A/AA', 'A/AA/foo', 'BB/ok', 'BBig/C/stuff']
+
+
+    Or for a single-step indexing, but check if maps exhausted::
+
+        >>> pmods['a']._alias
+        'A/AA'
+        >>> pmods['a']['aa'] == None
+        True
     """
 
-    __slots__ = ['alias', '_steps', '_regxs']
+    __slots__ = ['_alias', '_steps', '_regxs']
 
-    def __init__(self, alias=None, _steps={}, _regxs={}):
+    def __init__(self, _alias=None, _steps={}, _regxs={}):
         """
         Args passed only for testing, remember `_regxs` to be (k,v) tuple-list!
 
@@ -82,7 +107,7 @@ class _Pmod(object):
             to preserve memory; should never append in them!
 
         """
-        self.alias = alias
+        self._alias = _alias
         self._steps = _steps
         if _regxs:
             self._regxs = OrderedDict(
@@ -104,7 +129,7 @@ class _Pmod(object):
         else:
             cpmod = d.get(key)
         if not cpmod:
-            d[key] = cpmod = _Pmod()
+            d[key] = cpmod = Pmod()
 
         return cpmod
 
@@ -125,72 +150,10 @@ class _Pmod(object):
                 # Remove it, to append it at then end.
                 del d[key]
         if not cpmod:
-            cpmod = _Pmod()
+            cpmod = Pmod()
         d[key] = cpmod
 
         return cpmod
-
-    @classmethod
-    def from_tuples(cls, pmods_tuples):
-        """
-        Turns a list of 2-tuples into a *pmods* hierarchy.
-
-        Each tuple defines the renaming-or-relocation of the *final* part
-        of some component path onto another one into value-trees, such as::
-
-            (rename/path, foo)           --> rename/foo
-            (relocate/path, foo/bar)     --> relocate/foo/bar
-
-
-        In case the the "from" path contains any of the `[].*()` chars,
-        it is assumed to be a regular-expression::
-
-            (all(.*)/path, foo)
-            (some[\d+]/path, foo\1)
-
-
-        :return: a root pmod
-        :rtype: _Pmod
-
-
-        Example::
-
-            >>> pmods_tuples = [
-            ...     ('/a', 'A1/A2'),
-            ...     ('/a/b', 'B'),
-            ... ]
-            >>> pmods = _Pmod.from_tuples(pmods_tuples)
-            >>> pmods
-            pmod({'a': pmod('A1/A2', {'b': pmod('B')})})
-
-            >>> pmods_tuples = [
-            ...     ('/a*', 'A1/A2'),
-            ...     ('/a/b[123]', 'B'),
-            ... ]
-            >>> pmods = _Pmod.from_tuples(pmods_tuples)
-            >>> pmods
-            pmod({'a': pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))}, 
-                 OrderedDict([(re.compile('a*'), pmod('A1/A2'))]))
-
-        """
-        root = _Pmod()
-        for i, (f, t) in enumerate(pmods_tuples):
-            if not (f and t):
-                msg = 'pmod-tuple(%i): `source(%s)` and/or `to(%s)` were empty!'
-                log.warning(msg, i, f, t)
-                continue
-
-            pmod = root
-            for srcstep in iter_jsonpointer_parts(f):
-                is_regex = any(set('[]().*+?') & set(srcstep))
-                if is_regex:
-                    pmod = pmod._append_into_regxs(srcstep)
-                else:
-                    pmod = pmod._append_into_steps(srcstep)
-
-            pmod.alias = t
-
-        return root
 
     def _override_dict(self, dattr, other):
         """
@@ -199,14 +162,14 @@ class _Pmod(object):
         - It may "share" (crosslink) the dict and/or its child-pmods
           between the two pmod args (`self` and `other`).
         - No dict is modified (apart from self, which must have been cloned
-          previously by :meth:`_Pmod._merge()`), to avoid side-effects
+          previously by :meth:`Pmod._merge()`), to avoid side-effects
           in case they were "shared".
         - It preserves dict-ordering so that `other` order takes precedence
           (its elements are the last ones).
 
         :param str dattr:    either "_steps" or "_regxs"
-        :param _Pmod self:   contains the dict that would be overridden
-        :param _Pmod other:  contains the dict with the overrides
+        :param Pmod self:    contains the dict that would be overridden
+        :param Pmod other:   contains the dict with the overrides
 
         TODO: Split in 2 methods for each pmods.dict to avoid ordering code.
         """
@@ -245,18 +208,18 @@ class _Pmod(object):
         Although it does not modify this, the `other` or their children pmods,
         it may "share" (crosslink) them, so pmods MUST NOT be modified later.
 
-        :param _Pmod other: contains the dicts with the overrides
-        :return: the cloned merged pmod
-        :rtype: _Pmod
+        :param Pmod other: contains the dicts with the overrides
+        :return:           the cloned merged pmod
+        :rtype:            Pmod
 
         Examples:
 
         Look how `_steps` are merged::
 
-            >>> pm1 = _Pmod(alias='pm1', _steps={
-            ...     'a':_Pmod(alias='A'), 'c':_Pmod(alias='C')})
-            >>> pm2 = _Pmod(alias='pm2', _steps={
-            ...     'b':_Pmod(alias='B'), 'a':_Pmod(alias='AA')})
+            >>> pm1 = Pmod(_alias='pm1', _steps={
+            ...     'a':Pmod(_alias='A'), 'c':Pmod(_alias='C')})
+            >>> pm2 = Pmod(_alias='pm2', _steps={
+            ...     'b':Pmod(_alias='B'), 'a':Pmod(_alias='AA')})
             >>> pm = pm1._merge(pm2)
             >>> sorted(pm._steps.keys())
             ['a', 'b', 'c']
@@ -264,13 +227,13 @@ class _Pmod(object):
 
         And here it is `_regxs` merging, which preserves order::
 
-            >>> pm1 = _Pmod(alias='pm1',
-            ...             _regxs=[('d', _Pmod(alias='D')),
-            ...                      ('a', _Pmod(alias='A')),
-            ...                      ('c', _Pmod(alias='C'))])
-            >>> pm2 = _Pmod(alias='pm2',
-            ...             _regxs=[('b', _Pmod(alias='BB')),
-            ...                      ('a', _Pmod(alias='AA'))])
+            >>> pm1 = Pmod(_alias='pm1',
+            ...            _regxs=[('d', Pmod(_alias='D')),
+            ...                    ('a', Pmod(_alias='A')),
+            ...                    ('c', Pmod(_alias='C'))])
+            >>> pm2 = Pmod(_alias='pm2',
+            ...            _regxs=[('b', Pmod(_alias='BB')),
+            ...                    ('a', Pmod(_alias='AA'))])
 
             >>> pm1._merge(pm2)
             pmod('pm2', OrderedDict([(re.compile('d'), pmod('D')),
@@ -284,8 +247,8 @@ class _Pmod(object):
                         (re.compile('a'), pmod('A')),
                         (re.compile('c'), pmod('C'))]))
         """
-        if other.alias:
-            self.alias = other.alias
+        if other._alias:
+            self._alias = other._alias
         if other._steps:
             self._override_dict('_steps', other)
         if other._regxs:
@@ -298,20 +261,20 @@ class _Pmod(object):
         cp = copy(self)
         return cp._merge_(other)
 
-    def __getitem__(self, name):
+    def __getitem__(self, cstep):
         """
         Merges and returns the child pmod for matched regexps and direct-one.
 
-        :param str name:    the child path-step name of the pmod to return
+        :param str cstep:   the child path-step cstep of the pmod to return
         :return:            the merged-child pmod or None
-        :rtype:             _Pmod
+        :rtype:             Pmod
 
         Example::
 
-            >>> pm = _Pmod(
-            ...     _steps={'a': _Pmod(alias='A')},
-            ...     _regxs=[('a\w*', _Pmod(alias='AWord')),
-            ...              ('a\d*', _Pmod(alias='ADigit')),
+            >>> pm = Pmod(
+            ...     _steps={'a': Pmod(_alias='A')},
+            ...     _regxs=[('a\w*', Pmod(_alias='AWord')),
+            ...              ('a\d*', Pmod(_alias='ADigit')),
             ...    ])
             >>> pm['a']
             pmod('A')
@@ -335,14 +298,14 @@ class _Pmod(object):
 
 
         And notice how children of regexps are merged together
-        (the final sub-steps below are intentionally invalid as _Pmods)::
+        (the final sub-steps below are intentionally invalid as Pmods)::
 
-            >>> pm = _Pmod(
+            >>> pm = Pmod(
             ...     _steps={'a':
-            ...        _Pmod(alias='A', _steps={1: 11})},
+            ...        Pmod(_alias='A', _steps={1: 11})},
             ...     _regxs=[
-            ...        ('a\w*', _Pmod(alias='AWord', _steps={2: 22})),
-            ...        ('a\d*', _Pmod(alias='ADigit', _steps={3: 33})),
+            ...        ('a\w*', Pmod(_alias='AWord', _steps={2: 22})),
+            ...        ('a\d*', Pmod(_alias='ADigit', _steps={3: 33})),
             ...    ])
             >>> sorted(pm['a']._steps)    ## All children and regexps match.
             [1, 2, 3]
@@ -365,28 +328,107 @@ class _Pmod(object):
         pmods = [rpmod
                  for regex, rpmod
                  in self._regxs.items()
-                 if regex.fullmatch(name)]
-        cpmod = self._steps.get(name)
+                 if regex.fullmatch(cstep)]
+        cpmod = self._steps.get(cstep)
         if cpmod:
             pmods.append(cpmod)
 
         if pmods:
-            return ft.reduce(_Pmod._merge, pmods)
+            return ft.reduce(Pmod._merge, pmods)
+
+    def map_path(self, path):
+        nsteps = []
+        pmod = self
+        for step in iter_jsonpointer_parts(path):
+            _alias = None
+            if pmod:
+                cpmod = pmod[step]
+                if cpmod:
+                    _alias = cpmod._alias
+                pmod = cpmod
+            nsteps.append(_alias or step)
+
+        return '/'.join(nsteps)
+
+    def map_paths(self, paths):
+        return [self.map_path(p) for p in paths]
 
     def __repr__(self):
         args = [repr(a)
-                for a in [self.alias, self._steps, self._regxs]
+                for a in [self._alias, self._steps, self._regxs]
                 if a]
 
         args = ', '.join(args)
         return 'pmod({})'.format(args)
 
 
+def pmods_from_tuples(pmods_tuples):
+    """
+    Turns a list of 2-tuples into a *pmods* hierarchy.
+
+    Each tuple defines the renaming-or-relocation of the *final* part
+    of some component path onto another one into value-trees, such as::
+
+        (rename/path, foo)           --> rename/foo
+        (relocate/path, foo/bar)     --> relocate/foo/bar
+
+
+    In case the the "from" path contains any of the `[].*()` chars,
+    it is assumed to be a regular-expression::
+
+        (all(.*)/path, foo)
+        (some[\d+]/path, foo\1)
+
+
+    :return: a root pmod
+    :rtype:  Pmod
+
+
+    Example::
+
+        >>> pmods_tuples = [
+        ...     ('/a', 'A1/A2'),
+        ...     ('/a/b', 'B'),
+        ... ]
+        >>> pmods = pmods_from_tuples(pmods_tuples)
+        >>> pmods
+        pmod({'a': pmod('A1/A2', {'b': pmod('B')})})
+
+        >>> pmods_tuples = [
+        ...     ('/a*', 'A1/A2'),
+        ...     ('/a/b[123]', 'B'),
+        ... ]
+        >>> pmods = pmods_from_tuples(pmods_tuples)
+        >>> pmods
+        pmod({'a': pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))}, 
+             OrderedDict([(re.compile('a*'), pmod('A1/A2'))]))
+
+    """
+    root = Pmod()
+    for i, (f, t) in enumerate(pmods_tuples):
+        if not (f and t):
+            msg = 'pmod-tuple(%i): `source(%s)` and/or `to(%s)` were empty!'
+            log.warning(msg, i, f, t)
+            continue
+
+        pmod = root
+        for srcstep in iter_jsonpointer_parts(f):
+            is_regex = any(set('[]().*+?') & set(srcstep))
+            if is_regex:
+                pmod = pmod._append_into_regxs(srcstep)
+            else:
+                pmod = pmod._append_into_steps(srcstep)
+
+        pmod._alias = t
+
+    return root
+
+
 def convert_df_as_pmods_tuples(df_pmods, col_from='from', col_to='to'):
     """
     Turns a a dataframe with `col_from`, `col_to` columns into a list of 2-tuples.
 
-    :return: a list of 2-tuples that can be fed into :meth:`from_tuples`.
+    :return: a list of 2-tuples that can be fed into :func:`pmods_from_tuples`.
     :rtype: list
 
     Example::
@@ -471,7 +513,7 @@ class Pstep(str):
 
     Each pstep keeps internaly the *name* of a data-tree step, which, when
     created through recursive referencing, coincedes with parent's branch
-    leading to this step.  That name can be modified with :class:`_Pmod`
+    leading to this step.  That name can be modified with :class:`Pmod`
     so the same data-accessing code can consume differently-named data-trees.
 
     :param str pname:    this pstep's name (stored at super-str object)
