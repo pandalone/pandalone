@@ -164,9 +164,34 @@ class Pmod(object):
 
         return cpmod
 
-    def _override_dict(self, dattr, other):
+    def _override_steps(self, other):
         """
-        Override this pmod's dict-dattr with other's, recursively.
+        Override this pmod's '_steps' dict with other's, recursively.
+
+        Same as :meth:`_override_regxs()` but without caring for order.
+        """
+
+        opmods = other._steps
+        if opmods:
+            spmods = self._steps
+            if spmods:
+                # Like ``spmods.copy().update()`` but
+                # recursive `_merge()` on common items.
+                #
+                spmods = spmods.copy()
+                for name, opmod in opmods.items():
+                    spmod = spmods.get(name)
+                    if spmod:
+                        opmod = spmod._merge(opmod)
+                    spmods[name] = opmod  # Share other-pmod if not mine.
+                opmods = spmods
+
+            # Share other dict if self hadn't its own.
+            self._steps = opmods
+
+    def _override_regxs(self, other):
+        """
+        Override this pmod's `_regxs` dict with other's, recursively.
 
         - It may "share" (crosslink) the dict and/or its child-pmods
           between the two pmod args (`self` and `other`).
@@ -176,20 +201,17 @@ class Pmod(object):
         - It preserves dict-ordering so that `other` order takes precedence
           (its elements are the last ones).
 
-        :param str dattr:    either "_steps" or "_regxs"
         :param Pmod self:    contains the dict that would be overridden
         :param Pmod other:   contains the dict with the overrides
-
-        TODO: Split in 2 methods for each pmods.dict to avoid ordering code.
         """
 
-        opmods = getattr(other, dattr)
+        opmods = other._regxs
         if opmods:
-            spmods = getattr(self, dattr)
+            spmods = self._regxs
             if spmods:
-                # Like `dict.update()` but
-                # with recursive _merge on common items,
-                # and preserving order.
+                # Like ``spmods.copy().update()`` but
+                # with recursive `_merge()` on common items,
+                # and preserve order.
                 #
                 opairs = []
                 for name, opmod in opmods.items():
@@ -208,7 +230,7 @@ class Pmod(object):
                 opmods = type(spmods)(spairs + opairs)
 
             # Share other dict if self hadn't its own.
-            setattr(self, dattr, opmods)
+            self._regxs = opmods
 
     def _merge_(self, other):
         """
@@ -258,10 +280,8 @@ class Pmod(object):
         """
         if other._alias:
             self._alias = other._alias
-        if other._steps:
-            self._override_dict('_steps', other)
-        if other._regxs:
-            self._override_dict('_regxs', other)
+        self._override_steps(other)
+        self._override_regxs(other)
 
         return self
 
