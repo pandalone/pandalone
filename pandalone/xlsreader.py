@@ -151,31 +151,32 @@ def get_range(sheet, cell_up, cell_down=None):
         [None, None, 0.0, 1.0, 2.0]
     """
 
-    def fetch_cell_value(cell):
+    def fcv(cell): # return formatted cell value
         if cell.ctype in (2, 3):
             return float(cell.value)
         elif cell.ctype in (1, 6):
             return int(cell.value)
         return None
 
-    if cell_down is None:  # vector or cell
-        if cell_up.col is None:  # return row
-            return list(map(fetch_cell_value, sheet.row(cell_up.row)))
-        elif cell_up.row is None:  # return column
-            return list(map(fetch_cell_value, sheet.col(cell_up.col)))
+    if cell_down is None: # vector or cell
+        if cell_up.col is None: # return row
+            return list(map(fcv, sheet.row(cell_up.row)))
+        elif cell_up.row is None: # return column
+            return list(map(fcv, sheet.col(cell_up.col)))
         else:  # return cell
             if cell_up.row < sheet.nrows and cell_up.col < sheet.ncols:
-                return fetch_cell_value(sheet.cell(cell_up.row, cell_up.col))
+                return fcv(sheet.cell(cell_up.row, cell_up.col))
             return None
-    else:  # table or vector
+    else:  # table or vector or cell
+        # set up margins
         up = [i if i is not None else 0 for i in cell_up]
-
+        # set bottom margins
         dn = [cell_down.col + 1 if cell_down.col is not None else sheet.ncols,
               cell_down.row + 1 if cell_down.row is not None else sheet.nrows]
 
-        nv = lambda x, v=None: [v] * x
+        nv = lambda x, v=None: [v] * x # return a None vector  of length x
 
-        if up[1] >= sheet.nrows or up[0] >= sheet.ncols:
+        if up[1] >= sheet.nrows or up[0] >= sheet.ncols: #
             ddn = [dn[i] - up[i] if c else 1
                    for i, c in enumerate([cell_down.col is not None,
                                           cell_down.row is not None])]
@@ -183,35 +184,31 @@ def get_range(sheet, cell_up, cell_down=None):
 
         ddn = [max(0, v) for v in (dn[0] - sheet.ncols, dn[1] - sheet.nrows)]
 
-        table = [list(map(fetch_cell_value, sheet.row_slice(r, up[0], dn[0]))) +
-                 nv(ddn[0])
+        table = [list(map(fcv, sheet.row_slice(r, up[0], dn[0]))) + nv(ddn[0])
                  for r in range(up[1], dn[1] - ddn[1])] + nv(ddn[1], nv(ddn[0]))
-
-        def shift_k(vct, k0, *ki):
-            return [shift_k(v, *ki) if ki else v for v in vct[k0:]]
 
         # no empty vector
         ne_vct = lambda vct: any(x is not None for x in vct)
 
-        def ind_vct(tbl):
-            up = next((r for r, v in enumerate(tbl) if ne_vct(v)), 0)
-            return up
+        def ind_row(tbl): # return the index of first no empty row in the table
+            return next((r for r, v in enumerate(tbl) if ne_vct(v)), 0)
 
+        def reduced_table(tbl, up, dn): # return the minimum vertical table
+            m = [ind_row(tbl) if up is None else 0,
+                 len(tbl) - (ind_row(reversed(tbl)) if dn is None else 0)]
+            return tbl[m[0]:m[1]]
 
-        ddn[0] = -ddn[0] if ddn[0] > 0 else None
+        if cell_up.row is None or cell_down.row is None: # vertical reduction
+            table = reduced_table(table, cell_up.row, cell_down.row)
 
-        up[0] = ind_vct(table) if cell_up.row is None else 0
-        up[1] = ind_vct(list(zip(*table[up[0]:ddn[0]]))) if cell_up.col is None else 0
+        if cell_up.col is None or cell_down.col is None: # horizontal reduction
+            tbl = reduced_table(list(zip(*table)), cell_up.col, cell_down.col)
+            table = [list(r) for r in zip(*tbl)]
 
-        while up and up[-1] == 0 and up.pop() == 0:
-            pass
-
-        if up:
-            table = shift_k(table, *up)
-
-        if cell_down.col is not None and cell_down.col == cell_up.col:
+        if cell_down.col is not None and cell_down.col == cell_up.col: # vector
             table = [v[0] for v in table]
-        if cell_down.row is not None and cell_down.row == cell_up.row:
+
+        if cell_down.row is not None and cell_down.row == cell_up.row: # vector
             table = table[0]
 
         return table

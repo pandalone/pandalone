@@ -182,6 +182,26 @@ class TestXlsReader(unittest.TestCase):
             res = [[None]]
             self.assertEqual(xr.get_range(*args), res)
 
+            # minimum delimited row in the sheet [7:7]
+            args = (sheet, Cell(None, 6), Cell(None, 6))
+            res = [0.0]
+            self.assertEqual(xr.get_range(*args), res)
+
+            # minimum delimited row in the sheet [A7:7]
+            args = (sheet, Cell(0, 6), Cell(None, 6))
+            res = [None, None, None, 0.0]
+            self.assertEqual(xr.get_range(*args), res)
+
+            # single value in the sheet [D7:D7]
+            args = (sheet, Cell(3, 6), Cell(3, 6))
+            res = 0.0
+            self.assertEqual(xr.get_range(*args), res)
+
+            # get single value [H9]
+            args = (sheet, Cell(7, 8))
+            res = None
+            self.assertEqual(xr.get_range(*args), res)
+
     def test_url_fragment_parser(self):
         with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
