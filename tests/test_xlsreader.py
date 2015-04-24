@@ -82,25 +82,25 @@ class TestGetNoEmptyCells(unittest.TestCase):
                 1: {0: 0.0},
                 2: {0: 1.0, 1: 5.0, 2: 6.0, 3: 7.0}
             }
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # get single value [D7]
             args = (sheet, Cell(3, 6))
-            self.assertEqual(xr.get_no_empty_cells(*args), 0.0)
+            self.assertEqual(xr.get_range(*args), 0.0)
 
             # get single value [A1]
             args = (sheet, Cell(0, 0))
-            self.assertEqual(xr.get_no_empty_cells(*args), None)
+            self.assertEqual(xr.get_range(*args), None)
 
             # get whole column [D]
             args = (sheet, Cell(3, None))
             res = {6: 0.0, 7: 1.0}
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # get whole row [6]
             args = (sheet, Cell(None, 5))
             res = {4: 0.0, 5: 1.0, 6: 2.0}
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # minimum delimited matrix in the sheet [E:]
             args = (sheet, Cell(4, None), Cell(None, None))
@@ -108,14 +108,14 @@ class TestGetNoEmptyCells(unittest.TestCase):
                 0: {0: 0.0, 1: 1.0, 2: 2.0},
                 2: {0: 5.0, 1: 6.0, 2: 7.0}
             }
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # minimum delimited matrix in the sheet [E7:]
             args = (sheet, Cell(4, 6), Cell(None, None))
             res = {
                 1: {0: 5.0, 1: 6.0, 2: 7.0}
             }
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # delimited matrix in the sheet [D6:F8]
             args = (sheet, Cell(3, 5), Cell(5, 7))
@@ -124,7 +124,7 @@ class TestGetNoEmptyCells(unittest.TestCase):
                 1: {0: 0.0},
                 2: {0: 1.0, 1: 5.0, 2: 6.0}
             }
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # minimum delimited matrix in the sheet [:F8]
             args = (sheet, Cell(None, None), Cell(5, 7))
@@ -133,7 +133,7 @@ class TestGetNoEmptyCells(unittest.TestCase):
                 1: {0: 0.0},
                 2: {0: 1.0, 1: 5.0, 2: 6.0}
             }
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # minimum delimited matrix in the sheet [7:F8]
             args = (sheet, Cell(None, 6), Cell(5, 7))
@@ -141,7 +141,7 @@ class TestGetNoEmptyCells(unittest.TestCase):
                 0: {0: 0.0},
                 1: {0: 1.0, 1: 5.0, 2: 6.0}
             }
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # minimum delimited matrix in the sheet [E:F8]
             args = (sheet, Cell(None, 6), Cell(5, 7))
@@ -149,12 +149,12 @@ class TestGetNoEmptyCells(unittest.TestCase):
                 0: {0: 0.0},
                 1: {0: 1.0, 1: 5.0, 2: 6.0}
             }
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # minimum delimited row in the sheet [C6:6]
             args = (sheet, Cell(2, 5), Cell(None, 5))
             res = {2: 0.0, 3: 1.0, 4: 2.0}
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # delimited matrix in the sheet [A1:F8]
             args = (sheet, Cell(0, 0), Cell(5, 7))
@@ -163,17 +163,17 @@ class TestGetNoEmptyCells(unittest.TestCase):
                 6: {3: 0.0},
                 7: {3: 1.0, 4: 5.0, 5: 6.0}
             }
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # delimited matrix in the sheet [G9:]
             args = (sheet, Cell(6, 8), Cell(None, None))
             res = {}
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
             # delimited matrix in the sheet [F9:]
             args = (sheet, Cell(5, 8), Cell(None, None))
             res = {}
-            self.assertEqual(xr.get_no_empty_cells(*args), res)
+            self.assertEqual(xr.get_range(*args), res)
 
     def test_url_fragment_parser(self):
         with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):

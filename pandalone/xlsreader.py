@@ -68,7 +68,7 @@ def fetch_cell(cell, cell_col, cell_row):
     raise ValueError('unsupported row format %s' % cell_row)
 
 
-def get_no_empty_cells(sheet, cell_up, cell_down=None):
+def get_range(sheet, cell_up, cell_down=None):
     """
     Discovers a non-empty tabular-shaped region in the xl-sheet from a range.
 
@@ -76,7 +76,7 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
     :param cell_up:   a Cell object
     :param cell_down: a Cell object
     :return: matrix or vector
-    :rtype: dict
+    :rtype: list of lists or list
 
     Example::
 
@@ -91,52 +91,58 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
         >>> sheet = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
 
         # minimum matrix in the sheet
-        >>> get_no_empty_cells(sheet,  Cell(None, None), Cell(None, None))
-        {0: {1: 0.0, 2: 1.0, 3: 2.0},
-         1: {0: 0.0},
-         2: {0: 1.0, 1: 5.0, 2: 6.0, 3: 7.0}}
+        >>> get_range(sheet,  Cell(None, None), Cell(None, None))
+        [[None, 0.0, 1.0, 2.0],
+         [0.0, None, None, None],
+         [1.0, 5.0, 6.0, 7.0]]
 
         # up-left delimited minimum matrix
-        >>> get_no_empty_cells(sheet, Cell(0, 0), Cell(None, None))
-        {5: {4: 0.0, 5: 1.0, 6: 2.0},
-         6: {3: 0.0},
-         7: {3: 1.0, 4: 5.0, 5: 6.0, 6: 7.0}}
-        >>> get_no_empty_cells(sheet, Cell(3, 6)) # get single value
+        >>> get_range(sheet, Cell(0, 0), Cell(None, None))
+        [[None, None, None, None, 0.0, 1.0, 2.0],
+         [None, None, None, 0.0, None, None, None],
+         [None, None, None, 1.0, 5.0, 6.0, 7.0]]
+
+        # get single value
+        >>> get_range(sheet, Cell(3, 6))
         0.0
-        >>> get_no_empty_cells(sheet, Cell(3, None)) # get column vector
-        {6: 0.0,
-         7: 1.0}
-        >>> get_no_empty_cells(sheet, Cell(None, 5)) # get row vector
-        {4: 0.0, 5: 1.0, 6: 2.0}
+
+        # get column vector
+        >>> get_range(sheet, Cell(3, None))
+        [None, None, None, None, None, None, 0.0, 1.0]
+
+        # get row vector
+        >>> get_range(sheet, Cell(None, 5))
+        [None, None, None, None, 0.0, 1.0, 2.0]
 
         # up-left delimited minimum matrix
-        >>> get_no_empty_cells(sheet, Cell(4, None), Cell(None, None))
-        {0: {0: 0.0, 1: 1.0, 2: 2.0},
-         2: {0: 5.0, 1: 6.0, 2: 7.0}}
+        >>> get_range(sheet, Cell(4, None), Cell(None, None))
+        [[0.0, 1.0, 2.0],
+         [None, None, None],
+         [5.0, 6.0, 7.0]]
 
         # delimited matrix
-        >>> get_no_empty_cells(sheet, Cell(3, 5), Cell(5, 7))
+        >>> get_range(sheet, Cell(3, 5), Cell(5, 7))
         {0: {1: 0.0, 2: 1.0},
          1: {0: 0.0},
          2: {0: 1.0, 1: 5.0, 2: 6.0}}
 
         # down-right delimited minimum matrix
-        >>> get_no_empty_cells(sheet, Cell(None, None), Cell(5, 7))
+        >>> get_range(sheet, Cell(None, None), Cell(5, 7))
         {0: {1: 0.0, 2: 1.0},
          1: {0: 0.0},
          2: {0: 1.0, 1: 5.0, 2: 6.0}}
 
         # up-down-right delimited minimum matrix
-        >>> get_no_empty_cells(sheet, Cell(None, 6), Cell(5, 7))
+        >>> get_range(sheet, Cell(None, 6), Cell(5, 7))
         {0: {0: 0.0},
          1: {0: 1.0, 1: 5.0, 2: 6.0}}
 
         # down delimited minimum vector (i.e., column)
-        >>> get_no_empty_cells(sheet, Cell(5, None), Cell(5, 7))
+        >>> get_range(sheet, Cell(5, None), Cell(5, 7))
         {0: 1.0, 2: 6.0}
 
         # right delimited minimum vector (i.e., row)
-        >>> get_no_empty_cells(sheet, Cell(2, 5), Cell(None, 5))
+        >>> get_range(sheet, Cell(2, 5), Cell(None, 5))
         {2: 0.0, 3: 1.0, 4: 2.0}
     """
     def fetch_cell(cell):
@@ -153,7 +159,7 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
             return list(map(fetch_cell, sheet.col(cell_up.col)))
         else:  # return cell
             if cell_up.row < sheet.nrows and cell_up.col < sheet.ncols:
-                return fetch_cell(sheet.cell(1,1))
+                return fetch_cell(sheet.cell(cell_up.row, cell_up.col))
             return None
     else:  # return table
         up = [0 if i is None else i for i in cell_up]
@@ -168,23 +174,25 @@ def get_no_empty_cells(sheet, cell_up, cell_down=None):
         def shift_k(vect, k0, *ki):
             return [shift_k(v, *ki) if ki else v for v in vect[k0:]]
 
-        ki = [next((r for r, v in enumerate(t) if not all(v)), 0)
-              for t,c in [(table, cell_up.row is None),
-                          (table[0], cell_up.col is None)] if c]
-        ki = [v for v in ki if v > 0]
+        up = [0, 0]
 
-        if ki:
-            table = shift_k(table, *ki)
+        if cell_down.row is None:
+            up[0] = next((r for r, v in enumerate(table) if any(x is not None for x in v)), 0)
 
-        if table[0]:
-            if cell_down.col is not None and cell_down.col == cell_up.col:
-                table = [v[0] for v in table]
-            if cell_down.row is not None and cell_down.row == cell_up.row:
-                table = table[0]
-        else:
-            return None
+        if cell_up.col is None:
+            up[1] = next((r for r, v in enumerate(table[up[0]]) if v is not None), 0)
 
-        return table
+        while up and up[-1] == 0 and up.pop()==0: pass
+
+        if up:
+            table = shift_k(table, *up)
+
+        if cell_down.col is not None and cell_down.col == cell_up.col:
+            table = [v[0] for v in table]
+        if cell_down.row is not None and cell_down.row == cell_up.row:
+            table = table[0]
+
+        return table if table !=[[]] else None
 
 
 _re_url_fragment_parser = re.compile(
