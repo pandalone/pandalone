@@ -1,5 +1,5 @@
 from string import ascii_uppercase
-import re, numpy as np
+import re
 from collections import namedtuple
 from json import loads
 
@@ -98,7 +98,12 @@ def get_range(sheet, cell_up, cell_down=None):
 
         # up-left delimited minimum matrix
         >>> get_range(sheet, Cell(0, 0), Cell(None, None))
-        [[None, None, None, None, 0.0, 1.0, 2.0],
+        [[None, None, None, None, None, None, None],
+         [None, None, None, None, None, None, None],
+         [None, None, None, None, None, None, None],
+         [None, None, None, None, None, None, None],
+         [None, None, None, None, None, None, None],
+         [None, None, None, None, 0.0, 1.0, 2.0],
          [None, None, None, 0.0, None, None, None],
          [None, None, None, 1.0, 5.0, 6.0, 7.0]]
 
@@ -122,67 +127,84 @@ def get_range(sheet, cell_up, cell_down=None):
 
         # delimited matrix
         >>> get_range(sheet, Cell(3, 5), Cell(5, 7))
-        {0: {1: 0.0, 2: 1.0},
-         1: {0: 0.0},
-         2: {0: 1.0, 1: 5.0, 2: 6.0}}
+        [[None, 0.0, 1.0],
+         [0.0, None, None],
+         [1.0, 5.0, 6.0]]
 
         # down-right delimited minimum matrix
         >>> get_range(sheet, Cell(None, None), Cell(5, 7))
-        {0: {1: 0.0, 2: 1.0},
-         1: {0: 0.0},
-         2: {0: 1.0, 1: 5.0, 2: 6.0}}
+        [[None, 0.0, 1.0],
+         [0.0, None, None],
+         [1.0, 5.0, 6.0]]
 
         # up-down-right delimited minimum matrix
         >>> get_range(sheet, Cell(None, 6), Cell(5, 7))
-        {0: {0: 0.0},
-         1: {0: 1.0, 1: 5.0, 2: 6.0}}
+        [[0.0, None, None],
+         [1.0, 5.0, 6.0]]
 
         # down delimited minimum vector (i.e., column)
         >>> get_range(sheet, Cell(5, None), Cell(5, 7))
-        {0: 1.0, 2: 6.0}
+        [1.0, None, 6.0]
 
         # right delimited minimum vector (i.e., row)
         >>> get_range(sheet, Cell(2, 5), Cell(None, 5))
-        {2: 0.0, 3: 1.0, 4: 2.0}
+        [None, None, 0.0, 1.0, 2.0]
     """
-    def fetch_cell(cell):
-        if cell.ctype in (2,3):
+
+    def fetch_cell_value(cell):
+        if cell.ctype in (2, 3):
             return float(cell.value)
-        elif cell.ctype in (1,6):
+        elif cell.ctype in (1, 6):
             return int(cell.value)
         return None
 
-    if cell_down is None:
+    if cell_down is None:  # vector or cell
         if cell_up.col is None:  # return row
-            return list(map(fetch_cell, sheet.row(cell_up.row)))
+            return list(map(fetch_cell_value, sheet.row(cell_up.row)))
         elif cell_up.row is None:  # return column
-            return list(map(fetch_cell, sheet.col(cell_up.col)))
+            return list(map(fetch_cell_value, sheet.col(cell_up.col)))
         else:  # return cell
             if cell_up.row < sheet.nrows and cell_up.col < sheet.ncols:
-                return fetch_cell(sheet.cell(cell_up.row, cell_up.col))
+                return fetch_cell_value(sheet.cell(cell_up.row, cell_up.col))
             return None
-    else:  # return table
-        up = [0 if i is None else i for i in cell_up]
+    else:  # table or vector
+        up = [i if i is not None else 0 for i in cell_up]
+
+        dn = [cell_down.col + 1 if cell_down.col is not None else sheet.ncols,
+              cell_down.row + 1 if cell_down.row is not None else sheet.nrows]
+
+        nv = lambda x, v=None: [v] * x
 
         if up[1] >= sheet.nrows or up[0] >= sheet.ncols:
-            return None
+            ddn = [dn[i] - up[i] if c else 1
+                   for i, c in enumerate([cell_down.col is not None,
+                                          cell_down.row is not None])]
+            return nv(ddn[1], nv(ddn[0]))
 
-        dn_row = cell_down.row + 1 if cell_down.row is not None else sheet.nrows
+        ddn = [max(0, v) for v in (dn[0] - sheet.ncols, dn[1] - sheet.nrows)]
 
-        table = [list(map(fetch_cell, sheet.row_slice(r, up[0], cell_down.col))) for r in range(dn_row)]
+        table = [list(map(fetch_cell_value, sheet.row_slice(r, up[0], dn[0]))) +
+                 nv(ddn[0])
+                 for r in range(up[1], dn[1] - ddn[1])] + nv(ddn[1], nv(ddn[0]))
 
-        def shift_k(vect, k0, *ki):
-            return [shift_k(v, *ki) if ki else v for v in vect[k0:]]
+        def shift_k(vct, k0, *ki):
+            return [shift_k(v, *ki) if ki else v for v in vct[k0:]]
 
-        up = [0, 0]
+        # no empty vector
+        ne_vct = lambda vct: any(x is not None for x in vct)
 
-        if cell_down.row is None:
-            up[0] = next((r for r, v in enumerate(table) if any(x is not None for x in v)), 0)
+        def ind_vct(tbl):
+            up = next((r for r, v in enumerate(tbl) if ne_vct(v)), 0)
+            return up
 
-        if cell_up.col is None:
-            up[1] = next((r for r, v in enumerate(table[up[0]]) if v is not None), 0)
 
-        while up and up[-1] == 0 and up.pop()==0: pass
+        ddn[0] = -ddn[0] if ddn[0] > 0 else None
+
+        up[0] = ind_vct(table) if cell_up.row is None else 0
+        up[1] = ind_vct(list(zip(*table[up[0]:ddn[0]]))) if cell_up.col is None else 0
+
+        while up and up[-1] == 0 and up.pop() == 0:
+            pass
 
         if up:
             table = shift_k(table, *up)
@@ -192,21 +214,21 @@ def get_range(sheet, cell_up, cell_down=None):
         if cell_down.row is not None and cell_down.row == cell_up.row:
             table = table[0]
 
-        return table if table !=[[]] else None
+        return table
 
 
 _re_url_fragment_parser = re.compile(
-    r'^\s*(?:(?P<xl_st>[^!]+)!{1})?'            # xl sheet name
-    r'(?P<cl_up>'                               # cell up [opt]
-        r'(?P<up_col>[A-Z]+|_)'                 # up col
-        r'(?P<up_row>\d+|_)'                    # up row
+    r'^\s*(?:(?P<xl_st>[^!]+)!{1})?'  # xl sheet name
+    r'(?P<cl_up>'  # cell up [opt]
+        r'(?P<up_col>[A-Z]+|_)'  # up col
+        r'(?P<up_row>\d+|_)'  # up row
     r')?'
-    r'(?:(?P<cl_dn>:(?:'                        # cell down [opt]
-        r'(?P<dn_col>[A-Z]+|_)'                 # down col
-        r'(?P<dn_row>\d+|_)'                    # down col
-    r')?))?'
-    r'(?P<js_ar>\[.*\])?'                       # json args [opt]
-    r'(?P<js_kw>\{.*\})?'                       # json kwargs [opt]
+    r'(?P<cl_dn>:(?:'  # cell down [opt]
+        r'(?P<dn_col>[A-Z]+|_)'  # down col
+        r'(?P<dn_row>\d+|_)'  # down col
+    r')?)?'
+    r'(?P<js_ar>\[.*\])?'  # json args [opt]
+    r'(?P<js_kw>\{.*\})?'  # json kwargs [opt]
     r'\s*$')
 
 
@@ -225,6 +247,7 @@ def url_fragment_parser(url_fragment):
         - cell_down
         - json_args
         - json_kwargs
+
     :rtype: dict
 
     Example::
@@ -247,35 +270,32 @@ def url_fragment_parser(url_fragment):
     try:
         r = _re_url_fragment_parser.match(url_fragment).groupdict(None)
 
-        res = {'xl_sheet_name': r['xl_st']}
-
-        # resolve json_args
-        res['json_args'] = loads(r['js_ar']) if r['js_ar'] else None
-
-        # resolve json_kwargs
-        res['json_kwargs'] = loads(r['js_kw']) if r['js_kw'] else None
-
-        # fetch cell_down
-        res['cell_down'] = fetch_cell(r['cl_dn'], r['dn_col'], r['dn_row'])
+        res = {'xl_sheet_name': r['xl_st'],
+               # resolve json_args
+               'json_args': loads(r['js_ar']) if r['js_ar'] else None,
+               # resolve json_kwargs
+               'json_kwargs': loads(r['js_kw']) if r['js_kw'] else None,
+               # fetch cell_down
+               'cell_down': fetch_cell(r['cl_dn'], r['dn_col'], r['dn_row'])}
 
         # fetch cell_up
         if r['cl_up'] is None:
             if r['cl_dn']:
                 res['cell_up'] = Cell(None, None)
             else:
-                res['cell_up'], res['cell_down'] = (Cell(0, 0), Cell(None, None))
+                res['cell_up'] = Cell(0, 0)
+                res['cell_down'] = Cell(None, None)
             return res
 
         res['cell_up'] = fetch_cell(r['cl_up'], r['up_col'], r['up_row'])
 
-        # check range
+        # check range "crossing"
         if res['cell_down'] is not None:
 
-            def check_crossing(up, down):
+            def ck_cro(up, down):
                 return down is not None and up is not None and down < up
 
-            if check_crossing(res['cell_up'].row, res['cell_down'].row) or \
-                    check_crossing(res['cell_up'].col, res['cell_down'].col):
+            if any(ck_cro(u,d) for u,d in zip(res['cell_up'],res['cell_down'])):
                 raise ValueError('%s < %s' % (r['cl_dn'], r['cl_up']))
 
         return res
