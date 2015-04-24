@@ -12,6 +12,7 @@ from collections import OrderedDict
 import doctest
 import json
 import re
+import sre_constants
 import unittest
 
 import functools as ft
@@ -188,17 +189,48 @@ class TestPmod(unittest.TestCase):
         self.assertEqual(pmod2regexstrs(pm2), list('ba'))
         self.assertEqual(pmod2regexstrs(pm3), list('bac'))
 
-    def test_indexing_None(self):
+    def test_descend_None(self):
         pm = Pmod()
-        self.assertIsNone(pm['a'])
+        self.assert_descend_stops(pm.descend('a'))
 
         pm = Pmod(_alias='a')
-        self.assertIsNone(pm['a'])
+        self.assert_descend_stops(pm.descend('a'))
 
         pm = Pmod(_steps={'a': None})
-        self.assertIsNone(pm['a'])
+        self.assert_descend_stops(pm.descend('a'))
 
-    def test_indexing(self):
+    def test_alias_None(self):
+        pm = Pmod()
+        self.assertIsNone(pm.alias('a'))
+
+        pm = Pmod(_alias='a')
+        self.assertIsNone(pm.alias('a'))
+
+        pm = Pmod(_steps={'a': None})
+        self.assertIsNone(pm.alias('a'))
+
+    def _build_pmod_c1r2(self):
+        return Pmod(
+            _steps={'a': Pmod(_alias='A')},
+            _regxs=[('a(\w*)', Pmod('AWord')),
+                    ('a(\d*)', Pmod(_alias='A_\\1')), ])
+
+    def assert_descend_stops(self, cpmod, msg=None):
+        self.assertEqual(cpmod, (None, None), msg)
+
+    def test_descend_BAD(self):
+        pm = self._build_pmod_c1r2()
+        self.assert_descend_stops(pm.descend('BAD'))
+        self.assert_descend_stops(pm.descend('a-'))
+        self.assert_descend_stops(pm.descend('a$'))
+
+    def test_alias_BAD(self):
+        pm = self._build_pmod_c1r2()
+        self.assertIsNone(pm.alias('BAD'))
+        self.assertIsNone(pm.alias('a-'))
+        self.assertIsNone(pm.alias('a$'))
+
+    def test_descend(self):
         pm = Pmod(
             _steps={'a':
                     Pmod(_alias='A', _steps={1: 11})},
@@ -208,13 +240,69 @@ class TestPmod(unittest.TestCase):
             ])
 
         # All children and regexps match.
-        self.assertDictEqual(pm['a']._steps, {1: 11, 2: 22, 3: 33})
+        self.assertDictEqual(pm.descend('a')[0]._steps, {1: 11, 2: 22, 3: 33})
 
         # Only 'a\w*' matches.
-        self.assertDictEqual(pm['aa']._steps, {2: 22})
+        self.assertDictEqual(pm.descend('aa')[0]._steps, {2: 22})
 
         # Both regexps matches.
-        self.assertDictEqual(pm['a1']._steps, {2: 22, 3: 33})
+        self.assertDictEqual(pm.descend('a1')[0]._steps, {2: 22, 3: 33})
+
+    def test_alias(self):
+        pm = self._build_pmod_c1r2()
+
+        self.assertEqual(pm.alias('a'), 'A')
+        self.assertEqual(pm.alias('abc'), 'AWord')
+        self.assertEqual(pm.alias('a12'), 'A_12')
+        self.assertIsNone(pm.alias('BAD'))
+
+    def test_descend_group_zero_(self):
+        pm = Pmod(_regxs=[('abc', Pmod(_alias='A\\g<0>'))])
+        self.assertEqual(pm.descend('abc')[1], 'Aabc')
+
+        pm = Pmod(_regxs=[('a(.*)', Pmod(_alias='A\\g<0>'))])
+        self.assertEqual(pm.descend('abc')[1], 'Aabc')
+
+    def test_alias_group_zero_(self):
+        pm = Pmod(_regxs=[('abc', Pmod(_alias='A\\g<0>'))])
+        self.assertEqual(pm.alias('abc'), 'Aabc')
+
+        pm = Pmod(_regxs=[('a(.*)', Pmod(_alias='A\\g<0>'))])
+        self.assertEqual(pm.alias('abc'), 'Aabc')
+
+    def test_alias_invalid_group_ref_(self):
+        pm = Pmod(_regxs=[
+            ('a', Pmod(_alias='A\\1')),
+            ('b(.*)', Pmod(_alias='B\\2')),
+        ])
+
+        with self.assertRaises(sre_constants.error):
+            pm.alias('a')
+
+        with self.assertRaises(sre_constants.error):
+            pm.alias('bach')
+
+    # def test_map_path_root(self):
+
+    def test_map_path_not_matched(self):
+        pm = self._build_pmod_c1r2()
+
+        self.assertEqual(pm.map_path('/c'), '/c')
+        self.assertEqual(pm.map_path('/c/a'), '/c/a')
+        self.assertEqual(pm.map_path('/a$/a4'), '/a$/a4')
+
+    def test_map_path_simple(self):
+        pm = self._build_pmod_c1r2()
+
+        self.assertEqual(pm.map_path('/a'), '/A')
+        self.assertEqual(pm.map_path('/a/b'), '/A/b')
+
+    def test_map_path_regex(self):
+        pm = self._build_pmod_c1r2()
+
+        self.assertEqual(pm.map_path('/a'), '/A')
+        self.assertEqual(pm.map_path('/a_wo/b'), '/AWord/b')
+        self.assertEqual(pm.map_path('/a12/b'), '/A_12/b')
 
     def test_convert_df_empty(self):
         df_orig = pd.DataFrame([])

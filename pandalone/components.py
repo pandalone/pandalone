@@ -25,6 +25,7 @@ import re
 from unittest.mock import MagicMock
 
 import functools as ft
+import itertools as itt
 from pandalone.pandata import iter_jsonpointer_parts
 import pandas as pd
 
@@ -91,19 +92,17 @@ class Pmod(object):
 
         >>> pmods = pmods_from_tuples([
         ...         ('/a',           'A/AA'),
-        ...         ('/b(.*)',       'BB\\1'),
-        ...         ('/b.*/(c.*)',   'C/\\1'),
+        ...         ('/b(.*)',      r'BB\\1'),
+        ...         ('/b.*/(c.*)',  r'C/\\1'),
         ... ])
-        >>> pmods.map_paths(['/a', '/a/foo', '/b/ok', '/big/stuff'])
-        ['A/AA', 'A/AA/foo', 'BB/ok', 'BBig/C/stuff']
+        >>> pmods.map_paths(['/a', '/a/foo', '/big/stuff', '/be/courageous'])
+        ['/A/AA', '/A/AA/foo', '/BBig/stuff',  '/BBe/C/courageous']
 
 
-    Or for a single-step indexing, but check if maps exhausted::
+    Or for a single-step searching::
 
-        >>> pmods['a']._alias
-        'A/AA'
-        >>> pmods['a']['aa'] == None
-        True
+        >>> pmods.descend('a')
+        (pmod('A/AA'), 'A/AA')
     """
 
     __slots__ = ['_alias', '_steps', '_regxs']
@@ -232,9 +231,9 @@ class Pmod(object):
             # Share other dict if self hadn't its own.
             self._regxs = opmods
 
-    def _merge_(self, other):
+    def _merge(self, other):
         """
-        Override all its props with props from other-pmod, recursively.
+        Clone and override all its props with props from other-pmod, recursively.
 
         Although it does not modify this, the `other` or their children pmods,
         it may "share" (crosslink) them, so pmods MUST NOT be modified later.
@@ -278,6 +277,7 @@ class Pmod(object):
                         (re.compile('a'), pmod('A')),
                         (re.compile('c'), pmod('C'))]))
         """
+        self = copy(self)
         if other._alias:
             self._alias = other._alias
         self._override_steps(other)
@@ -285,99 +285,147 @@ class Pmod(object):
 
         return self
 
-    def _merge(self, other):
-        """Does the same as :meth:`_merge_()` but clones self."""
-        cp = copy(self)
-        return cp._merge_(other)
+    def _match_regxs(self, cstep):
+        """Return (pmod, regex.match) for those child-pmods matching `cstep`."""
 
-    def __getitem__(self, cstep):
+        return [(rpmod, match)
+                for rpmod, match
+                in ((rpmod, regex.fullmatch(cstep))
+                    for regex, rpmod
+                    in self._regxs.items())
+                if match]
+
+    def descend(self, cstep):
         """
-        Merges and returns the child pmod for matched regexps and direct-one.
+        Return child-pmod with merged any exact child with all matched regexps, along with its alias regex-expaned.
 
         :param str cstep:   the child path-step cstep of the pmod to return
-        :return:            the merged-child pmod or None
-        :rtype:             Pmod
+        :return:            the merged-child pmod, along with the alias; 
+                            both might be None, if nothing matched, or no alias.
+        :rtype:             tuple(Pmod, str)
 
         Example::
 
             >>> pm = Pmod(
             ...     _steps={'a': Pmod(_alias='A')},
             ...     _regxs=[('a\w*', Pmod(_alias='AWord')),
-            ...              ('a\d*', Pmod(_alias='ADigit')),
+            ...              ('a(\d*)', Pmod(_alias=r'A_\\1')),
             ...    ])
-            >>> pm['a']
-            pmod('A')
+            >>> pm.descend('a')
+            (pmod('A'), 'A')
 
-            >>> pm['abc']
-            pmod('AWord')
+            >>> pm.descend('abc')
+            (pmod('AWord'), 'AWord')
 
-            >>> pm['a12']
-            pmod('ADigit')
+            >>> pm.descend('a12')
+            (pmod('A_\\\\1'), 'A_12')
 
-            >>> pm['BAD'] is None
-            True
-
-
-        Note that intentionally it does not support the `in` operator,
-        to avoid needless merges::
-
-            >>> 'BAD' in pm
-            Traceback (most recent call last):
-            TypeError: expected string or buffer
+            >>> pm.descend('BAD')
+            (None, None)
 
 
-        And notice how children of regexps are merged together
-        (the final sub-steps below are intentionally invalid as Pmods)::
+        Notice how children of regexps are merged together::
 
             >>> pm = Pmod(
             ...     _steps={'a':
             ...        Pmod(_alias='A', _steps={1: 11})},
             ...     _regxs=[
-            ...        ('a\w*', Pmod(_alias='AWord', _steps={2: 22})),
-            ...        ('a\d*', Pmod(_alias='ADigit', _steps={3: 33})),
+            ...        ('a\w*', Pmod(_alias='AWord', 
+            ...                      _steps={2: Pmod(_alias=22)})),
+            ...        ('a\d*', Pmod(_alias='ADigit', 
+            ...                     _steps={3: Pmod(_alias=33)})),
             ...    ])
-            >>> sorted(pm['a']._steps)    ## All children and regexps match.
+            >>> sorted(pm.descend('a')[0]._steps)    ## All children and regexps match.
             [1, 2, 3]
 
-            >>> pm['aa']._steps           ## Only 'a\w*' matches.
-            {2: 22}
+            >>> pm.descend('aa')[0]._steps           ## Only 'a\w*' matches.
+            {2: pmod(22)}
 
-            >>> sorted(pm['a1']._steps )  ## Both regexps matches.
+            >>> sorted(pm.descend('a1')[0]._steps )  ## Both regexps matches.
             [2, 3]
 
         So it is possible to say::
 
-            >>> pm['a1'][2]
+            >>> pm.descend('a1')[0].alias(2)
             22
-            >>> pm['a1'][3]
+            >>> pm.descend('a1')[0].alias(3)
             33
-            >>> pm['a$'] is None
-            True
+            >>> pm.descend('a1')[0].descend('BAD')
+            (None, None)
+            >>> pm.descend('a$')
+            (None, None)
+
+        but it is better to use :meth:`map_path()` for this.
         """
-        pmods = [rpmod
-                 for regex, rpmod
-                 in self._regxs.items()
-                 if regex.fullmatch(cstep)]
+        alias = None
+
         cpmod = self._steps.get(cstep)
+        pmods = self._match_regxs(cstep)
+
+        if cpmod and cpmod._alias:
+            alias = cpmod._alias
+        else:
+            for rpmod, match in reversed(pmods):
+                if rpmod._alias:
+                    alias = match.expand(rpmod._alias)
+                    break
+        pmods = [pmod for pmod, _ in pmods]
         if cpmod:
             pmods.append(cpmod)
 
         if pmods:
-            return ft.reduce(Pmod._merge, pmods)
+            return (ft.reduce(Pmod._merge, pmods), alias)
+        return (None, None)
+
+    def alias(self, cstep):
+        """Like :meth:`descend()` but without merging child-pmods."""
+        cpmod = self._steps.get(cstep)
+        if cpmod and cpmod._alias:
+            if cpmod._alias:
+                return cpmod._alias
+
+        pmods = self._match_regxs(cstep)
+
+        for rpmod, match in reversed(pmods):
+            if rpmod._alias:
+                return match.expand(rpmod._alias)
 
     def map_path(self, path):
-        nsteps = []
-        pmod = self
-        for step in iter_jsonpointer_parts(path):
-            _alias = None
-            if pmod:
-                cpmod = pmod[step]
-                if cpmod:
-                    _alias = cpmod._alias
-                pmod = cpmod
-            nsteps.append(_alias or step)
+        """
+        Maps a '/rooted/path' using all aliases while descending its child pmods.
 
-        return '/'.join(nsteps)
+        It uses any aliases on all child pmods if found.
+
+        :param str path: a rooted path to transform
+        :return:         the rooted mapped path or '/' if path was '/'
+        :rtype           str or None
+
+        Example:
+
+            >>> pmods = pmods_from_tuples([
+            ...         ('/a',             'A/AA'),
+            ...         ('/a(\\w*)',       'BB\\1'),
+            ...         ('/a(\\d+)/(c.*)', 'C/\\1'),
+            ... ])
+            >>> #pmods.map_path('/a'
+        """
+        steps = list(iter_jsonpointer_parts(path))
+        if not steps:
+            nsteps = self._alias or ''
+        else:
+            nsteps = []
+            pmod = self
+            for step in steps[:-1]:
+                alias = None
+                if pmod:
+                    pmod, alias = pmod.descend(step)
+                nsteps.append(alias or step)
+            final_step = steps[-1]
+            if pmod:
+                final_step = pmod.alias(final_step) or final_step
+            nsteps.append(final_step)
+
+        return '/%s' % '/'.join(nsteps)
 
     def map_paths(self, paths):
         return [self.map_path(p) for p in paths]
