@@ -12,6 +12,7 @@ import argparse
 import os
 import sys
 import unittest
+import itertools as itt
 
 
 __commit__ = ""
@@ -54,12 +55,27 @@ def str2bool(v):
 
 
 def pairwise(t):
-    '''From http://stackoverflow.com/questions/4628290/pairs-from-single-list'''
-    it1 = iter(t)
-    it2 = iter(t)
+    """
+    From http://stackoverflow.com/questions/4628290/pairs-from-single-list
+
+    :param t: an iterable
+    
+    Example::
+    
+        >>> list(pairwise([1,2,3]))
+        [(1, 2), (2, 3)] 
+
+        >>> list(pairwise(i for i in [1]))
+        [] 
+        
+        >>> list(pairwise([]))
+        [] 
+    """
+    
+    it1, it2 = itt.tee(t)
     try:
         next(it2)
-    except:
+    except StopIteration:
         return []
     return zip(it1, it2)
 
