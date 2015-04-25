@@ -5,8 +5,11 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
-"""A :dfn:`pandas-model` is a tree of strings, numbers, sequences, dicts, pandas instances and resolvable
-URI-references, implemented by :class:`Pandel`. """
+
+"""
+A :dfn:`pandas-model` is a tree of strings, numbers, sequences, dicts, pandas instances and resolvable
+URI-references, implemented by :class:`Pandel`. 
+"""
 
 from __future__ import division, unicode_literals
 
@@ -19,7 +22,6 @@ import numbers
 import pickle
 import re
 
-from enum import IntEnum
 from jsonschema import Draft3Validator, Draft4Validator, ValidationError
 import jsonschema
 from jsonschema.exceptions import SchemaError, RefResolutionError
@@ -1045,26 +1047,51 @@ class Pandel(object):
         resolve_jsonpointer(self.model, path, **kws)
 
 
-
 def iter_jsonpointer_parts(jsonpointer):
     """
-    Iterates over the ``jsonpointer`` parts.
+    Generates the ``jsonpointer`` parts.
 
-    :param str jsonpointer: a jsonpointer to resolve within document
-    :return: a generator over the parts of the json-pointer
+    :param str jsonpointer:  a jsonpointer to resolve within document
+    :return:                 The parts of the path as generator), without 
+                             converting any step to int, and None if None.
 
     :author: Julian Berman, ankostis
+
+    Example:
+
+        >>> list(iter_jsonpointer_parts('/a/b'))
+        ['a', 'b']     
+
+        >>> list(iter_jsonpointer_parts('/a//b'))
+        ['a', '', 'b']     
+
+        >>> list(iter_jsonpointer_parts('/'))
+        ['']     
+
+        >>> list(iter_jsonpointer_parts(''))
+        []     
+
+
+    But paths have to be strings and beging with slash('/')::
+
+        >>> list(iter_jsonpointer_parts(None))
+        Traceback (most recent call last):
+        AttributeError: 'NoneType' object has no attribute 'split'
+
+        >>> list(iter_jsonpointer_parts('a'))
+        Traceback (most recent call last):
+        jsonschema.exceptions.RefResolutionError: Location must starts with /
+
     """
 
-    if jsonpointer:
-        parts = jsonpointer.split(u"/")
-        if parts.pop(0) != '':
-            raise RefResolutionError('Location must starts with /')
+    parts = jsonpointer.split(u"/")
+    if parts.pop(0) != '':
+        raise RefResolutionError('Location must starts with /')
 
-        for part in parts:
-            part = part.replace(u"~1", u"/").replace(u"~0", u"~")
+    for part in parts:
+        part = part.replace(u"~1", u"/").replace(u"~0", u"~")
 
-            yield part
+        yield part
 
 _scream = object()
 

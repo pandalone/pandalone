@@ -17,15 +17,16 @@ from jsonschema.exceptions import RefResolutionError
 import numpy as np
 import numpy.testing as npt
 from pandalone import pandata
-from pandalone.pandata import JSONCodec
+from pandalone.pandata import JSONCodec, iter_jsonpointer_parts
 import pandas as pd
 
 
 class TestDoctest(unittest.TestCase):
 
-    def runTest(self):
+    def test_doctests(self):
         failure_count, test_count = doctest.testmod(
-            pandata, optionflags=doctest.NORMALIZE_WHITESPACE)
+            pandata,
+            optionflags=doctest.NORMALIZE_WHITESPACE)  # | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
@@ -80,6 +81,30 @@ class TestJSONCodec(unittest.TestCase):
 
 
 class TestJsonPointer(unittest.TestCase):
+
+    def test_iter_jsonpointer(self):
+        cases = [
+            ('/a', ['a']),
+            ('/a/b', ['a', 'b']),
+            ('/a//b', ['a', '', 'b']),
+            ('/', ['']),
+            ('', []),
+            (None, AttributeError),
+            ('a', RefResolutionError),
+        ]
+        for i, (inp, out) in enumerate(cases):
+            msg = 'case #%i' % i
+            try:
+                if issubclass(out, Exception):
+                    with self.assertRaises(out, msg=msg):
+                        list(iter_jsonpointer_parts(inp))
+                continue
+            except TypeError as ex:
+                if ex.args[0].startswith('issubclass()'):
+                    self.assertEqual(
+                        list(iter_jsonpointer_parts(inp)), out, msg)
+                else:
+                    raise ex
 
     def test_resolve_jsonpointer_existing(self):
         doc = {
