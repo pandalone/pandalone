@@ -9,10 +9,10 @@
 Defines the building-blocks of a "model":
 
 components and assemblies:
-    See :class:`Component`, :class:`FuncComponent` and :class:`Assembly`
+    See :class:`Component`, :class:`FuncComponent` and :class:`Assembly`.
 
 paths and path-mappings (pmods):
-    See :func:`pmods_from_tuples`, :class:`Pstep`
+    See :class:`Pmod`, :func:`pmods_from_tuples` and :class:`Pstep`.
 """
 
 from __future__ import division, unicode_literals
@@ -37,7 +37,7 @@ log = logging.getLogger(__name__)
 
 class Pmod(object):
 
-    """
+    r"""
     A path-step mapping forming the pmods-hierarchy.
 
     - The :term:`pmods` denotes the hierarchy of all :term:`mappings`,
@@ -92,8 +92,8 @@ class Pmod(object):
 
         >>> pmods = pmods_from_tuples([
         ...         ('/a',           'A/AA'),
-        ...         ('/b(.*)',      r'BB\\1'),
-        ...         ('/b.*/(c.*)',  r'C/\\1'),
+        ...         ('/b(.*)',      r'BB\1'),
+        ...         ('/b.*/(c.*)',  r'C/\1'),
         ... ])
         >>> pmods.map_paths(['/a', '/a/foo', '/big/stuff', '/be/courageous'])
         ['/A/AA', '/A/AA/foo', '/BBig/stuff',  '/BBe/C/courageous']
@@ -296,7 +296,7 @@ class Pmod(object):
                 if match]
 
     def descend(self, cstep):
-        """
+        r"""
         Return child-pmod with merged any exact child with all matched regexps, along with its alias regex-expaned.
 
         :param str cstep:   the child path-step cstep of the pmod to return
@@ -309,7 +309,7 @@ class Pmod(object):
             >>> pm = Pmod(
             ...     _steps={'a': Pmod(_alias='A')},
             ...     _regxs=[('a\w*', Pmod(_alias='AWord')),
-            ...              ('a(\d*)', Pmod(_alias=r'A_\\1')),
+            ...              ('a(\d*)', Pmod(_alias=r'A_\1')),
             ...    ])
             >>> pm.descend('a')
             (pmod('A'), 'A')
@@ -318,7 +318,7 @@ class Pmod(object):
             (pmod('AWord'), 'AWord')
 
             >>> pm.descend('a12')
-            (pmod('A_\\\\1'), 'A_12')
+            (pmod('A_\\1'), 'A_12')
 
             >>> pm.descend('BAD')
             (None, None)
@@ -330,9 +330,9 @@ class Pmod(object):
             ...     _steps={'a':
             ...        Pmod(_alias='A', _steps={1: 11})},
             ...     _regxs=[
-            ...        ('a\w*', Pmod(_alias='AWord', 
+            ...        (r'a\w*', Pmod(_alias='AWord', 
             ...                      _steps={2: Pmod(_alias=22)})),
-            ...        ('a\d*', Pmod(_alias='ADigit', 
+            ...        (r'a\d*', Pmod(_alias='ADigit', 
             ...                     _steps={3: Pmod(_alias=33)})),
             ...    ])
             >>> sorted(pm.descend('a')[0]._steps)    ## All children and regexps match.
@@ -391,7 +391,7 @@ class Pmod(object):
                 return match.expand(rpmod._alias)
 
     def map_path(self, path):
-        """
+        r"""
         Maps a '/rooted/path' using all aliases while descending its child pmods.
 
         It uses any aliases on all child pmods if found.
@@ -400,18 +400,47 @@ class Pmod(object):
         :return:         the rooted mapped path or '/' if path was '/'
         :rtype           str or None
 
-        Example:
+        Examples::
 
             >>> pmods = pmods_from_tuples([
-            ...         ('/a',             'A/AA'),
-            ...         ('/a(\\w*)',       'BB\\1'),
-            ...         ('/a(\\d+)/(c.*)', 'C/\\1'),
+            ...         ('/a',              'A/AA'),
+            ...         ('/a(\\w*)',       r'BB\1'),
+            ...         ('/a\\w*/d.*',     r'D \g<0>'),
+            ...         ('/a(\\d+)',       r'C/\1'),
+            ...         ('/a(\\d+)/(c.*)', r'CC-/\1'), # The 1st group is ignored!
             ... ])
-            >>> #pmods.map_path('/a'
+
+            >>> pmods.map_path('/a')
+            '/A/AA'
+
+            >>> pmods.map_path('/a_hi')
+            '/BB_hi'
+
+            >>> pmods.map_path('/a12')
+            '/C/12'
+
+        Notice how children from *all* matching prior-steps are merged::
+
+            >>> pmods.map_path('/a12/dow')
+            '/C/12/D dow'
+            >>> pmods.map_path('/a12/cow')
+            '/C/12/CC-/cow'
+
+
+        Use this to map "root"::
+
+            >>> Pmod(_alias='root').map_path('')
+            '/root'
+
+        but this will NOT work::
+
+            >>> Pmod(_alias='root').map_path('/a')
+            '/a'
+
         """
         steps = list(iter_jsonpointer_parts(path))
         if not steps:
-            nsteps = self._alias or ''
+            nsteps = [self._alias or '']
         else:
             nsteps = []
             pmod = self

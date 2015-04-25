@@ -282,7 +282,17 @@ class TestPmod(unittest.TestCase):
         with self.assertRaises(sre_constants.error):
             pm.alias('bach')
 
-    # def test_map_path_root(self):
+    def test_map_path_root(self):
+        pm = Pmod()
+        self.assertEqual(pm.map_path('/'), '/')
+        self.assertEqual(pm.map_path(''), '/')
+
+        pm = self._build_pmod_c1r2()
+        self.assertEqual(pm.map_path('/'), '/')
+        self.assertEqual(pm.map_path(''), '/')
+
+        pm = Pmod(_alias='root')
+        self.assertEqual(pm.map_path(''), '/root')
 
     def test_map_path_not_matched(self):
         pm = self._build_pmod_c1r2()
