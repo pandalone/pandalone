@@ -13,6 +13,7 @@ import unittest
 import six
 
 from pandalone import utils
+from tests.test_utils import _init_logging
 
 
 try:
@@ -20,6 +21,9 @@ try:
     import tkinter as tk
 except (ImportError, NotImplementedError):
     pass
+
+
+log = _init_logging(__name__)
 
 
 class TkUiTest(unittest.TestCase):

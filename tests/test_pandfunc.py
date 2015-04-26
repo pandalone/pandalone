@@ -11,7 +11,6 @@ Check pandfunc's function-dependencies exploration, reporting and classes .
 
 from collections import OrderedDict
 import doctest
-import logging
 import unittest
 
 from networkx.classes.digraph import DiGraph
@@ -31,6 +30,10 @@ from pandalone.pandfunc import (
     _validate_func_relations
 )
 import pandas as pd
+from tests.test_utils import _init_logging
+
+
+log = _init_logging(__name__)
 
 
 def gen_all_prefix_pairs(path):
@@ -133,9 +136,6 @@ class TestDoctest(unittest.TestCase):
 
 
 class TestHarvest(unittest.TestCase):
-
-    def setUp(self):
-        logging.basicConfig(level=logging.DEBUG)
 
     def test_filter_common_prefixes(self):
         _filter_common_prefixes
@@ -514,12 +514,6 @@ def bad_funcs_fact(params, engine, dfin, dfout):
 
 
 class TestResolve(unittest.TestCase):
-
-    def setUp(self):
-        logging.basicConfig(level=logging.DEBUG)
-        l = logging.getLogger()
-        l.setLevel(logging.DEBUG)
-        l.handlers = [logging.StreamHandler()]
 
     def testSmoke_FuncExplorer_countNodes(self):
         deps = build_base_deps()

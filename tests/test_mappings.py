@@ -20,6 +20,10 @@ from pandalone.mappings import (
     pmods_from_tuples)
 import pandalone.mappings
 import pandas as pd
+from tests.test_utils import _init_logging
+
+
+log = _init_logging(__name__)
 
 
 def pmod2regexstrs(pmod):
@@ -280,19 +284,41 @@ class TestPmod(unittest.TestCase):
         with self.assertRaises(sre_constants.error):
             pm.alias('bach')
 
-    def test_map_path_root(self):
+    def test_map_path_rootUnmapped_slashPath(self):
         pm = Pmod()
         self.assertEqual(pm.map_path('/'), '/')
-        self.assertEqual(pm.map_path(''), '/')
 
         pm = self._build_pmod_c1r2()
         self.assertEqual(pm.map_path('/'), '/')
-        self.assertEqual(pm.map_path(''), '/')
 
+    def test_map_path_rootUnmapped_emptyPath(self):
+        pm = Pmod()
+        self.assertEqual(pm.map_path(''), '')
+
+        pm = self._build_pmod_c1r2()
+        self.assertEqual(pm.map_path(''), '')
+
+    def test_map_path_rootMapped(self):
         pm = Pmod(_alias='root')
-        self.assertEqual(pm.map_path(''), '/root')
+        self.assertEqual(pm.map_path(''), '')
+        self.assertEqual(pm.map_path('/'), '/root')
+        self.assertEqual(pm.map_path('/a'), '/root/a')
 
-    def test_map_path_not_matched(self):
+        pm = self._build_pmod_c1r2()
+        pm._alias = 'root'
+        self.assertEqual(pm.map_path(''), '')
+        self.assertEqual(pm.map_path('/'), '/root')
+        self.assertEqual(pm.map_path('/a'), '/root/A')
+        self.assertEqual(pm.map_path('/a_blah'), '/root/AWord')
+        self.assertEqual(pm.map_path('/a0'), '/root/A_0')
+
+        pm = pmods_from_tuples([
+            ('', 'New/Root'),
+            ('/a/b', 'B'),
+        ])
+        self.assertEqual(pm.map_path('/a/b'), '/New/Root/a/B')
+
+    def test_map_path_missed(self):
         pm = self._build_pmod_c1r2()
 
         self.assertEqual(pm.map_path('/c'), '/c')
@@ -357,15 +383,11 @@ class TestPmod(unittest.TestCase):
             ('/a[1]?/b?', 'B'),
         ]
         pmods = pmods_from_tuples(pmods_tuples)
-        # pmod(OrderedDict([(re.compile('a*'),
-        #        pmod('A1/A2')), (re.compile('a[1]'),
-        #        pmod(OrderedDict([(re.compile('b?'),
-        #        pmod('B'))])))]))
 
         self.assertFalse(bool(pmods._steps))
         self.assertEqual(pmod2regexstrs(pmods), ['a*', 'a[1]?'])
 
-    def test_build_pmods_repr(self):
+    def test_pmods_from_tuples_repr(self):
         pmods_tuples = [
             ('/a', 'A'),
             ('/a\w*', 'A1/A2'),
@@ -378,6 +400,12 @@ class TestPmod(unittest.TestCase):
              r"pmod(OrderedDict([(re.compile('b?'), pmod('D/D'))])))]))"
              ]
         self.assertEqual(str(pmods), "".join(s))
+
+    def test_pmods_from_tuples_rootMapping(self):
+        self.assertEqual(pmods_from_tuples([('', 'A/B')]),
+                         Pmod(_alias='A/B'))
+        self.assertEqual(pmods_from_tuples([('/', 'A/B')]),
+                         Pmod(_steps={'': Pmod(_alias='A/B')}))
 
 
 if __name__ == "__main__":

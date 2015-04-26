@@ -20,6 +20,10 @@ from pandalone import pandata
 from pandalone.pandata import JSONCodec, iter_jsonpointer_parts,\
     _iter_jsonpointer_parts_relaxed
 import pandas as pd
+from tests.test_utils import _init_logging
+
+
+log = _init_logging(__name__)
 
 
 class TestDoctest(unittest.TestCase):

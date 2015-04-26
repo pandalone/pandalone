@@ -1,7 +1,6 @@
 #!python
 #-*- coding: utf-8 -*-
 import glob
-from jsonschema.compat import urlsplit, urljoin
 import logging
 import operator
 import os
@@ -9,10 +8,12 @@ import re
 from textwrap import dedent
 
 from jsonschema._utils import URIDict
+from jsonschema.compat import urlsplit, urljoin
 import six
 from win32com.universal import com_error
 
 import pandas as pd
+from tests.test_utils import _init_logging
 
 
 try:
@@ -30,20 +31,13 @@ except ImportError:
 
 __commit__ = ""
 
-log = logging.getLogger(__name__)
-log.trace = lambda *args, **kws: log.log(0, *args, **kws)
-
-DEFAULT_LOG_LEVEL = logging.DEBUG
-
-
-def _init_logging(loglevel=DEFAULT_LOG_LEVEL):
-    logging.basicConfig(level=loglevel)
-    logging.getLogger().setLevel(level=loglevel)
-
+log = _init_logging(__name__)
 
 # Probably Windows-only:
 #    TODO: Should become a class-method on xw.Workbook
 # when/if it works reliably, see github/xlwings #30.
+
+
 def get_active_workbook():
     from win32com.client import dynamic
 

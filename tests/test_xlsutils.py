@@ -19,20 +19,10 @@ from pandas.core.generic import NDFrame
 
 import numpy as np
 import pandas as pd
+from tests.test_utils import _init_logging
 
 
-DEFAULT_LOG_LEVEL = logging.INFO
-
-
-def _init_logging(loglevel):
-    logging.basicConfig(level=loglevel)
-    logging.getLogger().setLevel(level=loglevel)
-
-    log = logging.getLogger(__name__)
-    log.trace = lambda *args, **kws: log.log(0, *args, **kws)
-
-    return log
-log = _init_logging(DEFAULT_LOG_LEVEL)
+log = _init_logging(__name__)
 
 
 def from_my_path(*parts):

@@ -1110,6 +1110,13 @@ def _iter_jsonpointer_parts_relaxed(jsonpointer):
 
     Examples::
 
+        >>> list(_iter_jsonpointer_parts_relaxed('a'))
+        ['a']
+        >>> list(_iter_jsonpointer_parts_relaxed('a/'))
+        ['a', '']
+        >>> list(_iter_jsonpointer_parts_relaxed('a/b'))
+        ['a', 'b']
+
         >>> list(_iter_jsonpointer_parts_relaxed('/a'))
         ['', 'a']
         >>> list(_iter_jsonpointer_parts_relaxed('/a/'))

@@ -50,7 +50,8 @@ class Pmod(object):
         ---------       -------       -----------
         /rename/path    foo       --> /rename/foo        ## renaming
         /relocate/path  foo/bar   --> /relocate/foo/bar  ## relocation
-        /root           a/b/c     --> /a/b/c             ## Relocates all /root sub-paths.
+        ''              a/b/c     --> /a/b/c             ## Relocate all paths.
+        /               a/b/c     --> /a/b/c             ## Relocates 1st "empty-str" step.
 
     - The :term:`pmod` is the mapping of that single path-step.
 
@@ -468,7 +469,7 @@ class Pmod(object):
             ...         ('/a\\w*/d.*',     r'D \g<0>'),
             ...         ('/a(\\d+)',       r'C/\1'),
             ...         ('/a(\\d+)/(c.*)', r'CC-/\1'), # The 1st group is ignored!
-            ...         ('/a\\d+/e.*',   r'/R/g<0>'),   # Rooted mapping.
+            ...         ('/a\\d+/e.*',     r'/newroot/\g<0>'), # Rooted mapping.
             ... ])
 
             >>> pmods.map_path('/a')
@@ -480,6 +481,9 @@ class Pmod(object):
             >>> pmods.map_path('/a12')
             '/C/12'
 
+            >>> pmods.map_path('/a12/etc')
+            '/newroot/etc'
+
         Notice how children from *all* matching prior-steps are merged::
 
             >>> pmods.map_path('/a12/dow')
@@ -488,22 +492,39 @@ class Pmod(object):
             '/C/12/CC-/cow'
 
 
-        Use this to map "root"::
+        Use this to map *root*::
 
-            >>> Pmod(_alias='root').map_path('')
-            '/root'
+            >>> pmods = pmods_from_tuples([('', 'New/Root'),])
+            >>> pmods
+            pmod('New/Root')
 
-        but this will NOT work::
+            >>> pmods.map_path('/for/plant')
+            '/New/Root/for/plant'
 
-            >>> Pmod(_alias='root').map_path('/a')
-            '/a'
+        .. NOTE:: 
+            Using slash('/') for "from" path will NOT map *root*::
+
+                >>> pmods = pmods_from_tuples([('/', 'New/Root'),])
+                >>> pmods
+                pmod({'': pmod('New/Root')})
+
+                >>> pmods.map_path('/for/plant')
+                '/for/plant'
+
+                >>> pmods.map_path('//for/plant')
+                '/New/Root/for/plant'
+
+                '/root'
+
+        but '' always remains unchanged (whole document)::
+
+            >>> pmods.map_path('')
+            ''
 
         """
         steps = list(iter_jsonpointer_parts(path))
-        if not steps:
-            nsteps = [self._alias or '']
-        else:
-            nsteps = []
+        nsteps = [self._alias] if self._alias else []
+        if steps:
             pmod = self
             for step in steps[:-1]:
                 alias = None
@@ -520,7 +541,8 @@ class Pmod(object):
                 final_step = pmod.alias(final_step) or final_step
             nsteps = Pmod._append_path(nsteps, final_step)
 
-        return '/%s' % '/'.join(nsteps)
+            return '/%s' % '/'.join(nsteps)
+        return ''
 
     def map_paths(self, paths):
         return [self.map_path(p) for p in paths]
@@ -533,23 +555,31 @@ class Pmod(object):
         args = ', '.join(args)
         return 'pmod({})'.format(args)
 
+    def __eq__(self, o):
+        try:
+            return (self._alias, self._steps, self._regxs) == (o._alias, o._steps, o._regxs)
+        except:
+            return False
+
 
 def pmods_from_tuples(pmods_tuples):
     """
     Turns a list of 2-tuples into a *pmods* hierarchy.
 
-    Each tuple defines the renaming-or-relocation of the *final* part
-    of some component path onto another one into value-trees, such as::
+    - Each tuple defines the renaming-or-relocation of the *final* part
+      of some component path onto another one into value-trees, such as::
 
-        (rename/path, foo)           --> rename/foo
-        (relocate/path, foo/bar)     --> relocate/foo/bar
+          (/rename/path, foo)          --> rename/foo
+          (/relocate/path, foo/bar)    --> relocate/foo/bar
 
 
-    In case the the "from" path contains any of the `[].*()` chars,
-    it is assumed to be a regular-expression::
+    - The "from" must be an absolute path.
 
-        (all(.*)/path, foo)
-        (some[\d+]/path, foo\1)
+    - In case the "from" path contains any of the `[].*()` chars,
+      it is assumed to be a regular-expression::
+
+          (/all(.*)/path, foo)
+          (/some[\d+]/path, foo\1)
 
 
     :return: a root pmod
@@ -558,28 +588,49 @@ def pmods_from_tuples(pmods_tuples):
 
     Example::
 
-        >>> pmods_tuples = [
+        >>> pmods_from_tuples([
         ...     ('/a', 'A1/A2'),
         ...     ('/a/b', 'B'),
-        ... ]
-        >>> pmods = pmods_from_tuples(pmods_tuples)
-        >>> pmods
+        ... ])
         pmod({'a': pmod('A1/A2', {'b': pmod('B')})})
 
-        >>> pmods_tuples = [
+        >>> pmods_from_tuples([
         ...     ('/a*', 'A1/A2'),
         ...     ('/a/b[123]', 'B'),
-        ... ]
-        >>> pmods = pmods_from_tuples(pmods_tuples)
-        >>> pmods
-        pmod({'a': pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))}, 
+        ... ])
+        pmod({'a': 
+            pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))}, 
              OrderedDict([(re.compile('a*'), pmod('A1/A2'))]))
+
+
+    This is how you map *root*::
+
+        >>> pmods = pmods_from_tuples([
+        ...     ('', 'New/Root'),
+        ...     ('/a/b', '/B'),
+        ... ])
+        >>> pmods
+        pmod('New/Root', {'a': pmod({'b': pmod('/B')})})
+
+        >>> pmods.map_path('/a/c')
+        '/New/Root/a/c'
+
+        >>> pmods.map_path('/a/b')
+        '/B'
+
+
+    But note that '/' maps the 1st "empty-str" step after root::
+
+        >>> pmods_from_tuples([
+        ...     ('/', 'New/Root'),
+        ... ])
+        pmod({'': pmod('New/Root')})
 
     """
     root = Pmod()
     for i, (f, t) in enumerate(pmods_tuples):
-        if not (f and t):
-            msg = 'pmod-tuple(%i): `source(%s)` and/or `to(%s)` were empty!'
+        if not t:
+            msg = 'pmod-tuple(%i): `to(%s)` were empty!'
             log.warning(msg, i, f, t)
             continue
 
