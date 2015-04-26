@@ -85,11 +85,26 @@ class TestJsonPointer(unittest.TestCase):
 
     def test_iter_jsonpointer_empty(self):
         self.assertListEqual(list(iter_jsonpointer_parts('')), [])
-        self.assertListEqual(list(_iter_jsonpointer_parts_relaxed('')), [])
+        self.assertListEqual(list(_iter_jsonpointer_parts_relaxed('')), [''])
 
     def test_iter_jsonpointer_root(self):
         self.assertListEqual(list(iter_jsonpointer_parts('/')), [''])
-        self.assertListEqual(list(_iter_jsonpointer_parts_relaxed('/')), [''])
+        self.assertListEqual(
+            list(_iter_jsonpointer_parts_relaxed('/')), ['', ''])
+
+    def test_iter_jsonpointer_regular(self):
+        self.assertListEqual(list(iter_jsonpointer_parts('/a')), ['a'])
+        self.assertListEqual(
+            list(_iter_jsonpointer_parts_relaxed('/a')), ['', 'a'])
+
+        self.assertListEqual(list(iter_jsonpointer_parts('/a/b')), ['a', 'b'])
+        self.assertListEqual(
+            list(_iter_jsonpointer_parts_relaxed('/a/b')), ['', 'a', 'b'])
+
+    def test_iter_jsonpointer_folder(self):
+        self.assertListEqual(list(iter_jsonpointer_parts('/a/')), ['a', ''])
+        self.assertListEqual(
+            list(_iter_jsonpointer_parts_relaxed('/a/')), ['', 'a', ''])
 
     def test_iter_jsonpointer_non_absolute(self):
         with self.assertRaises(RefResolutionError):
@@ -103,7 +118,7 @@ class TestJsonPointer(unittest.TestCase):
         with self.assertRaises(AttributeError):
             list(_iter_jsonpointer_parts_relaxed(None))
 
-    def test_iter_jsonpointer_relaxed_root_with_spaces(self):
+    def test_iter_jsonpointer_with_spaces(self):
         self.assertListEqual(
             list(iter_jsonpointer_parts('/ some ')), [' some '])
         self.assertListEqual(
@@ -117,13 +132,17 @@ class TestJsonPointer(unittest.TestCase):
     def test_iter_jsonpointer_massive(self):
         cases = [
             ('/a', ['a']),
+            ('/a/', ['a', '']),
             ('/a/b', ['a', 'b']),
+            ('/a/b/', ['a', 'b', '']),
             ('/a//b', ['a', '', 'b']),
             ('/a/../b', ['a', '..', 'b']),
             ('/', ['']),
             ('', []),
             ('/ some ', [' some ']),
+            ('/ some /', [' some ', '']),
             ('/ some /  ', [' some ', '  ']),
+            ('/ some /  /', [' some ', '  ', '']),
             (None, AttributeError),
             ('a', RefResolutionError),
         ]
@@ -143,20 +162,27 @@ class TestJsonPointer(unittest.TestCase):
 
     def test_iter_jsonpointer_relaxed_massive(self):
         cases = [
-            ('/a', ['a']),
-            ('/a/b', ['a', 'b']),
-            ('/a//b', ['a', '', 'b']),
-            ('/', ['']),
-            ('', []),
-            ('/ some ', [' some ']),
-            ('/ some /  ', [' some ', '  ']),
+            ('/a', ['', 'a']),
+            ('/a/', ['', 'a', '']),
+            ('/a/b', ['', 'a', 'b']),
+            ('/a/b/', ['', 'a', 'b', '']),
+            ('/a//b', ['', 'a', '', 'b']),
+            ('/', ['', '']),
+            ('', ['']),
+            ('/ some ', ['', ' some ']),
+            ('/ some /', ['', ' some ', '']),
+            ('/ some /  ', ['', ' some ', '  ']),
             (None, AttributeError),
             ('a', ['a']),
+            ('a/', ['a', '']),
             ('a/b', ['a', 'b']),
+            ('a/b/', ['a', 'b', '']),
             ('a/../b/.', ['a', '..', 'b', '.']),
             ('a/../b/.', ['a', '..', 'b', '.']),
             (' some ', [' some ']),
+            (' some /', [' some ', '']),
             (' some /  ', [' some ', '  ']),
+            (' some /  /', [' some ', '  ', '']),
         ]
         for i, (inp, out) in enumerate(cases):
             msg = 'case #%i' % i

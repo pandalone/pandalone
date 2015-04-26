@@ -1047,17 +1047,17 @@ class Pandel(object):
         resolve_jsonpointer(self.model, path, **kws)
 
 
-def iter_jsonpointer_parts(jsonpointer):
+def iter_jsonpointer_parts(jsonpath):
     """
-    Generates the ``jsonpointer`` parts.
+    Generates the ``jsonpath`` parts according to jsonpointer spec.
 
-    :param str jsonpointer:  a jsonpointer to resolve within document
-    :return:                 The parts of the path as generator), without 
-                             converting any step to int, and None if None.
+    :param str jsonpath:  a jsonpath to resolve within document
+    :return:              The parts of the path as generator), without 
+                          converting any step to int, and None if None.
 
     :author: Julian Berman, ankostis
 
-    Example:
+    Examples::
 
         >>> list(iter_jsonpointer_parts('/a/b'))
         ['a', 'b']     
@@ -1072,7 +1072,7 @@ def iter_jsonpointer_parts(jsonpointer):
         []     
 
 
-    But paths have to be strings and beging with slash('/')::
+    But paths are strings begining (NOT_MPL: but not ending) with slash('/')::
 
         >>> list(iter_jsonpointer_parts(None))
         Traceback (most recent call last):
@@ -1080,13 +1080,21 @@ def iter_jsonpointer_parts(jsonpointer):
 
         >>> list(iter_jsonpointer_parts('a'))
         Traceback (most recent call last):
-        jsonschema.exceptions.RefResolutionError: Location must starts with /
+        jsonschema.exceptions.RefResolutionError: Jsonpointer-path(a) must start with '/'!
+
+        #>>> list(iter_jsonpointer_parts('/a/'))
+        #Traceback (most recent call last):
+        #jsonschema.exceptions.RefResolutionError: Jsonpointer-path(a) must NOT ends with '/'!
 
     """
 
-    parts = jsonpointer.split(u"/")
+#     if jsonpath.endswith('/'):
+#         msg = "Jsonpointer-path({}) must NOT finish with '/'!"
+#         raise RefResolutionError(msg.format(jsonpath))
+    parts = jsonpath.split(u"/")
     if parts.pop(0) != '':
-        raise RefResolutionError('Location must starts with /')
+        msg = "Jsonpointer-path({}) must start with '/'!"
+        raise RefResolutionError(msg.format(jsonpath))
 
     for part in parts:
         part = part.replace(u"~1", u"/").replace(u"~0", u"~")
@@ -1095,16 +1103,28 @@ def iter_jsonpointer_parts(jsonpointer):
 
 
 def _iter_jsonpointer_parts_relaxed(jsonpointer):
-    """Like :func:`iter_jsonpointer_parts()` but accepting also non-absolute paths."""
-#     if jsonpointer == '':
-#         return []
-#     if jsonpointer.startswith('/'):
-#         jsonpointer = jsonpointer[1:]
-#     for part in jsonpointer.split(u"/"):
-    parts = jsonpointer.split(u"/")
-    if not parts[0]:
-        parts.pop(0)
-    for part in parts:
+    """
+    Like :func:`iter_jsonpointer_parts()` but accepting also non-absolute paths.
+
+    The 1st step of absolute-paths is always ''.
+
+    Examples::
+
+        >>> list(_iter_jsonpointer_parts_relaxed('/a'))
+        ['', 'a']
+        >>> list(_iter_jsonpointer_parts_relaxed('/a/'))
+        ['', 'a', '']
+
+        >>> list(_iter_jsonpointer_parts_relaxed('/'))
+        ['', '']
+
+        >>> list(_iter_jsonpointer_parts_relaxed(''))
+        ['']
+
+    """
+    for part in jsonpointer.split(u"/"):
+        #     parts = jsonpointer.split(u"/")
+        #     for part in parts:
         part = part.replace(u"~1", u"/").replace(u"~0", u"~")
 
         yield part
