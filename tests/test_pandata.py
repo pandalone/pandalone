@@ -17,7 +17,8 @@ from jsonschema.exceptions import RefResolutionError
 import numpy as np
 import numpy.testing as npt
 from pandalone import pandata
-from pandalone.pandata import JSONCodec, iter_jsonpointer_parts
+from pandalone.pandata import JSONCodec, iter_jsonpointer_parts,\
+    _iter_jsonpointer_parts_relaxed
 import pandas as pd
 
 
@@ -82,13 +83,47 @@ class TestJSONCodec(unittest.TestCase):
 
 class TestJsonPointer(unittest.TestCase):
 
-    def test_iter_jsonpointer(self):
+    def test_iter_jsonpointer_empty(self):
+        self.assertListEqual(list(iter_jsonpointer_parts('')), [])
+        self.assertListEqual(list(_iter_jsonpointer_parts_relaxed('')), [])
+
+    def test_iter_jsonpointer_root(self):
+        self.assertListEqual(list(iter_jsonpointer_parts('/')), [''])
+        self.assertListEqual(list(_iter_jsonpointer_parts_relaxed('/')), [''])
+
+    def test_iter_jsonpointer_non_absolute(self):
+        with self.assertRaises(RefResolutionError):
+            list(iter_jsonpointer_parts('a'))
+        with self.assertRaises(RefResolutionError):
+            list(iter_jsonpointer_parts('a/b'))
+
+    def test_iter_jsonpointer_None(self):
+        with self.assertRaises(AttributeError):
+            list(iter_jsonpointer_parts(None))
+        with self.assertRaises(AttributeError):
+            list(_iter_jsonpointer_parts_relaxed(None))
+
+    def test_iter_jsonpointer_relaxed_root_with_spaces(self):
+        self.assertListEqual(
+            list(iter_jsonpointer_parts('/ some ')), [' some '])
+        self.assertListEqual(
+            list(iter_jsonpointer_parts('/ some /  ')), [' some ', '  '])
+
+        self.assertListEqual(
+            list(_iter_jsonpointer_parts_relaxed(' some ')), [' some '])
+        self.assertListEqual(
+            list(_iter_jsonpointer_parts_relaxed(' some /  ')), [' some ', '  '])
+
+    def test_iter_jsonpointer_massive(self):
         cases = [
             ('/a', ['a']),
             ('/a/b', ['a', 'b']),
             ('/a//b', ['a', '', 'b']),
+            ('/a/../b', ['a', '..', 'b']),
             ('/', ['']),
             ('', []),
+            ('/ some ', [' some ']),
+            ('/ some /  ', [' some ', '  ']),
             (None, AttributeError),
             ('a', RefResolutionError),
         ]
@@ -103,6 +138,37 @@ class TestJsonPointer(unittest.TestCase):
                 if ex.args[0].startswith('issubclass()'):
                     self.assertEqual(
                         list(iter_jsonpointer_parts(inp)), out, msg)
+                else:
+                    raise ex
+
+    def test_iter_jsonpointer_relaxed_massive(self):
+        cases = [
+            ('/a', ['a']),
+            ('/a/b', ['a', 'b']),
+            ('/a//b', ['a', '', 'b']),
+            ('/', ['']),
+            ('', []),
+            ('/ some ', [' some ']),
+            ('/ some /  ', [' some ', '  ']),
+            (None, AttributeError),
+            ('a', ['a']),
+            ('a/b', ['a', 'b']),
+            ('a/../b/.', ['a', '..', 'b', '.']),
+            ('a/../b/.', ['a', '..', 'b', '.']),
+            (' some ', [' some ']),
+            (' some /  ', [' some ', '  ']),
+        ]
+        for i, (inp, out) in enumerate(cases):
+            msg = 'case #%i' % i
+            try:
+                if issubclass(out, Exception):
+                    with self.assertRaises(out, msg=msg):
+                        list(_iter_jsonpointer_parts_relaxed(inp))
+                continue
+            except TypeError as ex:
+                if ex.args[0].startswith('issubclass()'):
+                    self.assertEqual(
+                        list(_iter_jsonpointer_parts_relaxed(inp)), out, msg)
                 else:
                     raise ex
 

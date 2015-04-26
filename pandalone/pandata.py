@@ -1093,6 +1093,22 @@ def iter_jsonpointer_parts(jsonpointer):
 
         yield part
 
+
+def _iter_jsonpointer_parts_relaxed(jsonpointer):
+    """Like :func:`iter_jsonpointer_parts()` but accepting also non-absolute paths."""
+#     if jsonpointer == '':
+#         return []
+#     if jsonpointer.startswith('/'):
+#         jsonpointer = jsonpointer[1:]
+#     for part in jsonpointer.split(u"/"):
+    parts = jsonpointer.split(u"/")
+    if not parts[0]:
+        parts.pop(0)
+    for part in parts:
+        part = part.replace(u"~1", u"/").replace(u"~0", u"~")
+
+        yield part
+
 _scream = object()
 
 
