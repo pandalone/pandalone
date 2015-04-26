@@ -301,13 +301,14 @@ class TestPmod(unittest.TestCase):
     def test_map_path_rootMapped(self):
         pm = Pmod(_alias='root')
         self.assertEqual(pm.map_path(''), '')
-        self.assertEqual(pm.map_path('/'), '/root')
+        self.assertEqual(pm.map_path('/'), '/')
+        self.assertEqual(pm.map_path(''), '')
         self.assertEqual(pm.map_path('/a'), '/root/a')
 
         pm = self._build_pmod_c1r2()
         pm._alias = 'root'
         self.assertEqual(pm.map_path(''), '')
-        self.assertEqual(pm.map_path('/'), '/root')
+        self.assertEqual(pm.map_path('/'), '/')
         self.assertEqual(pm.map_path('/a'), '/root/A')
         self.assertEqual(pm.map_path('/a_blah'), '/root/AWord')
         self.assertEqual(pm.map_path('/a0'), '/root/A_0')

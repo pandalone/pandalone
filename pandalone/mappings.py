@@ -24,8 +24,8 @@ import logging
 import re
 
 import functools as ft
-from pandalone.pandata import iter_jsonpointer_parts,\
-    _iter_jsonpointer_parts_relaxed
+from pandalone.pandata import iter_jsonpointer_parts
+from pandalone.psteps import _append_path
 
 
 __commit__ = ""
@@ -403,54 +403,6 @@ class Pmod(object):
             if rpmod._alias:
                 return match.expand(rpmod._alias)
 
-    @staticmethod
-    def _append_path(steps, path):
-        """
-        Joins `steps`-list with `path`, respecting '/', '..', '.', ''.
-
-        :return: the new or updated steps-list.
-        :rtype:  list
-
-        Example::
-
-            >>> Pmod._append_path([], 'a')
-            ['a']
-
-            >>> Pmod._append_path([], '../a')
-            ['a']
-            >>> Pmod._append_path(['a', 'b'], '../c')
-            ['a', 'c']
-            >>> Pmod._append_path(['a', 'b'], '../../c')
-            ['c']
-
-            >>> Pmod._append_path(['a', 'b'], '')
-            ['a', 'b']
-            >>> Pmod._append_path(['a', 'b'], '.')
-            ['a', 'b']
-
-            >>> Pmod._append_path(['a', 'b'], './c')
-            ['a', 'b', 'c']
-
-            >>> Pmod._append_path(['a', 'b'], '/r')
-            ['r']
-
-
-        """
-        if path:
-            if path.startswith('/'):
-                steps = []
-            else:
-                path = '/{}'.format(path)
-        for step in iter_jsonpointer_parts(path):
-            if not step or step == '.':
-                continue
-            if step == '..':
-                steps = steps[:-1]
-                continue
-            steps.append(step)
-
-        return steps
-
     def map_path(self, path):
         r"""
         Maps a '/rooted/path' using all aliases while descending its child pmods.
@@ -530,7 +482,7 @@ class Pmod(object):
                 alias = None
                 if pmod:
                     pmod, alias = pmod.descend(step)
-                nsteps = Pmod._append_path(nsteps, alias or step)
+                nsteps = _append_path(nsteps, alias or step)
 
             # On last step, the merging of child-pmods is a waste,
             #    so make it outside above-loop to
@@ -539,7 +491,7 @@ class Pmod(object):
             final_step = steps[-1]
             if pmod:
                 final_step = pmod.alias(final_step) or final_step
-            nsteps = Pmod._append_path(nsteps, final_step)
+            nsteps = _append_path(nsteps, final_step)
 
             return '/%s' % '/'.join(nsteps)
         return ''

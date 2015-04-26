@@ -1284,6 +1284,42 @@ def build_all_jsonpaths(schema):
     return paths
 
 
+_NONE = object()
+"""Denotes non-existent json-schema attribute in :class:`JSchema`."""
+
+
+class JSchema(object):
+
+    """
+    Facilitates the construction of json-schema-v4 nodes on :class:`PStep` code.
+
+    It does just rudimentary args-name check.   Further validations
+    should apply using a proper json-schema validator.
+
+    :param type: if omitted, derived as 'object' if it has children
+    :param kws:  for all the rest see http://json-schema.org/latest/json-schema-validation.html
+
+    """
+    type = _NONE,  # @ReservedAssignment
+    items = _NONE,  # @ReservedAssignment
+    required = _NONE,
+    title = _NONE,
+    description = _NONE,
+    minimum = _NONE,
+    exclusiveMinimum = _NONE,
+    maximum = _NONE,
+    exclusiveMaximum = _NONE,
+    patternProperties = _NONE,
+    pattern = _NONE,
+    enum = _NONE,
+    allOf = _NONE,
+    oneOf = _NONE,
+    anyOf = _NONE,
+
+    def todict(self):
+        return {k: v for k, v in vars(self).items() if v is not _NONE}
+
+
 class JSONCodec():
 
     """
