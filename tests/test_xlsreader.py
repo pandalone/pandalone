@@ -55,7 +55,113 @@ class TestDoctest(unittest.TestCase):
 
 class TestXlsReader(unittest.TestCase):
 
-    def test_get_rect_range(self):
+    def test_single_value_get_rect_range(self):
+        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+            file_path = 'sample.xlsx'
+            _make_sample_workbook(file_path,
+                                  [[None, None, None], [5.1, 6.1, 7.1]],
+                                  'Sheet1',
+                                  startrow=5, startcol=3)
+
+            file_path = '/'.join([tmpdir, file_path])
+
+            url = 'file:///%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+
+            res = urlparse(url)
+
+            wb = xd.open_workbook(file_contents=urlopen(url).read())
+
+            sheet_name = xr.parse_xl_ref(res.fragment)['xl_sheet_name']
+            sheet = wb.sheet_by_name(sheet_name)
+            Cell = xr.Cell
+
+            # get single value [D7]
+            args = (sheet, Cell(3, 6))
+            self.assertEqual(xr.get_rect_range(*args), 0)
+
+            # get single value [A1]
+            args = (sheet, Cell(0, 0))
+            self.assertEqual(xr.get_rect_range(*args), None)
+
+            # single value in the sheet [D7:D7]
+            args = (sheet, Cell(3, 6), Cell(3, 6))
+            self.assertEqual(xr.get_rect_range(*args), 0)
+
+            # get single value [H9]
+            args = (sheet, Cell(7, 8))
+            self.assertEqual(xr.get_rect_range(*args), None)
+
+    def test_vector_get_rect_range(self):
+        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+            file_path = 'sample.xlsx'
+            _make_sample_workbook(file_path,
+                                  [[None, None, None], [5.1, 6.1, 7.1]],
+                                  'Sheet1',
+                                  startrow=5, startcol=3)
+
+            file_path = '/'.join([tmpdir, file_path])
+
+            url = 'file:///%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+
+            res = urlparse(url)
+
+            wb = xd.open_workbook(file_contents=urlopen(url).read())
+
+            sheet_name = xr.parse_xl_ref(res.fragment)['xl_sheet_name']
+            sheet = wb.sheet_by_name(sheet_name)
+            Cell = xr.Cell
+
+            # get whole column [D_]
+            args = (sheet, Cell(3, None))
+            res = [None, None, None, None, None, None, 0, 1]
+            self.assertEqual(xr.get_rect_range(*args), res)
+
+            # get whole row [_6]
+            args = (sheet, Cell(None, 5))
+            res = [None, None, None, None, 0, 1, 2]
+            self.assertEqual(xr.get_rect_range(*args), res)
+
+            # minimum delimited row in the sheet [C6:_6]
+            args = (sheet, Cell(2, 5), Cell(None, 5))
+            res = [None, None, 0, 1, 2]
+            self.assertEqual(xr.get_rect_range(*args), res)
+
+            # minimum delimited row in the sheet [_7:_7]
+            args = (sheet, Cell(None, 6), Cell(None, 6))
+            res = [0]
+            self.assertEqual(xr.get_rect_range(*args), res)
+
+            # minimum delimited row in the sheet [A7:_7]
+            args = (sheet, Cell(0, 6), Cell(None, 6))
+            res = [None, None, None, 0]
+            self.assertEqual(xr.get_rect_range(*args), res)
+
+            # delimited row in the sheet [A7:D7]
+            args = (sheet, Cell(0, 6), Cell(3, 6))
+            res = [None, None, None, 0]
+            self.assertEqual(xr.get_rect_range(*args), res)
+
+            # minimum delimited column in the sheet [D_:D_]
+            args = (sheet, Cell(3, None), Cell(3, None))
+            res = [0, 1]
+            self.assertEqual(xr.get_rect_range(*args), res)
+
+            # minimum delimited column in the sheet [D5:D_]
+            args = (sheet, Cell(3, 4), Cell(3, None))
+            res = [None, None, 0, 1]
+            self.assertEqual(xr.get_rect_range(*args), res)
+
+            # minimum delimited column in the sheet [D_:D9]
+            args = (sheet, Cell(3, None), Cell(3, 8))
+            res = [0, 1, None]
+            self.assertEqual(xr.get_rect_range(*args), res)
+
+            # minimum delimited column in the sheet [D3:D9]
+            args = (sheet, Cell(3, 2), Cell(3, 8))
+            res = [None, None, None, None, 0, 1, None]
+            self.assertEqual(xr.get_rect_range(*args), res)
+
+    def test_matrix_get_rect_range(self):
         with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
@@ -82,24 +188,6 @@ class TestXlsReader(unittest.TestCase):
                 [0, None, None, None],
                 [1, 5.1, 6.1, 7.1]
             ]
-            self.assertEqual(xr.get_rect_range(*args), res)
-
-            # get single value [D7]
-            args = (sheet, Cell(3, 6))
-            self.assertEqual(xr.get_rect_range(*args), 0)
-
-            # get single value [A1]
-            args = (sheet, Cell(0, 0))
-            self.assertEqual(xr.get_rect_range(*args), None)
-
-            # get whole column [D_]
-            args = (sheet, Cell(3, None))
-            res = [None, None, None, None, None, None, 0, 1]
-            self.assertEqual(xr.get_rect_range(*args), res)
-
-            # get whole row [_6]
-            args = (sheet, Cell(None, 5))
-            res = [None, None, None, None, 0, 1, 2]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [E_:__]
@@ -153,11 +241,6 @@ class TestXlsReader(unittest.TestCase):
             ]
             self.assertEqual(xr.get_rect_range(*args), res)
 
-            # minimum delimited row in the sheet [C6:6]
-            args = (sheet, Cell(2, 5), Cell(None, 5))
-            res = [None, None, 0, 1, 2]
-            self.assertEqual(xr.get_rect_range(*args), res)
-
             # delimited matrix in the sheet [A1:F8]
             args = (sheet, Cell(0, 0), Cell(5, 7))
             res = [
@@ -172,68 +255,64 @@ class TestXlsReader(unittest.TestCase):
             ]
             self.assertEqual(xr.get_rect_range(*args), res)
 
-            # delimited matrix in the sheet [G9:]
+            # delimited matrix in the sheet [G9:__]
             args = (sheet, Cell(6, 8), Cell(None, None))
             res = [[None]]
             self.assertEqual(xr.get_rect_range(*args), res)
 
-            # delimited matrix in the sheet [F9:]
+            # delimited matrix in the sheet [F9:__]
             args = (sheet, Cell(5, 8), Cell(None, None))
             res = [[None]]
             self.assertEqual(xr.get_rect_range(*args), res)
 
-            # minimum delimited row in the sheet [7:7]
-            args = (sheet, Cell(None, 6), Cell(None, 6))
-            res = [0]
-            self.assertEqual(xr.get_rect_range(*args), res)
-
-            # minimum delimited row in the sheet [A7:7]
-            args = (sheet, Cell(0, 6), Cell(None, 6))
-            res = [None, None, None, 0]
-            self.assertEqual(xr.get_rect_range(*args), res)
-
-            # single value in the sheet [D7:D7]
-            args = (sheet, Cell(3, 6), Cell(3, 6))
-            res = 0
-            self.assertEqual(xr.get_rect_range(*args), res)
-
-            # get single value [H9]
-            args = (sheet, Cell(7, 8))
-            res = None
-            self.assertEqual(xr.get_rect_range(*args), res)
-
-    def test_parse_xl_ref(self):
-        Cell = xr.Cell
-
+    def test_basic_parse_xl_ref(self):
         xl_ref = 'Sheet1!A1:C2'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], Cell(col=0, row=0))
-        self.assertEquals(res['cell_down'], Cell(col=2, row=1))
+        self.assertEquals(res['xl_sheet_name'], 'Sheet1')
+        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.Cell(col=2, row=1))
+
+        xl_ref = 'Sheet1!A1'
+        res = xr.parse_xl_ref(xl_ref)
+        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
 
         xl_ref = 'Sheet1!a1:c2{"1":4,"2":"ciao"}'
         res = xr.parse_xl_ref(xl_ref)
         self.assertEquals(res['json'], {'2': 'ciao', '1': 4})
-        self.assertEquals(res['cell_up'], Cell(col=0, row=0))
-        self.assertEquals(res['cell_down'], Cell(col=2, row=1))
+        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.Cell(col=2, row=1))
 
-        xl_ref = 'Sheet1!a1:'
+    def test_autocomplete_ref_parse_xl_ref(self):
+        xl_ref = 'Sheet1!a1:__'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], Cell(col=0, row=0))
-        self.assertEquals(res['cell_down'], Cell(col=None, row=None))
+        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.Cell(col=None, row=None))
 
-        xl_ref = 'Sheet1!:c2'
+        xl_ref = 'Sheet1!__:c2'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], Cell(col=None, row=None))
-        self.assertEquals(res['cell_down'], Cell(col=2, row=1))
+        self.assertEquals(res['cell_up'], xr.Cell(col=None, row=None))
+        self.assertEquals(res['cell_down'], xr.Cell(col=2, row=1))
 
         xl_ref = 'Sheet1!A_'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], Cell(col=0, row=None))
+        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=None))
+
+    def test_short_cuts_parse_xl_ref(self):
+
+        xl_ref = 'Sheet1!a1:'
+        res = xr.parse_xl_ref(xl_ref)
+        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.Cell(col=None, row=None))
+
+        xl_ref = 'Sheet1!:c2'
+        res = xr.parse_xl_ref(xl_ref)
+        self.assertEquals(res['cell_up'], xr.Cell(col=None, row=None))
+        self.assertEquals(res['cell_down'], xr.Cell(col=2, row=1))
 
         xl_ref = 'Sheet1!'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], Cell(col=0, row=0))
-        self.assertEquals(res['cell_down'], Cell(col=None, row=None))
+        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.Cell(col=None, row=None))
 
         xl_ref = 'Sheet1!{"1": [1, 2], "2": "ciao", "3": {"1": [1, 2, 3]}}'
         res = xr.parse_xl_ref(xl_ref)
@@ -244,9 +323,11 @@ class TestXlsReader(unittest.TestCase):
                 "1": [1, 2, 3]
             }
         }
+        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.Cell(col=None, row=None))
         self.assertEquals(res['json'], r)
 
-
+    def test_errors_parse_xl_ref(self):
         self.assertRaises(ValueError, xr.parse_xl_ref, 's![[]')
         self.assertRaises(ValueError, xr.parse_xl_ref, 's!{}[]')
         self.assertRaises(ValueError, xr.parse_xl_ref, 's!A')
@@ -275,12 +356,15 @@ class TestXlsReader(unittest.TestCase):
     def test_parse_xl_url(self):
         url = 'file:///path/to/file.xls#xl_sheet_name!UP10:DOWN20{"json":"..."}'
         res = xr.parse_xl_url(url)
-        Cell = xr.Cell
+
         self.assertEquals(res['url_file'], 'file:///path/to/file.xls')
         self.assertEquals(res['xl_sheet_name'], 'xl_sheet_name')
         self.assertEquals(res['json'], {"json": "..."})
-        self.assertEquals(res['cell_up'], Cell(col=561, row=9))
-        self.assertEquals(res['cell_down'], Cell(col=81055, row=19))
+        self.assertEquals(res['cell_up'], xr.Cell(col=561, row=9))
+        self.assertEquals(res['cell_down'], xr.Cell(col=81055, row=19))
+
+        self.assertRaises(ValueError, xr.parse_xl_url, *('#!:{"json":"..."', ))
+
 
     def test_parse_cell(self):
         with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
@@ -302,6 +386,6 @@ class TestXlsReader(unittest.TestCase):
 
             # row vector in the sheet [B2:B_]
             args = (sheet, Cell(1, 1), Cell(1, None), wb.datemode)
-
             res = [datetime.datetime(1900,8,2), True, None, None, 'hi', 1.4, 5]
             self.assertEqual(xr.get_rect_range(*args), res)
+

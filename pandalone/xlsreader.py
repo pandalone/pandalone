@@ -125,6 +125,7 @@ def parse_cell(cell, epoch1904=False):
         >>> parse_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
         'hi'
     """
+
     ctype = cell.ctype
 
     if ctype == XL_CELL_NUMBER:
@@ -289,9 +290,11 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False):
         ddn = [max(0, v) for v in (dn[0] - sheet.ncols, dn[1] - sheet.nrows)]
 
         matrix = [list(map(_pc, sheet.row_slice(r, up[0], dn[0]))) + nv(ddn[0])
-                  for r in range(up[1], dn[1] - ddn[1])] + nv(ddn[1],
-                                                              nv(ddn[0]))
-
+                  for r in range(up[1], dn[1] - ddn[1])]
+        if ddn[0]==0 and ddn[1]>0:
+            matrix += nv(ddn[1], nv(1))
+        else:
+            matrix += nv(ddn[1], nv(ddn[0]))
         # no empty vector
         ne_vct = lambda vct: any(x is not None for x in vct)
 
@@ -428,12 +431,12 @@ def parse_xl_url(url):
 
     Example::
 
-        >>> url = 'file:///sample.xls#Sheet1!:{"2": "ciao", "1": 4}'
+        >>> url = 'file:///sample.xls#Sheet1!:{"2": "ciao"}'
         >>> res = parse_xl_url(url)
         >>> sorted(res.items())
         [('cell_down', Cell(col=None, row=None)),
          ('cell_up', Cell(col=None, row=None)),
-         ('json', {'1': 4, '2': 'ciao'}),
+         ('json', {'2': 'ciao'}),
          ('url_file', 'file:///sample.xls'),
          ('xl_sheet_name', 'Sheet1')]
     """
