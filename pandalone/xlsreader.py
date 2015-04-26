@@ -12,7 +12,7 @@ import datetime
 from string import ascii_uppercase
 from collections import namedtuple
 # noinspection PyUnresolvedReferences
-from six.moves.urllib.parse import urlparse
+from six.moves.urllib.parse import urldefrag
 import xlrd
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_BLANK, XL_CELL_EMPTY,
                   XL_CELL_TEXT, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER)
@@ -407,7 +407,7 @@ def parse_xl_ref(xl_ref):
 
 def parse_xl_url(url):
     """
-    Parses and fetches the contents of excel url.
+    Parses the contents of an excel url.
 
     :param url:
         a string with the following format:
@@ -430,26 +430,20 @@ def parse_xl_url(url):
 
         >>> url = 'file:///sample.xls#Sheet1!:{"2": "ciao", "1": 4}'
         >>> res = parse_xl_url(url)
-
-        >>> res['url_file']
-        'file:///sample.xls'
-        >>> res['xl_sheet_name']
-        'Sheet1'
-        >>> res['cell_up']
-        Cell(col=None, row=None)
-        >>> res['cell_down']
-        Cell(col=None, row=None)
-        >>> res['json'] == {'2': 'ciao', '1': 4}
-        True
+        >>> sorted(res.items())
+        [('cell_down', Cell(col=None, row=None)),
+         ('cell_up', Cell(col=None, row=None)),
+         ('json', {'1': 4, '2': 'ciao'}),
+         ('url_file', 'file:///sample.xls'),
+         ('xl_sheet_name', 'Sheet1')]
     """
 
     try:
-        o = urlparse(url)  # parse excel url
+        res = {}
 
-        res = parse_xl_ref(o.fragment)  # resolve excel reference
+        res['url_file'], frag = urldefrag(url)  # parse excel url
 
-        # remove fragment part from original url
-        res['url_file'] = o.geturl().replace(''.join(['#', o.fragment]), '')
+        res.update(parse_xl_ref(frag))  # resolve excel reference
 
         return res
 
