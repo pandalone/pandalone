@@ -220,3 +220,7 @@ def win_wshell():
     shell = Dispatch('WScript.Shell')
 
     return shell
+
+
+if __name__ == '__main__':
+    raise "Not runnable!"

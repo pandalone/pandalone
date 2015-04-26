@@ -321,3 +321,8 @@ class TestJsonPointer(unittest.TestCase):
         print('\n'.join(paths))
         # TODO: build and check_all_paths support $ref
         self.assertIn('/a/b', paths)
+
+
+if __name__ == "__main__":
+    #import sys;sys.argv = ['', 'Test.testName']
+    unittest.main()
