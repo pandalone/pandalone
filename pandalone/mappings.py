@@ -24,7 +24,8 @@ import logging
 import re
 
 import functools as ft
-from pandalone.pandata import iter_jsonpointer_parts
+from pandalone.pandata import iter_jsonpointer_parts,\
+    _iter_jsonpointer_parts_relaxed
 
 
 __commit__ = ""
@@ -85,16 +86,26 @@ class Pmod(object):
         To construct a hierarchy use the :func:`pmods_from_tuples()` and/or 
         the :func:`df_as_pmods_tuples()`. 
 
-    You can either use it for mass-converting paths like that::
+    You can either use it for mass-mapping paths, either for *renaming* them::
+
+        >>> pmods = pmods_from_tuples([
+        ...         ('/a',           'A'),
+        ...         ('/b.*',        r'BB\g<0>'),
+        ...         ('/b.*/c.(.*)', r'W\1ER'),
+        ... ])
+        >>> pmods.map_paths(['/a', '/a/foo', '/big/stuff', '/born/child'])
+        ['/A', '/A/foo', '/BBbig/stuff',  '/BBborn/WildER']
+
+
+    or to *relocate* them::
 
         >>> pmods = pmods_from_tuples([
         ...         ('/a',           'A/AA'),
-        ...         ('/b(.*)',      r'BB\1'),
-        ...         ('/b.*/(c.*)',  r'C/\1'),
+        ...         ('/b.*/c(.*)',  r'../C/\1'),
+        ...         ('/b.*/.*/r.*', r'/\g<0>'),
         ... ])
-        >>> pmods.map_paths(['/a', '/a/foo', '/big/stuff', '/be/courageous'])
-        ['/A/AA', '/A/AA/foo', '/BBig/stuff',  '/BBe/C/courageous']
-
+        >>> pmods.map_paths(['/a/foo', '/big/child', '/begin/from/root'])
+        ['/A/AA/foo', '/C/hild',  '/root']
 
     Or for a single-step searching::
 
@@ -375,7 +386,11 @@ class Pmod(object):
         return (None, None)
 
     def alias(self, cstep):
-        """Like :meth:`descend()` but without merging child-pmods."""
+        """
+        Like :meth:`descend()` but without merging child-pmods.
+
+        :return: the expanded alias from child/regexs or None
+        """
         cpmod = self._steps.get(cstep)
         if cpmod and cpmod._alias:
             if cpmod._alias:
@@ -386,6 +401,54 @@ class Pmod(object):
         for rpmod, match in reversed(pmods):
             if rpmod._alias:
                 return match.expand(rpmod._alias)
+
+    @staticmethod
+    def _append_path(steps, path):
+        """
+        Joins `steps`-list with `path`, respecting '/', '..', '.', ''.
+
+        :return: the new or updated steps-list.
+        :rtype:  list
+
+        Example::
+
+            >>> Pmod._append_path([], 'a')
+            ['a']
+
+            >>> Pmod._append_path([], '../a')
+            ['a']
+            >>> Pmod._append_path(['a', 'b'], '../c')
+            ['a', 'c']
+            >>> Pmod._append_path(['a', 'b'], '../../c')
+            ['c']
+
+            >>> Pmod._append_path(['a', 'b'], '')
+            ['a', 'b']
+            >>> Pmod._append_path(['a', 'b'], '.')
+            ['a', 'b']
+
+            >>> Pmod._append_path(['a', 'b'], './c')
+            ['a', 'b', 'c']
+
+            >>> Pmod._append_path(['a', 'b'], '/r')
+            ['r']
+
+
+        """
+        if path:
+            if path.startswith('/'):
+                steps = []
+            else:
+                path = '/{}'.format(path)
+        for step in iter_jsonpointer_parts(path):
+            if not step or step == '.':
+                continue
+            if step == '..':
+                steps = steps[:-1]
+                continue
+            steps.append(step)
+
+        return steps
 
     def map_path(self, path):
         r"""
@@ -446,9 +509,7 @@ class Pmod(object):
                 alias = None
                 if pmod:
                     pmod, alias = pmod.descend(step)
-                    if alias and alias.startswith('/'):
-                        nsteps = []  # Mapped path will be rooted.
-                nsteps.append(alias or step)
+                nsteps = Pmod._append_path(nsteps, alias or step)
 
             # On last step, the merging of child-pmods is a waste,
             #    so make it outside above-loop to
@@ -457,9 +518,7 @@ class Pmod(object):
             final_step = steps[-1]
             if pmod:
                 final_step = pmod.alias(final_step) or final_step
-                if final_step and final_step.startswith('/'):
-                    nsteps = []  # Mapped path will be rooted.
-            nsteps.append(final_step)
+            nsteps = Pmod._append_path(nsteps, final_step)
 
         return '/%s' % '/'.join(nsteps)
 
@@ -547,7 +606,7 @@ def df_as_pmods_tuples(df_pmods, col_from='from', col_to='to'):
     Example::
 
         >>> import pandas as pd
-        
+
         >>> pmods_tuples = [
         ...     ('/a', 'A1/A2'),
         ...     ('/a/b', 'B'),
