@@ -57,15 +57,15 @@ def fetch_cell_ref(cell, cell_col, cell_row):
 
     :param cell:
         whole cell reference
-    :type cell: str
+    :type cell: str, None
 
     :param cell_col:
         column reference
-    :type cell_col: str
+    :type cell_col: str, None
 
     :param cell_row:
         row reference
-    :type cell_row: str
+    :type cell_row: str, None
 
     :return:
         a Cell-tuple
@@ -96,25 +96,21 @@ def fetch_cell_ref(cell, cell_col, cell_row):
 
 def parse_cell(cell, epoch1904=False):
     """
-    Discovers a non-empty tabular-shaped region in the xl-sheet from a range.
+    Parse a xl-cell.
 
-    :param sheet: an excel sheet
-    :type sheet: xlrd.sheet.Sheet
-
-    :param cell_up: up margin
-    :type cell: Cell
-
-    :param cell_down: bottom margin
-    :type cell: Cell, optional
+    :param cell: an excel cell
+    :type cell: xlrd.sheet.Cell
 
     :param epoch1904:
         Which date system was in force when this file was last saved.
         False => 1900 system (the Excel for Windows default).
         True => 1904 system (the Excel for Macintosh default).
-    :type cell: bool, optional
+    :type epoch1904: bool, optional
 
-    :return: matrix or vector
-    :rtype: list of lists or list
+    :return: formatted cell value
+    :rtype:
+        int, float, datetime.datetime, bool, None, str, datetime.time,
+        float('nan')
 
     Example::
 
@@ -122,6 +118,8 @@ def parse_cell(cell, epoch1904=False):
         >>> from xlrd.sheet import Cell
         >>> parse_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
         1.2
+        >>> parse_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
+        datetime.datetime(1900, 1, 1, 4, 48)
         >>> parse_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
         'hi'
     """
@@ -166,7 +164,39 @@ def parse_cell(cell, epoch1904=False):
     raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
 
 
-def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False):
+def _xlwings_min_index(it_types, margin, max_i):
+    try:
+        return next(i for i, c in enumerate(it_types)
+                      if c in (XL_CELL_BLANK, XL_CELL_EMPTY)) + margin
+    except StopIteration:
+        return max_i
+
+
+def _xlwings_margins(sheet, cell_up, cell_down, up, dn):
+    if cell_up.col is not None and cell_up.row is not None and \
+        (cell_down.col is None or cell_down.row is None): # from up
+        if cell_down.col is None:
+            dn[0] = _xlwings_min_index(sheet.row_types(up[1], up[0]),
+                                       up[0], sheet.ncols)
+
+        if cell_down.row is None:
+            dn[1] = _xlwings_min_index(sheet.col_types(up[0], up[1]),
+                                       up[1], sheet.nrows)
+    elif cell_down.col is not None and cell_down.row is not None and \
+        (cell_up.col is None or cell_up.row is None): # from bottom
+        _dn = (dn[0] - 1, dn[1] - 1)
+        if cell_up.col is None:
+            up[0] = -_xlwings_min_index(
+                reversed(sheet.row_types(_dn[1], 0, _dn[0])), -_dn[0], 0)
+
+        if cell_up.row is None:
+            up[1] = -_xlwings_min_index(
+                reversed(sheet.col_types(_dn[0], 0, _dn[1])), -_dn[1], 0)
+    return up, dn
+
+
+def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
+                   xlwings=False):
     """
     Discovers a non-empty tabular-shaped region in the xl-sheet from a range.
 
@@ -174,19 +204,23 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False):
     :type sheet: xlrd.sheet.Sheet obj
 
     :param cell_up: up margin
-    :type cell: Cell
+    :type cell_up: Cell
 
     :param cell_down: bottom margin
-    :type cell: Cell, optional
+    :type cell_down: Cell, optional
 
     :param epoch1904:
         Which date system was in force when this file was last saved.
         False => 1900 system (the Excel for Windows default).
         True => 1904 system (the Excel for Macintosh default).
-    :type cell: bool, optional
+    :type epoch1904: bool, optional
 
-    :return: matrix or vector
-    :rtype: list of lists or list
+    :param xlwings:
+        if True get_rect_range has a behavior compatible with xlwings
+    :type xlwings: bool, optional
+
+    :return: matrix or vector or value
+    :rtype: list of lists, or list, value
 
     Example::
 
@@ -273,44 +307,52 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False):
                 return _pc(sheet.cell(cell_up.row, cell_up.col))
             return None
     else:  # table or vector or cell
+
         # set up margins
         up = [i if i is not None else 0 for i in cell_up]
+
         # set bottom margins
         dn = [cell_down.col + 1 if cell_down.col is not None else sheet.ncols,
               cell_down.row + 1 if cell_down.row is not None else sheet.nrows]
 
         nv = lambda x, v=None: [v] * x  # return a None vector  of length x
 
-        if up[1] >= sheet.nrows or up[0] >= sheet.ncols:  #
+        if up[1] >= sheet.nrows or up[0] >= sheet.ncols:  # empty table
             ddn = [dn[i] - up[i] if c else 1
                    for i, c in enumerate([cell_down.col is not None,
                                           cell_down.row is not None])]
             return nv(ddn[1], nv(ddn[0]))
 
+        if xlwings:
+            up, dn = _xlwings_margins(sheet, cell_up, cell_down, up, dn)
+
         ddn = [max(0, v) for v in (dn[0] - sheet.ncols, dn[1] - sheet.nrows)]
 
         matrix = [list(map(_pc, sheet.row_slice(r, up[0], dn[0]))) + nv(ddn[0])
                   for r in range(up[1], dn[1] - ddn[1])]
-        if ddn[0]==0 and ddn[1]>0:
+
+        # add empty rows
+        if ddn[0] == 0 and ddn[1] > 0:
             matrix += nv(ddn[1], nv(1))
         else:
             matrix += nv(ddn[1], nv(ddn[0]))
+
         # no empty vector
         ne_vct = lambda vct: any(x is not None for x in vct)
 
-        def ind_row(tbl):  # return the index of first no empty row in the table
-            return next((r for r, v in enumerate(tbl) if ne_vct(v)), 0)
+        def ind_row(t):  # return the index of first no empty row in the table
+            return next((r for r, v in enumerate(t) if ne_vct(v)), 0)
 
-        def reduced_table(tbl, up, dn):  # return the minimum vertical table
-            m = [ind_row(tbl) if up is None else 0,
-                 len(tbl) - (ind_row(reversed(tbl)) if dn is None else 0)]
-            return tbl[m[0]:m[1]]
+        def reduce_table(t, u, d):  # return the minimum vertical table
+            m = [ind_row(t) if u is None else 0,
+                 len(t) - (ind_row(reversed(t)) if d is None else 0)]
+            return t[m[0]:m[1]]
 
         if cell_up.row is None or cell_down.row is None:  # vertical reduction
-            matrix = reduced_table(matrix, cell_up.row, cell_down.row)
+            matrix = reduce_table(matrix, cell_up.row, cell_down.row)
 
         if cell_up.col is None or cell_down.col is None:  # horizontal reduction
-            tbl = reduced_table(list(zip(*matrix)), cell_up.col, cell_down.col)
+            tbl = reduce_table(list(zip(*matrix)), cell_up.col, cell_down.col)
             matrix = [list(r) for r in zip(*tbl)]
 
         if cell_down.col is not None and cell_down.col == cell_up.col:  # vector
@@ -400,7 +442,7 @@ def parse_xl_ref(xl_ref):
             if not r['cell_up'] < r['cell_down']:
                 raise ValueError('%s < %s' % (r['cell_down'], r['cell_up']))
         except TypeError:
-            pass # Raised when tuples contain None.
+            pass  # Raised when tuples contain None.
 
         return r
 
