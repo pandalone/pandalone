@@ -444,7 +444,7 @@ class Pmod(object):
             '/C/12/CC-/cow'
 
 
-        Use this to map *root*::
+        To map *root* use '' which matches before the 1st slash('/')::
 
             >>> pmods = pmods_from_tuples([('', 'New/Root'),])
             >>> pmods

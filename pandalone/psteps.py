@@ -200,33 +200,36 @@ class Pstep(str):
             return 'LOCKED'
         return 'LOCKED'
 
-    def __new__(cls, pname='', pmod=None, alias=None):
+    def __new__(cls, pname='', _pmod=None, _alias=None):
         """
         Constructs a string with str-content which may be mapped from pmods.
 
         :param str pname:   this pstep's name; it is stored at `_orig` and
                             if unmapped by pmod, becomes super-str object.
-        :param PMod pmod:   the mappings for the children of this pstep, which
+        :param PMod _pmod:  the mappings for the children of this pstep, which
                             contains the un-expanded `_alias` for this pstep,
                             or None
-        :param str alias:   the regex-expanded alias for this pstep, or None
+        :param str _alias:  the regex-expanded alias for this pstep, or None
         """
-        alias = pmod._alias if pmod and not alias else alias
+        alias = _alias
+        if not alias and _pmod:
+            alias = _pmod._alias
         self = str.__new__(cls, alias or pname)
         self._orig = pname
-        self._pmod = pmod
+        self._pmod = _pmod
         self._csteps = {}
         vars(self)['_lock'] = Pstep.CAN_RELOCATE
 
         return self
 
     def __missing__(self, cpname):
-        try:
-            cpmod, alias = self._pmod.descend(cpname)
-        except:
-            cpmod, alias = (None, None)
-        child = Pstep(cpname, cpmod, alias)
-        self._csteps[cpname] = child
+        child = self._csteps.get(cpname)
+        if not child:
+            try:
+                cpmod, alias = self._pmod.descend(cpname)
+            except:
+                cpmod, alias = (None, None)
+            self._csteps[cpname] = child = Pstep(cpname, cpmod, alias)
         return child
 
     def __getitem__(self, cpname):
