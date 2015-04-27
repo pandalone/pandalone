@@ -67,7 +67,7 @@ class TestXlsReader(unittest.TestCase):
             file_path = '/'.join([tmpdir, file_path])
 
             # load sheet for --> get_rect_range
-            url = 'file:///%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
@@ -99,7 +99,7 @@ class TestXlsReader(unittest.TestCase):
             file_path = '/'.join([tmpdir, file_path])
 
             # load sheet for --> get_rect_range
-            url = 'file:///%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
@@ -165,7 +165,7 @@ class TestXlsReader(unittest.TestCase):
             file_path = '/'.join([tmpdir, file_path])
 
             # load sheet for --> get_rect_range
-            url = 'file:///%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
@@ -364,7 +364,7 @@ class TestXlsReader(unittest.TestCase):
             file_path = '/'.join([tmpdir, file_path])
 
             # load sheet for --> get_rect_range
-            url = 'file:///%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
@@ -386,7 +386,7 @@ class TestXlsReader(unittest.TestCase):
             file_path = '/'.join([tmpdir, file_path])
 
             # load sheet for --> get_rect_range
-            url = 'file:///%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
@@ -414,14 +414,14 @@ class TestXlsReader(unittest.TestCase):
             file_path = '/'.join([tmpdir, file_path])
 
             # load sheet for --> get_rect_range
-            url = 'file:///%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
 
             # load Workbook for --> xlwings
             from xlwings import Workbook, Range
-            wb = Workbook(res['url_file'])
+            wb = Workbook(file_path)
             res = {}
             res[0] = Range("Sheet1", "D7").vertical.value
             res[1] = Range("Sheet1", "E6").vertical.value
