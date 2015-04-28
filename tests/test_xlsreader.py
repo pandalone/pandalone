@@ -450,7 +450,7 @@ class TestXlsReader(unittest.TestCase):
 
             # load Workbook for --> xlwings
             from xlwings import Workbook, Range
-            wb = Workbook(res['url_file'])
+            wb = Workbook('/'.join([tmpdir, file_path]))
             res = {}
             res[0] = Range("Sheet1", "D7").vertical.value
             res[1] = Range("Sheet1", "E6").vertical.value

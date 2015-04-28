@@ -415,7 +415,7 @@ def parse_xl_ref(xl_ref):
 
     :param xl_ref:
         a string with the following format:
-        <xl_sheet_name>!<cell_up>:<cell_down>{<json_kwargs>}
+        <xl_sheet_name>!<cell_up>:<cell_down>{<json>}
         es. xl_sheet_name!UP10:DN20{"json":"..."}
     :type xl_ref: str
 
@@ -486,6 +486,7 @@ def parse_xl_url(url):
 
     :param url:
         a string with the following format:
+
         <url_file>#<xl_sheet_name>!<cell_up>:<cell_down><json>
         es. file:///path/to/file.xls#xl_sheet_name!UP10:DN20{"json":"..."}
     :type url: str
@@ -526,31 +527,87 @@ def parse_xl_url(url):
         raise ValueError("Invalid excel-url({}) due to: {}".format(url, ex))
 
 
-def open_xl_file(xl_ref):
+def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
+    """
+    Opens the excel workbook of an excel ref.
+
+    :param xl_ref_child: excel ref of the child
+    :type xl_ref_child: dict
+
+    :param xl_ref_parent: excel ref of the parent
+    :type xl_ref_parent: dict, None, optional
+
+    Example::
+
+        >>> import tempfile, pandas as pd, xlrd
+        >>> from tests.test_utils import chdir
+        >>> with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        ...     df = pd.DataFrame()
+        ...     tmp = 'sample.xlsx'
+        ...     writer = pd.ExcelWriter(tmp)
+        ...     df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
+        ...     writer.save()
+        ...     url = 'file://%s#' % '/'.join([tmpdir, tmp])
+        ...     xl_ref = parse_xl_url(url)
+        ...     open_xl_workbook(xl_ref)
+        ...     isinstance(xl_ref['xl_workbook'], xlrd.book.Book)
+        True
+
+    """
+    url_fl = xl_ref_child['url_file']
     try:
-        if xl_ref['url_file']:
-            wb = open_workbook(file_contents=urlopen(xl_ref['url_file']).read())
+        if url_fl:
+            wb = open_workbook(file_contents=urlopen(url_fl).read())
         else:
-            wb = xl_ref['xl_workbook']
-        res = xl_ref.copy()
-        res.update({'xl_workbook': wb})
-        return res
+            wb = xl_ref_parent['xl_workbook']
+        xl_ref_child['xl_workbook'] = wb
 
     except Exception as ex:
-        raise ValueError("Invalid excel-file({}) due to:{}".format(xl_ref, ex))
+        raise ValueError("Invalid excel-file({}) due to:{}".format(url_fl, ex))
 
 
-def open_xl_sheet(xl_ref):
+def open_xl_sheet(xl_ref_child, xl_ref_parent=None):
+    """
+    Opens the excel sheet of an excel ref.
+
+    :param xl_ref_child: excel ref of the child
+    :type xl_ref_child: dict
+
+    :param xl_ref_parent: excel ref of the parent
+    :type xl_ref_parent: dict, None, optional
+
+    Example::
+
+        >>> import tempfile, pandas as pd, xlrd
+        >>> from tests.test_utils import chdir
+        >>> with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        ...     df = pd.DataFrame()
+        ...     tmp = 'sample.xlsx'
+        ...     writer = pd.ExcelWriter(tmp)
+        ...     df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
+        ...     writer.save()
+        ...     url_parent = 'file://%s#Sheet1!' % '/'.join([tmpdir, tmp])
+        ...     xl_ref_parent = parse_xl_url(url_parent)
+        ...     open_xl_workbook(xl_ref_parent)
+        ...     open_xl_sheet(xl_ref_parent)
+        ...     url_child = '#A1:B2'
+        ...     xl_ref_child = parse_xl_url(url_child)
+        ...     open_xl_workbook(xl_ref_child, xl_ref_parent)
+        ...     open_xl_sheet(xl_ref_child, xl_ref_parent)
+        ...     isinstance(xl_ref_child['xl_sheet'], xlrd.sheet.Sheet)
+        True
+    """
     try:
-        if xl_ref['xl_sheet_name']:
-            sheet = xl_ref['xl_workbook'].sheet_by_name(xl_ref['xl_sheet_name'])
+        if xl_ref_child['xl_sheet_name']:
+            wb = xl_ref_child['xl_workbook']
+            sheet = wb.sheet_by_name(xl_ref_child['xl_sheet_name'])
         else:
-            sheet = xl_ref['xl_sheet']
-        res = xl_ref.copy()
-        res.update({'xl_sheet': sheet})
-        return res
+            sheet = xl_ref_parent['xl_sheet']
+        xl_ref_child['xl_sheet'] = sheet
+
     except Exception as ex:
-        raise ValueError("Invalid excel-sheet({}) due to:{}".format(xl_ref, ex))
+        sh = xl_ref_child['xl_sheet_name']
+        raise ValueError("Invalid excel-sheet({}) due to:{}".format(sh, ex))
 
 
 def _get_value_dim(value):
@@ -573,6 +630,34 @@ def _redim_value(value, n):
 
 
 def redim_xl_range(value, dim_min, dim_max=None):
+    """
+    Reshapes the output value of get_rect_range function.
+
+    :param value: matrix or vector or value
+    :type value: list of lists, list, value
+
+    :param dim_min: minimum dimension
+    :type dim_min: int, None
+
+    :param dim_max: maximum dimension
+    :type dim_max: int, None, optional
+
+    :return: reshaped value
+    :rtype: list of lists, list, value
+
+    Example::
+
+        >>> redim_xl_range([1, 2], 2)
+        [[1, 2]]
+        >>> redim_xl_range([[1, 2]], 1)
+        [[1, 2]]
+        >>> redim_xl_range([[1, 2]], 1, 1)
+        [1, 2]
+        >>> redim_xl_range([[1, 2]], 0, 0)
+        Traceback (most recent call last):
+        ...
+        ValueError: value cannot be reduced of -2
+    """
     val_dim = _get_value_dim(value)
     try:
         if val_dim < dim_min:
@@ -588,10 +673,48 @@ _function_types = {
     None:{'fun':lambda x: x},
     'df':{'fun': pd.DataFrame},
     'nparray':{'fun': np.array},
-    'dict': {'fun': dict}
+    'dict': {'fun': dict},
+    'sorted':{'fun': sorted}
 }
 
 def process_xl_range(value, type=None, args=[], kwargs={}, filters=None):
+    """
+    Processes the output value of get_rect_range function.
+
+    :param value: matrix or vector or value
+    :type value: list of lists, list, value
+
+    :param type: reference type
+    :type type: str, None, optional
+
+    :param args: additional arguments for the construction function
+    :type args: list, optional
+
+    :param kwargs: additional key=value arguments for the construction function
+    :type kwargs: dict, optional
+
+    :param filters:
+    :type filters: list, optional
+
+    :return: processed output value
+    :rtype: given type, or list of lists, list, value
+
+    Example::
+
+        >>> value = [[1, 2], [3, 4], [5, 6]]
+        >>> res = process_xl_range(value, type='dict')
+        >>> sorted(res.items())
+        [(1, 2),
+         (3, 4),
+         (5, 6)]
+        >>> value = [[1, 9], [8, 10], [5, 11]]
+        >>> process_xl_range(value, filters=[{'type':'sorted',\
+                                              'kwargs':{'reverse': True}\
+                                              }])
+        [[8, 10],
+         [5, 11],
+         [1, 9]]
+    """
     val = _function_types[type]['fun'](value, *args, **kwargs)
     if filters:
         for v in filters:
