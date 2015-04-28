@@ -42,13 +42,13 @@ class TestComponents(unittest.TestCase):
         ass = Assembly(FuncComponent(cfunc) for cfunc in [cfunc_f1, cfunc_f2])
         ass._build()
         self.assertEqual(list(ass._iter_validations()), [])
-        self.assertEqual(ass._inp, ['f1/A', 'f2/B'])
-        self.assertEqual(ass._out, ['f1/B', 'f2/C'])
+        self.assertEqual(ass._inp, ['/f1/A', '/f2/B'])
+        self.assertEqual(ass._out, ['/f1/B', '/f2/C'])
 
         pmods = pmods_from_tuples([('', r'root')])
         ass._build(pmods)
         self.assertEqual(
-            sorted(ass._inp + ass._out), ['root/A', 'root/B', 'root/B', 'root/C'])
+            sorted(ass._inp + ass._out), ['/root/A', '/root/B', '/root/B', '/root/C'])
 
 
 if __name__ == "__main__":

@@ -166,7 +166,7 @@ class FuncComponent(Component):
         >>> comp._build()
         >>> assert list(comp._iter_validations()) == []
         >>> sorted(comp._inp + comp._out)
-        ['calc_foobar_rate/Acc', 'calc_foobar_rate/T', 'calc_foobar_rate/V']
+        ['/calc_foobar_rate/Acc', '/calc_foobar_rate/T', '/calc_foobar_rate/V']
 
     To get the path-modified component-paths, use::
 
@@ -178,17 +178,17 @@ class FuncComponent(Component):
         >>> comp._build(pmods)
 
         >>> sorted(comp.pinp()._paths)
-        ['A/B/T', 'A/B/V']
+        ['/A/B/T', '/A/B/V']
 
         >>> comp.pout()._paths
-        ['A/B/Acc']
+        ['/A/B/Acc']
 
         >>> sorted(comp._inp + comp._out)
-        ['A/B/Acc', 'A/B/T', 'A/B/V']
+        ['/A/B/Acc', '/A/B/T', '/A/B/V']
 
         >>> comp._build(pmods)
         >>> sorted(comp._inp + comp._out)
-        ['A/B/Acc', 'A/B/T', 'A/B/V']
+        ['/A/B/Acc', '/A/B/T', '/A/B/V']
 
     """
 
@@ -258,9 +258,9 @@ class Assembly(Component):  # TODO: Assembly inherit Component
         >>> ass._build()
         >>> assert list(ass._iter_validations()) == []
         >>> ass._inp
-        ['f1/A', 'f2/B']
+        ['/f1/A', '/f2/B']
         >>> ass._out
-        ['f1/B', 'f2/C']
+        ['/f1/B', '/f2/C']
 
         >>> from pandalone.mappings import pmods_from_tuples
 
@@ -269,7 +269,7 @@ class Assembly(Component):  # TODO: Assembly inherit Component
         ... ])
         >>> ass._build(pmod)
         >>> sorted(ass._inp + ass._out)
-        ['root/A', 'root/B', 'root/B', 'root/C']
+        ['/root/A', '/root/B', '/root/B', '/root/C']
 
     """
 

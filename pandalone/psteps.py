@@ -169,7 +169,7 @@ class Pstep(str):
         >>> assert m[p['321'].cc] == 33
 
         >>> sorted(p._paths)
-        ['a/321/cc', 'a/abc']
+        ['/a/321/cc', '/a/abc']
 
 
     - Any "path-mappings" or "pmods" maybe specified during construction::
@@ -185,7 +185,7 @@ class Pstep(str):
         >>> p.abc.foo
         `BAR`
         >>> p._paths
-        ['deeper/ROOT/ABC/BAR']
+        ['/deeper/ROOT/ABC/BAR']
 
     - but exceptions are thrown if mapping any step marked as "locked":
 
@@ -293,7 +293,7 @@ class Pstep(str):
         """
         paths = []
         self._append_children(paths)
-        return ['/'.join(p) for p in paths]
+        return ['/%s' % '/'.join(p) for p in paths]
 
     def _append_children(self, paths, prefix_steps=[]):
         """
