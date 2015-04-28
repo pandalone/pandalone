@@ -74,6 +74,7 @@ class TestExcel(unittest.TestCase):
         finally:
             close_workbook(wb)
 
+    @unittest.skip("Will use xlreader instead.")
     def test_excel_refs(self):
         from pandalone.xlsutils import resolve_excel_ref
         sheetname = 'Input'

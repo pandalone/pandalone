@@ -19,9 +19,8 @@ from __future__ import division, unicode_literals
 
 from abc import ABCMeta, abstractmethod
 import logging
-from unittest.mock import MagicMock
-
 from pandalone.psteps import Pstep
+from unittest.mock import MagicMock
 
 
 __commit__ = ""
@@ -41,8 +40,8 @@ def _append_step(steps, step):
         >>> _append_step([], 'a')
         ['a']
 
-        >>> _append_step([], '..)
-        ['']
+        >>> _append_step([], '..')
+        []
         >>> _append_step(['a', 'b'], '..')
         ['a']
 
@@ -50,7 +49,7 @@ def _append_step(steps, step):
         ['a', 'b']
 
         >>> _append_step(['a', 'b'], '')
-        ['']
+        []
 
     """
     if step == '':
@@ -174,20 +173,22 @@ class FuncComponent(Component):
         >>> from pandalone.mappings import pmods_from_tuples
 
         >>> pmods = pmods_from_tuples([
-        ...     ('/calc_foobar_rate', 'A/B'),
+        ...     ('', 'A/B'),
         ... ])
         >>> comp._build(pmods)
 
-        >>> comp.pinp()._paths
+        >>> sorted(comp.pinp()._paths)
+        ['A/B/T', 'A/B/V']
 
         >>> comp.pout()._paths
+        ['A/B/Acc']
 
         >>> sorted(comp._inp + comp._out)
-        ['/A/B/Acc', '/A/B/T', '/A/B/V']
+        ['A/B/Acc', 'A/B/T', 'A/B/V']
 
         >>> comp._build(pmods)
         >>> sorted(comp._inp + comp._out)
-        ['/A/B/Acc', '/A/B/T', '/A/B/V']
+        ['A/B/Acc', 'A/B/T', 'A/B/V']
 
     """
 
@@ -217,14 +218,14 @@ class FuncComponent(Component):
         """The suggested :class:`Pstep` for cfunc to use to access inputs."""
         p = self._pinp
         if p is None:
-            self._pinp = p = Pstep(path or self._name, pmod=self._pmod)
+            self._pinp = p = Pstep(path or self._name, _pmod=self._pmod)
         return p
 
     def pout(self, path=None):
         """The suggested :class:`Pstep` for cfunc to use to access outputs."""
         p = self._pout
         if p is None:
-            self._pout = p = Pstep(path or self._name, pmod=self._pmod)
+            self._pout = p = Pstep(path or self._name, _pmod=self._pmod)
         return p
 
     def _build(self, pmod=None):
@@ -264,12 +265,11 @@ class Assembly(Component):  # TODO: Assembly inherit Component
         >>> from pandalone.mappings import pmods_from_tuples
 
         >>> pmod = pmods_from_tuples([
-        ...     ('/f1',  'root'), 
-        ...     ('/f2',  'root'),
+        ...     ('',  'root'), 
         ... ])
         >>> ass._build(pmod)
         >>> sorted(ass._inp + ass._out)
-        ['/root/A', '/root/B', '/root/B', '/root/C']
+        ['root/A', 'root/B', 'root/B', 'root/C']
 
     """
 
