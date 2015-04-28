@@ -7,6 +7,9 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 '''
 Check pandfunc's function-dependencies exploration, reporting and classes .
+
+.. deprecated:: 0.0.1-dev.1
+    Use :mod:`pandalone.dispatcher` instead.
 '''
 
 from collections import OrderedDict
@@ -126,6 +129,7 @@ def funcs_fact2_1(params, engine, dfin, dfout):
     return (f11, f12, f13)
 
 
+@unittest.SkipTest
 class TestDoctest(unittest.TestCase):
 
     def runTest(self):
@@ -135,6 +139,7 @@ class TestDoctest(unittest.TestCase):
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
 
+@unittest.SkipTest
 class TestHarvest(unittest.TestCase):
 
     def test_filter_common_prefixes(self):
@@ -513,6 +518,7 @@ def bad_funcs_fact(params, engine, dfin, dfout):
     return (child, )
 
 
+@unittest.SkipTest
 class TestResolve(unittest.TestCase):
 
     def testSmoke_FuncExplorer_countNodes(self):

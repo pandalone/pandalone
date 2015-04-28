@@ -5,7 +5,11 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
-'''A best-effort attempt to build computation dependency-graphs from method with dict-like objects (such as pandas),
+'''
+.. deprecated:: 0.0.1-dev.1
+    Use :mod:`pandalone.dispatcher` instead.
+
+A best-effort attempt to build computation dependency-graphs from method with dict-like objects (such as pandas),
 inspired by XForms: http://lib.tkk.fi/Diss/2007/isbn9789512285662/article3.pdf
 
 .. seealso::
@@ -13,6 +17,7 @@ inspired by XForms: http://lib.tkk.fi/Diss/2007/isbn9789512285662/article3.pdf
     @calculation
     @calculation_factory [TODO]
     execute_funcs_map()
+    
 '''
 from collections import OrderedDict, defaultdict
 from collections.abc import Mapping, Iterable
