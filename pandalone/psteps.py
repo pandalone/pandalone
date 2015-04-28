@@ -34,13 +34,18 @@ def _append_step(steps, step):
     :return: the new or updated steps-list.
     :rtype:  list
 
+    .. Note:: 
+        An empty-list[] in the `steps` is considered "root,
+        but the *root* step is empty-string('').
+
+
     Example::
 
         >>> _append_step([], 'a')
         ['a']
 
-        >>> _append_step([], '..)
-        ['']
+        >>> _append_step([], '..')
+        []
         >>> _append_step(['a', 'b'], '..')
         ['a']
 
@@ -48,7 +53,7 @@ def _append_step(steps, step):
         ['a', 'b']
 
         >>> _append_step(['a', 'b'], '')
-        ['']
+        []
 
     """
     if step == '':
@@ -137,22 +142,23 @@ class Pstep(str):
 
     - Assignments are only allowed to private attributes::
 
-          >>> p.assignments = 'FAIL!'
-          Traceback (most recent call last):
-          AssertionError: Cannot assign 'FAIL!' to '/deeper/ROOT/assignments'!      
-                  Only other psteps allowed.
+        >>> p = Pstep()
+        >>> p.assignments = 'FAIL!'
+        Traceback (most recent call last):
+        AssertionError: Cannot assign 'FAIL!' to '/assignments'!  Only other psteps allowed.
 
-          >>> p._but_hidden = 'Ok'
+        >>> p._but_hidden = 'Ok'
 
     - Use :meth:`_paths()` to get all defined paths so far.
 
     - Construction::
 
         >>> Pstep()
-        `.`
+        ``
         >>> Pstep('a')
         `a`
 
+      Notice that pstesps are surrounded with the back-tick char('`').
 
     - Paths are created implicitely as they are referenced::
 
@@ -168,20 +174,23 @@ class Pstep(str):
 
     - Any "path-mappings" or "pmods" maybe specified during construction::
 
-        >>> pmods = pmods_from_tuples([
-        ...     ('root',         'deeper/ROOT'),
-        ...     ('root/abc',     'ABC'),
-        ...     ('root/abc/foo', 'BAR'),
+        >>> from pandalone import mappings
+
+        >>> pmods = mappings.pmods_from_tuples([
+        ...     ('',               'deeper/ROOT'),
+        ...     ('/abc',     'ABC'),
+        ...     ('/abc/foo', 'BAR'),
         ... ])
-        >>> p = Pstep('root', pmods=pmods)
+        >>> p = Pstep('root', _pmod=pmods)
         >>> p.abc.foo
         `BAR`
         >>> p._paths
-        ['/deeper/ROOT/ABC/BAR']
+        ['deeper/ROOT/ABC/BAR']
 
     - but exceptions are thrown if mapping any step marked as "locked":
 
-        >>> p.abc.foo._lock
+        >>> p.abc.foo._lock  # 3: CAN_RELOCATE
+        3
 
     - .. Warning::
           String's slicing operations do not work on this string-subclass!
