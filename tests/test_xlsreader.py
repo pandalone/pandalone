@@ -64,10 +64,13 @@ class TestXlsReader(unittest.TestCase):
                                   'Sheet1',
                                   startrow=5, startcol=3)
 
-            file_path = '/'.join([tmpdir, file_path])
-
             # load sheet for --> get_rect_range
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            if tmpdir[0] != '/':
+                url = '/'.join(['', tmpdir, file_path])
+            else:
+                url = '/'.join([tmpdir, file_path])
+
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
@@ -79,10 +82,6 @@ class TestXlsReader(unittest.TestCase):
             # get single value [A1]
             args = (sheet, xr.Cell(0, 0))
             self.assertEqual(xr.get_rect_range(*args), None)
-
-            # single value in the sheet [D7:D7]
-            args = (sheet, xr.Cell(3, 6), xr.Cell(3, 6))
-            self.assertEqual(xr.get_rect_range(*args), 0)
 
             # get single value [H9]
             args = (sheet, xr.Cell(7, 8))
@@ -96,13 +95,20 @@ class TestXlsReader(unittest.TestCase):
                                   'Sheet1',
                                   startrow=5, startcol=3)
 
-            file_path = '/'.join([tmpdir, file_path])
-
             # load sheet for --> get_rect_range
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            if tmpdir[0] != '/':
+                url = '/'.join(['', tmpdir, file_path])
+            else:
+                url = '/'.join([tmpdir, file_path])
+
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
+
+            # single value in the sheet [D7:D7]
+            args = (sheet, xr.Cell(3, 6), xr.Cell(3, 6))
+            self.assertEqual(xr.get_rect_range(*args), [0])
 
             # get whole column [D_]
             args = (sheet, xr.Cell(3, None))
@@ -162,10 +168,14 @@ class TestXlsReader(unittest.TestCase):
                                   'Sheet1',
                                   startrow=5, startcol=3)
 
-            file_path = '/'.join([tmpdir, file_path])
 
             # load sheet for --> get_rect_range
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            if tmpdir[0] != '/':
+                url = '/'.join(['', tmpdir, file_path])
+            else:
+                url = '/'.join([tmpdir, file_path])
+
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
@@ -272,17 +282,17 @@ class TestXlsReader(unittest.TestCase):
         self.assertEquals(res['cell_down'], xr.Cell(col=2, row=1))
 
     def test_autocomplete_ref_parse_xl_ref(self):
-        xl_ref = 'Sheet1!a1:__'
+        xl_ref = 'Sheet1!a1:**'
         res = xr.parse_xl_ref(xl_ref)
         self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
         self.assertEquals(res['cell_down'], xr.Cell(col=None, row=None))
 
-        xl_ref = 'Sheet1!__:c2'
+        xl_ref = 'Sheet1!*_:c2'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], xr.Cell(col=None, row=None))
+        self.assertEquals(res['cell_up'], xr.Cell(col=None, row='xl_margin'))
         self.assertEquals(res['cell_down'], xr.Cell(col=2, row=1))
 
-        xl_ref = 'Sheet1!A_'
+        xl_ref = 'Sheet1!A*'
         res = xr.parse_xl_ref(xl_ref)
         self.assertEquals(res['cell_up'], xr.Cell(col=0, row=None))
 
@@ -329,29 +339,39 @@ class TestXlsReader(unittest.TestCase):
         self.assertEquals(xr.fetch_cell_ref('A1', 'A', '1'),
                           xr.Cell(col=0, row=0))
         self.assertEquals(xr.fetch_cell_ref('A_', 'A', '_'),
+                          xr.Cell(col=0, row='xl_margin'))
+        self.assertEquals(xr.fetch_cell_ref('A*', 'A', '*'),
                           xr.Cell(col=0, row=None))
         self.assertEquals(xr.fetch_cell_ref('_1', '_','1'),
+                          xr.Cell(col='xl_margin', row=0))
+        self.assertEquals(xr.fetch_cell_ref('*1', '*','1'),
                           xr.Cell(col=None, row=0))
         self.assertEquals(xr.fetch_cell_ref('__', '_', '_'),
+                          xr.Cell(col='xl_margin', row='xl_margin'))
+        self.assertEquals(xr.fetch_cell_ref('**', '*', '*'),
                           xr.Cell(col=None, row=None))
 
         self.assertRaises(ValueError, xr.fetch_cell_ref, *('_0', '_', '0'))
+        self.assertRaises(ValueError, xr.fetch_cell_ref, *('@@', '@', '@'))
 
     def test_col2num(self):
         self.assertEqual(xr.col2num('D'), 3)
         self.assertEqual(xr.col2num('aAa'), 702)
 
     def test_parse_xl_url(self):
-        url = 'file:///path/to/file.xls#xl_sheet_name!UP10:DOWN20{"json":"..."}'
+        url = 'file://path/to/file.xls#xl_sheet_name!UP10:DOWN20{"json":"..."}'
         res = xr.parse_xl_url(url)
 
-        self.assertEquals(res['url_file'], 'file:///path/to/file.xls')
+        self.assertEquals(res['url_file'], 'file://path/to/file.xls')
         self.assertEquals(res['xl_sheet_name'], 'xl_sheet_name')
         self.assertEquals(res['json'], {"json": "..."})
         self.assertEquals(res['cell_up'], xr.Cell(col=561, row=9))
         self.assertEquals(res['cell_down'], xr.Cell(col=81055, row=19))
 
         self.assertRaises(ValueError, xr.parse_xl_url, *('#!:{"json":"..."', ))
+        url = '#xl_sheet_name!UP10:DOWN20{"json":"..."}'
+        res = xr.parse_xl_url(url)
+        self.assertEquals(res['url_file'], '')
 
     def test_parse_cell(self):
         with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
@@ -361,10 +381,13 @@ class TestXlsReader(unittest.TestCase):
                                   xl,
                                   'Sheet1')
 
-            file_path = '/'.join([tmpdir, file_path])
-
             # load sheet for --> get_rect_range
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            if tmpdir[0] != '/':
+                url = '/'.join(['', tmpdir, file_path])
+            else:
+                url = '/'.join([tmpdir, file_path])
+
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
@@ -383,10 +406,13 @@ class TestXlsReader(unittest.TestCase):
                                   xl,
                                   'Sheet1')
 
-            file_path = '/'.join([tmpdir, file_path])
-
             # load sheet for --> get_rect_range
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            if tmpdir[0] != '/':
+                url = '/'.join(['', tmpdir, file_path])
+            else:
+                url = '/'.join([tmpdir, file_path])
+
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
@@ -411,17 +437,20 @@ class TestXlsReader(unittest.TestCase):
                                   'Sheet1',
                                   startrow=5, startcol=3)
 
-            file_path = '/'.join([tmpdir, file_path])
-
             # load sheet for --> get_rect_range
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % file_path
+            if tmpdir[0] != '/':
+                url = '/'.join(['', tmpdir, file_path])
+            else:
+                url = '/'.join([tmpdir, file_path])
+
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
 
             # load Workbook for --> xlwings
             from xlwings import Workbook, Range
-            wb = Workbook(file_path)
+            wb = Workbook(res['url_file'])
             res = {}
             res[0] = Range("Sheet1", "D7").vertical.value
             res[1] = Range("Sheet1", "E6").vertical.value

@@ -9,19 +9,71 @@
 import re
 import json
 import datetime
+import pandas as pd
+import numpy as np
 from string import ascii_uppercase
 from collections import namedtuple
 # noinspection PyUnresolvedReferences
 from six.moves.urllib.parse import urldefrag
+# noinspection PyUnresolvedReferences
+from six.moves.urllib.request import urlopen
 import xlrd
-from xlrd import (xldate, XL_CELL_DATE, XL_CELL_BLANK, XL_CELL_EMPTY,
-                  XL_CELL_TEXT, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER)
+from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
+                  XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER,
+                  open_workbook)
 from distutils.version import LooseVersion
 
 if LooseVersion(xlrd.__VERSION__) >= LooseVersion("0.9.3"):
     xlrd_0_9_3 = True
 else:
     xlrd_0_9_3 = False
+
+
+_re_xl_ref_parser = re.compile(
+    r"""
+    ^\s*(?:(?P<xl_sheet_name>[^!]+)?!)?     # xl sheet name
+    (?P<cell_up>                            # cell up [opt]
+        (?P<u_c>[A-Z]+|_|\*)                # up col
+        (?P<u_r>\d+|_|\*)                   # up row
+    )?
+    (?P<cell_down>:(?:                      # cell down [opt]
+        (?P<d_c>[A-Z]+|_|\*)                # down col
+        (?P<d_r>\d+|_|\*)                   # down row
+    )?)?
+    (?P<json>\{.*\})?                       # any json object [opt]
+    \s*$""", re.IGNORECASE | re.X)
+
+
+def _xlwings_min_index(it_types, margin, max_i):
+    try:
+        return next(i for i, c in enumerate(it_types)
+                      if c in (XL_CELL_BLANK, XL_CELL_EMPTY)) + margin
+    except StopIteration:
+        return max_i
+
+
+def _xlwings_margins(sheet, cell_up, cell_down, up, dn):
+    if cell_up.col is not None and cell_up.row is not None and \
+        (cell_down.col is None or cell_down.row is None): # from up
+        if cell_down.col is None:
+            dn[0] = _xlwings_min_index(sheet.row_types(up[1], up[0]),
+                                       up[0], sheet.ncols)
+
+        if cell_down.row is None:
+            dn[1] = _xlwings_min_index(sheet.col_types(up[0], up[1]),
+                                       up[1], sheet.nrows)
+    elif cell_down.col is not None and cell_down.row is not None and \
+        (cell_up.col is None or cell_up.row is None): # from bottom
+        _dn = (dn[0] - 1, dn[1] - 1)
+        if cell_up.col is None:
+            up[0] = -_xlwings_min_index(
+                reversed(sheet.row_types(_dn[1], 0, _dn[0])), -_dn[0], 0)
+
+        if cell_up.row is None:
+            up[1] = -_xlwings_min_index(
+                reversed(sheet.col_types(_dn[0], 0, _dn[1])), -_dn[1], 0)
+    return up, dn
+
 
 Cell = namedtuple('Cell', ['col', 'row'])
 
@@ -50,6 +102,11 @@ def col2num(col_str):
 
     return num - 1
 
+_cell = {
+    None: None,
+    '*': None,
+    '_': 'xl_margin'
+}
 
 def fetch_cell_ref(cell, cell_col, cell_row):
     """
@@ -74,10 +131,12 @@ def fetch_cell_ref(cell, cell_col, cell_row):
     Example::
         >>> fetch_cell_ref('A1', 'A', '1')
         Cell(col=0, row=0)
-        >>> fetch_cell_ref('_1', '_', '1')
+        >>> fetch_cell_ref('*1', '*', '1')
         Cell(col=None, row=0)
-        >>> fetch_cell_ref('A_', 'A', '_')
+        >>> fetch_cell_ref('A*', 'A', '*')
         Cell(col=0, row=None)
+        >>> fetch_cell_ref('A_', 'A', '_')
+        Cell(col=0, row='xl_margin')
         >>> fetch_cell_ref(':', None, None)
         Cell(col=None, row=None)
         >>> fetch_cell_ref(None, None, None)
@@ -87,8 +146,8 @@ def fetch_cell_ref(cell, cell_col, cell_row):
         return None
 
     if cell_row != '0':
-        row = int(cell_row) - 1 if cell_row and cell_row != '_' else None
-        col = col2num(cell_col) if cell_col and cell_col != '_' else None
+        row = _cell[cell_row] if cell_row in _cell else int(cell_row) - 1
+        col = _cell[cell_col] if cell_col in _cell else col2num(cell_col)
         return Cell(col=col, row=row)
 
     raise ValueError('unsupported row format %s' % cell_row)
@@ -162,37 +221,6 @@ def parse_cell(cell, epoch1904=False):
         return float('nan')
 
     raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
-
-
-def _xlwings_min_index(it_types, margin, max_i):
-    try:
-        return next(i for i, c in enumerate(it_types)
-                      if c in (XL_CELL_BLANK, XL_CELL_EMPTY)) + margin
-    except StopIteration:
-        return max_i
-
-
-def _xlwings_margins(sheet, cell_up, cell_down, up, dn):
-    if cell_up.col is not None and cell_up.row is not None and \
-        (cell_down.col is None or cell_down.row is None): # from up
-        if cell_down.col is None:
-            dn[0] = _xlwings_min_index(sheet.row_types(up[1], up[0]),
-                                       up[0], sheet.ncols)
-
-        if cell_down.row is None:
-            dn[1] = _xlwings_min_index(sheet.col_types(up[0], up[1]),
-                                       up[1], sheet.nrows)
-    elif cell_down.col is not None and cell_down.row is not None and \
-        (cell_up.col is None or cell_up.row is None): # from bottom
-        _dn = (dn[0] - 1, dn[1] - 1)
-        if cell_up.col is None:
-            up[0] = -_xlwings_min_index(
-                reversed(sheet.row_types(_dn[1], 0, _dn[0])), -_dn[0], 0)
-
-        if cell_up.row is None:
-            up[1] = -_xlwings_min_index(
-                reversed(sheet.col_types(_dn[0], 0, _dn[1])), -_dn[1], 0)
-    return up, dn
 
 
 def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
@@ -293,27 +321,40 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
         # right delimited minimum vector (i.e., row)
         >>> get_rect_range(sheet, Cell(2, 5), Cell(None, 5))
         [None, None, 0, 1, 2]
+
+        # right delimited minimum vector (i.e., row)
+        >>> get_rect_range(sheet, Cell(3, 6), Cell('xl_margin', 6))
+        [0, None, None, None]
+
+        # right delimited minimum vector (i.e., row)
+        >>> get_rect_range(sheet, Cell(None, None), Cell(3, 5))
+        [[]]
     """
 
     _pc = lambda cell: parse_cell(cell, epoch1904)
 
     if cell_down is None:  # vector or cell
-        if cell_up.col is None:  # return row
-            return list(map(_pc, sheet.row(cell_up.row)))
-        elif cell_up.row is None:  # return column
-            return list(map(_pc, sheet.col(cell_up.col)))
+        # set up margins
+        _up = {'xl_margin': 0}
+        up = [_up.get(i, i) for i in cell_up]
+
+        if up[0] is None:  # return row
+            return list(map(_pc, sheet.row(up[1])))
+        elif up[1] is None:  # return column
+            return list(map(_pc, sheet.col(up[0])))
         else:  # return cell
-            if cell_up.row < sheet.nrows and cell_up.col < sheet.ncols:
-                return _pc(sheet.cell(cell_up.row, cell_up.col))
+            if up[1] < sheet.nrows and up[0] < sheet.ncols:
+                return _pc(sheet.cell(up[1], up[0]))
             return None
     else:  # table or vector or cell
-
         # set up margins
-        up = [i if i is not None else 0 for i in cell_up]
+        _up = dict.fromkeys([None, 'xl_margin'], 0)
+        up = [_up.get(i, i) for i in cell_up]
 
         # set bottom margins
-        dn = [cell_down.col + 1 if cell_down.col is not None else sheet.ncols,
-              cell_down.row + 1 if cell_down.row is not None else sheet.nrows]
+        _dn = [dict.fromkeys([None, 'xl_margin'], sheet.ncols - 1),
+               dict.fromkeys([None, 'xl_margin'], sheet.nrows - 1)]
+        dn = [_dn[i].get(j, j) + 1 for i,j in enumerate(cell_down)]
 
         nv = lambda x, v=None: [v] * x  # return a None vector  of length x
 
@@ -340,20 +381,21 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
         # no empty vector
         ne_vct = lambda vct: any(x is not None for x in vct)
 
-        def ind_row(t):  # return the index of first no empty row in the table
-            return next((r for r, v in enumerate(t) if ne_vct(v)), 0)
+        def ind_row(t, d):  # return the index of first no empty row in the table
+            return next((r for r, v in enumerate(t) if ne_vct(v)), d)
 
         def reduce_table(t, u, d):  # return the minimum vertical table
-            m = [ind_row(t) if u is None else 0,
-                 len(t) - (ind_row(reversed(t)) if d is None else 0)]
-            return t[m[0]:m[1]]
+            l = len(t)
+            m = [ind_row(t, l) if u is None else 0,
+                 l - (ind_row(reversed(t), 0) if d is None else 0)]
+            return t[m[0]:m[1]] if m[0]!=m[1] else [[]]
 
         if cell_up.row is None or cell_down.row is None:  # vertical reduction
             matrix = reduce_table(matrix, cell_up.row, cell_down.row)
 
         if cell_up.col is None or cell_down.col is None:  # horizontal reduction
             tbl = reduce_table(list(zip(*matrix)), cell_up.col, cell_down.col)
-            matrix = [list(r) for r in zip(*tbl)]
+            matrix = [list(r) for r in zip(*tbl)] if tbl !=[[]] else [[]]
 
         if cell_down.col is not None and cell_down.col == cell_up.col:  # vector
             matrix = [v[0] for v in matrix]
@@ -361,22 +403,10 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
         if cell_down.row is not None and cell_down.row == cell_up.row:  # vector
             matrix = matrix[0]
 
-        return matrix
-
-
-_re_xl_ref_parser = re.compile(
-    r"""
-    ^\s*(?:(?P<xl_sheet_name>[^!]+)?!)?     # xl sheet name
-    (?P<cell_up>                            # cell up [opt]
-        (?P<u_c>[A-Z]+|_)                   # up col
-        (?P<u_r>\d+|_)                      # up row
-    )?
-    (?P<cell_down>:(?:                      # cell down [opt]
-        (?P<d_c>[A-Z]+|_)                   # down col
-        (?P<d_r>\d+|_)                      # down row
-    )?)?
-    (?P<json>\{.*\})?                       # any json object [opt]
-    \s*$""", re.IGNORECASE | re.X)
+        if isinstance(matrix, list):
+            return matrix
+        else:
+            return [matrix]
 
 
 def parse_xl_ref(xl_ref):
@@ -442,7 +472,7 @@ def parse_xl_ref(xl_ref):
             if not r['cell_up'] < r['cell_down']:
                 raise ValueError('%s < %s' % (r['cell_down'], r['cell_up']))
         except TypeError:
-            pass  # Raised when tuples contain None.
+            pass  # Raised when tuples contain None or str.
 
         return r
 
@@ -495,3 +525,75 @@ def parse_xl_url(url):
     except Exception as ex:
         raise ValueError("Invalid excel-url({}) due to: {}".format(url, ex))
 
+
+def open_xl_file(xl_ref):
+    try:
+        if xl_ref['url_file']:
+            wb = open_workbook(file_contents=urlopen(xl_ref['url_file']).read())
+        else:
+            wb = xl_ref['xl_workbook']
+        res = xl_ref.copy()
+        res.update({'xl_workbook': wb})
+        return res
+
+    except Exception as ex:
+        raise ValueError("Invalid excel-file({}) due to:{}".format(xl_ref, ex))
+
+
+def open_xl_sheet(xl_ref):
+    try:
+        if xl_ref['xl_sheet_name']:
+            sheet = xl_ref['xl_workbook'].sheet_by_name(xl_ref['xl_sheet_name'])
+        else:
+            sheet = xl_ref['xl_sheet']
+        res = xl_ref.copy()
+        res.update({'xl_sheet': sheet})
+        return res
+    except Exception as ex:
+        raise ValueError("Invalid excel-sheet({}) due to:{}".format(xl_ref, ex))
+
+
+def _get_value_dim(value):
+    try:
+        if isinstance(value, list):
+            return 1 + _get_value_dim(value[0])
+    except IndexError:
+        return 1
+    return 0
+
+
+def _redim_value(value, n):
+    if n>0:
+        return [_redim_value(value, n - 1)]
+    elif n<0:
+        if len(value)>1:
+            raise Exception
+        return _redim_value(value[0], n + 1)
+    return value
+
+
+def redim_xl_range(value, dim_min, dim_max=None):
+    val_dim = _get_value_dim(value)
+    try:
+        if val_dim < dim_min:
+            return _redim_value(value, dim_min - val_dim)
+        elif dim_max is not None and val_dim > dim_max:
+            return _redim_value(value, dim_max - val_dim)
+        return value
+    except:
+        raise ValueError('value cannot be reduced of %d' % (dim_max - val_dim))
+
+
+_function_types = {
+    None:{'fun':lambda x: x},
+    'df':{'fun': pd.DataFrame},
+    'nparray':{'fun': np.array},
+    'dict': {'fun': dict}
+}
+
+def process_xl_range(value, type=None, args=[], kwargs={}, filters=None):
+    val = _function_types[type]['fun'](value, *args, **kwargs)
+    if filters:
+        for v in filters:
+            val = process_xl_range(val,**v)
+    return val
