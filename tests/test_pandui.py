@@ -26,7 +26,7 @@ except (ImportError, NotImplementedError):
 log = _init_logging(__name__)
 
 
-@unittest.SkipTest("Development paused temporarily.")
+@unittest.skip("Development paused temporarily.")
 class TkUiTest(unittest.TestCase):
 
     @unittest.skipIf(utils.is_travis() or six.PY2, "TravisCI has no XServer!")
