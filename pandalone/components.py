@@ -19,7 +19,7 @@ from __future__ import division, unicode_literals
 
 from abc import ABCMeta, abstractmethod
 import logging
-from pandalone.psteps import Pstep
+from pandalone.mappings import Pstep
 from unittest.mock import MagicMock
 
 
