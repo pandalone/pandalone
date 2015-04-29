@@ -509,3 +509,73 @@ class TestXlsReader(unittest.TestCase):
             args = (sheet, xr.Cell(3, None), xr.Cell(3, 7), False, True)
             res = [0, 1]
             self.assertEqual(xr.get_rect_range(*args), res)
+
+    def test_open_xl_workbook(self):
+        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+            df = pd.DataFrame()
+            file_path = 'sample.xlsx'
+            writer = pd.ExcelWriter(file_path)
+            df.to_excel(writer, 'Sheet1')
+            writer.save()
+            # load sheet for --> get_rect_range
+            if tmpdir[0] != '/':
+                url = '/'.join(['', tmpdir, file_path])
+            else:
+                url = '/'.join([tmpdir, file_path])
+
+            url_parent = 'file://%s#Sheet1!' % url
+            xl_ref_parent = xr.parse_xl_url(url_parent)
+            xr.open_xl_workbook(xl_ref_parent)
+
+            url_child = '#A1:B2'
+            xl_ref_child = xr.parse_xl_url(url_child)
+
+            self.assertRaises(ValueError, xr.open_xl_workbook, *(xl_ref_child,))
+
+            xr.open_xl_workbook(xl_ref_child, xl_ref_parent)
+
+            self.assertEquals(xl_ref_child['xl_workbook'],
+                              xl_ref_parent['xl_workbook'])
+
+
+    def test_open_xl_sheet(self):
+        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+            df = pd.DataFrame()
+            file_path = 'sample.xlsx'
+            writer = pd.ExcelWriter(file_path)
+            df.to_excel(writer, 'Sheet1')
+            df.to_excel(writer, 'Sheet2')
+            writer.save()
+            # load sheet for --> get_rect_range
+            if tmpdir[0] != '/':
+                url = '/'.join(['', tmpdir, file_path])
+            else:
+                url = '/'.join([tmpdir, file_path])
+
+            url_parent = 'file://%s#Sheet1!' % url
+            xl_ref_parent = xr.parse_xl_url(url_parent)
+            xr.open_xl_workbook(xl_ref_parent)
+            xr.open_xl_sheet(xl_ref_parent)
+
+            url_child = '#A1:B2'
+            xl_ref_child = xr.parse_xl_url(url_child)
+
+            xr.open_xl_workbook(xl_ref_child, xl_ref_parent)
+
+            self.assertRaises(ValueError, xr.open_xl_sheet, *(xl_ref_child,))
+
+            xr.open_xl_sheet(xl_ref_child, xl_ref_parent)
+
+            self.assertEquals(xl_ref_child['xl_workbook'],
+                              xl_ref_parent['xl_workbook'])
+            self.assertEquals(xl_ref_child['xl_sheet'],
+                              xl_ref_parent['xl_sheet'])
+
+            url_child = '#Sheet2!A1:B2'
+            xl_ref_child = xr.parse_xl_url(url_child)
+            xr.open_xl_workbook(xl_ref_child, xl_ref_parent)
+            xr.open_xl_sheet(xl_ref_child, xl_ref_parent)
+            self.assertEquals(xl_ref_child['xl_workbook'],
+                              xl_ref_parent['xl_workbook'])
+            self.assertNotEquals(xl_ref_child['xl_sheet'],
+                                 xl_ref_parent['xl_sheet'])

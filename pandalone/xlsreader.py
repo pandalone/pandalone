@@ -129,6 +129,7 @@ def fetch_cell_ref(cell, cell_col, cell_row):
     :rtype: Cell
 
     Example::
+
         >>> fetch_cell_ref('A1', 'A', '1')
         Cell(col=0, row=0)
         >>> fetch_cell_ref('*1', '*', '1')
@@ -536,23 +537,6 @@ def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
 
     :param xl_ref_parent: excel ref of the parent
     :type xl_ref_parent: dict, None, optional
-
-    Example::
-
-        >>> import tempfile, pandas as pd, xlrd
-        >>> from tests.test_utils import chdir
-        >>> with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
-        ...     df = pd.DataFrame()
-        ...     tmp = 'sample.xlsx'
-        ...     writer = pd.ExcelWriter(tmp)
-        ...     df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
-        ...     writer.save()
-        ...     url = 'file://%s#' % '/'.join([tmpdir, tmp])
-        ...     xl_ref = parse_xl_url(url)
-        ...     open_xl_workbook(xl_ref)
-        ...     isinstance(xl_ref['xl_workbook'], xlrd.book.Book)
-        True
-
     """
     url_fl = xl_ref_child['url_file']
     try:
@@ -575,27 +559,6 @@ def open_xl_sheet(xl_ref_child, xl_ref_parent=None):
 
     :param xl_ref_parent: excel ref of the parent
     :type xl_ref_parent: dict, None, optional
-
-    Example::
-
-        >>> import tempfile, pandas as pd, xlrd
-        >>> from tests.test_utils import chdir
-        >>> with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
-        ...     df = pd.DataFrame()
-        ...     tmp = 'sample.xlsx'
-        ...     writer = pd.ExcelWriter(tmp)
-        ...     df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
-        ...     writer.save()
-        ...     url_parent = 'file://%s#Sheet1!' % '/'.join([tmpdir, tmp])
-        ...     xl_ref_parent = parse_xl_url(url_parent)
-        ...     open_xl_workbook(xl_ref_parent)
-        ...     open_xl_sheet(xl_ref_parent)
-        ...     url_child = '#A1:B2'
-        ...     xl_ref_child = parse_xl_url(url_child)
-        ...     open_xl_workbook(xl_ref_child, xl_ref_parent)
-        ...     open_xl_sheet(xl_ref_child, xl_ref_parent)
-        ...     isinstance(xl_ref_child['xl_sheet'], xlrd.sheet.Sheet)
-        True
     """
     try:
         if xl_ref_child['xl_sheet_name']:
