@@ -10,12 +10,11 @@ from __future__ import division, unicode_literals
 
 import doctest
 import json
-import unittest
-
 import pandalone
 from pandalone.mappings import pmods_from_tuples, Pmod
 from pandalone.psteps import Pstep
 from tests.test_utils import _init_logging
+import unittest
 
 
 log = _init_logging(__name__)
@@ -226,15 +225,75 @@ class TestPstep(unittest.TestCase):
                           ['/root/bar/b', '/root/bar/f', '/root/c'],
                           (p, sorted(p._paths)))
 
-    def test_pmods_map_number(self):
-        pmods = pmods_from_tuples([('123', 'str'), (123, 'num')])
+    def _build_psteps(self, root='', pmods=None):
+        p = Pstep(root, _pmod=pmods)
+        p.a.b.c
+        p.a.b.d
+        p.a.c
+        p.abc['def']
+        p.n123
+        p.a.n123
+        p.cc[123]['123']
+        p.cc[123].abc
+        p['321']
+        p['']
 
-        p = Pstep(_pmod=pmods)
-        p['123']
-        p[123]
-        self.assertEquals(
-            sorted(p._paths), ['root/bar'], (p, sorted(p._paths)))
-        p.a
+        return p
+
+    def _assert_pstep_pmods_with_map_paths(self, root, pmods):
+        ps1 = self._build_psteps(root, pmods=pmods)
+        ps2 = self._build_psteps(root)
+
+        self.assertEqual(sorted(ps1._paths),
+                         sorted(pmods.map_paths(ps2._paths)))
+
+    def test_pstep_pmods_same_as_map_path_maproot(self):
+        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
+
+        pmods = pmods_from_tuples([
+            ('', 'AA'),
+        ])
+        self._assert_pstep_pmods_with_map_paths('P', pmods)
+
+    def test_pstep_pmods_same_as_map_path_mapslash(self):
+        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
+
+        pmods = pmods_from_tuples([
+            ('/', 'AA'),
+        ])
+        self._assert_pstep_pmods_with_map_paths('P', pmods)
+
+    def test_pstep_pmods_same_as_map_path_mapstep(self):
+        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
+
+        pmods = pmods_from_tuples([
+            ('/a', 'AA'),
+        ])
+        self._assert_pstep_pmods_with_map_paths('P', pmods)
+
+    def test_pstep_pmods_same_as_map_path_maproot_empty1ststep(self):
+        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
+
+        pmods = pmods_from_tuples([
+            ('', 'AA'),
+        ])
+        self._assert_pstep_pmods_with_map_paths('', pmods)
+
+    def test_pstep_pmods_same_as_map_path_mapslash_empty1ststep(self):
+        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
+
+        pmods = pmods_from_tuples([
+            ('/', 'AA'),
+        ])
+        self._assert_pstep_pmods_with_map_paths('', pmods)
+
+    def test_pstep_pmods_same_as_map_path_mapstep_empty1ststep(self):
+        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
+
+        pmods = pmods_from_tuples([
+            ('/a', 'AA'),
+        ])
+        self._assert_pstep_pmods_with_map_paths('', pmods)
 
     def test_pmods_mass(self):
         p = Pstep(_pmod=self.PMODS())
