@@ -47,14 +47,14 @@ _re_xl_ref_parser = re.compile(
 def _xlwings_min_index(it_types, margin, max_i):
     try:
         return next(i for i, c in enumerate(it_types)
-                      if c in (XL_CELL_BLANK, XL_CELL_EMPTY)) + margin
+                    if c in (XL_CELL_BLANK, XL_CELL_EMPTY)) + margin
     except StopIteration:
         return max_i
 
 
 def _xlwings_margins(sheet, cell_up, cell_down, up, dn):
     if cell_up.col is not None and cell_up.row is not None and \
-        (cell_down.col is None or cell_down.row is None): # from up
+            (cell_down.col is None or cell_down.row is None):  # from up
         if cell_down.col is None:
             dn[0] = _xlwings_min_index(sheet.row_types(up[1], up[0]),
                                        up[0], sheet.ncols)
@@ -63,7 +63,7 @@ def _xlwings_margins(sheet, cell_up, cell_down, up, dn):
             dn[1] = _xlwings_min_index(sheet.col_types(up[0], up[1]),
                                        up[1], sheet.nrows)
     elif cell_down.col is not None and cell_down.row is not None and \
-        (cell_up.col is None or cell_up.row is None): # from bottom
+            (cell_up.col is None or cell_up.row is None):  # from bottom
         _dn = (dn[0] - 1, dn[1] - 1)
         if cell_up.col is None:
             up[0] = -_xlwings_min_index(
@@ -89,7 +89,7 @@ def col2num(col_str):
     :rtype: int
 
     Example::
-    
+
         >>> col2num('D')
         3
         >>> col2num('d')
@@ -107,6 +107,7 @@ _cell = {
     '*': None,
     '_': 'xl_margin'
 }
+
 
 def fetch_cell_ref(cell, cell_col, cell_row):
     """
@@ -129,7 +130,6 @@ def fetch_cell_ref(cell, cell_col, cell_row):
     :rtype: Cell
 
     Example::
-
         >>> fetch_cell_ref('A1', 'A', '1')
         Cell(col=0, row=0)
         >>> fetch_cell_ref('*1', '*', '1')
@@ -222,6 +222,37 @@ def parse_cell(cell, epoch1904=False):
         return float('nan')
 
     raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
+
+
+
+
+def find_no_empty_cells(matrix_types):
+    return np.argwhere((matrix_types != XL_CELL_BLANK) &
+                        (matrix_types != XL_CELL_EMPTY)).T[::-1]
+
+def find_margins(sheet, cell_up, cell_down):
+    up = [None if i<0 else i for i in cell_up]
+    dn = [None if i<0 else i for i in cell_down]
+
+    xl_sheet_types = np.array(sheet._cell_types, dtype=int)
+    xl_indices = find_no_empty_cells(xl_sheet_types)
+    matrix_types = xl_sheet_types[up[1]:dn[1]][up[0]:dn[0]]
+    matrix_indices = find_no_empty_cells(matrix_types)
+    fun = {'up': min,'dn': max}
+    l = [(('up', 0), up[0]),
+         (('up', 1), up[1]),
+         (('dn', 0), dn[0]),
+         (('dn', 1), dn[1])]
+    l = sorted(l, key=lambda x:x[1])
+    for (mar, dir), v in l:
+        if v == -6:
+            eval(mar)[dir] = fun[mar](xl_indices[dir])
+        elif v == -5:
+            eval(mar)[dir] = fun[mar](matrix_indices[dir])
+        elif v == -4:
+            eval(mar)[dir] = fun[mar](matrix_indices[dir])
+
+
 
 
 def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
@@ -335,7 +366,7 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
     _pc = lambda cell: parse_cell(cell, epoch1904)
 
     if cell_down is None:  # vector or cell
-        # set up margins
+        # Set up '_' row/cols as 0.
         _up = {'xl_margin': 0}
         up = [_up.get(i, i) for i in cell_up]
 
@@ -347,19 +378,24 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
             if up[1] < sheet.nrows and up[0] < sheet.ncols:
                 return _pc(sheet.cell(up[1], up[0]))
             return None
-    else:  # table or vector or cell
-        # set up margins
+    else:  # table or vector
+
+        # Set up margins.
+        #
         _up = dict.fromkeys([None, 'xl_margin'], 0)
         up = [_up.get(i, i) for i in cell_up]
 
-        # set bottom margins
+        # Set bottom margins.
+        #
         _dn = [dict.fromkeys([None, 'xl_margin'], sheet.ncols - 1),
                dict.fromkeys([None, 'xl_margin'], sheet.nrows - 1)]
-        dn = [_dn[i].get(j, j) + 1 for i,j in enumerate(cell_down)]
+        dn = [_dn[i].get(j, j) + 1 for i, j in enumerate(cell_down)]
 
         nv = lambda x, v=None: [v] * x  # return a None vector  of length x
 
-        if up[1] >= sheet.nrows or up[0] >= sheet.ncols:  # empty table
+        # Make a range-sized empty table.
+        #
+        if up[1] >= sheet.nrows or up[0] >= sheet.ncols:
             ddn = [dn[i] - up[i] if c else 1
                    for i, c in enumerate([cell_down.col is not None,
                                           cell_down.row is not None])]
@@ -368,12 +404,15 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
         if xlwings:
             up, dn = _xlwings_margins(sheet, cell_up, cell_down, up, dn)
 
+        # Synthesize values for cells outside excel's margins.
+        #
         ddn = [max(0, v) for v in (dn[0] - sheet.ncols, dn[1] - sheet.nrows)]
 
         matrix = [list(map(_pc, sheet.row_slice(r, up[0], dn[0]))) + nv(ddn[0])
                   for r in range(up[1], dn[1] - ddn[1])]
 
-        # add empty rows
+        # Add empty rows.
+        #
         if ddn[0] == 0 and ddn[1] > 0:
             matrix += nv(ddn[1], nv(1))
         else:
@@ -382,26 +421,35 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
         # no empty vector
         ne_vct = lambda vct: any(x is not None for x in vct)
 
-        def ind_row(t, d):  # return the index of first no empty row in the table
+        # return the index of first no empty row in the table
+        def ind_row(t, d):
             return next((r for r, v in enumerate(t) if ne_vct(v)), d)
 
-        def reduce_table(t, u, d):  # return the minimum vertical table
+        def reduce_table(t, u, d):
+            # Return the minimum vertical table.
+
             l = len(t)
             m = [ind_row(t, l) if u is None else 0,
                  l - (ind_row(reversed(t), 0) if d is None else 0)]
-            return t[m[0]:m[1]] if m[0]!=m[1] else [[]]
+            return t[m[0]:m[1]] if m[0] != m[1] else [[]]
 
-        if cell_up.row is None or cell_down.row is None:  # vertical reduction
+        # vertical reduction
+        #
+        if cell_up.row is None or cell_down.row is None:
             matrix = reduce_table(matrix, cell_up.row, cell_down.row)
 
-        if cell_up.col is None or cell_down.col is None:  # horizontal reduction
+        # horizontal reduction
+        #
+        if cell_up.col is None or cell_down.col is None:
             tbl = reduce_table(list(zip(*matrix)), cell_up.col, cell_down.col)
-            matrix = [list(r) for r in zip(*tbl)] if tbl !=[[]] else [[]]
+            matrix = [list(r) for r in zip(*tbl)] if tbl != [[]] else [[]]
 
-        if cell_down.col is not None and cell_down.col == cell_up.col:  # vector
+        # vector
+        if cell_down.col is not None and cell_down.col == cell_up.col:
             matrix = [v[0] for v in matrix]
 
-        if cell_down.row is not None and cell_down.row == cell_up.row:  # vector
+        # vector
+        if cell_down.row is not None and cell_down.row == cell_up.row:
             matrix = matrix[0]
 
         if isinstance(matrix, list):
@@ -541,7 +589,8 @@ def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
     url_fl = xl_ref_child['url_file']
     try:
         if url_fl:
-            wb = open_workbook(file_contents=urlopen(url_fl).read())
+            wb = open_workbook(file_contents=urlopen(url_fl).read(),
+                               on_demand=True)
         else:
             wb = xl_ref_parent['xl_workbook']
         xl_ref_child['xl_workbook'] = wb
@@ -583,10 +632,10 @@ def _get_value_dim(value):
 
 
 def _redim_value(value, n):
-    if n>0:
+    if n > 0:
         return [_redim_value(value, n - 1)]
-    elif n<0:
-        if len(value)>1:
+    elif n < 0:
+        if len(value) > 1:
             raise Exception
         return _redim_value(value[0], n + 1)
     return value
@@ -633,12 +682,13 @@ def redim_xl_range(value, dim_min, dim_max=None):
 
 
 _function_types = {
-    None:{'fun':lambda x: x},
-    'df':{'fun': pd.DataFrame},
-    'nparray':{'fun': np.array},
+    None: {'fun': lambda x: x},
+    'df': {'fun': pd.DataFrame},
+    'nparray': {'fun': np.array},
     'dict': {'fun': dict},
-    'sorted':{'fun': sorted}
+    'sorted': {'fun': sorted}
 }
+
 
 def process_xl_range(value, type=None, args=[], kwargs={}, filters=None):
     """
@@ -681,5 +731,5 @@ def process_xl_range(value, type=None, args=[], kwargs={}, filters=None):
     val = _function_types[type]['fun'](value, *args, **kwargs)
     if filters:
         for v in filters:
-            val = process_xl_range(val,**v)
+            val = process_xl_range(val, **v)
     return val
