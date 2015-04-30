@@ -5,7 +5,82 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
+"""
+Implements an "Excel-url" format for capturing ranges from sheets.
+ 
+Primitive moves
+---------------
 
+There are 12 "primitive scan-directions" or excel "cell-moves" named with 
+a single or a pair of the letters "LURD"::
+
+            U
+     UL◄───┐▲┌───►UR
+    LU     │││     RU
+     ▲     │││     ▲
+     │     │││     │
+     └─────┼│┼─────┘
+    L◄──────X──────►R
+     ┌─────┼│┼─────┐
+     │     │││     │
+     ▼     │││     ▼
+    LD     │││     RD
+     DL◄───┘▼└───►DR
+            D
+
+    - The 'X' at the center points the starting cell.
+
+Using these moves we can identify (or visit) a "target" xl-cell from known 
+"starting" cell (ie 'A1', or '__' for the end of the sheet) when the values
+visited during the move change from empty to non-empty, and vice versa.
+
+For instance, given this xl-sheet below, here some of the ways 
+to identify the non-empty values::
+
+      A B C D E F 
+    1 . . . . . . 
+    2 . . . . . . 
+    3 . . X . . .  ──► C3    A1(RD)   _1(LD)     F3(L) 
+    4 . . . . X .  ──► E4    A4(R)    _4(L)      D1(DR)
+    5 . X . . . .  ──► B5    A1(DR)   A_(UR)     _5(L) 
+    6 . . . . . X  ──► F6    __       _1(D)      A_(R) 
+
+    - The 'X' signify non-empty cells.
+    - The dots('.') are empty-cells.
+
+
+So starting cells are specified using "absolute coordinates", using
+the usual "A1" notation, expanded with undesrcore('_') which signifies 
+the top/bottom rows and left/right columns of the sheet with non-empty values.
+
+After having identified the target "up" cell, we may use "relative" coords 
+using the asterisk('*') to identify the "down" cell, specifying thus 
+a complete "range".
+
+Of course we *reverse* the procedure, starting from the down-cell and driving 
+relatively to the up-cell. The default direction is "RD".
+
+In the above example-sheet, here are some ways to specify ranges::
+
+      A B C D E F 
+    1 . . . . . . 
+    
+    2 . . . . . . 
+         ┌─────┬──────► C3:E4    A1(RD):**(RD)    _1(RD):**(DR)
+    3 . .│X . .│ .
+       ┌─┼─────┼┐
+    4 .│.│. . X││.
+       │ └─────┘│
+    5 .│X . . . │.
+       └────────┴─────► B4:E5    A_(UR):**(RU)    _5(L):1_(UR)
+    6 . . . . . X
+
+.. Note::
+   Of course, THE ABOVE WILL FAIL since moves will stop immediately due to 
+   empty cells, but this was to convey the general idea.  
+   Under normal circumstances, the in-between cells would be full.
+
+"""
 import re
 import json
 import datetime
@@ -14,9 +89,9 @@ import numpy as np
 from string import ascii_uppercase
 from collections import namedtuple
 # noinspection PyUnresolvedReferences
-from six.moves.urllib.parse import urldefrag
+from six.moves.urllib.parse import urldefrag  # @UnresolvedImport
 # noinspection PyUnresolvedReferences
-from six.moves.urllib.request import urlopen
+from six.moves.urllib.request import urlopen  # @UnresolvedImport
 import xlrd
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
                   XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER,
@@ -102,10 +177,11 @@ def col2num(col_str):
 
     return num - 1
 
+_xl_margin = object()
 _cell = {
     None: None,
     '*': None,
-    '_': 'xl_margin'
+    '_': _xl_margin
 }
 
 
@@ -137,7 +213,7 @@ def fetch_cell_ref(cell, cell_col, cell_row):
         >>> fetch_cell_ref('A*', 'A', '*')
         Cell(col=0, row=None)
         >>> fetch_cell_ref('A_', 'A', '_')
-        Cell(col=0, row='xl_margin')
+        Cell(col=0, row=_xl_margin)
         >>> fetch_cell_ref(':', None, None)
         Cell(col=None, row=None)
         >>> fetch_cell_ref(None, None, None)
@@ -222,37 +298,6 @@ def parse_cell(cell, epoch1904=False):
         return float('nan')
 
     raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
-
-
-
-
-def find_no_empty_cells(matrix_types):
-    return np.argwhere((matrix_types != XL_CELL_BLANK) &
-                        (matrix_types != XL_CELL_EMPTY)).T[::-1]
-
-def find_margins(sheet, cell_up, cell_down):
-    up = [None if i<0 else i for i in cell_up]
-    dn = [None if i<0 else i for i in cell_down]
-
-    xl_sheet_types = np.array(sheet._cell_types, dtype=int)
-    xl_indices = find_no_empty_cells(xl_sheet_types)
-    matrix_types = xl_sheet_types[up[1]:dn[1]][up[0]:dn[0]]
-    matrix_indices = find_no_empty_cells(matrix_types)
-    fun = {'up': min,'dn': max}
-    l = [(('up', 0), up[0]),
-         (('up', 1), up[1]),
-         (('dn', 0), dn[0]),
-         (('dn', 1), dn[1])]
-    l = sorted(l, key=lambda x:x[1])
-    for (mar, dir), v in l:
-        if v == -6:
-            eval(mar)[dir] = fun[mar](xl_indices[dir])
-        elif v == -5:
-            eval(mar)[dir] = fun[mar](matrix_indices[dir])
-        elif v == -4:
-            eval(mar)[dir] = fun[mar](matrix_indices[dir])
-
-
 
 
 def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
@@ -355,7 +400,7 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
         [None, None, 0, 1, 2]
 
         # right delimited minimum vector (i.e., row)
-        >>> get_rect_range(sheet, Cell(3, 6), Cell('xl_margin', 6))
+        >>> get_rect_range(sheet, Cell(3, 6), Cell(_xl_margin, 6))
         [0, None, None, None]
 
         # right delimited minimum vector (i.e., row)
@@ -367,7 +412,7 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
 
     if cell_down is None:  # vector or cell
         # Set up '_' row/cols as 0.
-        _up = {'xl_margin': 0}
+        _up = {_xl_margin: 0}
         up = [_up.get(i, i) for i in cell_up]
 
         if up[0] is None:  # return row
@@ -378,17 +423,16 @@ def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
             if up[1] < sheet.nrows and up[0] < sheet.ncols:
                 return _pc(sheet.cell(up[1], up[0]))
             return None
-    else:  # table or vector
-
+    else:  # table or vector or cell
         # Set up margins.
         #
-        _up = dict.fromkeys([None, 'xl_margin'], 0)
+        _up = dict.fromkeys([None, _xl_margin], 0)
         up = [_up.get(i, i) for i in cell_up]
 
         # Set bottom margins.
         #
-        _dn = [dict.fromkeys([None, 'xl_margin'], sheet.ncols - 1),
-               dict.fromkeys([None, 'xl_margin'], sheet.nrows - 1)]
+        _dn = [dict.fromkeys([None, _xl_margin], sheet.ncols - 1),
+               dict.fromkeys([None, _xl_margin], sheet.nrows - 1)]
         dn = [_dn[i].get(j, j) + 1 for i, j in enumerate(cell_down)]
 
         nv = lambda x, v=None: [v] * x  # return a None vector  of length x
@@ -585,12 +629,28 @@ def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
 
     :param xl_ref_parent: excel ref of the parent
     :type xl_ref_parent: dict, None, optional
+
+    Example::
+
+        >>> import tempfile, pandas as pd, xlrd
+        >>> from tests.test_utils import chdir
+        >>> with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        ...     df = pd.DataFrame()
+        ...     tmp = 'sample.xlsx'
+        ...     writer = pd.ExcelWriter(tmp)
+        ...     df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
+        ...     writer.save()
+        ...     url = 'file://%s#' % '/'.join([tmpdir, tmp])
+        ...     xl_ref = parse_xl_url(url)
+        ...     open_xl_workbook(xl_ref)
+        ...     isinstance(xl_ref['xl_workbook'], xlrd.book.Book)
+        True
+
     """
     url_fl = xl_ref_child['url_file']
     try:
         if url_fl:
-            wb = open_workbook(file_contents=urlopen(url_fl).read(),
-                               on_demand=True)
+            wb = open_workbook(file_contents=urlopen(url_fl).read())
         else:
             wb = xl_ref_parent['xl_workbook']
         xl_ref_child['xl_workbook'] = wb
@@ -608,6 +668,27 @@ def open_xl_sheet(xl_ref_child, xl_ref_parent=None):
 
     :param xl_ref_parent: excel ref of the parent
     :type xl_ref_parent: dict, None, optional
+
+    Example::
+
+        >>> import tempfile, pandas as pd, xlrd
+        >>> from tests.test_utils import chdir
+        >>> with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        ...     df = pd.DataFrame()
+        ...     tmp = 'sample.xlsx'
+        ...     writer = pd.ExcelWriter(tmp)
+        ...     df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
+        ...     writer.save()
+        ...     url_parent = 'file://%s#Sheet1!' % '/'.join([tmpdir, tmp])
+        ...     xl_ref_parent = parse_xl_url(url_parent)
+        ...     open_xl_workbook(xl_ref_parent)
+        ...     open_xl_sheet(xl_ref_parent)
+        ...     url_child = '#A1:B2'
+        ...     xl_ref_child = parse_xl_url(url_child)
+        ...     open_xl_workbook(xl_ref_child, xl_ref_parent)
+        ...     open_xl_sheet(xl_ref_child, xl_ref_parent)
+        ...     isinstance(xl_ref_child['xl_sheet'], xlrd.sheet.Sheet)
+        True
     """
     try:
         if xl_ref_child['xl_sheet_name']:
