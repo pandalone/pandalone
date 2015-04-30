@@ -8,11 +8,14 @@
 """
 Implements an "Excel-url" format for capturing ranges from sheets.
  
+Excel-range addressing ("xl-refs")
+==================================
+
 Primitive moves
 ---------------
 
-There are 12 "primitive scan-directions" or excel "cell-moves" named with 
-a single or a pair of the letters "LURD"::
+There are 12 "primitive scan-directions" or excel "cell-moves" named with
+a *single* or a *pair* of the the letters `"LURD"`::
 
             U
      UL◄───┐▲┌───►UR
@@ -30,55 +33,130 @@ a single or a pair of the letters "LURD"::
 
     - The 'X' at the center points the starting cell.
 
-Using these moves we can identify (or visit) a "target" xl-cell from known 
-"starting" cell (ie 'A1', or '__' for the end of the sheet) when the values
-visited during the move change from empty to non-empty, and vice versa.
 
-For instance, given this xl-sheet below, here some of the ways 
-to identify the non-empty values::
+Target-cells
+------------
 
-      A B C D E F 
-    1 . . . . . . 
-    2 . . . . . . 
-    3 . . X . . .  ──► C3    A1(RD)   _1(LD)     F3(L) 
-    4 . . . . X .  ──► E4    A4(R)    _4(L)      D1(DR)
-    5 . X . . . .  ──► B5    A1(DR)   A_(UR)     _5(L) 
-    6 . . . . . X  ──► F6    __       _1(D)      A_(R) 
+Using these moves we can identify a "target" xl-cell from a known
+"starting" position (ie `A1`, or `^^` and `__` for the start/end of the sheet) 
+when the values visited in the 1st row/column *change* from empty to non-empty, 
+and vice versa.
+
+For instance, given this xl-sheet below, here some of the ways
+to identify (or target) the non-empty values `X`::
+
+      A B C D E F
+    1
+    2
+    3     X        ──► C3    A1(RD)   _^(L)      F3(L)
+    4         X    ──► E4    A4(R)    _4(L)      D1(DR)
+    5   X          ──► B5    A1(DR)   A_(UR)     _5(L)
+    6           X  ──► F6    __       _^(D)      A_(R)
 
     - The 'X' signify non-empty cells.
-    - The dots('.') are empty-cells.
 
 
-So starting cells are specified using "absolute coordinates", using
-the usual "A1" notation, expanded with undesrcore('_') which signifies 
-the top/bottom rows and left/right columns of the sheet with non-empty values.
+So we can target cells with "absolute coordinates" (the usual "A1" notation),
+expanded with:
 
-After having identified the target "up" cell, we may use "relative" coords 
-using the asterisk('*') to identify the "down" cell, specifying thus 
-a complete "range".
+  - undesrcore(`_`) for bottom/right, and
+  - accent(`^`) for top/left
 
-Of course we *reverse* the procedure, starting from the down-cell and driving 
-relatively to the up-cell. The default direction is "RD".
+columns/rows of the sheet with non-empty values.
+
+When no "LURDS" are specified, the target-cell coinceds with the starting one.
+
+
+Ranges
+------
+
+To specify a complete "range" we need to identify a 2nd cell.
+The 2nd target-cell may be specified:
+
+  - either with absolute coordinates, as above, or
+  - with "relative" coords, using the dot(`.`) to refer to the 1st cell.
+
 
 In the above example-sheet, here are some ways to specify ranges::
 
-      A B C D E F 
-    1 . . . . . . 
-    
-    2 . . . . . . 
-         ┌─────┬──────► C3:E4    A1(RD):**(RD)    _1(RD):**(DR)
-    3 . .│X . .│ .
-       ┌─┼─────┼┐
-    4 .│.│. . X││.
-       │ └─────┘│
-    5 .│X . . . │.
-       └────────┴─────► B4:E5    A_(UR):**(RU)    _5(L):1_(UR)
-    6 . . . . . X
+      A  B C D E  F
+    1              
+                   
+    2              
+          ┌─────┐  
+       ┌──┼─┐   │  
+    3  │  │X│   │  
+       │┌─┼─┼───┼┐ 
+    4  ││ │ │  X││ 
+       ││ └─┼───┴┼───► C3:E4   A1(RD):..(RD)   _.(RD):..(DR)   _4(L):A1(RD)
+    5  ││X  │    │ 
+       │└───┼────┴───► B4:E5   A_(UR):..(RU)   _5(L):1_(UR)    E1(D):A.(DR)
+    6  │    │     X
+       └────┴────────► Β3:C6   A1(RD):^_       ^^:C_           C_:^^
+
+
+.. Warning::
+   Of course, the above ranges WILL FAIL since the range-traversing moves
+   will stop immediately due to `X`s being surrounded by empty-cells.
+   
+   But the above diagram was to just convey the general idea.
+   Under normal circumstances, all the in-between cells must be non-empty.
+
+
+The required moves for traversing from 1st to 2nd cell are
+calculated automatically from the relative positions of the 2 targets cells.
+In the case of relative-coords, these moves may or may not concede 
+with the moves of the 2nd-cell.
+
+For instance, to capture `B4:E5` in the above sheet we may use `_5(L):E.(U)`.
+In that case the target cells are `B5` and `E4` and the traversing-move
+to reach the 2nd one is calculated to be `UR` which is different from `U`.
+
 
 .. Note::
-   Of course, THE ABOVE WILL FAIL since moves will stop immediately due to 
-   empty cells, but this was to convey the general idea.  
-   Under normal circumstances, the in-between cells would be full.
+    The traversing-moves from 1st to 2nd target cell will fetch 
+    the same values regardless of whether we are traversing "row-first" or 
+    "column-first".
+
+
+Expansion
+---------
+
+Captured rect-ranges ("values") may be limited due to empty-cells in the 
+1st row/column.
+To overcome this, the xl-ref may specify "expansions" directions using 
+a 3rd `:`-section like that::
+
+    _5(L):1_(UR):RDL?U?
+
+This particular case means: 
+
+  > Try expanding Right and Down repeatedly and then one Left and Up.
+
+Expansion happens row-by-row or column-by-column basis, and terminates when 
+a full empty(or non-empty) line is met.
+
+Example-refs are given below for capturing the 2 marked tables::
+
+      A  B C D E F  G
+    1                
+       ┌───────────┐  
+       │┌─────────┐│ 
+    2  ││  1 X X  ││ 
+       ││         ││ 
+    3  ││X X   X X││ 
+       ││         ││ 
+    4  ││X X X 2 X││ 
+       ││         ││ 
+    5  ││X   X X X││ 
+       └┼─────────┼┴──► A1(RD):..(RD):DRL?
+    6   │X        │  
+        └─────────┴───► A1(RD):..(RD):L?DR       A_(UR):^^(RD)
+    7               X
+
+    - The 'X' signify non-empty cells.
+    - The '1' and `2` signify the identified target-cells.
+
 
 """
 import re
