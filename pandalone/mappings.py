@@ -14,6 +14,9 @@ See:
 - :func:`pmods_from_tuples`, 
 - :func:`convert_df_as_pmods_tuples()`,and
 - :class:`Pstep`.
+
+- TODO: Pmods for relative-paths.
+- TODO: Explicit mark Pmods for relative-paths.
 """
 
 from __future__ import division, unicode_literals

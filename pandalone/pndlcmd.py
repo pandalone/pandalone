@@ -1,11 +1,18 @@
 #! doit -f
+# -*- coding: UTF-8 -*-
+#
+# Copyright 2014 European Commission (JRC);
+# Licensed under the EUPL (the 'Licence');
+# You may not use this work except in compliance with the Licence.
+# You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
 Usage:
 
 - Type ``doit list`` to see list of available tasks to run.
 - Type ``doit -v 2 <task>`` to run a task.
 """
-
+## Ideas also from:
+#  https://realpython.com/blog/python/scaffold-a-flask-project/?utm_source=Python+Weekly+Newsletter&utm_campaign=dcba979511-Python_Weekly_Issue_189_April_30_2015&utm_medium=email&utm_term=0_9e26887fc5-dcba979511-312746653 
 from doit.exceptions import InvalidTask
 from doit.tools import create_folder
 import glob

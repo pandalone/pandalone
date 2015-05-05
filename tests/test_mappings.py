@@ -627,7 +627,7 @@ class TestPstep(unittest.TestCase):
         self.assertEqual(sorted(ps1._paths),
                          sorted(pmods.map_paths(ps2._paths)))
 
-    def test_pstep_pmods_same_as_map_path_maproot(self):
+    def test_pstep_vs_pmods_maproot(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
         pmods = pmods_from_tuples([
@@ -635,7 +635,7 @@ class TestPstep(unittest.TestCase):
         ])
         self._assert_pstep_pmods_with_map_paths('P', pmods)
 
-    def test_pstep_pmods_same_as_map_path_mapslash(self):
+    def test_pstep_vs_pmods_mapslash(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
         pmods = pmods_from_tuples([
@@ -643,7 +643,7 @@ class TestPstep(unittest.TestCase):
         ])
         self._assert_pstep_pmods_with_map_paths('P', pmods)
 
-    def test_pstep_pmods_same_as_map_path_mapstep(self):
+    def test_pstep_vs_pmods_mapstep(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
         pmods = pmods_from_tuples([
@@ -651,7 +651,7 @@ class TestPstep(unittest.TestCase):
         ])
         self._assert_pstep_pmods_with_map_paths('P', pmods)
 
-    def test_pstep_pmods_same_as_map_path_maproot_empty1ststep(self):
+    def test_pstep_vs_pmods_maproot_empty1ststep(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
         pmods = pmods_from_tuples([
@@ -659,7 +659,7 @@ class TestPstep(unittest.TestCase):
         ])
         self._assert_pstep_pmods_with_map_paths('', pmods)
 
-    def test_pstep_pmods_same_as_map_path_mapslash_empty1ststep(self):
+    def test_pstep_vs_pmods_mapslash_empty1ststep(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
         pmods = pmods_from_tuples([
@@ -667,7 +667,7 @@ class TestPstep(unittest.TestCase):
         ])
         self._assert_pstep_pmods_with_map_paths('', pmods)
 
-    def test_pstep_pmods_same_as_map_path_mapstep_empty1ststep(self):
+    def test_pstep_vs_pmods_mapstep_empty1ststep(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
         pmods = pmods_from_tuples([

@@ -13,6 +13,17 @@ components and assemblies:
 
 paths and path-mappings (pmods):
     See :class:`Pmod`, :func:`pmods_from_tuples` and :class:`Pstep`.
+
+1. TODO: Assembly use ComponentLoader collecting components with:
+   - `gatattr()` and 
+   - `filter_predicate` default to ``attr.__name__.startswith('cfunc_').
+   - enforce a `disable` flag on them.
+2. Component/assembly should have a stackable or common cwd?
+3. Components should be easy to run without "framework".
+   - `_build()` --> `run()`
+   - pmods on init OR `run()`?
+   - As ContextManager?
+4. Imply a default Assembly. 
 """
 
 from __future__ import division, unicode_literals

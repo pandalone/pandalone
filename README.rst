@@ -539,31 +539,58 @@ FAQ
 
 Why another XXX?  What about YYY?
 ---------------------------------
-- These are the knowngly related python projects: 
+These are the knowingly related python projects: 
 
-  `OpenMDAO <http://openmdao.org/>`_: 
-    It has influenced pandalone's design. 
-    It is planned to interoperate by converting to and from it's data-types.
-    But it works on python-2 only and its architecture needs attending from 
-    programmers (no `setup.py`, no official test-cases).  
+- `OpenMDAO <http://openmdao.org/>`_: 
+  It has influenced pandalone's design. 
+  It is planned to interoperate by converting to and from it's data-types.
+  But it works on python-2 only and its architecture needs attending from 
+  programmers (no `setup.py`, no official test-cases).  
 
-  `PyDSTool <http://www2.gsu.edu/~matrhc/PyDSTool.htm>`_:
-    It does not overlap, since it does not cover IO and dependencies of data.  
-    Also planned to interoperate with it (as soon as we have 
-    a better grasp of it :-).
-    It has some issues with the documentation, but they are working on it.
+- `PyDSTool <http://www2.gsu.edu/~matrhc/PyDSTool.htm>`_:
+  It does not overlap, since it does not cover IO and dependencies of data.  
+  Also planned to interoperate with it (as soon as we have 
+  a better grasp of it :-).
+  It has some issues with the documentation, but they are working on it.
 
-  `xray <http://xray.readthedocs.org/en/stable/faq.html>`_:
-    pandas for higher dimensions; should in principle work "xray" data-trees.
+- `xray <http://xray.readthedocs.org/en/stable/faq.html>`_:
+  Pandas for higher dimensions; data-trees should in principle work 
+  with "xray".
 
-  `netCDF4 <http://unidata.github.io/netcdf4-python/>`_:
-    Hierarchical file-data-format similar to `hdf5`.
+- `Blaze <http://blaze.pydata.org>`_:
+  NumPy and Pandas interface to Big Data; data-trees should in principle work 
+  with "blaze".
+  
+- `netCDF4 <http://unidata.github.io/netcdf4-python/>`_:
+  Hierarchical file-data-format similar to `hdf5`; a data-tree may derive 
+  in principle from "netCDF4 ".
 
-  `hdf5 <http://www.h5py.org/>`_:
-    Hierarchical file-data-format, `supported natively by pandas 
-    <http://pandas.pydata.org/pandas-docs/version/0.15.2/io.html#io-hdf5>`_.
+- `hdf5 <http://www.h5py.org/>`_:
+  Hierarchical file-data-format, `supported natively by pandas 
+    <http://pandas.pydata.org/pandas-docs/version/0.15.2/io.html#io-hdf5>`_;
+  a data-tree may derive in principle from "netCDF4 ".
 
+Which other projects/ideas have you reviewed when building this library?
+------------------------------------------------------------------------
+- `bubbles ETL <http://bubbles.databrewery.org/documentation.html>`_:
+  Processing-pipelines for (mostly) categorical data.
 
+- `Data-protocols <http://dataprotocols.org/>`_:
+  - `JTSKit <https://github.com/okfn/jtskit-py>`_, 
+    A utility library for working with `JSON Table Schema 
+      <http://dataprotocols.org/json-table-schema/>`_ in Python.
+    - `Data Packages <http://dataprotocols.org/data-packages/>`_
+
+- `Celery <http://www.celeryproject.org/>`_:
+  Execute distributed asynchronous tasks using message passing on a single or 
+  more worker servers using multiprocessing, Eventlet, or gevent. 
+
+- `Fuzzywuzzy <https://github.com/seatgeek/fuzzywuzzy>`_:
+  Fuzzy String Matching in Python.
+    
+- `"Other's people's messy data (and how not to hate it)" 
+  <https://youtu.be/_eQ_8U5kruQ>`_,
+    PyCon 2015(Canada) presentation by Mali Akmanalp.
 
 
 .. _begin-glossary:
