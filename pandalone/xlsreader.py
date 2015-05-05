@@ -34,6 +34,12 @@ a *single* or a *pair* of the the letters `"LURD"`::
     - The 'X' at the center points the starting cell.
 
 
+So a `RD` primitive-move means:
+
+  > Scan cells by rows: start moving *right* till 1st empty/non-empty cell,
+  > and then move *down* to the next row, and scan right again."
+
+
 Target-cells
 ------------
 
@@ -64,7 +70,7 @@ expanded with:
 
 columns/rows of the sheet with non-empty values.
 
-When no "LURDS" are specified, the target-cell coinceds with the starting one.
+When no "LURD"s are specified, the target-cell coinceds with the starting one.
 
 
 Ranges
@@ -88,7 +94,7 @@ In the above example-sheet, here are some ways to specify ranges::
     3  │  │X│   │  
        │┌─┼─┼───┼┐ 
     4  ││ │ │  X││ 
-       ││ └─┼───┴┼───► C3:E4   A1(RD):..(RD)   _.(RD):..(DR)   _4(L):A1(RD)
+       ││ └─┼───┴┼───► C3:E4   A1(RD):..(RD)   _^(L):..(DR)   _4(L):A1(RD)
     5  ││X  │    │ 
        │└───┼────┴───► B4:E5   A_(UR):..(RU)   _5(L):1_(UR)    E1(D):A.(DR)
     6  │    │     X
@@ -193,6 +199,29 @@ _re_xl_ref_parser = re.compile(
         (?P<d_c>[A-Z]+|_|\*)                # down col
         (?P<d_r>\d+|_|\*)                   # down row
     )?)?
+    (?P<json>\{.*\})?                       # any json object [opt]
+    \s*$""", re.IGNORECASE | re.X)
+
+_re_xl_ref_parser = re.compile(
+    r"""
+    ^\s*(?:(?P<xl_sheet_name>[^!]+)?!)?                 # xl sheet name
+    (?P<st_cell>                                        # first cell
+        (?P<st_c>[A-Z]+|_|\^)                           # first col
+        (?P<st_r>\d+|_|\^)                              # first row
+        (?:\(
+            (?P<st_m>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)   # moves from first cell
+            \)
+        )?
+    )
+    (?P<nd_cell>:                                       # second cell [opt]
+        (?P<nd_c>[A-Z]+|_|\^|\.)                        # second col
+        (?P<nd_r>\d+|_|\^|\.)                           # second row
+        (?:\(
+            (?P<nd_m>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)   # moves from second cell
+            \)
+        )?
+        (?P<ex>:)                                       #
+    )?
     (?P<json>\{.*\})?                       # any json object [opt]
     \s*$""", re.IGNORECASE | re.X)
 
