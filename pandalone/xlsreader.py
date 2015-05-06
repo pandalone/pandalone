@@ -11,6 +11,65 @@ Implements an "Excel-url" format for capturing ranges from sheets.
 Excel-range addressing ("xl-refs")
 ==================================
 
+Definitions
+-----------
+
+- 1st cell: is the cell defined before ':'.
+- 2nd cell: is the cell defined after the first ':'.
+- cell-moves: are the 12 scan-directions in the parentheses '(...)'.
+- cell-row: is the row coordinate of a cell.
+- cell-col: is the column coordinate of a cell.
+- cell-ref: is a pair of cell row-col coordinates.
+- cell-start: is the initial cell ref before the cell moves.
+- cell-target: is the final cell ref after the cell moves.
+- cell-state: can be empty or full(non-empty).
+- relative position: identified with a dot('.') for each cell-coordinate.
+  It can be used only in the 2nd cell-start ref (e.g., '.3', '..', 'B.').
+  It assumes that:
+        2nd cell-start col/row = 1st cell-target col/row
+- absolute position: identified with '^' and '_' for each cell-coordinate.
+  * '^': upper full cell-coordinate.
+  * '_': lower full cell-coordinate.
+
+Basic search cell-target rules
+------------------------------
+
+- search-opposite-state:
+  the cell-target is the first cell founded according to the cell-moves that has
+  the opposite state of the cell-start.
+
+- Search-same-state:
+  the cell-target is evaluated according to the target-coordinate-moves.
+
+  * target-coordinate-move (cell-row if move='L' or 'R', cell-col if move='U' or
+    'D') is the last cell founded from the relative start-coordinate according
+    to the move that has the same state of the cell-start.
+
+1st cell target search
+----------------------
+
+If the 1st-cell:
+
+  - has not cell-moves: cell-target = cell-start
+
+  - has cell-moves: cell-target is evaluated using the search-opposite-state
+      rule.
+
+2nd cell target search
+----------------------
+
+If the 2nd-cell:
+
+  - has not cell-moves: cell-target = cell-start
+
+  - has cell-moves and:
+    * 2nd-cell-start-state == 1st-cell-start-state:
+      cell-target is evaluated using the search-same-state rule.
+
+    * 2nd-cell-start-state != 1st-cell-start-state:
+      cell-target is evaluated using the search-opposite-state rule.
+
+
 Primitive moves
 ---------------
 
@@ -190,37 +249,22 @@ else:
 
 _re_xl_ref_parser = re.compile(
     r"""
-    ^\s*(?:(?P<xl_sheet_name>[^!]+)?!)?     # xl sheet name
-    (?P<cell_up>                            # cell up [opt]
-        (?P<u_c>[A-Z]+|_|\*)                # up col
-        (?P<u_r>\d+|_|\*)                   # up row
-    )?
-    (?P<cell_down>:(?:                      # cell down [opt]
-        (?P<d_c>[A-Z]+|_|\*)                # down col
-        (?P<d_r>\d+|_|\*)                   # down row
-    )?)?
-    (?P<json>\{.*\})?                       # any json object [opt]
-    \s*$""", re.IGNORECASE | re.X)
-
-_re_xl_ref_parser = re.compile(
-    r"""
-    ^\s*(?:(?P<xl_sheet_name>[^!]+)?!)?                 # xl sheet name
-    (?P<st_cell>                                        # first cell
-        (?P<st_c>[A-Z]+|_|\^)                           # first col
-        (?P<st_r>\d+|_|\^)                              # first row
+    ^\s*(?:(?P<xl_sheet_name>[^!]+)?!)?                  # xl sheet name
+    (?:                                                  # first cell
+        (?P<st_col>[A-Z]+|_|\^)                          # first col
+        (?P<st_row>\d+|_|\^)                             # first row
         (?:\(
-            (?P<st_m>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)   # moves from first cell
+            (?P<st_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves from st cell
             \)
         )?
     )
-    (?P<nd_cell>:                                       # second cell [opt]
-        (?P<nd_c>[A-Z]+|_|\^|\.)                        # second col
-        (?P<nd_r>\d+|_|\^|\.)                           # second row
+    (?::                                                 # second cell [opt]
+        (?P<nd_col>[A-Z]+|_|\^|\.)                       # second col
+        (?P<nd_row>\d+|_|\^|\.)                          # second row
         (?:\(
-            (?P<nd_m>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)   # moves from second cell
+            (?P<nd_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves from nd cell
             \)
         )?
-        (?P<ex>:)                                       #
     )?
     (?P<json>\{.*\})?                       # any json object [opt]
     \s*$""", re.IGNORECASE | re.X)
@@ -615,7 +659,7 @@ def parse_xl_ref(xl_ref):
 
     :param xl_ref:
         a string with the following format:
-        <xl_sheet_name>!<cell_up>:<cell_down>{<json>}
+        <xl_sheet_name>!<st_col>():<cell_down>{<json>}
         es. xl_sheet_name!UP10:DN20{"json":"..."}
     :type xl_ref: str
 
@@ -623,8 +667,12 @@ def parse_xl_ref(xl_ref):
         dictionary containing the following parameters::
 
         - xl_sheet_name
-        - cell_up
-        - cell_down
+        - st_col
+        - st_row
+        - st_mov
+        - nd_col
+        - nd_row
+        - nd_mov
         - json
 
     :rtype: dict
@@ -650,30 +698,6 @@ def parse_xl_ref(xl_ref):
         # resolve json
         r['json'] = json.loads(r['json']) if r['json'] else None
 
-        # fetch cell_down
-        r['cell_down'] = fetch_cell_ref(r['cell_down'], r.pop('d_c'),
-                                        r.pop('d_r'))
-
-        # fetch cell_up
-        if r['cell_up'] is None:
-            if r['cell_down']:
-                r['cell_up'] = Cell(None, None)
-            else:
-                r['cell_up'] = Cell(0, 0)
-                r['cell_down'] = Cell(None, None)
-
-            del r['u_c'], r['u_r']
-
-            return r
-
-        r['cell_up'] = fetch_cell_ref(r['cell_up'], r.pop('u_c'), r.pop('u_r'))
-
-        try:  # check range "crossing"
-            if not r['cell_up'] < r['cell_down']:
-                raise ValueError('%s < %s' % (r['cell_down'], r['cell_up']))
-        except TypeError:
-            pass  # Raised when tuples contain None or str.
-
         return r
 
     except Exception as ex:
@@ -696,8 +720,12 @@ def parse_xl_url(url):
 
         - url_file
         - xl_sheet_name
-        - cell_up
-        - cell_down
+        - st_col
+        - st_row
+        - st_mov
+        - nd_col
+        - nd_row
+        - nd_mov
         - json
 
     :rtype: dict
