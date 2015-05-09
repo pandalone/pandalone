@@ -18,7 +18,8 @@ import numpy as np
 import numpy.testing as npt
 from pandalone import pandata
 from pandalone.pandata import JSONCodec, iter_jsonpointer_parts,\
-    _iter_jsonpointer_parts_relaxed
+    _iter_jsonpointer_parts_relaxed, escape_jsonpointer_part,\
+    unescape_jsonpointer_part
 import pandas as pd
 from tests.test_utils import _init_logging
 
@@ -86,6 +87,16 @@ class TestJSONCodec(unittest.TestCase):
 
 
 class TestJsonPointer(unittest.TestCase):
+
+    def test_jsonpointer_escape_parts(self):
+        def un_esc(part):
+            return unescape_jsonpointer_part(escape_jsonpointer_part(part))
+        part = 'hi/there'
+        self.assertEqual(un_esc(part), part)
+        part = 'hi~there'
+        self.assertEqual(un_esc(part), part)
+        part = '/hi~there/'
+        self.assertEqual(un_esc(part), part)
 
     def test_iter_jsonpointer_empty(self):
         self.assertListEqual(list(iter_jsonpointer_parts('')), [])

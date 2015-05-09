@@ -1047,6 +1047,14 @@ class Pandel(object):
         resolve_jsonpointer(self.model, path, **kws)
 
 
+def escape_jsonpointer_part(part):
+    return part.replace(u"~", u"~0").replace(u"/", u"~1")
+
+
+def unescape_jsonpointer_part(part):
+    return part.replace(u"~1", u"/").replace(u"~0", u"~")
+
+
 def iter_jsonpointer_parts(jsonpath):
     """
     Generates the ``jsonpath`` parts according to jsonpointer spec.
@@ -1097,7 +1105,7 @@ def iter_jsonpointer_parts(jsonpath):
         raise RefResolutionError(msg.format(jsonpath))
 
     for part in parts:
-        part = part.replace(u"~1", u"/").replace(u"~0", u"~")
+        part = unescape_jsonpointer_part(part)
 
         yield part
 
@@ -1130,11 +1138,7 @@ def _iter_jsonpointer_parts_relaxed(jsonpointer):
 
     """
     for part in jsonpointer.split(u"/"):
-        #     parts = jsonpointer.split(u"/")
-        #     for part in parts:
-        part = part.replace(u"~1", u"/").replace(u"~0", u"~")
-
-        yield part
+        yield unescape_jsonpointer_part(part)
 
 _scream = object()
 
