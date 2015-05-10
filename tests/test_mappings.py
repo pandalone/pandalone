@@ -430,9 +430,9 @@ class TestPmod(unittest.TestCase):
 
 class TestPstep(unittest.TestCase):
 
-    def PMODS(self):
+    def PMODS(self, absolute=False):
         return pmods_from_tuples([
-            ('',            'root'),
+            ('',            '/root' if absolute else 'root'),
             ('/a',          'b'),
             ('/abc',        'BAR'),
             ('/abc/def',    'DEF'),
@@ -527,10 +527,10 @@ class TestPstep(unittest.TestCase):
         p['321']
         p._some_hidden = 12
         exp = [
-            '//abc/def',
-            '//abc/defg',
-            '//321',
-            '//n123',
+            '/abc/def',
+            '/abc/defg',
+            '/321',
+            '/n123',
         ]
         self.assertListEqual(sorted(p._paths), sorted(exp))
         self.assertEqual(
@@ -545,10 +545,10 @@ class TestPstep(unittest.TestCase):
         p['321']
         p._some_hidden = 12
         exp = [
-            '/r/abc/def',
-            '/r/abc/defg',
-            '/r/321',
-            '/r/n123',
+            'r/abc/def',
+            'r/abc/defg',
+            'r/321',
+            'r/n123',
         ]
         self.assertListEqual(sorted(p._paths), sorted(exp))
         self.assertEqual(
@@ -648,84 +648,68 @@ class TestPstep(unittest.TestCase):
         p.a
         self.assertEquals(p, '', (p, p._paths))
         self.assertEquals(p.a, 'bar', (p, p._paths))
-        self.assertEquals(sorted(p._paths), ['//bar'], (p, sorted(p._paths)))
+        self.assertEquals(sorted(p._paths), ['/bar'])
 
         self.assertEquals(p.a.b, 'b')
-        self.assertEquals(sorted(p._paths), ['//bar/b'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(sorted(p._paths), ['/bar/b'])
 
         self.assertEquals(p.c, 'c')
-        self.assertEquals(sorted(p._paths), ['//bar/b', '//c'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(sorted(p._paths), ['/bar/b', '/c'])
 
         self.assertEquals(p.a.f, 'f')
-        self.assertEquals(sorted(p._paths),
-                          ['//bar/b', '//bar/f', '//c'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(sorted(p._paths), ['/bar/b', '/bar/f', '/c'])
 
     def test_pmods_nonempty1ststep_rootunmapped(self):
         p = Pstep('root', _pmod=pmods_from_tuples([('/a', 'bar')]))
         p.a
         self.assertEquals(p, 'root', (p, p._paths))
         self.assertEquals(p.a, 'bar', (p, p._paths))
-        self.assertEquals(
-            sorted(p._paths), ['/root/bar'], (p, sorted(p._paths)))
+        self.assertEquals(sorted(p._paths), ['root/bar'])
 
         self.assertEquals(p.a.b, 'b')
-        self.assertEquals(sorted(p._paths), ['/root/bar/b'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(sorted(p._paths), ['root/bar/b'])
 
         self.assertEquals(p.c, 'c')
-        self.assertEquals(sorted(p._paths), ['/root/bar/b', '/root/c'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(sorted(p._paths), ['root/bar/b', 'root/c'])
 
         self.assertEquals(p.a.f, 'f')
         self.assertEquals(sorted(p._paths),
-                          ['/root/bar/b', '/root/bar/f', '/root/c'],
-                          (p, sorted(p._paths)))
+                          ['root/bar/b', 'root/bar/f', 'root/c'])
 
     def test_pmods_emptyroot_rootmapped(self):
         p = Pstep(_pmod=pmods_from_tuples([('', 'root'), ('/a', 'bar')]))
         p.a
-        self.assertEquals(p, 'root', (p, sorted(p._paths)))
-        self.assertEquals(p.a, 'bar', (p, sorted(p._paths)))
-        self.assertEquals(sorted(p._paths), ['/root/bar'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(p, 'root')
+        self.assertEquals(p.a, 'bar')
+        self.assertEquals(sorted(p._paths), ['root/bar'])
 
         self.assertEquals(p.a.b, 'b')
-        self.assertEquals(sorted(p._paths), ['/root/bar/b'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(sorted(p._paths), ['root/bar/b'])
 
         self.assertEquals(p.c, 'c')
-        self.assertEquals(sorted(p._paths), ['/root/bar/b', '/root/c'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(sorted(p._paths), ['root/bar/b', 'root/c'])
 
         self.assertEquals(p.a.f, 'f')
-        self.assertEquals(sorted(p._paths),
-                          ['/root/bar/b', '/root/bar/f', '/root/c'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(
+            sorted(p._paths), ['root/bar/b', 'root/bar/f', 'root/c'])
 
     def test_pmods_nonemptyroot_rootmapped(self):
         p = Pstep(
             'root', _pmod=pmods_from_tuples([('', 'root'), ('/a', 'bar')]))
         p.a
-        self.assertEquals(p, 'root', (p, sorted(p._paths)))
-        self.assertEquals(p.a, 'bar', (p, sorted(p._paths)))
-        self.assertEquals(
-            sorted(p._paths), ['/root/bar'], (p, sorted(p._paths)))
+        self.assertEquals(p, 'root')
+        self.assertEquals(p.a, 'bar')
+        self.assertEquals(sorted(p._paths), ['root/bar'])
 
         self.assertEquals(p.a.b, 'b')
-        self.assertEquals(sorted(p._paths), ['/root/bar/b'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(sorted(p._paths), ['root/bar/b'])
 
         self.assertEquals(p.c, 'c')
-        self.assertEquals(sorted(p._paths), ['/root/bar/b', '/root/c'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(sorted(p._paths), ['root/bar/b', 'root/c'])
 
         self.assertEquals(p.a.f, 'f')
-        self.assertEquals(sorted(p._paths),
-                          ['/root/bar/b', '/root/bar/f', '/root/c'],
-                          (p, sorted(p._paths)))
+        self.assertEquals(
+            sorted(p._paths), ['root/bar/b', 'root/bar/f', 'root/c'])
 
     def _build_psteps(self, root='', pmods=None):
         p = Pstep(root, _pmod=pmods)
@@ -803,45 +787,53 @@ class TestPstep(unittest.TestCase):
         p.abc['def']['123']
         self.assertListEqual(
             sorted(p._paths),
+            sorted(['root/b', 'root/BAR/DEF/234']),
+            (p, p._paths))
+
+        p = Pstep(_pmod=self.PMODS(absolute=True))
+        p.a
+        p.abc['def']['123']
+        self.assertListEqual(
+            sorted(p._paths),
             sorted(['/root/b', '/root/BAR/DEF/234']),
             (p, p._paths))
 
     def test_pmods_lock_not_applying(self):
         p = Pstep('not dot', _pmod=self.PMODS())
         p.nota
+        p = Pstep('not dot', _pmod=self.PMODS(absolute=True))
+        p.nota
 
         pmods = self.PMODS()
+        pmods._alias = None
+        p = Pstep(_pmod=pmods)
+        pmods = self.PMODS(absolute=True)
         pmods._alias = None
         p = Pstep(_pmod=pmods)
 
     def test_pmods_lock_CAN_RELOCATE(self):
         pmods = self.PMODS()
-        pmods._alias = 'deep/root'
         p = Pstep(_pmod=pmods)
         p._lock = Pstep.CAN_RELOCATE
         p['for']._lock = Pstep.CAN_RELOCATE
 
-    def test_pmods_lock_CAN_RENAME(self):
-        pmods = self.PMODS()
-        pmods._alias = 'deep/root'
+    def test_pmods_lock_CAN_RENAME_root(self):
+        pmods = self.PMODS(absolute=True)
         p = Pstep(_pmod=pmods)
         with self.assertRaises(ValueError, msg=p._paths):
             p._lock = Pstep.CAN_RENAME
 
+    def test_pmods_lock_CAN_RENAME_rest(self):
         p = Pstep(_pmod=self.PMODS())
         with self.assertRaises(ValueError, msg=p._paths):
             p['for']._lock = Pstep.CAN_RENAME
 
-    def test_pmods_lock_LOCKED(self):
+    def test_pmods_lock_LOCKED_root(self):
         p = Pstep(_pmod=self.PMODS())
         with self.assertRaises(ValueError, msg=p._paths):
             p._lock = Pstep.LOCKED
 
-        pmods = self.PMODS()
-        pmods._alias = 'deep/root'
-        with self.assertRaises(ValueError, msg=p._paths):
-            p._lock = Pstep.LOCKED
-
+    def test_pmods_lock_LOCKED_rest(self):
         pmods = self.PMODS()
         pmods._alias = None
         p = Pstep(_pmod=pmods)

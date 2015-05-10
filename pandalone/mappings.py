@@ -519,6 +519,7 @@ class Pmod(object):
 
 
 def pmods_from_tuples(pmods_tuples):
+    # TODO: Break into regex, relative, etc
     """
     Turns a list of 2-tuples into a *pmods* hierarchy.
 
@@ -844,7 +845,7 @@ class Pstep(str):
         >>> assert m[p['321'].cc] == 33
 
         >>> sorted(p._paths)
-        ['/a/321/cc', '/a/abc']
+        ['a/321/cc', 'a/abc']
 
 
     - Any "path-mappings" or "pmods" maybe specified during construction::
@@ -860,7 +861,7 @@ class Pstep(str):
         >>> p.abc.foo
         `BAR`
         >>> p._paths
-        ['/deeper/ROOT/ABC/BAR']
+        ['deeper/ROOT/ABC/BAR']
 
     - but exceptions are thrown if mapping any step marked as "locked":
 
