@@ -12,7 +12,7 @@ import doctest
 import json
 from pandalone.mappings import (
     df_as_pmods_tuples, Pmod,
-    pmods_from_tuples, Pstep)
+    pmods_from_tuples, Pstep, _append_path)
 import pandalone.mappings
 import re
 import sre_constants
@@ -40,6 +40,24 @@ class TestDoctest(unittest.TestCase):
             optionflags=doctest.NORMALIZE_WHITESPACE)  # | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
+
+
+class TestJoinPaths(unittest.TestCase):
+
+    def test_append_paths_dotdot_on_empty(self):
+        steps = []
+        self.assertEqual(_append_path(steps, '..'), [])
+
+    def test_append_paths_dotdot_on_rooted(self):
+        steps = ['']
+        self.assertEqual(_append_path(steps, '..'), [''])
+
+    def test_append_paths_slash(self):
+        steps = ['', 'a']
+        self.assertEqual(_append_path(steps, '/'), ['', ''])
+
+        steps = ['']
+        self.assertEqual(_append_path(steps, '/'), ['', ''])
 
 
 class TestPmod(unittest.TestCase):
@@ -479,7 +497,28 @@ class TestPstep(unittest.TestCase):
             with self.assertRaises(AssertionError, msg=f):
                 f(p),
 
-    def test_paths_empty_rootstep(self):
+    def test_paths_empty1ststep(self):
+        p = Pstep()
+        self.assertListEqual(sorted(p._paths), sorted(['']))
+
+        p.a
+        self.assertListEqual(sorted(p._paths), sorted(['/a']))
+
+        p = Pstep('')
+        self.assertListEqual(sorted(p._paths), sorted(['']))
+
+        p = Pstep('')
+        p.a
+        self.assertListEqual(sorted(p._paths), sorted(['/a']))
+
+    def test_paths(self):
+        p = Pstep('r')
+        self.assertListEqual(sorted(p._paths), sorted(['r']))
+
+        p.a
+        self.assertListEqual(sorted(p._paths), sorted(['r/a']))
+
+    def test_paths_multi_empty1ststep(self):
         p = Pstep()
         p.abc
         p.abc['def']
@@ -497,7 +536,7 @@ class TestPstep(unittest.TestCase):
         self.assertEqual(
             Pstep._append_children.__defaults__[0], [])  # @UndefinedVariable
 
-    def test_paths_nonempty_rootstep(self):
+    def test_paths_multi_nonempty1ststep(self):
         p = Pstep('r')
         p.abc
         p.abc['def']
@@ -514,6 +553,89 @@ class TestPstep(unittest.TestCase):
         self.assertListEqual(sorted(p._paths), sorted(exp))
         self.assertEqual(
             Pstep._append_children.__defaults__[0], [])  # @UndefinedVariable
+
+    ### DOT ###
+
+    def test_paths_dot_atroot_empty1ststep(self):
+        p = Pstep()
+        p['.']
+        self.assertListEqual(sorted(p._paths), sorted(['']))
+
+    def test_paths_dot_empty1ststep(self):
+        p = Pstep()
+        p.a['.']
+        self.assertListEqual(sorted(p._paths), sorted(['/a']))
+
+    def test_paths_dot_atroot(self):
+        p = Pstep('r')
+        p['.']
+        self.assertListEqual(sorted(p._paths), sorted(['r']))
+
+    def test_paths_dot(self):
+        p = Pstep('r')
+        p.a['.']
+        self.assertListEqual(sorted(p._paths), sorted(['r/a']))
+
+    def test_paths_dot_multi_empty1ststep(self):
+        p = Pstep('')
+        p['.'].a.b
+        p.c['.'].d
+        self.assertListEqual(sorted(p._paths), sorted(['/a/b', '/c/d']))
+
+    def test_paths_dot_multi(self):
+        p = Pstep('r')
+        p['.'].a.b
+        p.c['.'].d
+        self.assertListEqual(sorted(p._paths), sorted(['r/a/b', 'r/c/d']))
+
+    ### DOTDOT ###
+    # NOT TO BE USED DIRECTLY
+    # BC HIDS PATHS,
+    # but testing for mapping.
+
+    def test_paths_dotdot_atroot_empty1ststep(self):
+        p = Pstep()
+        p['..'].a
+        self.assertListEqual(sorted(p._paths), sorted(['/a']))
+
+        p = Pstep()
+        p['..'].a
+        p['..'].b
+        self.assertListEqual(sorted(p._paths), sorted(['/a', '/b']))
+
+    def test_paths_dotdot_empty1ststep(self):
+        p = Pstep()
+        p.a['..'].b
+        self.assertListEqual(sorted(p._paths), sorted(['/b']))
+
+        p = Pstep()
+        p.a['..'].b
+        p.a.c
+        self.assertListEqual(sorted(p._paths), sorted(['/a/c', '/b']))
+
+    def test_paths_dotdot_atroot(self):
+        p = Pstep('r')
+        p['..'].a
+        self.assertListEqual(sorted(p._paths), sorted(['a']))
+
+    def test_paths_dotdot(self):
+        p = Pstep('r')
+        p.a['..'].b
+        self.assertListEqual(sorted(p._paths), sorted(['r/b']))
+
+    def test_paths_dotdot_multi_empty1ststep(self):
+        p = Pstep('')
+        p['..'].a.b
+        p.c['..'].d
+        self.assertListEqual(sorted(p._paths), sorted(['/a/b', '/d']))
+
+    def test_paths_dotdot_multi(self):
+        p = Pstep('r')
+        p['..'].a.b
+        p.c['..'].d
+        self.assertListEqual(sorted(p._paths), sorted(['a/b', 'r/d']))
+
+    ### PMODS ###
 
     def test_pmods_miss(self):
         p = Pstep(_pmod=pmods_from_tuples([('/MISS', 'BOO')]))
@@ -541,7 +663,7 @@ class TestPstep(unittest.TestCase):
                           ['//bar/b', '//bar/f', '//c'],
                           (p, sorted(p._paths)))
 
-    def test_pmods_nonempty_rootstep_rootunmapped(self):
+    def test_pmods_nonempty1ststep_rootunmapped(self):
         p = Pstep('root', _pmod=pmods_from_tuples([('/a', 'bar')]))
         p.a
         self.assertEquals(p, 'root', (p, p._paths))

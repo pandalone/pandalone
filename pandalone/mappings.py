@@ -24,7 +24,8 @@ from __future__ import division, unicode_literals
 from collections import OrderedDict
 from copy import copy
 import logging
-from pandalone.pandata import _iter_jsonpointer_parts_relaxed, JSchema
+from pandalone.pandata import _iter_jsonpointer_parts_relaxed, JSchema,\
+    unescape_jsonpointer_part
 from pandalone.pandata import iter_jsonpointer_parts
 import re
 
@@ -650,7 +651,9 @@ def _append_step(steps, step):
     """
     Joins `steps`-list with `path`, respecting '/', '..', '.', ''.
 
-    :return: the new or updated steps-list.
+    :param list steps:  where to append into ("absolute" when 1st-element is '')
+    :param str step:    what to append (may be 'foo', '.', '..', ''-->"root")
+    :return: a new or the steps-list updated
     :rtype:  list
 
     .. Note:: 
@@ -671,16 +674,36 @@ def _append_step(steps, step):
         >>> _append_step(['a', 'b'], '.')
         ['a', 'b']
 
+
+    Not that an "absolute" path has the 1st-step empty(`''`), 
+    (so the previous paths above were all "relative")::
+
         >>> _append_step(['a', 'b'], '')
-        []
+        ['']
+        >>> _append_step([''], '')
+        ['']
+        >>> _append_step(['', 'a'], '')
+        ['']
+        >>> _append_step([''], '.')
+        ['']
+
+
+    But dot-doting(`..`) on absolute paths preserves rooted-ness::
+
+        >>> _append_path([''], '..')
+        ['']
+        >>> _append_path(['', ''], '..')
+        ['']
 
     """
+    # TODO: Convert to switch-case tih funcs-dict
     if step == '':
-        steps = []
+        steps = ['']
     elif step == '.':
         pass
     elif step == '..':
-        steps = steps[:-1]
+        if [''] != steps:
+            steps = steps[:-1]
     else:
         steps.append(step)
 
@@ -691,8 +714,16 @@ def _append_path(steps, path):
     """
     Joins `steps`-list with `path`, respecting '/', '..', '.', ''.
 
-    :return: the new or updated steps-list.
+    :param list steps:  where to append into ("absolute" when 1st-element is '')
+    :param str path:    what to append (ie '/foo/', '.', '..', ''-->"root")
+    :return: a new or the steps-list updated
     :rtype:  list
+
+    .. Note:: 
+        For `path`, the "root" is signified by the empty(`''`) step; 
+        not the slash(`/`).  
+        A lone slash(`/`) will translate an empty step after root: ``['', '']``.
+        The same happens when `/` is the last char of `path`.
 
     Example::
 
@@ -712,15 +743,40 @@ def _append_path(steps, path):
         >>> _append_path(['a', 'b'], './c')
         ['a', 'b', 'c']
 
+    Not that an "absolute" path has the 1st-step empty(`''`), 
+    (so the previous paths above were all "relative")::
+
         >>> _append_path(['a', 'b'], '/r')
-        ['r']
+        ['', 'r']
 
         >>> _append_path(['a', 'b'], '')
-        []
+        ['']
+
+
+    But dot-doting on "rooted" paths (1st-step empty), preserves them::
+
+        >>> _append_path([''], '..')
+        ['']
+
+        >>> _append_path([''], '../../a')
+        ['', 'a']
+
+        >>> _append_path(['', 'foo'], '/')
+        ['', '']
 
     """
+
+    if path.endswith('/'):
+        endslash = True
+        path = path[:-1]
+    else:
+        endslash = False
+
     for step in _iter_jsonpointer_parts_relaxed(path):
         steps = _append_step(steps, step)
+
+    if endslash:
+        steps.append('')
 
     return steps
 
@@ -834,11 +890,14 @@ class Pstep(str):
 
         :param str pname:   this pstep's name; it is stored at `_orig` and
                             if unmapped by pmod, becomes super-str object.
+                            The pname get jsonpointer-escaped 
+                            (see :func:`pandata.escape_jsonpointer_part()`)
         :param PMod _pmod:  the mappings for the children of this pstep, which
                             contains the un-expanded `_alias` for this pstep,
                             or None
         :param str _alias:  the regex-expanded alias for this pstep, or None
         """
+        pname = unescape_jsonpointer_part(str(pname))
         alias = _alias
         if not alias and _pmod:
             alias = _pmod._alias
@@ -912,7 +971,9 @@ class Pstep(str):
         """
         paths = []
         self._append_children(paths)
-        return ['/%s' % '/'.join(p) for p in paths]
+        paths = ['/'.join(p) for p in paths]
+
+        return sorted(set(paths))
 
     def _append_children(self, paths, prefix_steps=[]):
         """
@@ -922,7 +983,8 @@ class Pstep(str):
         :rtype: [[str]]
         """
         nprefix = prefix_steps.copy()
-        nprefix.append(self)
+        nprefix = _append_path(nprefix, self)
+        # nprefix.append(self)
         if self._csteps:
             for v in self._csteps.values():
                 v._append_children(paths, nprefix)
