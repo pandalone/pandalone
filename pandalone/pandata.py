@@ -151,19 +151,6 @@ class ModelOperations(namedtuple('ModelOperations', 'inp out conv')):
         pass
 
 
-# TODO: ImplementPathMaps as ModelOperations.
-class PathMaps(object):
-
-    """
-    Cascade prefix-mapping of json-paths to any values (here :class:`ModelOperations`.
-    """
-    pass
-
-
-class TreeVisitorMixin(object):
-    pass
-
-
 # Workaround https://github.com/Julian/jsonschema/issues/178
 ValidatorBase = jsonschema.validators.create({})
 
@@ -1110,7 +1097,7 @@ def iter_jsonpointer_parts(jsonpath):
         yield part
 
 
-def _iter_jsonpointer_parts_relaxed(jsonpointer):  # TODO: Unpriviatize
+def iter_jsonpointer_parts_relaxed(jsonpointer):
     """
     Like :func:`iter_jsonpointer_parts()` but accepting also non-absolute paths.
 
@@ -1118,22 +1105,22 @@ def _iter_jsonpointer_parts_relaxed(jsonpointer):  # TODO: Unpriviatize
 
     Examples::
 
-        >>> list(_iter_jsonpointer_parts_relaxed('a'))
+        >>> list(iter_jsonpointer_parts_relaxed('a'))
         ['a']
-        >>> list(_iter_jsonpointer_parts_relaxed('a/'))
+        >>> list(iter_jsonpointer_parts_relaxed('a/'))
         ['a', '']
-        >>> list(_iter_jsonpointer_parts_relaxed('a/b'))
+        >>> list(iter_jsonpointer_parts_relaxed('a/b'))
         ['a', 'b']
 
-        >>> list(_iter_jsonpointer_parts_relaxed('/a'))
+        >>> list(iter_jsonpointer_parts_relaxed('/a'))
         ['', 'a']
-        >>> list(_iter_jsonpointer_parts_relaxed('/a/'))
+        >>> list(iter_jsonpointer_parts_relaxed('/a/'))
         ['', 'a', '']
 
-        >>> list(_iter_jsonpointer_parts_relaxed('/'))
+        >>> list(iter_jsonpointer_parts_relaxed('/'))
         ['', '']
 
-        >>> list(_iter_jsonpointer_parts_relaxed(''))
+        >>> list(iter_jsonpointer_parts_relaxed(''))
         ['']
 
     """

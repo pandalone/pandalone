@@ -25,7 +25,7 @@ from __future__ import division, unicode_literals
 from collections import OrderedDict
 from copy import copy
 import logging
-from pandalone.pandata import (_iter_jsonpointer_parts_relaxed, JSchema,
+from pandalone.pandata import (iter_jsonpointer_parts_relaxed, JSchema,
                                unescape_jsonpointer_part,  iter_jsonpointer_parts)
 import re
 
@@ -496,7 +496,7 @@ class Pmod(object):
 #         else:
 #             is_folder = False
 
-        steps = list(_iter_jsonpointer_parts_relaxed(path))
+        steps = list(iter_jsonpointer_parts_relaxed(path))
         nsteps = []
         if not self._alias is None:
             nsteps.append(self._alias)
@@ -620,7 +620,7 @@ def pmods_from_tuples(pmods_tuples):
             continue
 
         pmod = root
-        for srcstep in _iter_jsonpointer_parts_relaxed(f):
+        for srcstep in iter_jsonpointer_parts_relaxed(f):
             is_regex = any(set('[]().*+?') & set(srcstep))
             if is_regex:
                 pmod = pmod._append_into_regxs(srcstep)
@@ -725,15 +725,15 @@ def _append_step(steps, step):
         ['']
 
     """
-    # TODO: Convert to switch-case tih funcs-dict
-    if step == '':
-        steps = ['']
-    elif step == '.':
-        pass
-    elif step == '..':
-        if [''] != steps:
-            steps = steps[:-1]
-    else:
+    _append_step_funcs = {
+        '': lambda steps, step: [''],
+        '.': lambda steps, step: steps,
+        '..': lambda steps, step: steps[:-1] if [''] != steps else steps,
+    }
+
+    try:
+        steps = _append_step_funcs[step](steps, step)
+    except KeyError:
         steps.append(step)
 
     return steps
@@ -801,7 +801,7 @@ def _append_path(steps, path):
     else:
         is_folder = False
 
-    for step in _iter_jsonpointer_parts_relaxed(path):
+    for step in iter_jsonpointer_parts_relaxed(path):
         steps = _append_step(steps, step)
 
     if is_folder:
@@ -898,6 +898,19 @@ class Pstep(str):
     - .. Warning::
           String's slicing operations do not work on this string-subclass!
 
+    - .. Warning::
+          Creating an empty(`''`) step in some paths will "root" the path::
+
+              >>> p = Pstep()
+              >>> _ = p.a1.b
+              >>> _ = p.A2
+              >>> p._paths
+              ['/A2', '/a1/b']
+
+              >>> _ = p.a1[''].c
+              >>> p._paths
+              ['/A2', '/a1/b', '/c']
+
     """
 
     CAN_RELOCATE = 3
@@ -924,7 +937,7 @@ class Pstep(str):
                             It will apply only if :meth:`Pmod.descend()` 
                             matches the `pname` passed here.
         """
-        pname = unescape_jsonpointer_part(pname)  # TODO: Escape-path TCs miss.
+        pname = unescape_jsonpointer_part(pname)  # TODO: Add Escape-path TCs.
         if _pmod:
             _pmod, alias = _pmod.descend(pname)
             if alias is None:
