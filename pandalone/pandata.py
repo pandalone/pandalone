@@ -1110,7 +1110,7 @@ def iter_jsonpointer_parts(jsonpath):
         yield part
 
 
-def _iter_jsonpointer_parts_relaxed(jsonpointer):
+def _iter_jsonpointer_parts_relaxed(jsonpointer):  # TODO: Unpriviatize
     """
     Like :func:`iter_jsonpointer_parts()` but accepting also non-absolute paths.
 

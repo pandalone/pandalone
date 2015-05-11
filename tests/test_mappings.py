@@ -230,7 +230,7 @@ class TestPmod(unittest.TestCase):
         pm = Pmod(_steps={'a': None})
         self.assertIsNone(pm.alias('a'))
 
-    def _build_pmod_c1r2(self):
+    def _build_pmod_manually(self):
         return Pmod(
             _steps={'a': Pmod(_alias='A')},
             _regxs=[('a(\w*)', Pmod('AWord')),
@@ -240,13 +240,13 @@ class TestPmod(unittest.TestCase):
         self.assertEqual(cpmod, (None, None), msg)
 
     def test_descend_BAD(self):
-        pm = self._build_pmod_c1r2()
+        pm = self._build_pmod_manually()
         self.assert_descend_stops(pm.descend('BAD'))
         self.assert_descend_stops(pm.descend('a-'))
         self.assert_descend_stops(pm.descend('a$'))
 
     def test_alias_BAD(self):
-        pm = self._build_pmod_c1r2()
+        pm = self._build_pmod_manually()
         self.assertIsNone(pm.alias('BAD'))
         self.assertIsNone(pm.alias('a-'))
         self.assertIsNone(pm.alias('a$'))
@@ -270,7 +270,7 @@ class TestPmod(unittest.TestCase):
         self.assertDictEqual(pm.descend('a1')[0]._steps, {2: 22, 3: 33})
 
     def test_alias(self):
-        pm = self._build_pmod_c1r2()
+        pm = self._build_pmod_manually()
 
         self.assertEqual(pm.alias('a'), 'A')
         self.assertEqual(pm.alias('abc'), 'AWord')
@@ -305,58 +305,64 @@ class TestPmod(unittest.TestCase):
 
     def test_map_path_rootUnmapped_slashPath(self):
         pm = Pmod()
-        self.assertEqual(pm.map_path('/'), '/')
-
-        pm = self._build_pmod_c1r2()
-        self.assertEqual(pm.map_path('/'), '/')
+        self.assertEqual(pm.map_path('/'), '')
 
     def test_map_path_rootUnmapped_emptyPath(self):
         pm = Pmod()
         self.assertEqual(pm.map_path(''), '')
 
-        pm = self._build_pmod_c1r2()
-        self.assertEqual(pm.map_path(''), '')
-
     def test_map_path_rootMapped(self):
-        pm = Pmod(_alias='root')
-        self.assertEqual(pm.map_path(''), '')
-        self.assertEqual(pm.map_path('/'), '/')
-        self.assertEqual(pm.map_path(''), '')
-        self.assertEqual(pm.map_path('/a'), '/root/a')
-
-        pm = self._build_pmod_c1r2()
-        pm._alias = 'root'
-        self.assertEqual(pm.map_path(''), '')
-        self.assertEqual(pm.map_path('/'), '/')
-        self.assertEqual(pm.map_path('/a'), '/root/A')
-        self.assertEqual(pm.map_path('/a_blah'), '/root/AWord')
-        self.assertEqual(pm.map_path('/a0'), '/root/A_0')
 
         pm = pmods_from_tuples([
             ('', 'New/Root'),
             ('/a/b', 'B'),
         ])
-        self.assertEqual(pm.map_path('/a/b'), '/New/Root/a/B')
+        self.assertEqual(pm.map_path('/a/b'), 'New/Root/a/B')
+
+    def _build_simple_pmod_from_tuples(self):
+        return pmods_from_tuples([('/a', 'A'),
+                                  ('/a(\w*)', 'AWord'),
+                                  ('/a(\d*)', 'A_\\1'),
+                                  ])
+
+    def test_map_path_rootMapped_relative(self):
+        pm = pmods_from_tuples([('', 'root')])
+        self.assertEqual(pm.map_path(''), 'root')
+        self.assertEqual(pm.map_path('/a'), 'root/a')
+        # self.assertEqual(pm.map_path('/'), 'root')  ## TODO: FIX map2slash
+
+    def test_map_path_rootMapped_absolute(self):
+        pm = pmods_from_tuples([('', '/root')])
+        self.assertEqual(pm.map_path(''), '/root')
+        self.assertEqual(pm.map_path('/a'), '/root/a')
+        # self.assertEqual(pm.map_path('/'), '/root')  ## TODO: FIX map2slash
 
     def test_map_path_missed(self):
-        pm = self._build_pmod_c1r2()
+        pm = self._build_simple_pmod_from_tuples()
 
         self.assertEqual(pm.map_path('/c'), '/c')
         self.assertEqual(pm.map_path('/c/a'), '/c/a')
         self.assertEqual(pm.map_path('/a$/a4'), '/a$/a4')
 
     def test_map_path_simple(self):
-        pm = self._build_pmod_c1r2()
+        pm = self._build_simple_pmod_from_tuples()
 
         self.assertEqual(pm.map_path('/a'), '/A')
         self.assertEqual(pm.map_path('/a/b'), '/A/b')
 
     def test_map_path_regex(self):
-        pm = self._build_pmod_c1r2()
+        pm = self._build_simple_pmod_from_tuples()
 
         self.assertEqual(pm.map_path('/a'), '/A')
         self.assertEqual(pm.map_path('/a_wo/b'), '/AWord/b')
         self.assertEqual(pm.map_path('/a12/b'), '/A_12/b')
+
+    def test_map_path_regex_2_dot_dotdot_root_abs(self):
+        pmods = pmods_from_tuples([('/b.*/c(.*)',  r'../C/\1')])
+        #self.assertEqual(pmods.map_path('/'), '/')
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/big/child'), '/big/C/hild')
+        self.assertEqual(pmods.map_path(''), '')
 
     def test_convert_df_empty(self):
         df_orig = pd.DataFrame([])
@@ -390,8 +396,8 @@ class TestPmod(unittest.TestCase):
             ('/a/b', 'B'),
         ]
         pmods = pmods_from_tuples(pmods_tuples)
-        # pmod({'a': pmod('A1/A2', {'b': pmod('B')})})
 
+        pmods = pmods._steps['']
         self.assertFalse(bool(pmods._regxs))
         self.assertSetEqual(set(pmods._steps), {'a'})
         self.assertEqual(pmods._steps['a']._alias, 'A1/A2')
@@ -404,6 +410,7 @@ class TestPmod(unittest.TestCase):
         ]
         pmods = pmods_from_tuples(pmods_tuples)
 
+        pmods = pmods._steps['']
         self.assertFalse(bool(pmods._steps))
         self.assertEqual(pmod2regexstrs(pmods), ['a*', 'a[1]?'])
 
@@ -415,6 +422,7 @@ class TestPmod(unittest.TestCase):
         ]
         pmods = pmods_from_tuples(pmods_tuples)
 
+        pmods = pmods._steps['']
         s = [r"pmod({'a': pmod('A')}, OrderedDict([(re.compile('a\\w*'), "
              r"pmod('A1/A2')), (re.compile('a\\d*'), "
              r"pmod(OrderedDict([(re.compile('b?'), pmod('D/D'))])))]))"
@@ -423,9 +431,120 @@ class TestPmod(unittest.TestCase):
 
     def test_pmods_from_tuples_rootMapping(self):
         self.assertEqual(pmods_from_tuples([('', 'A/B')]),
-                         Pmod(_alias='A/B'))
-        self.assertEqual(pmods_from_tuples([('/', 'A/B')]),
                          Pmod(_steps={'': Pmod(_alias='A/B')}))
+        self.assertEqual(pmods_from_tuples([('/', 'A/B')]),
+                         Pmod(_steps={'':
+                                      Pmod(_steps={'': Pmod(_alias='A/B')})}))
+
+    def test_map_path_2_root(self):
+        pmods = pmods_from_tuples([('/a', '')])
+        self.assertEqual(pmods.map_path('/a'), '')
+        self.assertEqual(pmods.map_path('/a/b'), '/b')
+        self.assertEqual(pmods.map_path('/b'), '/b')
+
+        pmods = pmods_from_tuples([('/a/b', '')])
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '')
+        self.assertEqual(pmods.map_path('/a/b/c'), '/c')
+        self.assertEqual(pmods.map_path('/c'), '/c')
+
+    def test_map_path_2_abs(self):
+        pmods = pmods_from_tuples([('/a', '/A')])
+        self.assertEqual(pmods.map_path('/a'), '/A')
+        self.assertEqual(pmods.map_path('/a/b'), '/A/b')
+        self.assertEqual(pmods.map_path('/A/b'), '/A/b')
+
+        pmods = pmods_from_tuples([('/a/b', '/A/AA')])
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/A/AA')
+        self.assertEqual(pmods.map_path('/a/b/c'), '/A/AA/c')
+        self.assertEqual(pmods.map_path('/A/AA/c'), '/A/AA/c')
+
+    def test_map_path_2_dot(self):
+        pmods = pmods_from_tuples([('/a', '.')])
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/a/b')
+        self.assertEqual(pmods.map_path('/b'), '/b')
+
+        pmods = pmods_from_tuples([('/a', './bb')])
+        self.assertEqual(pmods.map_path('/a'), '/a/bb')
+        self.assertEqual(pmods.map_path('/a/b'), '/a/bb/b')
+        self.assertEqual(pmods.map_path('/b/c'), '/b/c')
+
+    def test_map_path_2_dotdot(self):
+        pmods = pmods_from_tuples([('/a', '..')])
+        self.assertEqual(pmods.map_path('/a'), '')
+        self.assertEqual(pmods.map_path('/a/b'), '/b')
+        self.assertEqual(pmods.map_path('/b'), '/b')
+
+        pmods = pmods_from_tuples([('/a/b', '..')])
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/a')
+        self.assertEqual(pmods.map_path('/a/b/c'), '/a/c')
+
+        pmods = pmods_from_tuples([('/a/b', '../cc')])
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/a/cc')
+        self.assertEqual(pmods.map_path('/a/b/c'), '/a/cc/c')
+
+    def test_map_path_slash_2_dot_dotdot_root_abs(self):
+        pmods = pmods_from_tuples([('/', '.')])
+        self.assertEqual(pmods.map_path('/'), '/')
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/a/b')
+        self.assertEqual(pmods.map_path(''), '')
+
+        pmods = pmods_from_tuples([('/', '..')])
+        self.assertEqual(pmods.map_path('/'), '')
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/a/b')
+        self.assertEqual(pmods.map_path(''), '')
+
+        pmods = pmods_from_tuples([('/', '')])
+        self.assertEqual(pmods.map_path('/'), '')
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/a/b')
+        self.assertEqual(pmods.map_path(''), '')
+
+        pmods = pmods_from_tuples([('/', '/')])
+        self.assertEqual(pmods.map_path('/'), '/')
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/a/b')
+        self.assertEqual(pmods.map_path(''), '')
+
+        pmods = pmods_from_tuples([('/', '/A/B')])
+        self.assertEqual(pmods.map_path('/'), '/A/B')
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/a/b')
+        self.assertEqual(pmods.map_path(''), '')
+
+    def test_map_path_root_2_dot_dotdot_root_abs(self):
+        pmods = pmods_from_tuples([('', '.')])
+        # self.assertEqual(pmods.map_path('/'), '/')  ## TODO: FIX map2slash
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/a/b')
+        self.assertEqual(pmods.map_path(''), '')
+
+        pmods = pmods_from_tuples([('', '..')])
+        #self.assertEqual(pmods.map_path('/'), '/')
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/a/b')
+        self.assertEqual(pmods.map_path(''), '')
+
+        pmods = pmods_from_tuples([('', '/')])
+        #self.assertEqual(pmods.map_path('/'), '/')
+        self.assertEqual(pmods.map_path('/a'), '//a')
+        self.assertEqual(pmods.map_path('/a/b'), '//a/b')
+        self.assertEqual(pmods.map_path(''), '/')
+
+        pmods = pmods_from_tuples([('', '/A/B')])
+        #self.assertEqual(pmods.map_path('/'), '/A/B/')
+        self.assertEqual(pmods.map_path('/a'), '/A/B/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/A/B/a/b')
+        self.assertEqual(pmods.map_path(''), '/A/B')
+
+        # Ignored by :func:`pmods_from_tuples().
+        # pmods = pmods_from_tuples([('', '')])
 
 
 class TestPstep(unittest.TestCase):
@@ -856,7 +975,7 @@ class TestPstep(unittest.TestCase):
             p1.a = p1
 
         def f3():
-            p1.a = Pstep()
+            p1.a = Pstep()  # TODO: Make step assigning work?
 
         self.assertRaises(AssertionError, f1)
         self.assertRaises(AssertionError, f2)

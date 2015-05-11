@@ -16,7 +16,8 @@ See:
 - :class:`Pstep`.
 
 - TODO: Pmods for relative-paths.
-- TODO: Explicit mark Pmods for relative-paths.
+- TODO: Explicit mark pmods_from-tuples() for relative/absolute & regex.
+- TODO: Split pstep._lock into _fix/_lock property. 
 """
 
 from __future__ import division, unicode_literals
@@ -24,9 +25,8 @@ from __future__ import division, unicode_literals
 from collections import OrderedDict
 from copy import copy
 import logging
-from pandalone.pandata import _iter_jsonpointer_parts_relaxed, JSchema,\
-    unescape_jsonpointer_part
-from pandalone.pandata import iter_jsonpointer_parts
+from pandalone.pandata import (_iter_jsonpointer_parts_relaxed, JSchema,
+                               unescape_jsonpointer_part,  iter_jsonpointer_parts)
 import re
 
 import functools as ft
@@ -64,7 +64,7 @@ class Pmod(object):
       the mapped value::
 
         (/all(.*)/path, foo)   + all_1/path --> /all_1/foo
-                               + allXXX     --> /allXXX          ## no change
+                               + all_XYZ    --> /all_XYZ        ## no change
         (/all(.*)/path, foo\1) + all_1/path --> /all_1/foo_1
 
       If more than one regex match, they are merged in the order declared
@@ -91,15 +91,21 @@ class Pmod(object):
         To construct a hierarchy use the :func:`pmods_from_tuples()` and/or 
         the :func:`df_as_pmods_tuples()`. 
 
-    You can either use it for mass-mapping paths, either for *renaming* them::
+    You can either use it for massively map paths, either for *renaming* them::
 
         >>> pmods = pmods_from_tuples([
         ...         ('/a',           'A'),
-        ...         ('/b.*',        r'BB\g<0>'),
-        ...         ('/b.*/c.(.*)', r'W\1ER'),
+        ...         ('/b.*',        r'BB\g<0>'),  ## Previous match.
+        ...         ('/b.*/c.(.*)', r'W\1ER'),    ## Capturing-group(1)
         ... ])
-        >>> pmods.map_paths(['/a', '/a/foo', '/big/stuff', '/born/child'])
-        ['/A', '/A/foo', '/BBbig/stuff',  '/BBborn/WildER']
+        >>> pmods.map_paths(['/a', '/a/foo'])     ## 1st rule
+        ['/A', '/A/foo']
+
+        >>> pmods.map_path('/big/stuff')          ## 2nd rule
+        '/BBbig/stuff'
+
+        >>> pmods.map_path('/born/child')         ## 2nd & 3rd rule
+        '/BBborn/WildER'
 
 
     or to *relocate* them::
@@ -110,12 +116,16 @@ class Pmod(object):
         ...         ('/b.*/.*/r.*', r'/\g<0>'),
         ... ])
         >>> pmods.map_paths(['/a/foo', '/big/child', '/begin/from/root'])
-        ['/A/AA/foo', '/C/hild',  '/root']
+        ['/A/AA/foo', '/big/C/hild',  '/root']
 
-    Or for a single-step searching::
 
-        >>> pmods.descend('a')
-        (pmod('A/AA'), 'A/AA')
+    Here is how you relocate "root" 
+    (notice that the `''` path is the root)::
+
+        >>> pmods = pmods_from_tuples([('', '/NEW/ROOT')])
+        >>> pmods.map_paths(['/a/foo', ''])
+        ['/NEW/ROOT/a/foo', '/NEW/ROOT']
+
     """
 
     __slots__ = ['_alias', '_steps', '_regxs']
@@ -291,7 +301,7 @@ class Pmod(object):
                         (re.compile('c'), pmod('C'))]))
         """
         self = copy(self)
-        if other._alias:
+        if not other._alias is None:
             self._alias = other._alias
         self._override_steps(other)
         self._override_regxs(other)
@@ -375,11 +385,11 @@ class Pmod(object):
         cpmod = self._steps.get(cstep)
         pmods = self._match_regxs(cstep)
 
-        if cpmod and cpmod._alias:
+        if cpmod and not cpmod._alias is None:
             alias = cpmod._alias
         else:
             for rpmod, match in reversed(pmods):
-                if rpmod._alias:
+                if not rpmod._alias is None:
                     alias = match.expand(rpmod._alias)
                     break
         pmods = [pmod for pmod, _ in pmods]
@@ -397,14 +407,13 @@ class Pmod(object):
         :return: the expanded alias from child/regexs or None
         """
         cpmod = self._steps.get(cstep)
-        if cpmod and cpmod._alias:
-            if cpmod._alias:
-                return cpmod._alias
+        if cpmod and not cpmod._alias is None:
+            return cpmod._alias
 
         pmods = self._match_regxs(cstep)
 
         for rpmod, match in reversed(pmods):
-            if rpmod._alias:
+            if not rpmod._alias is None:
                 return match.expand(rpmod._alias)
 
     def map_path(self, path):
@@ -450,19 +459,22 @@ class Pmod(object):
 
         To map *root* use '' which matches before the 1st slash('/')::
 
-            >>> pmods = pmods_from_tuples([('', 'New/Root'),])
+            >>> pmods = pmods_from_tuples([('', 'New/Root'),])  ## Relative
             >>> pmods
-            pmod('New/Root')
+            pmod({'': pmod('New/Root')})
 
             >>> pmods.map_path('/for/plant')
+            'New/Root/for/plant'
+
+            >>> pmods_from_tuples([('', '/New/Root'),]).map_path('/for/plant')
             '/New/Root/for/plant'
 
-        .. NOTE:: 
+        .. Note:: 
             Using slash('/') for "from" path will NOT map *root*::
 
                 >>> pmods = pmods_from_tuples([('/', 'New/Root'),])
                 >>> pmods
-                pmod({'': pmod('New/Root')})
+                pmod({'': pmod({'': pmod('New/Root')})})
 
                 >>> pmods.map_path('/for/plant')
                 '/for/plant'
@@ -478,15 +490,26 @@ class Pmod(object):
             ''
 
         """
-        steps = list(iter_jsonpointer_parts(path))
-        nsteps = [self._alias] if self._alias else []
+#         if path.endswith('/'):
+#             is_folder = True
+#             path = path[:-1]
+#         else:
+#             is_folder = False
+
+        steps = list(_iter_jsonpointer_parts_relaxed(path))
+        nsteps = []
+        if not self._alias is None:
+            nsteps.append(self._alias)
         if steps:
             pmod = self
             for step in steps[:-1]:
-                alias = None
                 if pmod:
                     pmod, alias = pmod.descend(step)
-                nsteps = _append_path(nsteps, alias or step)
+                if not alias is None:
+                    if alias.startswith('.'):
+                        nsteps.append(step)
+                    step = alias
+                nsteps = _append_path(nsteps, step)
 
             # On last step, the merging of child-pmods is a waste,
             #    so make it outside above-loop to
@@ -494,11 +517,14 @@ class Pmod(object):
             #
             final_step = steps[-1]
             if pmod:
-                final_step = pmod.alias(final_step) or final_step
+                alias = pmod.alias(final_step)
+                if not alias is None:
+                    if alias.startswith('.'):
+                        nsteps.append(final_step)
+                    final_step = alias
             nsteps = _append_path(nsteps, final_step)
 
-            return '/%s' % '/'.join(nsteps)
-        return ''
+        return '/'.join(nsteps)
 
     def map_paths(self, paths):
         return [self.map_path(p) for p in paths]
@@ -506,7 +532,7 @@ class Pmod(object):
     def __repr__(self):
         args = [repr(a)
                 for a in [self._alias, self._steps, self._regxs]
-                if a]
+                if a or a == '']
 
         args = ', '.join(args)
         return 'pmod({})'.format(args)
@@ -519,7 +545,6 @@ class Pmod(object):
 
 
 def pmods_from_tuples(pmods_tuples):
-    # TODO: Break into regex, relative, etc
     """
     Turns a list of 2-tuples into a *pmods* hierarchy.
 
@@ -549,31 +574,34 @@ def pmods_from_tuples(pmods_tuples):
         ...     ('/a', 'A1/A2'),
         ...     ('/a/b', 'B'),
         ... ])
-        pmod({'a': pmod('A1/A2', {'b': pmod('B')})})
+        pmod({'': pmod({'a': pmod('A1/A2', {'b': pmod('B')})})})
 
         >>> pmods_from_tuples([
         ...     ('/a*', 'A1/A2'),
         ...     ('/a/b[123]', 'B'),
         ... ])
-        pmod({'a': 
-            pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))}, 
-             OrderedDict([(re.compile('a*'), pmod('A1/A2'))]))
+        pmod({'': pmod({'a': 
+                pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))}, 
+                     OrderedDict([(re.compile('a*'), pmod('A1/A2'))]))})
 
 
     This is how you map *root*::
 
         >>> pmods = pmods_from_tuples([
-        ...     ('', 'New/Root'),
-        ...     ('/a/b', '/B'),
+        ...     ('', 'relative/Root'),        ## Make all paths relatives.
+        ...     ('/a/b', '/Rooted/B'),        ## But map `b` would be "rooted".
         ... ])
         >>> pmods
-        pmod('New/Root', {'a': pmod({'b': pmod('/B')})})
+        pmod({'': 
+                pmod('relative/Root', 
+                        {'a': pmod({'b': 
+                                pmod('/Rooted/B')})})})
 
         >>> pmods.map_path('/a/c')
-        '/New/Root/a/c'
+        'relative/Root/a/c'
 
         >>> pmods.map_path('/a/b')
-        '/B'
+        '/Rooted/B'
 
 
     But note that '/' maps the 1st "empty-str" step after root::
@@ -581,18 +609,18 @@ def pmods_from_tuples(pmods_tuples):
         >>> pmods_from_tuples([
         ...     ('/', 'New/Root'),
         ... ])
-        pmod({'': pmod('New/Root')})
+        pmod({'': pmod({'': pmod('New/Root')})})
 
     """
     root = Pmod()
     for i, (f, t) in enumerate(pmods_tuples):
-        if not t:
+        if (f, t) == ('', '') or f is None or t is None:
             msg = 'pmod-tuple(%i): `to(%s)` were empty!'
             log.warning(msg, i, f, t)
             continue
 
         pmod = root
-        for srcstep in iter_jsonpointer_parts(f):
+        for srcstep in _iter_jsonpointer_parts_relaxed(f):
             is_regex = any(set('[]().*+?') & set(srcstep))
             if is_regex:
                 pmod = pmod._append_into_regxs(srcstep)
@@ -768,15 +796,15 @@ def _append_path(steps, path):
     """
 
     if path.endswith('/'):
-        endslash = True
+        is_folder = True
         path = path[:-1]
     else:
-        endslash = False
+        is_folder = False
 
     for step in _iter_jsonpointer_parts_relaxed(path):
         steps = _append_step(steps, step)
 
-    if endslash:
+    if is_folder:
         steps.append('')
 
     return steps
@@ -804,7 +832,6 @@ class Pstep(str):
                          - :const:`Pstep.CAN_RELOCATE`(default, reparenting allowed),
                          - :const:`Pstep.CAN_RENAME`,
                          - :const:`Pstep.LOCKED' (neither from the above).
-                         - TODO: Split pstep._lock into _fix/_lock property. 
     :ivar dict _schema:  json-schema data.
 
 
