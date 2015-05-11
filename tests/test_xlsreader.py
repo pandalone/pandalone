@@ -76,15 +76,15 @@ class TestXlsReader(unittest.TestCase):
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
 
             # get single value [D7]
-            args = (sheet, xr.Cell(3, 6))
+            args = (sheet, xr.StartPos(3, 6))
             self.assertEqual(xr.get_rect_range(*args), 0)
 
             # get single value [A1]
-            args = (sheet, xr.Cell(0, 0))
+            args = (sheet, xr.StartPos(0, 0))
             self.assertEqual(xr.get_rect_range(*args), None)
 
             # get single value [H9]
-            args = (sheet, xr.Cell(7, 8))
+            args = (sheet, xr.StartPos(7, 8))
             self.assertEqual(xr.get_rect_range(*args), None)
 
     def test_vector_get_rect_range(self):
@@ -107,56 +107,56 @@ class TestXlsReader(unittest.TestCase):
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
 
             # single value in the sheet [D7:D7]
-            args = (sheet, xr.Cell(3, 6), xr.Cell(3, 6))
+            args = (sheet, xr.StartPos(3, 6), xr.StartPos(3, 6))
             self.assertEqual(xr.get_rect_range(*args), [0])
 
             # get whole column [D_]
-            args = (sheet, xr.Cell(3, None))
+            args = (sheet, xr.StartPos(3, None))
             res = [None, None, None, None, None, None, 0, 1]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # get whole row [_6]
-            args = (sheet, xr.Cell(None, 5))
+            args = (sheet, xr.StartPos(None, 5))
             res = [None, None, None, None, 0, 1, 2]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited row in the sheet [C6:_6]
-            args = (sheet, xr.Cell(2, 5), xr.Cell(None, 5))
+            args = (sheet, xr.StartPos(2, 5), xr.StartPos(None, 5))
             res = [None, None, 0, 1, 2]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited row in the sheet [_7:_7]
-            args = (sheet, xr.Cell(None, 6), xr.Cell(None, 6))
+            args = (sheet, xr.StartPos(None, 6), xr.StartPos(None, 6))
             res = [0]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited row in the sheet [A7:_7]
-            args = (sheet, xr.Cell(0, 6), xr.Cell(None, 6))
+            args = (sheet, xr.StartPos(0, 6), xr.StartPos(None, 6))
             res = [None, None, None, 0]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # delimited row in the sheet [A7:D7]
-            args = (sheet, xr.Cell(0, 6), xr.Cell(3, 6))
+            args = (sheet, xr.StartPos(0, 6), xr.StartPos(3, 6))
             res = [None, None, None, 0]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited column in the sheet [D_:D_]
-            args = (sheet, xr.Cell(3, None), xr.Cell(3, None))
+            args = (sheet, xr.StartPos(3, None), xr.StartPos(3, None))
             res = [0, 1]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited column in the sheet [D5:D_]
-            args = (sheet, xr.Cell(3, 4), xr.Cell(3, None))
+            args = (sheet, xr.StartPos(3, 4), xr.StartPos(3, None))
             res = [None, None, 0, 1]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited column in the sheet [D_:D9]
-            args = (sheet, xr.Cell(3, None), xr.Cell(3, 8))
+            args = (sheet, xr.StartPos(3, None), xr.StartPos(3, 8))
             res = [0, 1, None]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # delimited column in the sheet [D3:D9]
-            args = (sheet, xr.Cell(3, 2), xr.Cell(3, 8))
+            args = (sheet, xr.StartPos(3, 2), xr.StartPos(3, 8))
             res = [None, None, None, None, 0, 1, None]
             self.assertEqual(xr.get_rect_range(*args), res)
 
@@ -181,7 +181,7 @@ class TestXlsReader(unittest.TestCase):
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
 
             # minimum matrix in the sheet [:]
-            args = (sheet, xr.Cell(None, None), xr.Cell(None, None))
+            args = (sheet, xr.StartPos(None, None), xr.StartPos(None, None))
             res = [
                 [None, 0, 1, 2],
                 [0, None, None, None],
@@ -190,7 +190,7 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [E_:__]
-            args = (sheet, xr.Cell(4, None), xr.Cell(None, None))
+            args = (sheet, xr.StartPos(4, None), xr.StartPos(None, None))
             res = [
                 [0, 1, 2],
                 [None, None, None],
@@ -199,7 +199,7 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [E7:__]
-            args = (sheet, xr.Cell(4, 6), xr.Cell(None, None))
+            args = (sheet, xr.StartPos(4, 6), xr.StartPos(None, None))
             res = [
                 [None, None, None],
                 [5.1, 6.1, 7.1]
@@ -207,7 +207,7 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # delimited matrix in the sheet [D6:F8]
-            args = (sheet, xr.Cell(3, 5), xr.Cell(5, 7))
+            args = (sheet, xr.StartPos(3, 5), xr.StartPos(5, 7))
             res = [
                 [None, 0, 1],
                 [0, None, None],
@@ -216,7 +216,7 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [:F8]
-            args = (sheet, xr.Cell(None, None), xr.Cell(5, 7))
+            args = (sheet, xr.StartPos(None, None), xr.StartPos(5, 7))
             res = [
                 [None, 0, 1],
                 [0, None, None],
@@ -225,7 +225,7 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [7:F8]
-            args = (sheet, xr.Cell(None, 6), xr.Cell(5, 7))
+            args = (sheet, xr.StartPos(None, 6), xr.StartPos(5, 7))
             res = [
                 [0, None, None],
                 [1, 5.1, 6.1]
@@ -233,7 +233,7 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [E:F8]
-            args = (sheet, xr.Cell(None, 6), xr.Cell(5, 7))
+            args = (sheet, xr.StartPos(None, 6), xr.StartPos(5, 7))
             res = [
                 [0, None, None],
                 [1, 5.1, 6.1]
@@ -241,7 +241,7 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # delimited matrix in the sheet [A1:F8]
-            args = (sheet, xr.Cell(0, 0), xr.Cell(5, 7))
+            args = (sheet, xr.StartPos(0, 0), xr.StartPos(5, 7))
             res = [
                 [None, None, None, None, None, None],
                 [None, None, None, None, None, None],
@@ -255,12 +255,12 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # delimited matrix in the sheet [G9:__]
-            args = (sheet, xr.Cell(6, 8), xr.Cell(None, None))
+            args = (sheet, xr.StartPos(6, 8), xr.StartPos(None, None))
             res = [[None]]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # delimited matrix in the sheet [F9:__]
-            args = (sheet, xr.Cell(5, 8), xr.Cell(None, None))
+            args = (sheet, xr.StartPos(5, 8), xr.StartPos(None, None))
             res = [[None]]
             self.assertEqual(xr.get_rect_range(*args), res)
 
@@ -268,50 +268,50 @@ class TestXlsReader(unittest.TestCase):
         xl_ref = 'Sheet1!A1:C2'
         res = xr.parse_xl_ref(xl_ref)
         self.assertEquals(res['xl_sheet_name'], 'Sheet1')
-        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
-        self.assertEquals(res['cell_down'], xr.Cell(col=2, row=1))
+        self.assertEquals(res['cell_up'], xr.StartPos(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.StartPos(col=2, row=1))
 
         xl_ref = 'Sheet1!A1'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
+        self.assertEquals(res['cell_up'], xr.StartPos(col=0, row=0))
 
         xl_ref = 'Sheet1!a1:c2{"1":4,"2":"ciao"}'
         res = xr.parse_xl_ref(xl_ref)
         self.assertEquals(res['json'], {'2': 'ciao', '1': 4})
-        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
-        self.assertEquals(res['cell_down'], xr.Cell(col=2, row=1))
+        self.assertEquals(res['cell_up'], xr.StartPos(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.StartPos(col=2, row=1))
 
     def test_autocomplete_ref_parse_xl_ref(self):
         xl_ref = 'Sheet1!a1:**'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
-        self.assertEquals(res['cell_down'], xr.Cell(col=None, row=None))
+        self.assertEquals(res['cell_up'], xr.StartPos(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.StartPos(col=None, row=None))
 
         xl_ref = 'Sheet1!*_:c2'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], xr.Cell(col=None, row='xl_margin'))
-        self.assertEquals(res['cell_down'], xr.Cell(col=2, row=1))
+        self.assertEquals(res['cell_up'], xr.StartPos(col=None, row='xl_margin'))
+        self.assertEquals(res['cell_down'], xr.StartPos(col=2, row=1))
 
         xl_ref = 'Sheet1!A*'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=None))
+        self.assertEquals(res['cell_up'], xr.StartPos(col=0, row=None))
 
     def test_short_cuts_parse_xl_ref(self):
 
         xl_ref = 'Sheet1!a1:'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
-        self.assertEquals(res['cell_down'], xr.Cell(col=None, row=None))
+        self.assertEquals(res['cell_up'], xr.StartPos(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.StartPos(col=None, row=None))
 
         xl_ref = 'Sheet1!:c2'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], xr.Cell(col=None, row=None))
-        self.assertEquals(res['cell_down'], xr.Cell(col=2, row=1))
+        self.assertEquals(res['cell_up'], xr.StartPos(col=None, row=None))
+        self.assertEquals(res['cell_down'], xr.StartPos(col=2, row=1))
 
         xl_ref = 'Sheet1!'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
-        self.assertEquals(res['cell_down'], xr.Cell(col=None, row=None))
+        self.assertEquals(res['cell_up'], xr.StartPos(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.StartPos(col=None, row=None))
 
         xl_ref = 'Sheet1!{"1": [1, 2], "2": "ciao", "3": {"1": [1, 2, 3]}}'
         res = xr.parse_xl_ref(xl_ref)
@@ -322,8 +322,8 @@ class TestXlsReader(unittest.TestCase):
                 "1": [1, 2, 3]
             }
         }
-        self.assertEquals(res['cell_up'], xr.Cell(col=0, row=0))
-        self.assertEquals(res['cell_down'], xr.Cell(col=None, row=None))
+        self.assertEquals(res['cell_up'], xr.StartPos(col=0, row=0))
+        self.assertEquals(res['cell_down'], xr.StartPos(col=None, row=None))
         self.assertEquals(res['json'], r)
 
     def test_errors_parse_xl_ref(self):
@@ -337,19 +337,19 @@ class TestXlsReader(unittest.TestCase):
 
     def test_fetch_cell_ref(self):
         self.assertEquals(xr.fetch_cell_ref('A1', 'A', '1'),
-                          xr.Cell(col=0, row=0))
+                          xr.StartPos(col=0, row=0))
         self.assertEquals(xr.fetch_cell_ref('A_', 'A', '_'),
-                          xr.Cell(col=0, row='xl_margin'))
+                          xr.StartPos(col=0, row='xl_margin'))
         self.assertEquals(xr.fetch_cell_ref('A*', 'A', '*'),
-                          xr.Cell(col=0, row=None))
+                          xr.StartPos(col=0, row=None))
         self.assertEquals(xr.fetch_cell_ref('_1', '_','1'),
-                          xr.Cell(col='xl_margin', row=0))
+                          xr.StartPos(col='xl_margin', row=0))
         self.assertEquals(xr.fetch_cell_ref('*1', '*','1'),
-                          xr.Cell(col=None, row=0))
+                          xr.StartPos(col=None, row=0))
         self.assertEquals(xr.fetch_cell_ref('__', '_', '_'),
-                          xr.Cell(col='xl_margin', row='xl_margin'))
+                          xr.StartPos(col='xl_margin', row='xl_margin'))
         self.assertEquals(xr.fetch_cell_ref('**', '*', '*'),
-                          xr.Cell(col=None, row=None))
+                          xr.StartPos(col=None, row=None))
 
         self.assertRaises(ValueError, xr.fetch_cell_ref, *('_0', '_', '0'))
         self.assertRaises(ValueError, xr.fetch_cell_ref, *('@@', '@', '@'))
@@ -365,8 +365,8 @@ class TestXlsReader(unittest.TestCase):
         self.assertEquals(res['url_file'], 'file://path/to/file.xls')
         self.assertEquals(res['xl_sheet_name'], 'xl_sheet_name')
         self.assertEquals(res['json'], {"json": "..."})
-        self.assertEquals(res['cell_up'], xr.Cell(col=561, row=9))
-        self.assertEquals(res['cell_down'], xr.Cell(col=81055, row=19))
+        self.assertEquals(res['cell_up'], xr.StartPos(col=561, row=9))
+        self.assertEquals(res['cell_down'], xr.StartPos(col=81055, row=19))
 
         self.assertRaises(ValueError, xr.parse_xl_url, *('#!:{"json":"..."', ))
         url = '#xl_sheet_name!UP10:DOWN20{"json":"..."}'
@@ -394,7 +394,7 @@ class TestXlsReader(unittest.TestCase):
 
 
             # row vector in the sheet [B2:B_]
-            args = (sheet, xr.Cell(1, 1), xr.Cell(1, None), wb.datemode)
+            args = (sheet, xr.StartPos(1, 1), xr.StartPos(1, None), wb.datemode)
             res = [datetime(1900, 8, 2), True, None, None, 'hi', 1.4, 5]
             self.assertEqual(xr.get_rect_range(*args), res)
 
@@ -418,7 +418,7 @@ class TestXlsReader(unittest.TestCase):
             sheet = wb.sheet_by_name(res['xl_sheet_name'])
 
             # row vector in the sheet [B2:B_]
-            args = (sheet, xr.Cell(1, 1), xr.Cell(1, None), wb.datemode)
+            args = (sheet, xr.StartPos(1, 1), xr.StartPos(1, None), wb.datemode)
 
             res = xr.get_rect_range(*args)
 
@@ -463,50 +463,50 @@ class TestXlsReader(unittest.TestCase):
             wb.close()
 
             # minimum delimited column in the sheet [D7:D_]
-            args = (sheet, xr.Cell(3, 6), xr.Cell(3, None), False, True)
+            args = (sheet, xr.StartPos(3, 6), xr.StartPos(3, None), False, True)
             self.assertEqual(xr.get_rect_range(*args), res[0])
 
             # minimum delimited column in the sheet [E6:E_]
-            args = (sheet, xr.Cell(4, 5), xr.Cell(4, None), False, True)
+            args = (sheet, xr.StartPos(4, 5), xr.StartPos(4, None), False, True)
             self.assertEqual(xr.get_rect_range(*args), res[1])
 
             # minimum delimited row in the sheet [E6:_6]
-            args = (sheet, xr.Cell(4, 5), xr.Cell(None, 5), False, True)
+            args = (sheet, xr.StartPos(4, 5), xr.StartPos(None, 5), False, True)
             self.assertEqual(xr.get_rect_range(*args), res[2])
 
             # minimum delimited matrix in the sheet [E6:__]
-            args = (sheet, xr.Cell(4, 5), xr.Cell(None, None), False, True)
+            args = (sheet, xr.StartPos(4, 5), xr.StartPos(None, None), False, True)
             self.assertEqual(xr.get_rect_range(*args), res[3])
 
             # delimited matrix in the sheet [D6:F8]
-            args = (sheet, xr.Cell(3, 5), xr.Cell(5, 7))
+            args = (sheet, xr.StartPos(3, 5), xr.StartPos(5, 7))
             self.assertEqual(xr.get_rect_range(*args), res[4])
 
             # delimited matrix in the sheet [A1:F8]
-            args = (sheet, xr.Cell(0, 0), xr.Cell(5, 7))
+            args = (sheet, xr.StartPos(0, 0), xr.StartPos(5, 7))
             self.assertEqual(xr.get_rect_range(*args), res[5])
 
             # delimited row in the sheet [A7:D7]
-            args = (sheet, xr.Cell(0, 6), xr.Cell(3, 6))
+            args = (sheet, xr.StartPos(0, 6), xr.StartPos(3, 6))
             self.assertEqual(xr.get_rect_range(*args), res[6])
 
             # delimited column in the sheet [D3:D9]
-            args = (sheet, xr.Cell(3, 2), xr.Cell(3, 8))
+            args = (sheet, xr.StartPos(3, 2), xr.StartPos(3, 8))
             self.assertEqual(xr.get_rect_range(*args), res[7])
 
             # minimum delimited matrix in the sheet [__:F7]
-            args = (sheet, xr.Cell(None, None), xr.Cell(5, 6), False, True)
+            args = (sheet, xr.StartPos(None, None), xr.StartPos(5, 6), False, True)
             res = [[None, 0, 1],
                     [0, 1, 2]]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited row in the sheet [_8:G8]
-            args = (sheet, xr.Cell(None, 7), xr.Cell(6, 7), False, True)
+            args = (sheet, xr.StartPos(None, 7), xr.StartPos(6, 7), False, True)
             res = [6.1, 7.1]
             self.assertEqual(xr.get_rect_range(*args), res)
 
             # minimum delimited column in the sheet [D_:D8]
-            args = (sheet, xr.Cell(3, None), xr.Cell(3, 7), False, True)
+            args = (sheet, xr.StartPos(3, None), xr.StartPos(3, 7), False, True)
             res = [0, 1]
             self.assertEqual(xr.get_rect_range(*args), res)
 
@@ -536,7 +536,6 @@ class TestXlsReader(unittest.TestCase):
 
             self.assertEquals(xl_ref_child['xl_workbook'],
                               xl_ref_parent['xl_workbook'])
-
 
     def test_open_xl_sheet(self):
         with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):

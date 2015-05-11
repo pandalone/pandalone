@@ -11,11 +11,14 @@ Implements an "Excel-url" format for capturing ranges from sheets.
 Excel-range addressing ("xl-refs")
 ==================================
 
+<1st-cell>:<2nd-cell>:<extensions>
+
 Definitions
 -----------
 
 - 1st cell: is the cell defined before ':'.
 - 2nd cell: is the cell defined after the first ':'.
+- range-extensions:
 - cell-moves: are the 12 scan-directions in the parentheses '(...)'.
 - cell-row: is the row coordinate of a cell.
 - cell-col: is the column coordinate of a cell.
@@ -34,7 +37,7 @@ Definitions
 Basic search cell-target rules
 ------------------------------
 
-- search-opposite-state:
+- Search-opposite-state:
   the cell-target is the first cell founded according to the cell-moves that has
   the opposite state of the cell-start.
 
@@ -63,10 +66,10 @@ If the 2nd-cell:
   - has not cell-moves: cell-target = cell-start
 
   - has cell-moves and:
-    * 2nd-cell-start-state == 1st-cell-start-state:
+    * 2nd-cell-start-state == 1st-cell-target-state:
       cell-target is evaluated using the search-same-state rule.
 
-    * 2nd-cell-start-state != 1st-cell-start-state:
+    * 2nd-cell-start-state != 1st-cell-target-state:
       cell-target is evaluated using the search-opposite-state rule.
 
 
@@ -231,14 +234,20 @@ import pandas as pd
 import numpy as np
 from string import ascii_uppercase
 from collections import namedtuple
+
+from itertools import repeat
+
 # noinspection PyUnresolvedReferences
 from six.moves.urllib.parse import urldefrag  # @UnresolvedImport
 # noinspection PyUnresolvedReferences
 from six.moves.urllib.request import urlopen  # @UnresolvedImport
+
 import xlrd
+
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
                   XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER,
                   open_workbook)
+
 from distutils.version import LooseVersion
 
 if LooseVersion(xlrd.__VERSION__) >= LooseVersion("0.9.3"):
@@ -265,43 +274,23 @@ _re_xl_ref_parser = re.compile(
             (?P<nd_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves from nd cell
             \)
         )?
+        (?::
+            (?P<rng_ext>[LURD?\d]+)                      # range extension [opt]
+        )?
     )?
-    (?P<json>\{.*\})?                       # any json object [opt]
+    (?P<json>\{.*\})?                                    # any json object [opt]
     \s*$""", re.IGNORECASE | re.X)
 
+_re_rng_ext_splitter = re.compile('([LURD]\d+)', re.IGNORECASE | re.X)
 
-def _xlwings_min_index(it_types, margin, max_i):
-    try:
-        return next(i for i, c in enumerate(it_types)
-                    if c in (XL_CELL_BLANK, XL_CELL_EMPTY)) + margin
-    except StopIteration:
-        return max_i
+_re_rng_ext_parser = re.compile(
+    r"""
+    ^(?P<mov>[LURD]+)                                    # primitive moves
+    (?P<times>\?|\d+)?                                   # repetition times
+    $""", re.IGNORECASE | re.X)
 
-
-def _xlwings_margins(sheet, cell_up, cell_down, up, dn):
-    if cell_up.col is not None and cell_up.row is not None and \
-            (cell_down.col is None or cell_down.row is None):  # from up
-        if cell_down.col is None:
-            dn[0] = _xlwings_min_index(sheet.row_types(up[1], up[0]),
-                                       up[0], sheet.ncols)
-
-        if cell_down.row is None:
-            dn[1] = _xlwings_min_index(sheet.col_types(up[0], up[1]),
-                                       up[1], sheet.nrows)
-    elif cell_down.col is not None and cell_down.row is not None and \
-            (cell_up.col is None or cell_up.row is None):  # from bottom
-        _dn = (dn[0] - 1, dn[1] - 1)
-        if cell_up.col is None:
-            up[0] = -_xlwings_min_index(
-                reversed(sheet.row_types(_dn[1], 0, _dn[0])), -_dn[0], 0)
-
-        if cell_up.row is None:
-            up[1] = -_xlwings_min_index(
-                reversed(sheet.col_types(_dn[0], 0, _dn[1])), -_dn[1], 0)
-    return up, dn
-
-
-Cell = namedtuple('Cell', ['col', 'row'])
+StartPos = namedtuple('StartPos', ['cell', 'mov'])
+Cell = namedtuple('Cell', ['row', 'col'])
 
 
 def col2num(col_str):
@@ -328,21 +317,21 @@ def col2num(col_str):
 
     return num - 1
 
-_xl_margin = object()
-_cell = {
-    None: None,
-    '*': None,
-    '_': _xl_margin
+XL_UP_ABS = object()
+XL_BOTTOM_ABS = object()
+CELL_RELATIVE = object()
+MAX_TIME = None
+
+_c_pos = {
+    '^': XL_UP_ABS,
+    '_': XL_BOTTOM_ABS,
+    '.': CELL_RELATIVE
 }
 
 
-def fetch_cell_ref(cell, cell_col, cell_row):
+def fetch_cell_ref(cell_col, cell_row, cell_mov):
     """
     Fetch a cell reference string.
-
-    :param cell:
-        whole cell reference
-    :type cell: str, None
 
     :param cell_col:
         column reference
@@ -352,33 +341,34 @@ def fetch_cell_ref(cell, cell_col, cell_row):
         row reference
     :type cell_row: str, None
 
+    :param cell_mov:
+        scan-directions
+    :type cell_mov: str, None
+
     :return:
-        a Cell-tuple
-    :rtype: Cell
+        a cell-start
+    :rtype: StartPos
 
     Example::
-        >>> fetch_cell_ref('A1', 'A', '1')
-        Cell(col=0, row=0)
-        >>> fetch_cell_ref('*1', '*', '1')
-        Cell(col=None, row=0)
-        >>> fetch_cell_ref('A*', 'A', '*')
-        Cell(col=0, row=None)
-        >>> fetch_cell_ref('A_', 'A', '_')
-        Cell(col=0, row=_xl_margin)
-        >>> fetch_cell_ref(':', None, None)
-        Cell(col=None, row=None)
+        >>> fetch_cell_ref('A', '1', 'R')
+        StartPos(cell=Cell(col=0, row=0), mov='R')
+        >>> fetch_cell_ref('^', '^', 'R')
+        StartPos(cell=Cell(col=XL_UP_ABS, row=XL_UP_ABS), mov='R')
+        >>> fetch_cell_ref('_', '_', 'L')
+        StartPos(cell=Cell(col=XL_BOTTOM_ABS, row=XL_BOTTOM_ABS), mov='L')
+        >>> fetch_cell_ref('.', '.', 'D')
+        StartPos(cell=Cell(col=CELL_RELATIVE, row=CELL_RELATIVE), mov='D')
         >>> fetch_cell_ref(None, None, None)
 
     """
-    if cell is None:
+    if cell_col == cell_row == cell_mov is None:
         return None
+    elif cell_row != '0':
+        row = _c_pos[cell_row] if cell_row in _c_pos else int(cell_row) - 1
+        col = _c_pos[cell_col] if cell_col in _c_pos else col2num(cell_col)
+        return StartPos(cell=Cell(col=col, row=row), mov=cell_mov)
 
-    if cell_row != '0':
-        row = _cell[cell_row] if cell_row in _cell else int(cell_row) - 1
-        col = _cell[cell_col] if cell_col in _cell else col2num(cell_col)
-        return Cell(col=col, row=row)
-
-    raise ValueError('unsupported row format %s' % cell_row)
+    raise ValueError('Unsupported row format %s' % cell_row)
 
 
 def parse_cell(cell, epoch1904=False):
@@ -451,206 +441,53 @@ def parse_cell(cell, epoch1904=False):
     raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
 
 
-def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
-                   xlwings=False):
+def chain_moves(moves, times=None):
+    # chain_moves('ABC', 3) --> A B C A B C A B C
+    it = repeat(moves, int(times)) if times is not None else repeat(moves)
+    for mv in it:
+        for element in mv:
+            yield element
+
+
+def parse_rng_ext(rng_ext):
     """
-    Discovers a non-empty tabular-shaped region in the xl-sheet from a range.
+    Parses and fetches the contents of range-extension ref.
 
-    :param sheet: a xlrd Sheet object
-    :type sheet: xlrd.sheet.Sheet obj
+    :param rng_ext:
+        A string with a sequence of primitive moves:
+        es. L1U1R1D1
+    :type xl_ref: str
 
-    :param cell_up: up margin
-    :type cell_up: Cell
-
-    :param cell_down: bottom margin
-    :type cell_down: Cell, optional
-
-    :param epoch1904:
-        Which date system was in force when this file was last saved.
-        False => 1900 system (the Excel for Windows default).
-        True => 1904 system (the Excel for Macintosh default).
-    :type epoch1904: bool, optional
-
-    :param xlwings:
-        if True get_rect_range has a behavior compatible with xlwings
-    :type xlwings: bool, optional
-
-    :return: matrix or vector or value
-    :rtype: list of lists, or list, value
+    :return:
+        A list of primitive move chains.
+    :rtype: list
 
     Example::
 
-        >>> import os, tempfile, xlrd, pandas as pd
-        >>> os.chdir(tempfile.mkdtemp())
-        >>> df = pd.DataFrame([[None, None, None], [5.1, 6.1, 7.1]])
-        >>> tmp = 'sample.xlsx'
-        >>> writer = pd.ExcelWriter(tmp)
-        >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
-        >>> writer.save()
+        >>> rng_ext = 'LURD?'
+        >>> res = parse_rng_ext(rng_ext)
 
-        >>> sheet = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
+        >>> res
+        [<generator object chain_moves at 0x...>,
+         <generator object chain_moves at 0x...>]
 
-        # minimum matrix in the sheet
-        >>> get_rect_range(sheet,  Cell(None, None), Cell(None, None))
-        [[None, 0, 1, 2],
-         [0, None, None, None],
-         [1, 5.1, 6.1, 7.1]]
+        # infinite generator
+        >>> [next(res[0]) for i in range(10)]
+        ['L', 'U', 'R', 'L', 'U', 'R', 'L', 'U', 'R', 'L']
+        >>> list(res[1])
+        ['D']
 
-        # up-left delimited minimum matrix
-        >>> get_rect_range(sheet, Cell(0, 0), Cell(None, None))
-        [[None, None, None, None, None, None, None],
-         [None, None, None, None, None, None, None],
-         [None, None, None, None, None, None, None],
-         [None, None, None, None, None, None, None],
-         [None, None, None, None, None, None, None],
-         [None, None, None, None, 0, 1, 2],
-         [None, None, None, 0, None, None, None],
-         [None, None, None, 1, 5.1, 6.1, 7.1]]
-
-        # get single value
-        >>> get_rect_range(sheet, Cell(3, 6))
-        0
-
-        # get column vector
-        >>> get_rect_range(sheet, Cell(3, None))
-        [None, None, None, None, None, None, 0, 1]
-
-        # get row vector
-        >>> get_rect_range(sheet, Cell(None, 5))
-        [None, None, None, None, 0, 1, 2]
-
-        # up-left delimited minimum matrix
-        >>> get_rect_range(sheet, Cell(4, None), Cell(None, None))
-        [[0, 1, 2],
-         [None, None, None],
-         [5.1, 6.1, 7.1]]
-
-        # delimited matrix
-        >>> get_rect_range(sheet, Cell(3, 5), Cell(5, 7))
-        [[None, 0, 1],
-         [0, None, None],
-         [1, 5.1, 6.1]]
-
-        # down-right delimited minimum matrix
-        >>> get_rect_range(sheet, Cell(None, None), Cell(5, 7))
-        [[None, 0, 1],
-         [0, None, None],
-         [1, 5.1, 6.1]]
-
-        # up-down-right delimited minimum matrix
-        >>> get_rect_range(sheet, Cell(None, 6), Cell(5, 7))
-        [[0, None, None],
-         [1, 5.1, 6.1]]
-
-        # down delimited minimum vector (i.e., column)
-        >>> get_rect_range(sheet, Cell(5, None), Cell(5, 7))
-        [1, None, 6.1]
-
-        # right delimited minimum vector (i.e., row)
-        >>> get_rect_range(sheet, Cell(2, 5), Cell(None, 5))
-        [None, None, 0, 1, 2]
-
-        # right delimited minimum vector (i.e., row)
-        >>> get_rect_range(sheet, Cell(3, 6), Cell(_xl_margin, 6))
-        [0, None, None, None]
-
-        # right delimited minimum vector (i.e., row)
-        >>> get_rect_range(sheet, Cell(None, None), Cell(3, 5))
-        [[]]
     """
+    try:
+        res = _re_rng_ext_splitter.split(rng_ext.replace('?', '1'))
 
-    _pc = lambda cell: parse_cell(cell, epoch1904)
+        return [chain_moves(*_re_rng_ext_parser.match(v).groups())
+                for v in res
+                if v != '']
 
-    if cell_down is None:  # vector or cell
-        # Set up '_' row/cols as 0.
-        _up = {_xl_margin: 0}
-        up = [_up.get(i, i) for i in cell_up]
-
-        if up[0] is None:  # return row
-            return list(map(_pc, sheet.row(up[1])))
-        elif up[1] is None:  # return column
-            return list(map(_pc, sheet.col(up[0])))
-        else:  # return cell
-            if up[1] < sheet.nrows and up[0] < sheet.ncols:
-                return _pc(sheet.cell(up[1], up[0]))
-            return None
-    else:  # table or vector or cell
-        # Set up margins.
-        #
-        _up = dict.fromkeys([None, _xl_margin], 0)
-        up = [_up.get(i, i) for i in cell_up]
-
-        # Set bottom margins.
-        #
-        _dn = [dict.fromkeys([None, _xl_margin], sheet.ncols - 1),
-               dict.fromkeys([None, _xl_margin], sheet.nrows - 1)]
-        dn = [_dn[i].get(j, j) + 1 for i, j in enumerate(cell_down)]
-
-        nv = lambda x, v=None: [v] * x  # return a None vector  of length x
-
-        # Make a range-sized empty table.
-        #
-        if up[1] >= sheet.nrows or up[0] >= sheet.ncols:
-            ddn = [dn[i] - up[i] if c else 1
-                   for i, c in enumerate([cell_down.col is not None,
-                                          cell_down.row is not None])]
-            return nv(ddn[1], nv(ddn[0]))
-
-        if xlwings:
-            up, dn = _xlwings_margins(sheet, cell_up, cell_down, up, dn)
-
-        # Synthesize values for cells outside excel's margins.
-        #
-        ddn = [max(0, v) for v in (dn[0] - sheet.ncols, dn[1] - sheet.nrows)]
-
-        matrix = [list(map(_pc, sheet.row_slice(r, up[0], dn[0]))) + nv(ddn[0])
-                  for r in range(up[1], dn[1] - ddn[1])]
-
-        # Add empty rows.
-        #
-        if ddn[0] == 0 and ddn[1] > 0:
-            matrix += nv(ddn[1], nv(1))
-        else:
-            matrix += nv(ddn[1], nv(ddn[0]))
-
-        # no empty vector
-        ne_vct = lambda vct: any(x is not None for x in vct)
-
-        # return the index of first no empty row in the table
-        def ind_row(t, d):
-            return next((r for r, v in enumerate(t) if ne_vct(v)), d)
-
-        def reduce_table(t, u, d):
-            # Return the minimum vertical table.
-
-            l = len(t)
-            m = [ind_row(t, l) if u is None else 0,
-                 l - (ind_row(reversed(t), 0) if d is None else 0)]
-            return t[m[0]:m[1]] if m[0] != m[1] else [[]]
-
-        # vertical reduction
-        #
-        if cell_up.row is None or cell_down.row is None:
-            matrix = reduce_table(matrix, cell_up.row, cell_down.row)
-
-        # horizontal reduction
-        #
-        if cell_up.col is None or cell_down.col is None:
-            tbl = reduce_table(list(zip(*matrix)), cell_up.col, cell_down.col)
-            matrix = [list(r) for r in zip(*tbl)] if tbl != [[]] else [[]]
-
-        # vector
-        if cell_down.col is not None and cell_down.col == cell_up.col:
-            matrix = [v[0] for v in matrix]
-
-        # vector
-        if cell_down.row is not None and cell_down.row == cell_up.row:
-            matrix = matrix[0]
-
-        if isinstance(matrix, list):
-            return matrix
-        else:
-            return [matrix]
+    except Exception as ex:
+        raise ValueError('Invalid range-extension({}) '
+                         'due to: {}'.format(rng_ext, ex))
 
 
 def parse_xl_ref(xl_ref):
@@ -659,36 +496,35 @@ def parse_xl_ref(xl_ref):
 
     :param xl_ref:
         a string with the following format:
-        <xl_sheet_name>!<st_col>():<cell_down>{<json>}
-        es. xl_sheet_name!UP10:DN20{"json":"..."}
+        <xl_sheet_name>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):<rng_ext>{<json>}
+        es. xl_sheet_name!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}
     :type xl_ref: str
 
     :return:
         dictionary containing the following parameters::
 
         - xl_sheet_name
-        - st_col
-        - st_row
-        - st_mov
-        - nd_col
-        - nd_row
-        - nd_mov
+        - st_cell
+        - nd_cell
+        - rng_ext
         - json
 
     :rtype: dict
 
     Example::
-
-        >>> xl_ref = 'Sheet1!:{"1":4,"2":"ciao"}'
+        >>> from itertools import chain
+        >>> xl_ref = 'Sheet1!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}'
         >>> res = parse_xl_ref(xl_ref)
 
         >>> res['xl_sheet_name']
         'Sheet1'
-        >>> res['cell_up']
-        Cell(col=None, row=None)
-        >>> res['cell_down']
-        Cell(col=None, row=None)
-        >>> res['json'] == {'2': 'ciao', '1': 4}
+        >>> res['st_cell']
+        Cell(col=0, row=0, mov='DR')
+        >>> res['nd_cell']
+        Cell(col=25, row=19, mov='UL')
+        >>> list(chain(*res['rng_ext']))
+        ['L', 'U', 'U', 'R', 'D']
+        >>> res['json'] == {'json': '...'}
         True
     """
 
@@ -697,6 +533,17 @@ def parse_xl_ref(xl_ref):
 
         # resolve json
         r['json'] = json.loads(r['json']) if r['json'] else None
+
+        # resolve range extensions
+        r['rng_ext'] = parse_rng_ext(r['rng_ext']) if r['rng_ext'] else None
+
+        p = r.pop
+
+        # fetch 1st cell
+        r['st_cell'] = fetch_cell_ref(p('st_col'), p('st_row'), p('st_mov'))
+
+        # fetch 2nd cell
+        r['nd_cell'] = fetch_cell_ref(p('nd_col'), p('nd_row'), p('nd_mov'))
 
         return r
 
@@ -949,3 +796,326 @@ def process_xl_range(value, type=None, args=[], kwargs={}, filters=None):
         for v in filters:
             val = process_xl_range(val, **v)
     return val
+
+
+_primitive_directions = {
+    'L': np.array([-1, 0]),
+    'U': np.array([0, -1]),
+    'R': np.array([1, 0]),
+    'D': np.array([0, 1])
+}
+
+
+def get_id_no_empty_cells(sheet):
+    types = np.array(sheet._cell_types)
+    non_empty = (types!=xlrd.XL_CELL_EMPTY) & (types!=xlrd.XL_CELL_BLANK)
+    return np.array(np.where(non_empty)).T
+
+
+def get_xl_margins(no_empty):
+    """ Returns upper and lower absolute positions"""
+    up_r, up_c = no_empty.min(0)
+    dn_r, dn_c = no_empty.max(0)
+    return {
+        'col':{
+            XL_UP_ABS: up_c,
+            XL_BOTTOM_ABS: dn_c
+        },
+        'row':{
+            XL_UP_ABS: up_r,
+            XL_BOTTOM_ABS: dn_r
+        }
+    }
+
+
+def set_coord(cell, xl_margins, parent=None):
+    c = {CELL_RELATIVE: parent} if parent else {}
+    c.update(xl_margins)
+    return c[cell] if cell in xl_margins else cell
+
+
+def set_start_cell(cell, xl_margins, parent_cell=None):
+    if parent_cell:
+        row = set_coord(cell.row, xl_margins['row'], parent_cell.row)
+        col = set_coord(cell.col, xl_margins['col'], parent_cell.col)
+    else:
+        row = set_coord(cell.row, xl_margins['row'], None)
+        col = set_coord(cell.col, xl_margins['col'], None)
+    return Cell(row=row, col=col)
+
+
+def search_opposite_state(cell, no_empty, xl_margins, directions):
+    l = {tuple(v): True for v in no_empty.tolist()}
+    state = cell in l
+    r0, c0 = cell
+    up_cell = (0, 0)
+    dn_cell = (xl_margins['row'][XL_BOTTOM_ABS],
+               xl_margins['col'][XL_BOTTOM_ABS])
+
+    for d in repeat(directions):
+        move = _primitive_directions[d[0]] # first move
+        r, c = (r0, c0)
+        while up_cell < (r,c) < dn_cell:
+            r, c = (r, c) + move
+            if l.pop((r,c), False) != state:
+                return r, c
+        try:
+            r0, c0 = (r0, c0) + _primitive_directions[d[1]] # second move
+        except IndexError:
+            return r, c
+
+
+def get_range(sheet, st_cell, nd_cell=None, rng_ext=None, epoch1904=False):
+    """
+
+    :param sheet:
+    :type sheet: xlrd.sheet.Sheet
+    :param st_cell:
+    :type st_cell: StartPos
+    :param nd_cell:
+    :type nd_cell: StartPos
+    :param rng_ext:
+    :param epoch1904:
+    :return:
+    """
+    no_empty = get_id_no_empty_cells(sheet)
+
+    xl_margins = get_xl_margins(no_empty)
+
+
+
+    if st_cell.mov is None:
+        set_start_cell()
+
+
+def _xlwings_min_index(it_types, margin, max_i):
+    try:
+        return next(i for i, c in enumerate(it_types)
+                    if c in (XL_CELL_BLANK, XL_CELL_EMPTY)) + margin
+    except StopIteration:
+        return max_i
+
+
+def _xlwings_margins(sheet, cell_up, cell_down, up, dn):
+    if cell_up.col is not None and cell_up.row is not None and \
+            (cell_down.col is None or cell_down.row is None):  # from up
+        if cell_down.col is None:
+            dn[0] = _xlwings_min_index(sheet.row_types(up[1], up[0]),
+                                       up[0], sheet.ncols)
+
+        if cell_down.row is None:
+            dn[1] = _xlwings_min_index(sheet.col_types(up[0], up[1]),
+                                       up[1], sheet.nrows)
+    elif cell_down.col is not None and cell_down.row is not None and \
+            (cell_up.col is None or cell_up.row is None):  # from bottom
+        _dn = (dn[0] - 1, dn[1] - 1)
+        if cell_up.col is None:
+            up[0] = -_xlwings_min_index(
+                reversed(sheet.row_types(_dn[1], 0, _dn[0])), -_dn[0], 0)
+
+        if cell_up.row is None:
+            up[1] = -_xlwings_min_index(
+                reversed(sheet.col_types(_dn[0], 0, _dn[1])), -_dn[1], 0)
+    return up, dn
+
+
+def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
+                   xlwings=False):
+    """
+    Discovers a non-empty tabular-shaped region in the xl-sheet from a range.
+
+    :param sheet: a xlrd Sheet object
+    :type sheet: xlrd.sheet.Sheet obj
+
+    :param cell_up: up margin
+    :type cell_up: Cell
+
+    :param cell_down: bottom margin
+    :type cell_down: Cell, optional
+
+    :param epoch1904:
+        Which date system was in force when this file was last saved.
+        False => 1900 system (the Excel for Windows default).
+        True => 1904 system (the Excel for Macintosh default).
+    :type epoch1904: bool, optional
+
+    :param xlwings:
+        if True get_rect_range has a behavior compatible with xlwings
+    :type xlwings: bool, optional
+
+    :return: matrix or vector or value
+    :rtype: list of lists, or list, value
+
+    Example::
+
+        >>> import os, tempfile, xlrd, pandas as pd
+        >>> os.chdir(tempfile.mkdtemp())
+        >>> df = pd.DataFrame([[None, None, None], [5.1, 6.1, 7.1]])
+        >>> tmp = 'sample.xlsx'
+        >>> writer = pd.ExcelWriter(tmp)
+        >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
+        >>> writer.save()
+
+        >>> sheet = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
+
+        # minimum matrix in the sheet
+        >>> get_rect_range(sheet,  StartPos(None, None), StartPos(None, None))
+        [[None, 0, 1, 2],
+         [0, None, None, None],
+         [1, 5.1, 6.1, 7.1]]
+
+        # up-left delimited minimum matrix
+        >>> get_rect_range(sheet, StartPos(0, 0), StartPos(None, None))
+        [[None, None, None, None, None, None, None],
+         [None, None, None, None, None, None, None],
+         [None, None, None, None, None, None, None],
+         [None, None, None, None, None, None, None],
+         [None, None, None, None, None, None, None],
+         [None, None, None, None, 0, 1, 2],
+         [None, None, None, 0, None, None, None],
+         [None, None, None, 1, 5.1, 6.1, 7.1]]
+
+        # get single value
+        >>> get_rect_range(sheet, StartPos(3, 6))
+        0
+
+        # get column vector
+        >>> get_rect_range(sheet, StartPos(3, None))
+        [None, None, None, None, None, None, 0, 1]
+
+        # get row vector
+        >>> get_rect_range(sheet, StartPos(None, 5))
+        [None, None, None, None, 0, 1, 2]
+
+        # up-left delimited minimum matrix
+        >>> get_rect_range(sheet, StartPos(4, None), StartPos(None, None))
+        [[0, 1, 2],
+         [None, None, None],
+         [5.1, 6.1, 7.1]]
+
+        # delimited matrix
+        >>> get_rect_range(sheet, StartPos(3, 5), StartPos(5, 7))
+        [[None, 0, 1],
+         [0, None, None],
+         [1, 5.1, 6.1]]
+
+        # down-right delimited minimum matrix
+        >>> get_rect_range(sheet, StartPos(None, None), StartPos(5, 7))
+        [[None, 0, 1],
+         [0, None, None],
+         [1, 5.1, 6.1]]
+
+        # up-down-right delimited minimum matrix
+        >>> get_rect_range(sheet, StartPos(None, 6), StartPos(5, 7))
+        [[0, None, None],
+         [1, 5.1, 6.1]]
+
+        # down delimited minimum vector (i.e., column)
+        >>> get_rect_range(sheet, StartPos(5, None), StartPos(5, 7))
+        [1, None, 6.1]
+
+        # right delimited minimum vector (i.e., row)
+        >>> get_rect_range(sheet, StartPos(2, 5), StartPos(None, 5))
+        [None, None, 0, 1, 2]
+
+        # right delimited minimum vector (i.e., row)
+        >>> get_rect_range(sheet, StartPos(3, 6), StartPos(_xl_margin, 6))
+        [0, None, None, None]
+
+        # right delimited minimum vector (i.e., row)
+        >>> get_rect_range(sheet, StartPos(None, None), StartPos(3, 5))
+        [[]]
+    """
+
+    _pc = lambda cell: parse_cell(cell, epoch1904)
+
+    if cell_down is None:  # vector or cell
+        # Set up '_' row/cols as 0.
+        _up = {_xl_margin: 0}
+        up = [_up.get(i, i) for i in cell_up]
+
+        if up[0] is None:  # return row
+            return list(map(_pc, sheet.row(up[1])))
+        elif up[1] is None:  # return column
+            return list(map(_pc, sheet.col(up[0])))
+        else:  # return cell
+            if up[1] < sheet.nrows and up[0] < sheet.ncols:
+                return _pc(sheet.cell(up[1], up[0]))
+            return None
+    else:  # table or vector or cell
+        # Set up margins.
+        #
+        _up = dict.fromkeys([None, _xl_margin], 0)
+        up = [_up.get(i, i) for i in cell_up]
+
+        # Set bottom margins.
+        #
+        _dn = [dict.fromkeys([None, _xl_margin], sheet.ncols - 1),
+               dict.fromkeys([None, _xl_margin], sheet.nrows - 1)]
+        dn = [_dn[i].get(j, j) + 1 for i, j in enumerate(cell_down)]
+
+        nv = lambda x, v=None: [v] * x  # return a None vector  of length x
+
+        # Make a range-sized empty table.
+        #
+        if up[1] >= sheet.nrows or up[0] >= sheet.ncols:
+            ddn = [dn[i] - up[i] if c else 1
+                   for i, c in enumerate([cell_down.col is not None,
+                                          cell_down.row is not None])]
+            return nv(ddn[1], nv(ddn[0]))
+
+        if xlwings:
+            up, dn = _xlwings_margins(sheet, cell_up, cell_down, up, dn)
+
+        # Synthesize values for cells outside excel's margins.
+        #
+        ddn = [max(0, v) for v in (dn[0] - sheet.ncols, dn[1] - sheet.nrows)]
+
+        matrix = [list(map(_pc, sheet.row_slice(r, up[0], dn[0]))) + nv(ddn[0])
+                  for r in range(up[1], dn[1] - ddn[1])]
+
+        # Add empty rows.
+        #
+        if ddn[0] == 0 and ddn[1] > 0:
+            matrix += nv(ddn[1], nv(1))
+        else:
+            matrix += nv(ddn[1], nv(ddn[0]))
+
+        # no empty vector
+        ne_vct = lambda vct: any(x is not None for x in vct)
+
+        # return the index of first no empty row in the table
+        def ind_row(t, d):
+            return next((r for r, v in enumerate(t) if ne_vct(v)), d)
+
+        def reduce_table(t, u, d):
+            # Return the minimum vertical table.
+
+            l = len(t)
+            m = [ind_row(t, l) if u is None else 0,
+                 l - (ind_row(reversed(t), 0) if d is None else 0)]
+            return t[m[0]:m[1]] if m[0] != m[1] else [[]]
+
+        # vertical reduction
+        #
+        if cell_up.row is None or cell_down.row is None:
+            matrix = reduce_table(matrix, cell_up.row, cell_down.row)
+
+        # horizontal reduction
+        #
+        if cell_up.col is None or cell_down.col is None:
+            tbl = reduce_table(list(zip(*matrix)), cell_up.col, cell_down.col)
+            matrix = [list(r) for r in zip(*tbl)] if tbl != [[]] else [[]]
+
+        # vector
+        if cell_down.col is not None and cell_down.col == cell_up.col:
+            matrix = [v[0] for v in matrix]
+
+        # vector
+        if cell_down.row is not None and cell_down.row == cell_up.row:
+            matrix = matrix[0]
+
+        if isinstance(matrix, list):
+            return matrix
+        else:
+            return [matrix]
