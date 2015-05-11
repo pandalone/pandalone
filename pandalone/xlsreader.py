@@ -798,25 +798,25 @@ def process_xl_range(value, type=None, args=[], kwargs={}, filters=None):
     return val
 
 
-_primitive_directions = {
-    'L': np.array([-1, 0]),
-    'U': np.array([0, -1]),
-    'R': np.array([1, 0]),
-    'D': np.array([0, 1])
+_primitive_dir = {
+    'L': np.array([0, -1]),
+    'U': np.array([-1, 0]),
+    'R': np.array([0, 1]),
+    'D': np.array([1, 0])
 }
 
 
-def get_id_no_empty_cells(sheet):
+def get_no_empty_cells(sheet):
     types = np.array(sheet._cell_types)
-    non_empty = (types!=xlrd.XL_CELL_EMPTY) & (types!=xlrd.XL_CELL_BLANK)
-    return np.array(np.where(non_empty)).T
+    return (types!=xlrd.XL_CELL_EMPTY) & (types!=xlrd.XL_CELL_BLANK)
 
 
 def get_xl_margins(no_empty):
     """ Returns upper and lower absolute positions"""
-    up_r, up_c = no_empty.min(0)
-    dn_r, dn_c = no_empty.max(0)
-    return {
+    indices = np.array(np.where(no_empty)).T
+    up_r, up_c = indices.min(0)
+    dn_r, dn_c = indices.max(0)
+    xl_margins = {
         'col':{
             XL_UP_ABS: up_c,
             XL_BOTTOM_ABS: dn_c
@@ -826,6 +826,7 @@ def get_xl_margins(no_empty):
             XL_BOTTOM_ABS: dn_r
         }
     }
+    return xl_margins, indices
 
 
 def set_coord(cell, xl_margins, parent=None):
@@ -844,25 +845,77 @@ def set_start_cell(cell, xl_margins, parent_cell=None):
     return Cell(row=row, col=col)
 
 
-def search_opposite_state(cell, no_empty, xl_margins, directions):
-    l = {tuple(v): True for v in no_empty.tolist()}
-    state = cell in l
-    r0, c0 = cell
-    up_cell = (0, 0)
-    dn_cell = (xl_margins['row'][XL_BOTTOM_ABS],
-               xl_margins['col'][XL_BOTTOM_ABS])
+def search_opposite_state(cell, no_empty, sheet, directions, last=False):
+    """
 
-    for d in repeat(directions):
-        move = _primitive_directions[d[0]] # first move
-        r, c = (r0, c0)
-        while up_cell < (r,c) < dn_cell:
-            r, c = (r, c) + move
-            if l.pop((r,c), False) != state:
-                return r, c
+    :param cell:
+    :param no_empty:
+    :param sheet:
+    :param directions:
+    :return:
+
+    Example::
+        >>> non_empty = np.array(\
+            [[False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False,  True,  True,  True],\
+             [False, False, False,  True, False, False, False],\
+             [False, False, False,  True,  True,  True,  True]])
+        >>> Sheet = namedtuple('Sheet', ['ncols', 'nrows'])
+        >>> sheet = Sheet(7, 8)
+        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'DR')
+        Cell(row=6, col=3)
+        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'RD')
+        Cell(row=5, col=4)
+        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'D')
+        Cell(row=7, col=1)
+        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'U')
+        Cell(row=0, col=1)
+        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'R')
+        Cell(row=1, col=6)
+        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'L')
+        Cell(row=1, col=0)
+        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'LU')
+        Cell(row=0, col=0)
+        >>> search_opposite_state(Cell(1,0), non_empty, sheet, 'LU')
+        Cell(row=0, col=0)
+    """
+    state = no_empty[cell]
+
+    up_cell = (0, 0)
+
+    dn_cell = (sheet.nrows - 1, sheet.ncols - 1)
+
+    mv = _primitive_dir[directions[0]]  # first move
+    c0 = c1 = np.array(cell)
+    while (up_cell <= c0).all() and (c0 <= dn_cell).all():
+        c1 = c0
+        while (up_cell <= c1).all() and (c1 <= dn_cell).all():
+            if no_empty[(c1[0], c1[1])] != state:
+                if last:
+                    c1 = c1 - mv
+                return Cell(*(c1[0], c1[1]))
+            c1 = c1 + mv
+        c1 = c1 - mv
         try:
-            r0, c0 = (r0, c0) + _primitive_directions[d[1]] # second move
+            c0 = c0 + _primitive_dir[directions[1]]  # second move
         except IndexError:
-            return r, c
+            break
+
+    return Cell(*(c1[0], c1[1]))
+
+
+def search_same_state(cell, no_empty, sheet, directions):
+    c1 = list(cell)
+    for d in directions:
+        c = search_opposite_state(cell, no_empty, sheet, d, True)
+        dis = _primitive_dir[d]
+        c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
+    return Cell(*c1)
+
 
 
 def get_range(sheet, st_cell, nd_cell=None, rng_ext=None, epoch1904=False):
@@ -878,7 +931,7 @@ def get_range(sheet, st_cell, nd_cell=None, rng_ext=None, epoch1904=False):
     :param epoch1904:
     :return:
     """
-    no_empty = get_id_no_empty_cells(sheet)
+    no_empty = get_no_empty_cells(sheet)
 
     xl_margins = get_xl_margins(no_empty)
 
