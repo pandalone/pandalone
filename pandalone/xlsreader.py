@@ -830,9 +830,9 @@ def get_xl_margins(no_empty):
 
 
 def set_coord(cell, xl_margins, parent=None):
-    c = {CELL_RELATIVE: parent} if parent else {}
+    c = {CELL_RELATIVE: parent} if parent is not None else {}
     c.update(xl_margins)
-    return c[cell] if cell in xl_margins else cell
+    return c[cell] if cell in c else cell
 
 
 def set_start_cell(cell, xl_margins, parent_cell=None):
@@ -845,7 +845,7 @@ def set_start_cell(cell, xl_margins, parent_cell=None):
     return Cell(row=row, col=col)
 
 
-def search_opposite_state(cell, no_empty, sheet, directions, last=False):
+def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
     """
 
     :param cell:
@@ -864,61 +864,103 @@ def search_opposite_state(cell, no_empty, sheet, directions, last=False):
              [False, False, False, False,  True,  True,  True],\
              [False, False, False,  True, False, False, False],\
              [False, False, False,  True,  True,  True,  True]])
-        >>> Sheet = namedtuple('Sheet', ['ncols', 'nrows'])
-        >>> sheet = Sheet(7, 8)
-        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'DR')
+        >>> args = (False, Cell(1, 1), non_empty, (0, 0), (7, 6))
+        >>> search_opposite_state(*(args + ('DR', )))
         Cell(row=6, col=3)
-        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'RD')
+        >>> search_opposite_state(*(args + ('RD', )))
         Cell(row=5, col=4)
-        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'D')
+        >>> search_opposite_state(*(args + ('D', )))
         Cell(row=7, col=1)
-        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'U')
+        >>> search_opposite_state(*(args + ('U', )))
         Cell(row=0, col=1)
-        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'R')
+        >>> search_opposite_state(*(args + ('R', )))
         Cell(row=1, col=6)
-        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'L')
+        >>> search_opposite_state(*(args + ('L', )))
         Cell(row=1, col=0)
-        >>> search_opposite_state(Cell(1,1), non_empty, sheet, 'LU')
+        >>> search_opposite_state(*(args + ('LU', )))
         Cell(row=0, col=0)
-        >>> search_opposite_state(Cell(1,0), non_empty, sheet, 'LU')
+        >>> args = (False, Cell(1, 0), non_empty, (0, 0), (7, 6))
+        >>> search_opposite_state(*(args + ('LU', )))
         Cell(row=0, col=0)
+        >>> args = (True, Cell(6, 3), non_empty, (0, 0), (7, 6))
+        >>> search_opposite_state(*(args + ('D', )))
+        Cell(row=7, col=3)
     """
-    state = no_empty[cell]
-
-    up_cell = (0, 0)
-
-    dn_cell = (sheet.nrows - 1, sheet.ncols - 1)
-
-    mv = _primitive_dir[directions[0]]  # first move
+    mv = _primitive_dir[moves[0]]  # first move
     c0 = c1 = np.array(cell)
-    while (up_cell <= c0).all() and (c0 <= dn_cell).all():
+    flag = False
+    while (up <= c0).all() and (c0 <= dn).all():
         c1 = c0
-        while (up_cell <= c1).all() and (c1 <= dn_cell).all():
+        while (up <= c1).all() and (c1 <= dn).all():
             if no_empty[(c1[0], c1[1])] != state:
-                if last:
+                if last and flag:
                     c1 = c1 - mv
                 return Cell(*(c1[0], c1[1]))
             c1 = c1 + mv
+            flag = True
         c1 = c1 - mv
         try:
-            c0 = c0 + _primitive_dir[directions[1]]  # second move
+            c0 = c0 + _primitive_dir[moves[1]]  # second move
         except IndexError:
             break
 
     return Cell(*(c1[0], c1[1]))
 
 
-def search_same_state(cell, no_empty, sheet, directions):
+def search_same_state(state, cell, no_empty, up, dn, moves):
+    """
+
+    :param cell:
+    :param no_empty:
+    :param sheet:
+    :param directions:
+    :return:
+
+    Example::
+        >>> non_empty = np.array(\
+            [[False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False,  True,  True,  True],\
+             [False, False, False,  True, False, False,  True],\
+             [False, False, False,  True,  True,  True,  True]])
+        >>> args = (True, Cell(7, 6), non_empty, (0, 0), (7, 6))
+        >>> search_same_state(*(args + ('UL', )))
+        Cell(row=5, col=3)
+        >>> search_same_state(*(args + ('U', )))
+        Cell(row=5, col=6)
+        >>> search_same_state(*(args + ('L', )))
+        Cell(row=7, col=3)
+        >>> args = (True, Cell(5, 3), non_empty, (0, 0), (7, 6))
+        >>> search_same_state(*(args + ('DR', )))
+        Cell(row=5, col=3)
+        >>> args = (False, Cell(5, 3), non_empty, (0, 0), (7, 6))
+        >>> search_same_state(*(args + ('DR', )))
+        Cell(row=5, col=3)
+        >>> search_same_state(*(args + ('UL', )))
+        Cell(row=0, col=0)
+        >>> args = (True, Cell(5, 6), non_empty, (0, 0), (7, 6))
+        >>> search_same_state(*(args + ('DL', )))
+        Cell(row=7, col=4)
+    """
+
     c1 = list(cell)
-    for d in directions:
-        c = search_opposite_state(cell, no_empty, sheet, d, True)
-        dis = _primitive_dir[d]
+
+    for mv in moves:
+        c = search_opposite_state(state, cell, no_empty, up, dn, mv, True)
+        dis = _primitive_dir[mv]
         c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
     return Cell(*c1)
 
+def extend_range(state, rng, no_empty, rng_ext):
+    for it in rng_ext:
+        for mv in it:
+            continue
+    return
 
-
-def get_range(sheet, st_cell, nd_cell=None, rng_ext=None, epoch1904=False):
+def get_range(sheet, st_cell, nd_cell=None, rng_ext=None):
     """
 
     :param sheet:
@@ -930,15 +972,73 @@ def get_range(sheet, st_cell, nd_cell=None, rng_ext=None, epoch1904=False):
     :param rng_ext:
     :param epoch1904:
     :return:
+
+    Example::
+
+        >>> types = [\
+             [0, 0, 0, 0, 0, 0, 0],\
+             [0, 0, 0, 0, 0, 0, 0],\
+             [0, 0, 0, 0, 0, 0, 0],\
+             [0, 0, 0, 0, 0, 0, 0],\
+             [0, 0, 0, 0, 0, 0, 0],\
+             [0, 0, 0, 0, 1, 1, 1],\
+             [0, 0, 0, 1, 0, 0, 1],\
+             [0, 0, 0, 1, 1, 1, 1]]
+
+        >>> class Sheet(object):
+        ...     def __init__(self, _cell_types, nrows, ncols):
+        ...         self._cell_types=_cell_types
+        ...         self.nrows=nrows
+        ...         self.ncols=ncols
+
+        >>> sheet = Sheet(types, 8, 7)
+        >>> st_cell = StartPos(Cell(0, 0), 'DR')
+        >>> nd_cell = StartPos(Cell(CELL_RELATIVE, CELL_RELATIVE), 'DR')
+        >>> get_range(sheet, st_cell, nd_cell)[0]
+        (Cell(row=6, col=3), Cell(row=7, col=3))
+        >>> nd_cell = StartPos(Cell(7, 6), 'UL')
+        >>> get_range(sheet, st_cell, nd_cell)[0]
+        (Cell(row=5, col=3), Cell(row=6, col=3))
     """
+
     no_empty = get_no_empty_cells(sheet)
 
-    xl_margins = get_xl_margins(no_empty)
+    up = (0, 0)
+
+    dn = (sheet.nrows - 1, sheet.ncols - 1)
+
+    xl_margins, indices = get_xl_margins(no_empty)
+
+    st = set_start_cell(st_cell.cell, xl_margins)
+
+    state = no_empty[st]
+
+    if st_cell.mov is not None:
+        st = search_opposite_state(state, st, no_empty, up, dn, st_cell.mov)
+        state = not state
+
+    if nd_cell is None:
+        nd = Cell(*st)
+    else:
+        nd = set_start_cell(nd_cell.cell, xl_margins, st)
+
+        if nd_cell.mov is not None:
+            mov = nd_cell.mov
+            if state == no_empty[nd]:
+                nd = search_same_state(state, nd, no_empty, up, dn, mov)
+            else:
+                nd = search_opposite_state(not state, nd, no_empty, up, dn, mov)
+
+        c = np.array([st, nd])
+
+        st, nd = (Cell(*list(c.min(0))), Cell(*list(c.max(0))))
+
+    if rng_ext is None:
+        return (st, nd), indices
+    else:
+        return extend_range(state, (st, nd), no_empty, rng_ext), indices
 
 
-
-    if st_cell.mov is None:
-        set_start_cell()
 
 
 def _xlwings_min_index(it_types, margin, max_i):
