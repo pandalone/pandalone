@@ -884,7 +884,7 @@ class Pstep(str):
         ...     ('/abc',     'ABC'),
         ...     ('/abc/foo', 'BAR'),
         ... ])
-        >>> p = Pstep('root', _pmod=pmods)
+        >>> p = Pstep(_pmod=pmods)
         >>> p.abc.foo
         `BAR`
         >>> p._paths
@@ -912,7 +912,7 @@ class Pstep(str):
             return 'LOCKED'
         return 'LOCKED'
 
-    def __new__(cls, pname='', _pmod=None, _alias=None):
+    def __new__(cls, pname='', _pmod=None):
         """
         Constructs a string with str-content which may be mapped from pmods.
 
@@ -920,16 +920,18 @@ class Pstep(str):
                             if unmapped by pmod, becomes super-str object.
                             The pname get jsonpointer-escaped 
                             (see :func:`pandata.escape_jsonpointer_part()`)
-        :param PMod _pmod:  the mappings for the children of this pstep, which
-                            contains the un-expanded `_alias` for this pstep,
-                            or None
-        :param str _alias:  the regex-expanded alias for this pstep, or None
+        :param PMod _pmod:  the mappings for this pstep, or None.
+                            It will apply only if :meth:`Pmod.descend()` 
+                            matches the `pname` passed here.
         """
-        pname = unescape_jsonpointer_part(str(pname))
-        alias = _alias
-        if not alias and _pmod:
-            alias = _pmod._alias
-        self = str.__new__(cls, alias or pname)
+        pname = unescape_jsonpointer_part(pname)  # TODO: Escape-path TCs miss.
+        if _pmod:
+            _pmod, alias = _pmod.descend(pname)
+            if alias is None:
+                alias = pname
+        else:
+            alias = pname
+        self = str.__new__(cls, alias)
         self._orig = pname
         self._pmod = _pmod
         self._csteps = {}
@@ -938,13 +940,7 @@ class Pstep(str):
         return self
 
     def __missing__(self, cpname):
-        child = self._csteps.get(cpname)
-        if not child:
-            try:
-                cpmod, alias = self._pmod.descend(cpname)
-            except:
-                cpmod, alias = (None, None)
-            self._csteps[cpname] = child = Pstep(cpname, cpmod, alias)
+        self._csteps[cpname] = child = Pstep(cpname, self._pmod)
         return child
 
     def __getitem__(self, cpname):
@@ -958,7 +954,8 @@ class Pstep(str):
         if cpname.startswith('_'):
             msg = "'%s' object has no attribute '%s'"
             raise AttributeError(msg % (self, cpname))
-        return self.__missing__(cpname)
+        child = self._csteps.get(cpname, None)
+        return child or self.__missing__(cpname)
 
     def __setattr__(self, cpname, value):
         if cpname.startswith('_'):
@@ -1003,7 +1000,7 @@ class Pstep(str):
 
         return sorted(set(paths))
 
-    def _append_children(self, paths, prefix_steps=[]):
+    def _append_children(self, paths, prefix_steps=[], is_orig=False):
         """
         Append all child-steps in the `paths` list. 
 
@@ -1011,13 +1008,26 @@ class Pstep(str):
         :rtype: [[str]]
         """
         nprefix = prefix_steps.copy()
-        nprefix = _append_path(nprefix, self)
+        nprefix = _append_path(nprefix, self._orig if is_orig else self)
         # nprefix.append(self)
         if self._csteps:
             for v in self._csteps.values():
-                v._append_children(paths, nprefix)
+                v._append_children(paths, nprefix, is_orig=is_orig)
         else:
             paths.append(nprefix)
+
+    @property
+    def _paths_orig(self):
+        """
+        Return children-paths (str-list) before mapping. 
+
+        :rtype: [str]
+        """
+        paths = []
+        self._append_children(paths, is_orig=True)
+        paths = ['/'.join(p) for p in paths]
+
+        return sorted(set(paths))
 
     @property
     def _schema(self):

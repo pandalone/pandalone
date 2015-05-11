@@ -590,7 +590,7 @@ class TestPstep(unittest.TestCase):
         p.n123
         p['321']
         p._some_hidden = 12
-        p.a.b.c['123'][4]
+        p.a.b.c['123']['4']
 
     def test_buildtree_invalid_ops(self):
 
@@ -655,7 +655,7 @@ class TestPstep(unittest.TestCase):
         self.assertEqual(
             Pstep._append_children.__defaults__[0], [])  # @UndefinedVariable
 
-    def test_paths_multi_nonempty1ststep(self):
+    def test_paths_multi_nonemptyroot(self):
         p = Pstep('r')
         p.abc
         p.abc['def']
@@ -675,12 +675,12 @@ class TestPstep(unittest.TestCase):
 
     ### DOT ###
 
-    def test_paths_dot_atroot_empty1ststep(self):
+    def test_paths_dot_atroot_emptyroot(self):
         p = Pstep()
         p['.']
         self.assertListEqual(sorted(p._paths), sorted(['']))
 
-    def test_paths_dot_empty1ststep(self):
+    def test_paths_dot_emptyroot(self):
         p = Pstep()
         p.a['.']
         self.assertListEqual(sorted(p._paths), sorted(['/a']))
@@ -695,7 +695,7 @@ class TestPstep(unittest.TestCase):
         p.a['.']
         self.assertListEqual(sorted(p._paths), sorted(['r/a']))
 
-    def test_paths_dot_multi_empty1ststep(self):
+    def test_paths_dot_multi_emptyroot(self):
         p = Pstep('')
         p['.'].a.b
         p.c['.'].d
@@ -712,7 +712,7 @@ class TestPstep(unittest.TestCase):
     # BC HIDS PATHS,
     # but testing for mapping.
 
-    def test_paths_dotdot_atroot_empty1ststep(self):
+    def test_paths_dotdot_atroot_emptyroot(self):
         p = Pstep()
         p['..'].a
         self.assertListEqual(sorted(p._paths), sorted(['/a']))
@@ -722,7 +722,7 @@ class TestPstep(unittest.TestCase):
         p['..'].b
         self.assertListEqual(sorted(p._paths), sorted(['/a', '/b']))
 
-    def test_paths_dotdot_empty1ststep(self):
+    def test_paths_dotdot_emptyroot(self):
         p = Pstep()
         p.a['..'].b
         self.assertListEqual(sorted(p._paths), sorted(['/b']))
@@ -742,7 +742,7 @@ class TestPstep(unittest.TestCase):
         p.a['..'].b
         self.assertListEqual(sorted(p._paths), sorted(['r/b']))
 
-    def test_paths_dotdot_multi_empty1ststep(self):
+    def test_paths_dotdot_multi_emptyroot(self):
         p = Pstep('')
         p['..'].a.b
         p.c['..'].d
@@ -778,8 +778,8 @@ class TestPstep(unittest.TestCase):
         self.assertEquals(p.a.f, 'f')
         self.assertEquals(sorted(p._paths), ['/bar/b', '/bar/f', '/c'])
 
-    def test_pmods_nonempty1ststep_rootunmapped(self):
-        p = Pstep('root', _pmod=pmods_from_tuples([('/a', 'bar')]))
+    def test_pmods_nonemptyroot_rootunmapped(self):
+        p = Pstep('root', _pmod=pmods_from_tuples([('root/a', 'bar')]))
         p.a
         self.assertEquals(p, 'root', (p, p._paths))
         self.assertEquals(p.a, 'bar', (p, p._paths))
@@ -814,21 +814,22 @@ class TestPstep(unittest.TestCase):
 
     def test_pmods_nonemptyroot_rootmapped(self):
         p = Pstep(
-            'root', _pmod=pmods_from_tuples([('', 'root'), ('/a', 'bar')]))
+            'root', _pmod=pmods_from_tuples([
+                ('root', 'ROOT'), ('root/a', 'bar')]))
         p.a
-        self.assertEquals(p, 'root')
+        self.assertEquals(p, 'ROOT')
         self.assertEquals(p.a, 'bar')
-        self.assertEquals(sorted(p._paths), ['root/bar'])
+        self.assertEquals(sorted(p._paths), ['ROOT/bar'])
 
         self.assertEquals(p.a.b, 'b')
-        self.assertEquals(sorted(p._paths), ['root/bar/b'])
+        self.assertEquals(sorted(p._paths), ['ROOT/bar/b'])
 
         self.assertEquals(p.c, 'c')
-        self.assertEquals(sorted(p._paths), ['root/bar/b', 'root/c'])
+        self.assertEquals(sorted(p._paths), ['ROOT/bar/b', 'ROOT/c'])
 
         self.assertEquals(p.a.f, 'f')
         self.assertEquals(
-            sorted(p._paths), ['root/bar/b', 'root/bar/f', 'root/c'])
+            sorted(p._paths), ['ROOT/bar/b', 'ROOT/bar/f', 'ROOT/c'])
 
     def _build_psteps(self, root='', pmods=None):
         p = Pstep(root, _pmod=pmods)
@@ -838,10 +839,10 @@ class TestPstep(unittest.TestCase):
         p.abc['def']
         p.n123
         p.a.n123
-        p.cc[123]['123']
-        p.cc[123].abc
+        p.cc['123']['123']
+        p.cc['123'].abc
         p['321']
-        p['']
+        # p[''] ##NOTE: Will always return to root.
 
         return p
 
@@ -855,49 +856,38 @@ class TestPstep(unittest.TestCase):
     def test_pstep_vs_pmods_maproot(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
-        pmods = pmods_from_tuples([
-            ('', 'AA'),
-        ])
-        self._assert_pstep_pmods_with_map_paths('P', pmods)
+        root = 'R'
+        pmods = pmods_from_tuples([(root, 'AA'), ])
+        self._assert_pstep_pmods_with_map_paths(root, pmods)
 
     def test_pstep_vs_pmods_mapslash(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
-        pmods = pmods_from_tuples([
-            ('/', 'AA'),
-        ])
+        pmods = pmods_from_tuples([('/', 'AA'), ])
         self._assert_pstep_pmods_with_map_paths('P', pmods)
 
     def test_pstep_vs_pmods_mapstep(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
-        pmods = pmods_from_tuples([
-            ('/a', 'AA'),
-        ])
+        pmods = pmods_from_tuples([('/a', 'AA'), ])
         self._assert_pstep_pmods_with_map_paths('P', pmods)
 
-    def test_pstep_vs_pmods_maproot_empty1ststep(self):
+    def test_pstep_vs_pmods_maproot_emptyroot(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
-        pmods = pmods_from_tuples([
-            ('', 'AA'),
-        ])
+        pmods = pmods_from_tuples([('', 'AA'), ])
         self._assert_pstep_pmods_with_map_paths('', pmods)
 
     def test_pstep_vs_pmods_mapslash_empty1ststep(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
-        pmods = pmods_from_tuples([
-            ('/', 'AA'),
-        ])
+        pmods = pmods_from_tuples([('/', 'AA'), ])
         self._assert_pstep_pmods_with_map_paths('', pmods)
 
     def test_pstep_vs_pmods_mapstep_empty1ststep(self):
         """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
-        pmods = pmods_from_tuples([
-            ('/a', 'AA'),
-        ])
+        pmods = pmods_from_tuples([('/a', 'AA'), ])
         self._assert_pstep_pmods_with_map_paths('', pmods)
 
     def test_pmods_mass(self):
