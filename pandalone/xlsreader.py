@@ -234,7 +234,6 @@ import pandas as pd
 import numpy as np
 from string import ascii_uppercase
 from collections import namedtuple
-
 from itertools import repeat
 
 # noinspection PyUnresolvedReferences
@@ -254,7 +253,6 @@ if LooseVersion(xlrd.__VERSION__) >= LooseVersion("0.9.3"):
     xlrd_0_9_3 = True
 else:
     xlrd_0_9_3 = False
-
 
 _re_xl_ref_parser = re.compile(
     r"""
@@ -316,6 +314,7 @@ def col2num(col_str):
         num = num * 26 + ascii_uppercase.rindex(c.upper()) + 1
 
     return num - 1
+
 
 XL_UP_ABS = object()
 XL_BOTTOM_ABS = object()
@@ -441,12 +440,9 @@ def parse_cell(cell, epoch1904=False):
     raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
 
 
-def chain_moves(moves, times=None):
-    # chain_moves('ABC', 3) --> A B C A B C A B C
-    it = repeat(moves, int(times)) if times is not None else repeat(moves)
-    for mv in it:
-        for element in mv:
-            yield element
+def repeat_moves(moves, times=None):
+    # repeat_moves('ABC', 3) --> ABC ABC ABC
+    return repeat(moves, int(times)) if times is not None else repeat(moves)
 
 
 def parse_rng_ext(rng_ext):
@@ -468,12 +464,11 @@ def parse_rng_ext(rng_ext):
         >>> res = parse_rng_ext(rng_ext)
 
         >>> res
-        [<generator object chain_moves at 0x...>,
-         <generator object chain_moves at 0x...>]
+        [repeat('LUR'), repeat('D', 1)]
 
         # infinite generator
         >>> [next(res[0]) for i in range(10)]
-        ['L', 'U', 'R', 'L', 'U', 'R', 'L', 'U', 'R', 'L']
+        ['LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR']
         >>> list(res[1])
         ['D']
 
@@ -481,7 +476,7 @@ def parse_rng_ext(rng_ext):
     try:
         res = _re_rng_ext_splitter.split(rng_ext.replace('?', '1'))
 
-        return [chain_moves(*_re_rng_ext_parser.match(v).groups())
+        return [repeat_moves(*_re_rng_ext_parser.match(v).groups())
                 for v in res
                 if v != '']
 
@@ -808,25 +803,35 @@ _primitive_dir = {
 
 def get_no_empty_cells(sheet):
     types = np.array(sheet._cell_types)
-    return (types!=xlrd.XL_CELL_EMPTY) & (types!=xlrd.XL_CELL_BLANK)
+    return (types != xlrd.XL_CELL_EMPTY) & (types != xlrd.XL_CELL_BLANK)
 
 
-def get_xl_margins(no_empty):
+def get_xl_abs_margins(no_empty):
     """ Returns upper and lower absolute positions"""
     indices = np.array(np.where(no_empty)).T
     up_r, up_c = indices.min(0)
     dn_r, dn_c = indices.max(0)
     xl_margins = {
-        'col':{
+        'col': {
             XL_UP_ABS: up_c,
             XL_BOTTOM_ABS: dn_c
         },
-        'row':{
+        'row': {
             XL_UP_ABS: up_r,
             XL_BOTTOM_ABS: dn_r
         }
     }
     return xl_margins, indices
+
+
+def get_xl_margins(sheet):
+    no_empty = get_no_empty_cells(sheet)
+
+    up = (0, 0)
+
+    dn = (sheet.nrows - 1, sheet.ncols - 1)
+
+    return no_empty, up, dn
 
 
 def set_coord(cell, xl_margins, parent=None):
@@ -885,6 +890,9 @@ def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
         >>> args = (True, Cell(6, 3), non_empty, (0, 0), (7, 6))
         >>> search_opposite_state(*(args + ('D', )))
         Cell(row=7, col=3)
+        >>> args = (True, Cell(10, 3), non_empty, (0, 0), (7, 6))
+        >>> search_opposite_state(*(args + ('U', )))
+        Cell(row=7, col=3)
     """
     mv = _primitive_dir[moves[0]]  # first move
     c0 = c1 = np.array(cell)
@@ -892,7 +900,7 @@ def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
     while (up <= c0).all() and (c0 <= dn).all():
         c1 = c0
         while (up <= c1).all() and (c1 <= dn).all():
-            if no_empty[(c1[0], c1[1])] != state:
+            if no_empty[c1[0], c1[1]] != state:
                 if last and flag:
                     c1 = c1 - mv
                 return Cell(*(c1[0], c1[1]))
@@ -917,7 +925,7 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
     :return:
 
     Example::
-        >>> non_empty = np.array(\
+        >>> no_empty = np.array(\
             [[False, False, False, False, False, False, False],\
              [False, False, False, False, False, False, False],\
              [False, False, False, False, False, False, False],\
@@ -926,22 +934,22 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
              [False, False, False, False,  True,  True,  True],\
              [False, False, False,  True, False, False,  True],\
              [False, False, False,  True,  True,  True,  True]])
-        >>> args = (True, Cell(7, 6), non_empty, (0, 0), (7, 6))
+        >>> args = (True, Cell(7, 6), no_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('UL', )))
         Cell(row=5, col=3)
         >>> search_same_state(*(args + ('U', )))
         Cell(row=5, col=6)
         >>> search_same_state(*(args + ('L', )))
         Cell(row=7, col=3)
-        >>> args = (True, Cell(5, 3), non_empty, (0, 0), (7, 6))
+        >>> args = (True, Cell(5, 3), no_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
-        >>> args = (False, Cell(5, 3), non_empty, (0, 0), (7, 6))
+        >>> args = (False, Cell(5, 3), no_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
         >>> search_same_state(*(args + ('UL', )))
         Cell(row=0, col=0)
-        >>> args = (True, Cell(5, 6), non_empty, (0, 0), (7, 6))
+        >>> args = (True, Cell(5, 6), no_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('DL', )))
         Cell(row=7, col=4)
     """
@@ -954,13 +962,81 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
         c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
     return Cell(*c1)
 
-def extend_range(state, rng, no_empty, rng_ext):
-    for it in rng_ext:
-        for mv in it:
-            continue
-    return
 
-def get_range(sheet, st_cell, nd_cell=None, rng_ext=None):
+def extend_range(state, rng, no_empty, rng_ext):
+    """
+
+    :param state:
+    :param up:
+    :param dn:
+    :param rng:
+    :param no_empty:
+    :param rng_ext:
+    :return:
+
+    Example::
+
+        >>> no_empty = np.array(\
+            [[False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False,  True,  True,  True],\
+             [False, False, False,  True, False, False,  True],\
+             [False, False, False,  True,  True,  True,  True]])
+
+
+        >>> rng = (Cell(row=6, col=3), Cell(row=6, col=3))
+        >>> rng_ext = [repeat_moves('U', times=10)]
+        >>> extend_range(True, rng, no_empty, rng_ext)
+        [Cell(row=6, col=3), Cell(row=6, col=3)]
+
+        >>> rng = (Cell(row=6, col=3), Cell(row=7, col=3))
+        >>> rng_ext = [repeat_moves('R', times=10)]
+        >>> extend_range(True, rng, no_empty, rng_ext)
+        [Cell(row=6, col=3), Cell(row=7, col=6)]
+
+        >>> rng = (Cell(row=6, col=3), Cell(row=10, col=3))
+        >>> rng_ext = [repeat_moves('R', times=10)]
+        >>> extend_range(True, rng, no_empty, rng_ext)
+        [Cell(row=6, col=3), Cell(row=10, col=6)]
+
+        >>> rng = (Cell(row=6, col=5), Cell(row=6, col=5))
+        >>> rng_ext = [repeat_moves('R', times=5),
+        ...            repeat_moves('D', times=5),
+        ...            repeat_moves('L', times=5),
+        ...            repeat_moves('U', times=5)]
+        >>> extend_range(True, rng, no_empty, rng_ext)
+        [Cell(row=5, col=3), Cell(row=7, col=6)]
+
+    """
+    _m = {
+        'L': (0, 1),
+        'U': (0, 1),
+        'R': (1, 0),
+        'D': (1, 0)
+    }
+    rng = list(rng)
+    for directions in rng_ext:
+        for d in directions:
+            mv = _primitive_dir[d]
+            i, j = _m[d]
+            st, nd = (rng[i], rng[j])
+            st = st + mv
+            nd = [p2 if k == 0 else p1 for p1, p2, k in zip(st, nd, mv)]
+            if i == 1:
+                v = no_empty[nd[0]:st[0] + 1, nd[1]:st[1] + 1]
+            else:
+                v = no_empty[st[0]:nd[0] + 1, st[1]:nd[1] + 1]
+            if not v.size or (v != state).all():
+                break
+            rng[i] = st
+
+    return [Cell(*v) for v in rng]
+
+
+def get_range(no_empty, up, dn, st_cell, nd_cell=None, rng_ext=None):
     """
 
     :param sheet:
@@ -975,39 +1051,27 @@ def get_range(sheet, st_cell, nd_cell=None, rng_ext=None):
 
     Example::
 
-        >>> types = [\
-             [0, 0, 0, 0, 0, 0, 0],\
-             [0, 0, 0, 0, 0, 0, 0],\
-             [0, 0, 0, 0, 0, 0, 0],\
-             [0, 0, 0, 0, 0, 0, 0],\
-             [0, 0, 0, 0, 0, 0, 0],\
-             [0, 0, 0, 0, 1, 1, 1],\
-             [0, 0, 0, 1, 0, 0, 1],\
-             [0, 0, 0, 1, 1, 1, 1]]
+        >>> no_empty = np.array(\
+            [[False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False, False, False, False],\
+             [False, False, False, False,  True,  True,  True],\
+             [False, False, False,  True, False, False,  True],\
+             [False, False, False,  True,  True,  True,  True]])
 
-        >>> class Sheet(object):
-        ...     def __init__(self, _cell_types, nrows, ncols):
-        ...         self._cell_types=_cell_types
-        ...         self.nrows=nrows
-        ...         self.ncols=ncols
-
-        >>> sheet = Sheet(types, 8, 7)
+        >>> up, dn = ((0, 0), (8, 7))
         >>> st_cell = StartPos(Cell(0, 0), 'DR')
         >>> nd_cell = StartPos(Cell(CELL_RELATIVE, CELL_RELATIVE), 'DR')
-        >>> get_range(sheet, st_cell, nd_cell)[0]
+        >>> get_range(no_empty, up, dn, st_cell, nd_cell)[0]
         (Cell(row=6, col=3), Cell(row=7, col=3))
         >>> nd_cell = StartPos(Cell(7, 6), 'UL')
-        >>> get_range(sheet, st_cell, nd_cell)[0]
+        >>> get_range(no_empty, up, dn, st_cell, nd_cell)[0]
         (Cell(row=5, col=3), Cell(row=6, col=3))
     """
 
-    no_empty = get_no_empty_cells(sheet)
-
-    up = (0, 0)
-
-    dn = (sheet.nrows - 1, sheet.ncols - 1)
-
-    xl_margins, indices = get_xl_margins(no_empty)
+    xl_margins, indices = get_xl_abs_margins(no_empty)
 
     st = set_start_cell(st_cell.cell, xl_margins)
 
@@ -1039,7 +1103,8 @@ def get_range(sheet, st_cell, nd_cell=None, rng_ext=None):
         return extend_range(state, (st, nd), no_empty, rng_ext), indices
 
 
-
+def get_table(sheet, rng, indices):
+    pass
 
 def _xlwings_min_index(it_types, margin, max_i):
     try:
