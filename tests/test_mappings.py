@@ -893,40 +893,65 @@ class TestPstep(unittest.TestCase):
         pmods._alias = None
         p = Pstep(_pmod=pmods)
 
-    def test_pmods_lock_CAN_RELOCATE(self):
+    def test_pmods_lock_CAN_RELOCATE_unmapped(self):
+        p = Pstep()
+        p._locked = Pstep.CAN_RELOCATE
+        p2 = p._lock
+        self.assertIs(p2, p)
+        p2 = p._fix
+        self.assertIs(p2, p)
+
+        p2 = p.abc._lock
+        self.assertIs(p2, p.abc)
+        p2 = p.abc._fix
+        self.assertIs(p2, p.abc)
+
+    def test_pmods_lock_CAN_RELOCATE_mapped(self):
         pmods = self.PMODS()
         p = Pstep(_pmod=pmods)
-        p._lock = Pstep.CAN_RELOCATE
-        p['for']._lock = Pstep.CAN_RELOCATE
+        p._locked = Pstep.CAN_RELOCATE
+
+        p2 = p.unmapped._lock
+        self.assertIs(p2, p.unmapped)
+        p2 = p.unmapped._fix
+        self.assertIs(p2, p.unmapped)
 
     def test_pmods_lock_CAN_RENAME_root(self):
         pmods = self.PMODS(absolute=True)
         p = Pstep(_pmod=pmods)
         with self.assertRaises(ValueError, msg=p._paths):
-            p._lock = Pstep.CAN_RENAME
+            p._locked = Pstep.CAN_RENAME
+        with self.assertRaises(ValueError, msg=p._paths):
+            p._lock
 
     def test_pmods_lock_CAN_RENAME_rest(self):
         p = Pstep(_pmod=self.PMODS())
+        p2 = p.a._fix  # `a` just renamed `b`.
+        self.assertIs(p2, p.a)
         with self.assertRaises(ValueError, msg=p._paths):
-            p['for']._lock = Pstep.CAN_RENAME
+            p['for']._locked = Pstep.CAN_RENAME
+        with self.assertRaises(ValueError, msg=p._paths):
+            p['for']._lock
 
     def test_pmods_lock_LOCKED_root(self):
         p = Pstep(_pmod=self.PMODS())
         with self.assertRaises(ValueError, msg=p._paths):
-            p._lock = Pstep.LOCKED
+            p._locked = Pstep.LOCKED
+        with self.assertRaises(ValueError, msg=p._paths):
+            p._lock
 
     def test_pmods_lock_LOCKED_rest(self):
         pmods = self.PMODS()
-        pmods._alias = None
         p = Pstep(_pmod=pmods)
         with self.assertRaises(ValueError, msg=p._paths):
-            p.abc._lock = Pstep.LOCKED
+            p.abc._locked = Pstep.LOCKED
+        with self.assertRaises(ValueError, msg=p._paths):
+            p.abc._lock
 
-        pmods = self.PMODS()
-        pmods._alias = None
-        p = Pstep(_pmod=pmods)
         with self.assertRaises(ValueError, msg=p._paths):
-            p['for']._lock = Pstep.LOCKED
+            p['for']._locked = Pstep.LOCKED
+        with self.assertRaises(ValueError, msg=p._paths):
+            p['for']._lock
 
     def test_assign(self):
         p1 = Pstep('root')

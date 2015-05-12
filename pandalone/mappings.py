@@ -14,9 +14,7 @@ See:
 - :func:`pmods_from_tuples` & :func:`df_as_pmods_tuples()`, and
 - :class:`Pstep`.
 
-- TODO: Pmods for relative-paths.
 - TODO: Explicit mark pmods_from-tuples() for relative/absolute & regex.
-- TODO: Split pstep._lock into _fix/_lock property. 
 """
 
 from __future__ import division, unicode_literals
@@ -24,8 +22,8 @@ from __future__ import division, unicode_literals
 from collections import OrderedDict
 from copy import copy
 import logging
-from pandalone.pandata import (iter_jsonpointer_parts_relaxed, JSchema,
-                               unescape_jsonpointer_part,  iter_jsonpointer_parts)
+from pandalone.pandata import (
+    iter_jsonpointer_parts_relaxed, JSchema, unescape_jsonpointer_part)
 import re
 
 import functools as ft
@@ -783,7 +781,7 @@ class Pstep(str):
     :ivar Pstep _csteps: the child-psteps
     :ivar dict _pmod:   path-modifications used to construct this and
                          relayed to children
-    :ivar int _lock:     one of
+    :ivar int _locked:   one of
                          - :const:`Pstep.CAN_RELOCATE`(default, reparenting allowed),
                          - :const:`Pstep.CAN_RENAME`,
                          - :const:`Pstep.LOCKED' (neither from the above).
@@ -847,8 +845,13 @@ class Pstep(str):
 
     - but exceptions are thrown if mapping any step marked as "locked":
 
-        >>> p.abc.foo._lock  # 3: CAN_RELOCATE
+        >>> p.abc.foo._locked  ## 3: CAN_RELOCATE
         3
+
+        >>> p.abc.foo._lock    ## Screams, because `foo` is already mapped.
+        Traceback (most recent call last):
+        ValueError: Cannot rename/relocate 'foo'-->'BAR' due to LOCKED!
+
 
     - .. Warning::
           String's slicing operations do not work on this string-subclass!
@@ -903,7 +906,7 @@ class Pstep(str):
         self._orig = pname
         self._pmod = _pmod
         self._csteps = {}
-        vars(self)['_lock'] = Pstep.CAN_RELOCATE
+        vars(self)['_locked'] = Pstep.CAN_RELOCATE
 
         return self
 
@@ -939,21 +942,45 @@ class Pstep(str):
         return '`%s`' % self
 
     @property
-    def _lock(self):
-        """One of `CAN_RELOCATE`, `CAN_RENAME`, `LOCKED'
-
-        :raise: ValueError when setting stricter lock-value on a renamed/relocated pstep
+    def _locked(self):
         """
-        return vars(self)['_lock']
+        Gets `_locked` internal flag or scream on set, when step already renamed/relocated
 
-    @_lock.setter
-    def _lock(self, lock):
+        Prefer using one of :attr:`_fix` or :attr:`_lock` instead.
+
+        :param locked:  One of :attr:`CAN_RELOCATE`, :attr:`CAN_RENAME`, 
+                        :attr:`LOCKED`.
+        :raise: ValueError when stricter lock-value on a renamed/relocated pstep
+        """
+        return vars(self)['_locked']
+
+    @_locked.setter
+    def _locked(self, lock_state):
         if self != self._orig:
-            if lock < Pstep.CAN_RENAME or (lock < Pstep.CAN_RELOCATE and '/' in self):
+            if lock_state < Pstep.CAN_RENAME or (
+                    lock_state < Pstep.CAN_RELOCATE and '/' in self):
                 msg = "Cannot rename/relocate '%s'-->'%s' due to %s!"
                 raise ValueError(
-                    msg % (self._orig, self, Pstep._lockstr(lock)))
-        vars(self)['_lock'] = int(lock)
+                    msg % (self._orig, self, Pstep._lockstr(lock_state)))
+        vars(self)['_locked'] = int(lock_state)
+
+    @property
+    def _fix(self):
+        """Sets :attr:`locked` = `CAN_RENAME`.
+        :return: self
+        :raise: ValueError if step has been relocated pstep
+        """
+        self._locked = Pstep.CAN_RENAME
+        return self
+
+    @property
+    def _lock(self):
+        """Sets :attr:`locked` = `LOCKED`.
+        :return: self
+        :raise: ValueError if step has been renamed/relocated pstep
+        """
+        self._locked = Pstep.LOCKED
+        return self
 
     @property
     def _paths(self):
