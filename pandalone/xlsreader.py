@@ -427,7 +427,8 @@ def fetch_cell_ref(cell_col, cell_row, cell_mov):
     elif cell_row != '0':
         row = _c_pos[cell_row] if cell_row in _c_pos else int(cell_row) - 1
         col = _c_pos[cell_col] if cell_col in _c_pos else col2num(cell_col)
-        return StartPos(cell=Cell(col=col, row=row), mov=cell_mov)
+        mov = cell_mov.upper() if cell_mov else None
+        return StartPos(cell=Cell(col=col, row=row), mov=mov)
 
     raise ValueError('Invalid row format ({})'.format(cell_row))
 
@@ -452,8 +453,7 @@ def parse_rng_ext(rng_ext):
 
     Example::
 
-        >>> rng_ext = 'LURD?'
-        >>> res = parse_rng_ext(rng_ext)
+        >>> res = parse_rng_ext('LURD?')
 
         >>> res
         [repeat('LUR'), repeat('D', 1)]
@@ -463,7 +463,10 @@ def parse_rng_ext(rng_ext):
         ['LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR']
         >>> list(res[1])
         ['D']
-
+        >>> parse_rng_ext('1LURD')
+        Traceback (most recent call last):
+        ...
+        ValueError: Invalid range-extension(1LURD) due to: 'NoneType' object has no attribute 'groups'
     """
     try:
         res = _re_rng_ext_splitter.split(rng_ext.replace('?', '1'))
@@ -777,6 +780,13 @@ def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
         >>> args = (False, Cell(10, 10), non_empty, (0, 0), (7, 6))
         >>> search_opposite_state(*(args + ('UL', )))
         Cell(row=7, col=6)
+        >>> non_empty = np.array(\
+            [[True, True, True],\
+             [True, True, True],\
+             [True, True, True]])
+        >>> args = (True, Cell(0, 2), non_empty, (0, 0), (2, 2))
+        >>> search_opposite_state(*(args + ('LD', )))
+        Cell(row=3, col=2)
     """
     mv = _primitive_dir[moves[0]]  # first move
 
@@ -792,7 +802,7 @@ def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
 
     while True:
         c1 = c0
-        while True:
+        while (up <= c1).all():
             try:
                 if no_empty[c1[0], c1[1]] != state:
                     if last and flag:
@@ -855,10 +865,13 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
         >>> search_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
         >>> search_same_state(*(args + ('UL', )))
-        Cell(row=0, col=0)
+        Traceback (most recent call last):
+        ...
+        ValueError: Invalid Cell(row=5, col=3) with movement(U)
         >>> args = (True, Cell(5, 6), no_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('DL', )))
         Cell(row=7, col=4)
+
     """
 
     c1 = list(cell)
@@ -946,7 +959,7 @@ def extend_range(state, xl_range, no_empty, rng_ext):
     return [Cell(*v) for v in xl_range]
 
 
-def get_range(no_empty, up, dn, st_cell, nd_cell=None, rng_ext=None):
+def get_range(no_empty, up, dn, xl_margins, indices, st_cell, nd_cell=None, rng_ext=None):
     """
 
     :param sheet:
@@ -972,20 +985,21 @@ def get_range(no_empty, up, dn, st_cell, nd_cell=None, rng_ext=None):
              [False, False, False,  True,  True,  True,  True]])
 
         >>> up, dn = ((0, 0), (7, 6))
+        >>> xl_margins, ind = get_xl_abs_margins(no_empty)
         >>> st_cell = StartPos(Cell(0, 0), 'DR')
         >>> nd_cell = StartPos(Cell(CELL_RELATIVE, CELL_RELATIVE), 'DR')
-        >>> get_range(no_empty, up, dn, st_cell, nd_cell)[0]
+        >>> get_range(no_empty, up, dn, xl_margins, ind, st_cell, nd_cell)
         (Cell(row=6, col=3), Cell(row=7, col=3))
         >>> nd_cell = StartPos(Cell(7, 6), 'UL')
-        >>> get_range(no_empty, up, dn, st_cell, nd_cell)[0]
+        >>> get_range(no_empty, up, dn, xl_margins, ind, st_cell, nd_cell)
         (Cell(row=5, col=3), Cell(row=6, col=3))
     """
 
-    xl_margins, indices = get_xl_abs_margins(no_empty)
-
     st = set_start_cell(st_cell.cell, xl_margins)
-
-    state = no_empty[st]
+    try:
+        state = no_empty[st]
+    except IndexError:
+        state = False
 
     if st_cell.mov is not None:
         st = search_opposite_state(state, st, no_empty, up, dn, st_cell.mov)
@@ -1009,9 +1023,9 @@ def get_range(no_empty, up, dn, st_cell, nd_cell=None, rng_ext=None):
         st, nd = (Cell(*list(c.min(0))), Cell(*list(c.max(0))))
 
     if rng_ext is None:
-        return (st, nd), indices
+        return (st, nd)
     else:
-        return extend_range(state, (st, nd), no_empty, rng_ext), indices
+        return extend_range(state, (st, nd), no_empty, rng_ext)
 
 
 def parse_cell(cell, epoch1904=False):
@@ -1104,7 +1118,6 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
         >>> writer.save()
 
         >>> sheet = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
-
 
         >>> xl_margins, indices = get_xl_abs_margins(get_no_empty_cells(sheet))
 
@@ -1205,10 +1218,13 @@ def redim_xl_range(value, dim_min, dim_max=None):
         [[1, 2]]
         >>> redim_xl_range([[1, 2]], 1, 1)
         [1, 2]
+        >>> redim_xl_range([], 2)
+        [[]]
         >>> redim_xl_range([[1, 2]], 0, 0)
         Traceback (most recent call last):
         ...
         ValueError: value cannot be reduced of -2
+
     """
     val_dim = _get_value_dim(value)
     try:
