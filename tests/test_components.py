@@ -9,16 +9,19 @@
 from __future__ import division, unicode_literals
 
 import doctest
+import sys
+import unittest
+
 from pandalone.components import (Assembly, FuncComponent, Pstep)
 import pandalone.components
 from pandalone.mappings import pmods_from_tuples
 from tests.test_utils import _init_logging
-import unittest
 
 
 log = _init_logging(__name__)
 
 
+@unittest.skipIf(sys.version_info < (3,3), "Doctests are made for py >= 3.3")
 class TestDoctest(unittest.TestCase):
 
     def test_doctests(self):

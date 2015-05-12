@@ -24,17 +24,22 @@ before_install:
     - pip install nose -IU   ## Conda's nose is rotten, and `python setup.py nosetests` fails!
 
 install:
-  - python setup.py install
+  - pip install -r requirements/execution.txt
 
 # command to run tests
 script:
-    - if [[ $TRAVIS_PYTHON_VERSION = '3.4' ]]; then python setup.py doctest_docs; fi
     - |
-        if [[ $TRAVIS_PYTHON_VERSION = '2.7' ]]; then python setup.py test_code; fi
-        if [[ $TRAVIS_PYTHON_VERSION = '3.3' ]]; then python setup.py doctest_code; fi
-        #if [[ $TRAVIS_PYTHON_VERSION = '3.4' ]]; then python setup.py test_code_cover; fi
-        if [[ $TRAVIS_PYTHON_VERSION = '3.4' ]]; then python setup.py doctest_code; fi
-    #- python setup.py build_sphinx                  ## Build html-docs.
+        if [[ $TRAVIS_PYTHON_VERSION = '2.7' ]]; then 
+            echo #python setup.py build_sphinx ## Imitate readthedocs env.
+        fi
+
+    - |
+        if [[ "$TRAVIS_PYTHON_VERSION" = '3.4' ]]; then 
+            nose_args="--with-doctest --doctest-extension=.rst --doctest-options=+NORMALIZE_WHITESPACE,+ELLIPSIS,+REPORT_UDIFF";
+            echo "RUNNING: nosetests $nose_args"
+        fi
+    - nosetests $nose_args
+
     - python setup.py sdist bdist_wheel             ## Create archives for PyPI repo.
 
     ## Ensure README valid ReST for PyPI.

@@ -54,7 +54,8 @@ mydir = os.path.dirname(__file__)
 ##
 def read_project_version():
     fglobals = {}
-    with io.open(os.path.join(mydir, proj_name, '_version.py')) as fd:
+    with io.open(os.path.join(
+            mydir, proj_name, '_version.py'), encoding='UTF-8') as fd:
         exec(fd.read(), fglobals)  # To read __version__
     return fglobals['__version__']
 
@@ -130,6 +131,18 @@ long_desc = ''.join(yield_sphinx_only_markup(readme_lines))
 download_url = 'https://github.com/%s/%s/tarball/v%s' % (
     proj_name, proj_name, proj_ver)
 
+install_requires=[
+    'six',
+    'jsonschema >= 2.4',
+    'numpy',
+    'pandas',   # 'openpyxl', 'xlrd',
+    'Pillow',   # For UI About boxes
+    'doit >= 0.28',
+    'networkx',
+]
+if sys.platform in ('darwin', 'win32'):
+    install_requires.append('xlwings')  # For Excel integration
+
 setup(
     name=proj_name,
     version=proj_ver,
@@ -172,21 +185,11 @@ setup(
     # package_data= {
     #    proj_name: ['*.vba', '*.ico'],
     #},
-    install_requires=[
-        'enum34',
-        'six',
-        'jsonschema>=2.4',
-        'numpy',
-        'pandas',   # 'openpyxl', 'xlrd',
-        'Pillow',   # For UI About boxes
-        'xlwings',  # For Excel integration
-        'doit',     # >= 0.28 but unreleased yet.
-    ],
+    install_requires=install_requires,
     setup_requires=[
         'setuptools',
         'setuptools-git >= 0.3',  # Gather package-data from all files in git.
         'sphinx >= 1.2',  # >=1.3
-        'sphinx_rtd_theme',
         'jsonschema >= 2.4',
         'coveralls',
         'wheel',

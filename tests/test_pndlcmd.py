@@ -22,6 +22,7 @@ from pandalone import __main__, pndlcmd
 from tests.assertutils import CustomAssertions
 
 
+@unittest.skipIf(sys.version_info < (3,3), "Doctests are made for py >= 3.3")
 class TestDoctest(unittest.TestCase):
 
     @unittest.skip('No doctests in `pndl` cmd.')

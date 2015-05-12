@@ -10,17 +10,16 @@ from __future__ import division, unicode_literals
 
 import doctest
 import json
-from pandalone.mappings import (
-    Pmod, pmods_from_tuples, Pstep, _append_path)
-import pandalone.mappings
 import re
 import sre_constants
-from tests.test_utils import _init_logging
+import sys
 import unittest
 
 import functools as ft
-import numpy.testing as npt
-import pandas as pd
+from pandalone.mappings import (
+    Pmod, pmods_from_tuples, Pstep, _append_path)
+import pandalone.mappings
+from tests.test_utils import _init_logging
 
 
 log = _init_logging(__name__)
@@ -31,6 +30,7 @@ def pmod2regexstrs(pmod):
         return [r.pattern for r in list(pmod._regxs.keys())]
 
 
+@unittest.skipIf(sys.version_info < (3,3), "Doctests are made for py >= 3.3")
 class TestDoctest(unittest.TestCase):
 
     def test_doctests(self):

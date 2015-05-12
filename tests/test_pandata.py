@@ -10,6 +10,7 @@ from __future__ import division, print_function, unicode_literals
 
 import doctest
 import json
+import sys
 import unittest
 
 from jsonschema.exceptions import RefResolutionError
@@ -27,6 +28,7 @@ from tests.test_utils import _init_logging
 log = _init_logging(__name__)
 
 
+@unittest.skipIf(sys.version_info < (3,3), "Doctests are made for py >= 3.3")
 class TestDoctest(unittest.TestCase):
 
     def test_doctests(self):
