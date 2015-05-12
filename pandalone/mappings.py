@@ -11,8 +11,7 @@ Functionality for mapping (*renaming* or *relocating*) paths.
 See:
 
 - :class:`Pmod`, 
-- :func:`pmods_from_tuples`, 
-- :func:`convert_df_as_pmods_tuples()`,and
+- :func:`pmods_from_tuples` & :func:`df_as_pmods_tuples()`, and
 - :class:`Pstep`.
 
 - TODO: Pmods for relative-paths.
@@ -630,50 +629,6 @@ def pmods_from_tuples(pmods_tuples):
         pmod._alias = t
 
     return root
-
-
-def df_as_pmods_tuples(df_pmods, col_from='from', col_to='to'):
-    """
-    Turns a a dataframe with `col_from`, `col_to` columns into a list of 2-tuples.
-
-    :return: a list of 2-tuples that can be fed into :func:`pmods_from_tuples`.
-    :rtype: list
-
-    Example::
-
-        >>> import pandas as pd
-
-        >>> pmods_tuples = [
-        ...     ('/a', 'A1/A2'),
-        ...     ('/a/b', 'B'),
-        ... ]
-        >>> df_pmods = pd.DataFrame(pmods_tuples)
-        >>> res = df_as_pmods_tuples(df_pmods)
-        >>> res
-        rec.array([('/a', 'A1/A2'), ('/a/b', 'B')],
-              dtype=[('from', 'O'), ('to', 'O')])
-
-        >>> df_pmods.columns = ['Rename from', 'Rename to']
-        >>> df_pmods['extra columns'] = ['not', 'used']
-        >>> res = df_as_pmods_tuples(
-        ...         df_pmods, col_from='Rename from', col_to='Rename to')
-        >>> res
-        rec.array([('/a', 'A1/A2'), ('/a/b', 'B')],
-              dtype=[('Rename from', 'O'), ('Rename to', 'O')])
-        """
-    if df_pmods.empty:
-        return []
-    cols_df = set(df_pmods.columns)
-    if col_from not in cols_df or col_to not in cols_df:
-        if df_pmods.shape[1] != 2:
-            cols_miss = cols_df - set([col_from, col_to])
-            msg = "Missing pmods-columns%s, and shape%s is not just 2 columns!"
-            raise ValueError(msg % (cols_miss, df_pmods.shape))
-        else:
-            df_pmods.columns = [col_from, col_to]
-    df = df_pmods[[col_from, col_to]]
-
-    return df.to_records(index=False)
 
 
 def _append_step(steps, step):

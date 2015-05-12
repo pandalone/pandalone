@@ -11,8 +11,7 @@ from __future__ import division, unicode_literals
 import doctest
 import json
 from pandalone.mappings import (
-    df_as_pmods_tuples, Pmod,
-    pmods_from_tuples, Pstep, _append_path)
+    Pmod, pmods_from_tuples, Pstep, _append_path)
 import pandalone.mappings
 import re
 import sre_constants
@@ -363,32 +362,6 @@ class TestPmod(unittest.TestCase):
         self.assertEqual(pmods.map_path('/a'), '/a')
         self.assertEqual(pmods.map_path('/big/child'), '/big/C/hild')
         self.assertEqual(pmods.map_path(''), '')
-
-    def test_convert_df_empty(self):
-        df_orig = pd.DataFrame([])
-
-        df = df_orig.copy()
-        pmods = df_as_pmods_tuples(df)
-        self.assertEqual(pmods, [])
-        npt.assert_array_equal(df, df_orig)
-
-        df = df_orig.copy()
-        pmods = df_as_pmods_tuples(df, col_from='A', col_to='B')
-        self.assertEqual(pmods, [])
-        npt.assert_array_equal(df, df_orig)
-
-    def test_convert_df_no_colnames(self):
-        df_orig = pd.DataFrame([['/a/b', '/A/B']])
-
-        df = df_orig.copy()
-        pmods = df_as_pmods_tuples(df)
-        self.assertEqual(tuple(pmods[0]), ('/a/b', '/A/B'))
-        npt.assert_array_equal(df, df_orig)
-
-        df = df_orig.copy()
-        pmods = df_as_pmods_tuples(df, col_from='A', col_to='B')
-        self.assertEqual(tuple(pmods[0]), ('/a/b', '/A/B'))
-        npt.assert_array_equal(df, df_orig)
 
     def test_build_pmods_steps_no_regxs(self):
         pmods_tuples = [
