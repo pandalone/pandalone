@@ -85,7 +85,7 @@ def yield_sphinx_only_markup(lines):
         #        :a:foo:`bar` XXX afoo(``bar``)
         #
         #(r'(:(\w+))?:(\w+):`([^`]*)`', r'\2\3(``\4``)'),
-        (r':(\w+):`([^`]*)`', r'\1(``\2``)'),
+        (r':(\w+):`([^`]*)`', r'\1(`\2`)'),
 
 
         # Sphinx-only Directives.

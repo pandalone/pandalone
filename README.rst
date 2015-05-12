@@ -380,7 +380,7 @@ First run :command:`python` or :command:`ipython` and try to import the project 
     >>> import pandalone
 
     >>> pandalone.__version__           ## Check version once more.
-    '0.0.1-dev.1'
+    '0.0.1-dev2'
 
     >>> pandalone.__file__              ## To check where it was installed.         # doctest: +SKIP
     /usr/local/lib/site-package/pandalone-...
@@ -515,14 +515,14 @@ that the sources are in good shape:
 
 Development procedure
 ---------------------
-.. include:: ../CONTRIBUTING.rst
-    :start-after: .. contents:
+See :doc:`CONTRIBUTING`
+
 
 .. _dev-team:
 
 Authors
 -------
-.. include:: ../AUTHORS.rst
+.. include:: AUTHORS.rst
 
 
 Design
@@ -567,7 +567,7 @@ These are the knowingly related python projects:
 
 - `hdf5 <http://www.h5py.org/>`_:
   Hierarchical file-data-format, `supported natively by pandas 
-    <http://pandas.pydata.org/pandas-docs/version/0.15.2/io.html#io-hdf5>`_;
+  <http://pandas.pydata.org/pandas-docs/version/0.15.2/io.html#io-hdf5>`_;
   a data-tree may derive in principle from "netCDF4 ".
 
 Which other projects/ideas have you reviewed when building this library?
@@ -576,21 +576,22 @@ Which other projects/ideas have you reviewed when building this library?
   Processing-pipelines for (mostly) categorical data.
 
 - `Data-protocols <http://dataprotocols.org/>`_:
-  - `JTSKit <https://github.com/okfn/jtskit-py>`_, 
-    A utility library for working with `JSON Table Schema 
-      <http://dataprotocols.org/json-table-schema/>`_ in Python.
-    - `Data Packages <http://dataprotocols.org/data-packages/>`_
+
+  - `JTSKit <https://github.com/okfn/jtskit-py>`_, A utility library for 
+    working with `JSON Table Schema <http://dataprotocols.org/json-table-schema/>`_ 
+    in Python.
+  - `Data Packages <http://dataprotocols.org/data-packages/>`_
 
 - `Celery <http://www.celeryproject.org/>`_:
   Execute distributed asynchronous tasks using message passing on a single or 
   more worker servers using multiprocessing, Eventlet, or gevent. 
 
-- `Fuzzywuzzy <https://github.com/seatgeek/fuzzywuzzy>`_:
+- ss  `Fuzzywuzzy <https://github.com/seatgeek/fuzzywuzzy>`_:
   Fuzzy String Matching in Python.
     
 - `"Other's people's messy data (and how not to hate it)" 
   <https://youtu.be/_eQ_8U5kruQ>`_,
-    PyCon 2015(Canada) presentation by Mali Akmanalp.
+  PyCon 2015(Canada) presentation by Mali Akmanalp.
 
 
 .. _begin-glossary:
