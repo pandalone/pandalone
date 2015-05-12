@@ -7,77 +7,98 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
 Implements an "Excel-url" format for capturing ranges from sheets.
- 
+
 Excel-range addressing ("xl-refs")
 ==================================
 
-<1st-cell>:<2nd-cell>:<extensions>
+Syntax::
+
+    <1st-cell>[:[<2nd-cell>][:<expansions>]]
+    :
+
+
+Example:
+<code>
+     :term:`scan-moves`────────┐
+     :term:`cell-coords`─────┐ │
+                            ┌┤┌┴─┐
+
+                            A1(RD):..(RD):L?DR
+
+                            └─┬──┘ └─┬──┘ └─┬─┘
+     :term:`1st-cell-ref`─────┘      │      │
+     :term:`2nd-cell-ref`────────────┘      │
+     :term:`range-expansions`───────────────┘
+</code>
+
 
 Definitions
 -----------
 
-- 1st cell: is the cell defined before ':'.
-- 2nd cell: is the cell defined after the first ':'.
-- range-extensions:
-- cell-moves: are the 12 scan-directions in the parentheses '(...)'.
-- cell-row: is the row coordinate of a cell.
-- cell-col: is the column coordinate of a cell.
-- cell-ref: is a pair of cell row-col coordinates.
-- cell-start: is the initial cell ref before the cell moves.
-- cell-target: is the final cell ref after the cell moves.
-- cell-state: can be empty or full(non-empty).
-- relative position: identified with a dot('.') for each cell-coordinate.
-  It can be used only in the 2nd cell-start ref (e.g., '.3', '..', 'B.').
-  It assumes that:
-        2nd cell-start col/row = 1st cell-target col/row
-- absolute position: identified with '^' and '_' for each cell-coordinate.
-  * '^': upper full cell-coordinate.
-  * '_': lower full cell-coordinate.
+.. glossary::
 
-Basic search cell-target rules
-------------------------------
+    1st-cell-ref
+        The cell-ref specifying where scan-moves start.
+        It supports absolute-coordinates only.
 
-- Search-opposite-state:
-  the cell-target is the first cell founded according to the cell-moves that has
-  the opposite state of the cell-start.
+    2nd-cell-ref
+        The 2nd cell-ref specifying where scan-moves stop.
+        It supports relative-coordinates as well.
 
-- Search-same-state:
-  the cell-target is evaluated according to the target-coordinate-moves.
+    cell-ref
+        A pair of row/col cell-coordinates, optionally followed by scan-moves.
 
-  * target-coordinate-move (cell-row if move='L' or 'R', cell-col if move='U' or
-    'D') is the last cell founded from the relative start-coordinate according
-    to the move that has the same state of the cell-start.
+    cell-coords
+        The cell-col (in letters) and cell-row (number) of a cell.
 
-1st cell target search
-----------------------
+    scan-moves
+        The 12 primitive directions in the cell-ref's parentheses,
+        scanning for changes of cell-states, specified with a *single* or 
+        a *pair* of the letters `LURD`.
 
-If the 1st-cell:
+    start-cell
+        The cell identified by the coordinates of the ref alone.
 
-  - has not cell-moves: cell-target = cell-start
+    target-cell
+        The cell identified after applying scan-moves on the start-cell.
+        Failure to identify a target-cell raises an error.
 
-  - has cell-moves: cell-target is evaluated using the search-opposite-state
-      rule.
+    cell-state
+        Whether a cell is empty or full(non-empty).
 
-2nd cell target search
-----------------------
+    absolute-coordinate
+        Any cell row/col identified with column-characters, row-numbers, or
+        the following special-characters:
 
-If the 2nd-cell:
+        - `^`            The top/Left full cell-coordinate.
+        - `_`            The bottom/right full cell-coordinate.
 
-  - has not cell-moves: cell-target = cell-start
+    relative-coordinate
+        Any 2nd-cell's coordinate identified with a dot(`.`),
+        which means that:
 
-  - has cell-moves and:
-    * 2nd-cell-start-state == 1st-cell-target-state:
-      cell-target is evaluated using the search-same-state rule.
+            > 2nd start-cell coordinate = 1st target-cell coordinate
 
-    * 2nd-cell-start-state != 1st-cell-target-state:
-      cell-target is evaluated using the search-opposite-state rule.
+        .. Note:: The cell-ref of the 2nd-cell might contain a "mix" of
+            absolute and relative coordinates.
+
+    search-opposite-state
+        The target-cell is the first cell found according to the scan-moves 
+        that has the opposite state of the start-cell.
+
+    search-same-state
+        The target-cell is the last cell found according to the scan-move 
+        that has the same state of the start-cell.
+
+    range-expansions
+        How to expand the initially captured rectangle.
 
 
-Primitive moves
----------------
+Scan moves
+----------
 
-There are 12 "primitive scan-directions" or excel "cell-moves" named with
-a *single* or a *pair* of the the letters `"LURD"`::
+There are 12 primitive scan-directions named with a *single* or a *pair* of
+the letters `LURD`::
 
             U
      UL◄───┐▲┌───►UR
@@ -106,8 +127,8 @@ Target-cells
 ------------
 
 Using these moves we can identify a "target" xl-cell from a known
-"starting" position (ie `A1`, or `^^` and `__` for the start/end of the sheet) 
-when the values visited in the 1st row/column *change* from empty to non-empty, 
+"starting" position (ie `A1`, or `^^` and `__` for the start/end of the sheet)
+when the values visited in the 1st row/column *change* from empty to non-empty,
 and vice versa.
 
 For instance, given this xl-sheet below, here some of the ways
@@ -116,10 +137,10 @@ to identify (or target) the non-empty values `X`::
       A B C D E F
     1
     2
-    3     X        ──► C3    A1(RD)   _^(L)      F3(L)
-    4         X    ──► E4    A4(R)    _4(L)      D1(DR)
-    5   X          ──► B5    A1(DR)   A_(UR)     _5(L)
-    6           X  ──► F6    __       _^(D)      A_(R)
+    3     X        ──────► C3    A1(RD)   _^(L)      F3(L)
+    4         X    ──────► E4    A4(R)    _4(L)      D1(DR)
+    5   X          ──────► B5    A1(DR)   A_(UR)     _5(L)
+    6           X  ──────► F6    __       _^(D)      A_(R)
 
     - The 'X' signify non-empty cells.
 
@@ -132,7 +153,9 @@ expanded with:
 
 columns/rows of the sheet with non-empty values.
 
-When no "LURD"s are specified, the target-cell coinceds with the starting one.
+When no `LURD`s are specified, the target-cell coinceds with the starting one.
+
+.. Seealso:: `Scan rules`_ section
 
 
 Ranges
@@ -148,16 +171,16 @@ The 2nd target-cell may be specified:
 In the above example-sheet, here are some ways to specify ranges::
 
       A  B C D E  F
-    1              
-                   
-    2              
-          ┌─────┐  
-       ┌──┼─┐   │  
-    3  │  │X│   │  
-       │┌─┼─┼───┼┐ 
-    4  ││ │ │  X││ 
+    1
+
+    2
+          ┌─────┐
+       ┌──┼─┐   │
+    3  │  │X│   │
+       │┌─┼─┼───┼┐
+    4  ││ │ │  X││
        ││ └─┼───┴┼───► C3:E4   A1(RD):..(RD)   _^(L):..(DR)   _4(L):A1(RD)
-    5  ││X  │    │ 
+    5  ││X  │    │
        │└───┼────┴───► B4:E5   A_(UR):..(RU)   _5(L):1_(UR)    E1(D):A.(DR)
     6  │    │     X
        └────┴────────► Β3:C6   A1(RD):^_       ^^:C_           C_:^^
@@ -166,14 +189,14 @@ In the above example-sheet, here are some ways to specify ranges::
 .. Warning::
    Of course, the above ranges WILL FAIL since the range-traversing moves
    will stop immediately due to `X`s being surrounded by empty-cells.
-   
+
    But the above diagram was to just convey the general idea.
    Under normal circumstances, all the in-between cells must be non-empty.
 
 
 The required moves for traversing from 1st to 2nd cell are
 calculated automatically from the relative positions of the 2 targets cells.
-In the case of relative-coords, these moves may or may not concede 
+In the case of relative-coords, these moves may or may not concede
 with the moves of the 2nd-cell.
 
 For instance, to capture `B4:E5` in the above sheet we may use `_5(L):E.(U)`.
@@ -182,49 +205,67 @@ to reach the 2nd one is calculated to be `UR` which is different from `U`.
 
 
 .. Note::
-    The traversing-moves from 1st to 2nd target cell will fetch 
-    the same values regardless of whether we are traversing "row-first" or 
+    The traversing-moves from 1st to 2nd target cell will fetch
+    the same values regardless of whether we are traversing "row-first" or
     "column-first".
+
+.. Seealso:: `Scan rules`_ section
+
+
+Scan rules
+----------
+
+- For the 1st target-cell:
+  Target-cell is identified using :term:`search-opposite-state` rule.
+  
+  .. Note:: Might be useful to allow user to reverse this behavior 
+      (ie by the use of the `-` char).
+ 
+- For the 2nd target cell:
+  - If 2nd-start-cell-state == 1st-target-cell-state:
+    Use :term:`search-same-state` to identify target.
+  
+  - If 2nd-start-cell-state != 1st-target-cell-state:
+    Use :term:`search-opposite-state` to identify target.
 
 
 Expansion
 ---------
 
-Captured rect-ranges ("values") may be limited due to empty-cells in the 
+Captured rect-ranges ("values") may be limited due to empty-cells in the
 1st row/column.
-To overcome this, the xl-ref may specify "expansions" directions using 
+To overcome this, the xl-ref may specify "expansions" directions using
 a 3rd `:`-section like that::
 
     _5(L):1_(UR):RDL?U?
 
-This particular case means: 
+This particular case means:
 
   > Try expanding Right and Down repeatedly and then one Left and Up.
 
-Expansion happens row-by-row or column-by-column basis, and terminates when 
+Expansion happens row-by-row or column-by-column basis, and terminates when
 a full empty(or non-empty) line is met.
 
 Example-refs are given below for capturing the 2 marked tables::
 
       A  B C D E F  G
-    1                
-       ┌───────────┐  
-       │┌─────────┐│ 
-    2  ││  1 X X  ││ 
-       ││         ││ 
-    3  ││X X   X X││ 
-       ││         ││ 
-    4  ││X X X 2 X││ 
-       ││         ││ 
-    5  ││X   X X X││ 
+    1
+       ┌───────────┐
+       │┌─────────┐│
+    2  ││  1 X X  ││
+       ││         ││
+    3  ││X X   X X││
+       ││         ││
+    4  ││X X X 2 X││
+       ││         ││
+    5  ││X   X X X││
        └┼─────────┼┴──► A1(RD):..(RD):DRL?
-    6   │X        │  
+    6   │X        │
         └─────────┴───► A1(RD):..(RD):L?DR       A_(UR):^^(RD)
     7               X
 
     - The 'X' signify non-empty cells.
     - The '1' and `2` signify the identified target-cells.
-
 
 """
 import re
@@ -924,7 +965,8 @@ def get_range(no_empty, up, dn, st_cell, nd_cell=None, rng_ext=None):
             if state == no_empty[nd]:
                 nd = search_same_state(state, nd, no_empty, up, dn, mov)
             else:
-                nd = search_opposite_state(not state, nd, no_empty, up, dn, mov)
+                nd = search_opposite_state(
+                    not state, nd, no_empty, up, dn, mov)
 
         c = np.array([st, nd])
 
