@@ -288,6 +288,8 @@ _re_rng_ext_parser = re.compile(
     $""", re.IGNORECASE | re.X)
 
 StartPos = namedtuple('StartPos', ['cell', 'mov'])
+
+
 Cell = namedtuple('Cell', ['row', 'col'])
 
 
@@ -491,7 +493,8 @@ def parse_xl_ref(xl_ref):
 
     :param xl_ref:
         a string with the following format:
-        <xl_sheet_name>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):<rng_ext>{<json>}
+        <xl_sheet_name>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):
+        <rng_ext>{<json>}
         es. xl_sheet_name!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}
     :type xl_ref: str
 
@@ -801,6 +804,7 @@ _primitive_dir = {
 }
 
 
+# noinspection PyProtectedMember
 def get_no_empty_cells(sheet):
     types = np.array(sheet._cell_types)
     return (types != xlrd.XL_CELL_EMPTY) & (types != xlrd.XL_CELL_BLANK)
@@ -1105,36 +1109,6 @@ def get_range(no_empty, up, dn, st_cell, nd_cell=None, rng_ext=None):
 
 def get_table(sheet, rng, indices):
     pass
-
-def _xlwings_min_index(it_types, margin, max_i):
-    try:
-        return next(i for i, c in enumerate(it_types)
-                    if c in (XL_CELL_BLANK, XL_CELL_EMPTY)) + margin
-    except StopIteration:
-        return max_i
-
-
-def _xlwings_margins(sheet, cell_up, cell_down, up, dn):
-    if cell_up.col is not None and cell_up.row is not None and \
-            (cell_down.col is None or cell_down.row is None):  # from up
-        if cell_down.col is None:
-            dn[0] = _xlwings_min_index(sheet.row_types(up[1], up[0]),
-                                       up[0], sheet.ncols)
-
-        if cell_down.row is None:
-            dn[1] = _xlwings_min_index(sheet.col_types(up[0], up[1]),
-                                       up[1], sheet.nrows)
-    elif cell_down.col is not None and cell_down.row is not None and \
-            (cell_up.col is None or cell_up.row is None):  # from bottom
-        _dn = (dn[0] - 1, dn[1] - 1)
-        if cell_up.col is None:
-            up[0] = -_xlwings_min_index(
-                reversed(sheet.row_types(_dn[1], 0, _dn[0])), -_dn[0], 0)
-
-        if cell_up.row is None:
-            up[1] = -_xlwings_min_index(
-                reversed(sheet.col_types(_dn[0], 0, _dn[1])), -_dn[1], 0)
-    return up, dn
 
 
 def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
