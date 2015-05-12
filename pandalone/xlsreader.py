@@ -254,6 +254,34 @@ if LooseVersion(xlrd.__VERSION__) >= LooseVersion("0.9.3"):
 else:
     xlrd_0_9_3 = False
 
+
+XL_UP_ABS = object()
+XL_BOTTOM_ABS = object()
+CELL_RELATIVE = object()
+MAX_TIME = None
+
+_c_pos = {
+    '^': XL_UP_ABS,
+    '_': XL_BOTTOM_ABS,
+    '.': CELL_RELATIVE
+}
+
+_function_types = {
+    None: {'fun': lambda x: x},
+    'df': {'fun': pd.DataFrame},
+    'nparray': {'fun': np.array},
+    'dict': {'fun': dict},
+    'sorted': {'fun': sorted}
+}
+
+
+_primitive_dir = {
+    'L': np.array([0, -1]),
+    'U': np.array([-1, 0]),
+    'R': np.array([0, 1]),
+    'D': np.array([1, 0])
+}
+
 _re_xl_ref_parser = re.compile(
     r"""
     ^\s*(?:(?P<xl_sheet_name>[^!]+)?!)?                  # xl sheet name
@@ -287,6 +315,7 @@ _re_rng_ext_parser = re.compile(
     (?P<times>\?|\d+)?                                   # repetition times
     $""", re.IGNORECASE | re.X)
 
+
 StartPos = namedtuple('StartPos', ['cell', 'mov'])
 
 
@@ -316,18 +345,6 @@ def col2num(col_str):
         num = num * 26 + ascii_uppercase.rindex(c.upper()) + 1
 
     return num - 1
-
-
-XL_UP_ABS = object()
-XL_BOTTOM_ABS = object()
-CELL_RELATIVE = object()
-MAX_TIME = None
-
-_c_pos = {
-    '^': XL_UP_ABS,
-    '_': XL_BOTTOM_ABS,
-    '.': CELL_RELATIVE
-}
 
 
 def fetch_cell_ref(cell_col, cell_row, cell_mov):
@@ -370,76 +387,6 @@ def fetch_cell_ref(cell_col, cell_row, cell_mov):
         return StartPos(cell=Cell(col=col, row=row), mov=cell_mov)
 
     raise ValueError('Unsupported row format %s' % cell_row)
-
-
-def parse_cell(cell, epoch1904=False):
-    """
-    Parse a xl-cell.
-
-    :param cell: an excel cell
-    :type cell: xlrd.sheet.Cell
-
-    :param epoch1904:
-        Which date system was in force when this file was last saved.
-        False => 1900 system (the Excel for Windows default).
-        True => 1904 system (the Excel for Macintosh default).
-    :type epoch1904: bool, optional
-
-    :return: formatted cell value
-    :rtype:
-        int, float, datetime.datetime, bool, None, str, datetime.time,
-        float('nan')
-
-    Example::
-
-        >>> import xlrd
-        >>> from xlrd.sheet import Cell
-        >>> parse_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
-        1.2
-        >>> parse_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
-        datetime.datetime(1900, 1, 1, 4, 48)
-        >>> parse_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
-        'hi'
-    """
-
-    ctype = cell.ctype
-
-    if ctype == XL_CELL_NUMBER:
-        # GH5394 - Excel 'numbers' are always floats
-        # it's a minimal perf hit and less suprising
-        val = int(cell.value)
-        if val == cell.value:
-            return val
-        return cell.value
-    elif ctype in (XL_CELL_EMPTY, XL_CELL_BLANK):
-        return None
-    elif ctype == XL_CELL_TEXT:
-        return cell.value
-    elif ctype == XL_CELL_BOOLEAN:
-        return bool(cell.value)
-    elif ctype == XL_CELL_DATE:  # modified from Pandas library
-        if xlrd_0_9_3:
-            # Use the newer xlrd datetime handling.
-            d = xldate.xldate_as_datetime(cell.value, epoch1904)
-
-            # Excel doesn't distinguish between dates and time, so we treat
-            # dates on the epoch as times only. Also, Excel supports 1900 and
-            # 1904 epochs.
-            epoch = (1904, 1, 1) if epoch1904 else (1899, 12, 31)
-            if (d.timetuple())[0:3] == epoch:
-                d = datetime.time(d.hour, d.minute, d.second, d.microsecond)
-        else:
-            # Use the xlrd <= 0.9.2 date handling.
-            d = xldate.xldate_as_tuple(cell.value, epoch1904)
-            if d[0] < datetime.MINYEAR:  # time
-                d = datetime.time(*d[3:])
-            else:  # date
-                d = datetime.datetime(*d)
-        return d
-    elif ctype == XL_CELL_ERROR:
-        return float('nan')
-
-    raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
 
 
 def repeat_moves(moves, times=None):
@@ -683,127 +630,6 @@ def open_xl_sheet(xl_ref_child, xl_ref_parent=None):
         raise ValueError("Invalid excel-sheet({}) due to:{}".format(sh, ex))
 
 
-def _get_value_dim(value):
-    try:
-        if isinstance(value, list):
-            return 1 + _get_value_dim(value[0])
-    except IndexError:
-        return 1
-    return 0
-
-
-def _redim_value(value, n):
-    if n > 0:
-        return [_redim_value(value, n - 1)]
-    elif n < 0:
-        if len(value) > 1:
-            raise Exception
-        return _redim_value(value[0], n + 1)
-    return value
-
-
-def redim_xl_range(value, dim_min, dim_max=None):
-    """
-    Reshapes the output value of get_rect_range function.
-
-    :param value: matrix or vector or value
-    :type value: list of lists, list, value
-
-    :param dim_min: minimum dimension
-    :type dim_min: int, None
-
-    :param dim_max: maximum dimension
-    :type dim_max: int, None, optional
-
-    :return: reshaped value
-    :rtype: list of lists, list, value
-
-    Example::
-
-        >>> redim_xl_range([1, 2], 2)
-        [[1, 2]]
-        >>> redim_xl_range([[1, 2]], 1)
-        [[1, 2]]
-        >>> redim_xl_range([[1, 2]], 1, 1)
-        [1, 2]
-        >>> redim_xl_range([[1, 2]], 0, 0)
-        Traceback (most recent call last):
-        ...
-        ValueError: value cannot be reduced of -2
-    """
-    val_dim = _get_value_dim(value)
-    try:
-        if val_dim < dim_min:
-            return _redim_value(value, dim_min - val_dim)
-        elif dim_max is not None and val_dim > dim_max:
-            return _redim_value(value, dim_max - val_dim)
-        return value
-    except:
-        raise ValueError('value cannot be reduced of %d' % (dim_max - val_dim))
-
-
-_function_types = {
-    None: {'fun': lambda x: x},
-    'df': {'fun': pd.DataFrame},
-    'nparray': {'fun': np.array},
-    'dict': {'fun': dict},
-    'sorted': {'fun': sorted}
-}
-
-
-def process_xl_range(value, type=None, args=[], kwargs={}, filters=None):
-    """
-    Processes the output value of get_rect_range function.
-
-    :param value: matrix or vector or value
-    :type value: list of lists, list, value
-
-    :param type: reference type
-    :type type: str, None, optional
-
-    :param args: additional arguments for the construction function
-    :type args: list, optional
-
-    :param kwargs: additional key=value arguments for the construction function
-    :type kwargs: dict, optional
-
-    :param filters:
-    :type filters: list, optional
-
-    :return: processed output value
-    :rtype: given type, or list of lists, list, value
-
-    Example::
-
-        >>> value = [[1, 2], [3, 4], [5, 6]]
-        >>> res = process_xl_range(value, type='dict')
-        >>> sorted(res.items())
-        [(1, 2),
-         (3, 4),
-         (5, 6)]
-        >>> value = [[1, 9], [8, 10], [5, 11]]
-        >>> process_xl_range(value, filters=[{'type':'sorted',\
-                                              'kwargs':{'reverse': True}\
-                                              }])
-        [[8, 10],
-         [5, 11],
-         [1, 9]]
-    """
-    val = _function_types[type]['fun'](value, *args, **kwargs)
-    if filters:
-        for v in filters:
-            val = process_xl_range(val, **v)
-    return val
-
-
-_primitive_dir = {
-    'L': np.array([0, -1]),
-    'U': np.array([-1, 0]),
-    'R': np.array([0, 1]),
-    'D': np.array([1, 0])
-}
-
-
 # noinspection PyProtectedMember
 def get_no_empty_cells(sheet):
     types = np.array(sheet._cell_types)
@@ -967,7 +793,7 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
     return Cell(*c1)
 
 
-def extend_range(state, rng, no_empty, rng_ext):
+def extend_range(state, xl_range, no_empty, rng_ext):
     """
 
     :param state:
@@ -1007,10 +833,7 @@ def extend_range(state, rng, no_empty, rng_ext):
         [Cell(row=6, col=3), Cell(row=10, col=6)]
 
         >>> rng = (Cell(row=6, col=5), Cell(row=6, col=5))
-        >>> rng_ext = [repeat_moves('R', times=5),
-        ...            repeat_moves('D', times=5),
-        ...            repeat_moves('L', times=5),
-        ...            repeat_moves('U', times=5)]
+        >>> rng_ext = [repeat_moves('LURD')]
         >>> extend_range(True, rng, no_empty, rng_ext)
         [Cell(row=5, col=3), Cell(row=7, col=6)]
 
@@ -1021,23 +844,29 @@ def extend_range(state, rng, no_empty, rng_ext):
         'R': (1, 0),
         'D': (1, 0)
     }
-    rng = list(rng)
-    for directions in rng_ext:
-        for d in directions:
-            mv = _primitive_dir[d]
-            i, j = _m[d]
-            st, nd = (rng[i], rng[j])
-            st = st + mv
-            nd = [p2 if k == 0 else p1 for p1, p2, k in zip(st, nd, mv)]
-            if i == 1:
-                v = no_empty[nd[0]:st[0] + 1, nd[1]:st[1] + 1]
-            else:
-                v = no_empty[st[0]:nd[0] + 1, st[1]:nd[1] + 1]
-            if not v.size or (v != state).all():
-                break
-            rng[i] = st
+    xl_range = [np.array(v) for v in xl_range]
+    for moves in rng_ext:
+        for directions in moves:
+            flag = True
+            for d in directions:
+                mv = _primitive_dir[d]
+                i, j = _m[d]
+                st, nd = (xl_range[i], xl_range[j])
+                st = st + mv
+                nd = [p2 if k == 0 else p1 for p1, p2, k in zip(st, nd, mv)]
+                if i == 1:
+                    v = no_empty[nd[0]:st[0] + 1, nd[1]:st[1] + 1]
+                else:
+                    v = no_empty[st[0]:nd[0] + 1, st[1]:nd[1] + 1]
+                if (not v.size and state) or (v != state).all():
+                    continue
+                xl_range[i] = st
+                flag = False
 
-    return [Cell(*v) for v in rng]
+            if flag:
+                break
+
+    return [Cell(*v) for v in xl_range]
 
 
 def get_range(no_empty, up, dn, st_cell, nd_cell=None, rng_ext=None):
@@ -1107,8 +936,182 @@ def get_range(no_empty, up, dn, st_cell, nd_cell=None, rng_ext=None):
         return extend_range(state, (st, nd), no_empty, rng_ext), indices
 
 
-def get_table(sheet, rng, indices):
+def parse_cell(cell, epoch1904=False):
+    """
+    Parse a xl-cell.
+
+    :param cell: an excel cell
+    :type cell: xlrd.sheet.Cell
+
+    :param epoch1904:
+        Which date system was in force when this file was last saved.
+        False => 1900 system (the Excel for Windows default).
+        True => 1904 system (the Excel for Macintosh default).
+    :type epoch1904: bool, optional
+
+    :return: formatted cell value
+    :rtype:
+        int, float, datetime.datetime, bool, None, str, datetime.time,
+        float('nan')
+
+    Example::
+
+        >>> import xlrd
+        >>> from xlrd.sheet import Cell
+        >>> parse_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
+        1.2
+        >>> parse_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
+        datetime.datetime(1900, 1, 1, 4, 48)
+        >>> parse_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
+        'hi'
+    """
+
+    ctype = cell.ctype
+
+    if ctype == XL_CELL_NUMBER:
+        # GH5394 - Excel 'numbers' are always floats
+        # it's a minimal perf hit and less suprising
+        val = int(cell.value)
+        if val == cell.value:
+            return val
+        return cell.value
+    elif ctype in (XL_CELL_EMPTY, XL_CELL_BLANK):
+        return None
+    elif ctype == XL_CELL_TEXT:
+        return cell.value
+    elif ctype == XL_CELL_BOOLEAN:
+        return bool(cell.value)
+    elif ctype == XL_CELL_DATE:  # modified from Pandas library
+        if xlrd_0_9_3:
+            # Use the newer xlrd datetime handling.
+            d = xldate.xldate_as_datetime(cell.value, epoch1904)
+
+            # Excel doesn't distinguish between dates and time, so we treat
+            # dates on the epoch as times only. Also, Excel supports 1900 and
+            # 1904 epochs.
+            epoch = (1904, 1, 1) if epoch1904 else (1899, 12, 31)
+            if (d.timetuple())[0:3] == epoch:
+                d = datetime.time(d.hour, d.minute, d.second, d.microsecond)
+        else:
+            # Use the xlrd <= 0.9.2 date handling.
+            d = xldate.xldate_as_tuple(cell.value, epoch1904)
+            if d[0] < datetime.MINYEAR:  # time
+                d = datetime.time(*d[3:])
+            else:  # date
+                d = datetime.datetime(*d)
+        return d
+    elif ctype == XL_CELL_ERROR:
+        return float('nan')
+
+    raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
+
+
+def get_table(sheet, xl_range, indices):
     pass
+
+
+def _get_value_dim(value):
+    try:
+        if isinstance(value, list):
+            return 1 + _get_value_dim(value[0])
+    except IndexError:
+        return 1
+    return 0
+
+
+def _redim_value(value, n):
+    if n > 0:
+        return [_redim_value(value, n - 1)]
+    elif n < 0:
+        if len(value) > 1:
+            raise Exception
+        return _redim_value(value[0], n + 1)
+    return value
+
+
+def redim_xl_range(value, dim_min, dim_max=None):
+    """
+    Reshapes the output value of get_rect_range function.
+
+    :param value: matrix or vector or value
+    :type value: list of lists, list, value
+
+    :param dim_min: minimum dimension
+    :type dim_min: int, None
+
+    :param dim_max: maximum dimension
+    :type dim_max: int, None, optional
+
+    :return: reshaped value
+    :rtype: list of lists, list, value
+
+    Example::
+
+        >>> redim_xl_range([1, 2], 2)
+        [[1, 2]]
+        >>> redim_xl_range([[1, 2]], 1)
+        [[1, 2]]
+        >>> redim_xl_range([[1, 2]], 1, 1)
+        [1, 2]
+        >>> redim_xl_range([[1, 2]], 0, 0)
+        Traceback (most recent call last):
+        ...
+        ValueError: value cannot be reduced of -2
+    """
+    val_dim = _get_value_dim(value)
+    try:
+        if val_dim < dim_min:
+            return _redim_value(value, dim_min - val_dim)
+        elif dim_max is not None and val_dim > dim_max:
+            return _redim_value(value, dim_max - val_dim)
+        return value
+    except:
+        raise ValueError('value cannot be reduced of %d' % (dim_max - val_dim))
+
+
+def process_xl_table(value, type=None, args=[], kwargs={}, filters=None):
+    """
+    Processes the output value of get_rect_range function.
+
+    :param value: matrix or vector or value
+    :type value: list of lists, list, value
+
+    :param type: reference type
+    :type type: str, None, optional
+
+    :param args: additional arguments for the construction function
+    :type args: list, optional
+
+    :param kwargs: additional key=value arguments for the construction function
+    :type kwargs: dict, optional
+
+    :param filters:
+    :type filters: list, optional
+
+    :return: processed output value
+    :rtype: given type, or list of lists, list, value
+
+    Example::
+
+        >>> value = [[1, 2], [3, 4], [5, 6]]
+        >>> res = process_xl_table(value, type='dict')
+        >>> sorted(res.items())
+        [(1, 2),
+         (3, 4),
+         (5, 6)]
+        >>> value = [[1, 9], [8, 10], [5, 11]]
+        >>> process_xl_table(value, filters=[{'type':'sorted',\
+                                              'kwargs':{'reverse': True}\
+                                              }])
+        [[8, 10],
+         [5, 11],
+         [1, 9]]
+    """
+    val = _function_types[type]['fun'](value, *args, **kwargs)
+    if filters:
+        for v in filters:
+            val = process_xl_table(val, **v)
+    return val
 
 
 def get_rect_range(sheet, cell_up, cell_down=None, epoch1904=False,
