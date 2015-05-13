@@ -194,6 +194,7 @@ setup(
         'setuptools-git >= 0.3',  # Gather package-data from all files in git.
         'sphinx >= 1.2',  # >=1.3
         'jsonschema >= 2.4',
+        'coverage',
         'coveralls',
         'wheel',
     ],
