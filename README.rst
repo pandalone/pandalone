@@ -5,7 +5,7 @@ pandalone: wrapping pandas in trees
 #####################################
 |dev-status| |build-status| |cover-status| |docs-status| |pypi-status| |downloads-count| |github-issues| |proj-license|
 
-:Release:       0.0.1-dev.1
+:Release:       0.0.1.dev2
 :Documentation: https://pandalone.readthedocs.org/
 :Source:        https://github.com/pandalone/pandalone
 :PyPI repo:     https://pypi.python.org/pypi/pandalone
@@ -16,7 +16,7 @@ pandalone: wrapping pandas in trees
 :License:       `EUPL 1.1+ <https://joinup.ec.europa.eu/software/page/eupl>`_
 
 *pandalone* is a python library to facilitate writing reconfigurable tasks that
-process hierarchical data, such as json, hdf5, pandas or plain- dictionaries.
+process hierarchical data, such as json, hdf5, pandas or plain-dictionaries.
 
 .. _end-opening:
 .. contents:: Table of Contents
