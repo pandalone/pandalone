@@ -7,25 +7,18 @@ import os
 import re
 from textwrap import dedent
 
+import easygui
 from jsonschema._utils import URIDict
 from jsonschema.compat import urlsplit, urljoin
 import six
 
 import pandas as pd
-from tests.test_utils import _init_logging
+import xlwings as xw
 
 
-try:
-    import xlwings as xw
-except ImportError:
-    from pip import pip
-    pip.main('install xlwings==0.2.3'.split())  # @UndefinedVariable
-    import xlwings as xw
-
-import easygui
 __commit__ = ""
 
-log = _init_logging(__name__)
+log = logging.getLogger(__name__)
 
 # Probably Windows-only:
 #    TODO: Should become a class-method on xw.Workbook
@@ -417,7 +410,6 @@ def main(*argv):
         {cmd}  --pandalone inp.xls [out]    # Add 'pandalone-xlwings' modules.
     """
 
-    _init_logging()
     cmd = os.path.basename(argv[0])
     if len(argv) < 2:
         exit('Too few arguments! \n%s' % dedent(main.__doc__.format(cmd=cmd)))
