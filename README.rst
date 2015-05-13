@@ -15,8 +15,8 @@ pandalone: wrapping pandas in trees
 :Copyright:     2015 European Commission (`JRC-IET <https://ec.europa.eu/jrc/en/institutes/iet>`_)
 :License:       `EUPL 1.1+ <https://joinup.ec.europa.eu/software/page/eupl>`_
 
-*pandalone* is a python library for processing hierarchical data (json, hdf5, pandas), 
-for scientific and engineering exploration.
+*pandalone* is a python library to facilitate writing reconfigurable tasks that
+process hierarchical data, such as json, hdf5, pandas or plain- dictionaries.
 
 .. _end-opening:
 .. contents:: Table of Contents
@@ -691,8 +691,8 @@ Glossary
     :scale: 100%
     :target: https://travis-ci.org/pandalone/builds
 
-.. |cover-status| image:: https://coveralls.io/repos/pandalone/badge.png?branch=master
-    :target: https://coveralls.io/r/pandalone?branch=master
+.. |cover-status| image:: https://coveralls.io/repos/pandalone/pandalone/badge.svg
+    :target: https://coveralls.io/r/pandalone/pandalone
 
 .. |docs-status| image:: https://readthedocs.org/projects/pandalone/badge/
     :alt: Documentation status
