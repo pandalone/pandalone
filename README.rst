@@ -3,7 +3,7 @@
 #####################################
 pandalone: wrapping pandas in trees 
 #####################################
-|dev-status| |build-status| |cover-status| |docs-status| |pypi-status| |downloads-count| |github-issues|
+|dev-status| |build-status| |cover-status| |docs-status| |pypi-status| |downloads-count| |github-issues| |proj-license|
 
 :Release:       0.0.1-dev.1
 :Documentation: https://pandalone.readthedocs.org/
@@ -715,6 +715,10 @@ Glossary
     :target: https://pypi.python.org/pypi/pandalone/
     :alt: Downloads
 
-.. |github-issues| image:: http://img.shields.io/github/issues/pandalone.svg
+.. |github-issues| image:: https://img.shields.io/github/issues/pandalone/pandalone.svg
     :target: https://github.com/pandalone/pandalone/issues
     :alt: Issues count
+    
+.. |proj-license| image:: https://img.shields.io/badge/license-EUPL%201.1%2B-blue.svg
+    :target: https://raw.githubusercontent.com/pandalone/pandalone/master/LICENSE.txt
+    :alt: Project License
