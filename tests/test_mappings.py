@@ -19,7 +19,7 @@ import functools as ft
 from pandalone.mappings import (
     Pmod, pmods_from_tuples, Pstep, _append_path)
 import pandalone.mappings
-from tests.test_utils import _init_logging
+from tests._tutils import _init_logging
 
 
 log = _init_logging(__name__)

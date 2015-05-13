@@ -22,7 +22,7 @@ from pandalone.pandata import JSONCodec, iter_jsonpointer_parts,\
     iter_jsonpointer_parts_relaxed, escape_jsonpointer_part,\
     unescape_jsonpointer_part
 import pandas as pd
-from tests.test_utils import _init_logging
+from tests._tutils import _init_logging
 
 
 log = _init_logging(__name__)

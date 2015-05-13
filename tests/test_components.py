@@ -15,7 +15,7 @@ import unittest
 from pandalone.components import (Assembly, FuncComponent, Pstep)
 import pandalone.components
 from pandalone.mappings import pmods_from_tuples
-from tests.test_utils import _init_logging
+from tests._tutils import _init_logging
 
 
 log = _init_logging(__name__)

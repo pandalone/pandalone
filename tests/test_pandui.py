@@ -13,7 +13,7 @@ import unittest
 import six
 
 from pandalone import utils
-from tests.test_utils import _init_logging
+from tests._tutils import _init_logging
 
 
 try:

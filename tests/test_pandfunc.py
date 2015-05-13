@@ -33,7 +33,7 @@ from pandalone.pandfunc import (
     _validate_func_relations
 )
 import pandas as pd
-from tests.test_utils import _init_logging
+from tests._tutils import _init_logging
 
 
 log = _init_logging(__name__)

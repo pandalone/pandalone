@@ -1,22 +1,8 @@
 import doctest
-import logging
 import sys
 import unittest
 
 import pandalone.utils
-
-
-DEFAULT_LOG_LEVEL = logging.INFO
-
-
-def _init_logging(module_name, loglevel=DEFAULT_LOG_LEVEL):
-    logging.basicConfig(level=loglevel)
-    logging.getLogger().setLevel(level=loglevel)
-
-    log = logging.getLogger(module_name)
-    log.trace = lambda *args, **kws: log.log(0, *args, **kws)
-
-    return log
 
 
 @unittest.skipIf(sys.version_info < (3, 3), "Doctests are made for py >= 3.3")

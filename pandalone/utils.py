@@ -48,6 +48,7 @@ except ImportError:
         if m and m.span()[1] == len(string):
             return m
 
+
 ##############
 #  Utilities
 #
@@ -68,19 +69,19 @@ def pairwise(t):
     From http://stackoverflow.com/questions/4628290/pairs-from-single-list
 
     :param t: an iterable
-    
+
     Example::
-    
+
         >>> list(pairwise([1,2,3]))
         [(1, 2), (2, 3)] 
 
         >>> list(pairwise(i for i in [1]))
         [] 
-        
+
         >>> list(pairwise([]))
         [] 
     """
-    
+
     it1, it2 = itt.tee(t)
     try:
         next(it2)
@@ -142,7 +143,7 @@ def make_unique_filename(fname, filegen=generate_filenames):
 def ensure_file_ext(fname, ext):
     """
     :param str ext: extension with dot(.)
-    
+
     >>> assert ensure_file_ext('foo', '.bar')     == 'foo.bar'
     >>> assert ensure_file_ext('foo.bar', '.bar') == 'foo.bar'
     >>> assert ensure_file_ext('foo.', '.bar')    == 'foo..bar'
