@@ -1002,7 +1002,7 @@ class Pstep(str):
         :param list prefix_steps: default-value always copied
         :rtype: [[str]]
         """
-        nprefix = prefix_steps.copy()
+        nprefix = list(prefix_steps)
         nprefix = _append_path(nprefix, self._orig if is_orig else self)
         # nprefix.append(self)
         if self._csteps:
