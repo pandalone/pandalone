@@ -380,7 +380,7 @@ First run :command:`python` or :command:`ipython` and try to import the project 
     >>> import pandalone
 
     >>> pandalone.__version__           ## Check version once more.
-    '0.0.1-dev2'
+    '0.0.1.dev2'
 
     >>> pandalone.__file__              ## To check where it was installed.         # doctest: +SKIP
     /usr/local/lib/site-package/pandalone-...
@@ -686,7 +686,7 @@ Glossary
 .. |anaconda| replace:: *Anaconda*
 .. _anaconda: http://docs.continuum.io/anaconda/
 
-.. |build-status| image:: https://travis-ci.org/pandalone.svg
+.. |build-status| image:: https://travis-ci.org/pandalone/pandalone.svg
     :alt: Integration-build status
     :scale: 100%
     :target: https://travis-ci.org/pandalone/builds

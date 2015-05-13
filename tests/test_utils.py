@@ -19,7 +19,7 @@ def _init_logging(module_name, loglevel=DEFAULT_LOG_LEVEL):
     return log
 
 
-@unittest.skipIf(sys.version_info < (3,3), "Doctests are made for py >= 3.3")
+@unittest.skipIf(sys.version_info < (3, 3), "Doctests are made for py >= 3.3")
 class TestDoctest(unittest.TestCase):
 
     def test_doctests(self):

@@ -113,7 +113,7 @@ class Pmod(object):
         ...         ('/b.*/.*/r.*', r'/\g<0>'),
         ... ])
         >>> pmods.map_paths(['/a/foo', '/big/child', '/begin/from/root'])
-        ['/A/AA/foo', '/big/C/hild',  '/root']
+        ['/A/AA/foo', '/big/C/hild', '/root']
 
 
     Here is how you relocate "root" 

@@ -31,7 +31,11 @@ from __future__ import division, unicode_literals
 from abc import ABCMeta, abstractmethod
 import logging
 from pandalone.mappings import Pstep
-from unittest.mock import MagicMock
+
+try:
+    from unittest.mock import MagicMock
+except ImportError:
+    from mock import MagicMock  # @UnusedImport
 
 
 __commit__ = ""
@@ -78,7 +82,7 @@ def _append_step(steps, step):
 name_uniqueizer = None  # TODO: Handle clashes on component-names.
 
 
-class Component(object, metaclass=ABCMeta):
+class Component(object):
 
     """
     Encapsulates a function and its its inputs/outputs dependencies.
@@ -96,6 +100,8 @@ class Component(object, metaclass=ABCMeta):
     Mostly defined through *cfuncs*, which provide for defining a component
     with a single function with a special signature, see :class:`FuncComponent`.
     """
+
+    __metaclass__ = ABCMeta
 
     def __init__(self, name):
         if name_uniqueizer:

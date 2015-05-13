@@ -21,7 +21,7 @@ from tests.test_utils import _init_logging
 log = _init_logging(__name__)
 
 
-@unittest.skipIf(sys.version_info < (3,3), "Doctests are made for py >= 3.3")
+@unittest.skipIf(sys.version_info < (3, 3), "Doctests are made for py >= 3.3")
 class TestDoctest(unittest.TestCase):
 
     def test_doctests(self):

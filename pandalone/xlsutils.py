@@ -10,7 +10,6 @@ from textwrap import dedent
 from jsonschema._utils import URIDict
 from jsonschema.compat import urlsplit, urljoin
 import six
-from win32com.universal import com_error
 
 import pandas as pd
 from tests.test_utils import _init_logging
@@ -22,13 +21,8 @@ except ImportError:
     from pip import pip
     pip.main('install xlwings==0.2.3'.split())  # @UndefinedVariable
     import xlwings as xw
-try:
-    import easygui
-except ImportError:
-    from pip import pip
-    pip.main('install easygui'.split())  # @UndefinedVariable
-    import easygui
 
+import easygui
 __commit__ = ""
 
 log = _init_logging(__name__)
@@ -76,6 +70,8 @@ def _get_xl_vb_project(xl_wb):
       [ALT] + [t][m][s] 
     and then click the above check box. 
     """
+    from win32com.universal import com_error
+
     def show_unlock_msg(msg):
         text = dedent(_get_xl_vb_project.__doc__)
 #        try:
@@ -148,6 +144,8 @@ def _import_vba_files(xl_vbcs, vba_file_map):
     :param dict vba_file_map: a map {module_name --> full_path}.
 
     """
+    from win32com.universal import com_error
+
     cwd = os.getcwd()
     for vba_modname, vba_fpath in vba_file_map.items():
         try:
