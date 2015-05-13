@@ -13,13 +13,12 @@ import doctest
 from doit.reporter import JsonReporter
 import os
 import sys
-import tempfile
 import unittest
 
 import six
 
 from pandalone import __main__, pndlcmd
-from tests._tutils import CustomAssertions
+from ._tutils import (CustomAssertions, TemporaryDirectory)
 
 
 @unittest.skipIf(sys.version_info < (3, 3), "Doctests are made for py >= 3.3")
@@ -99,7 +98,7 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
 
     def test_no_arg(self):
         cdodo = CaptureDodo()
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             with chdir(tmpdir):
                 targetdir = def_sample
                 cdodo.run('-v 2 makesam')
@@ -107,7 +106,7 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
 
     def test_no_sample_with_extension(self):
         cdodo = CaptureDodo()
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             with chdir(tmpdir):
                 targetdir = def_sample
                 cdodo.run('-v 2 makesam --sample %s' % def_sample)
@@ -115,7 +114,7 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
 
     def test_target(self):
         cdodo = CaptureDodo()
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             with chdir(tmpdir):
                 targetdir = 'sometarg'
                 cdodo.run('-v 2 makesam %s' % targetdir)
@@ -125,7 +124,7 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
 
     def test_sample_target(self):
         cdodo = CaptureDodo()
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             with chdir(tmpdir):
                 targetdir = 'sometarg'
                 cdodo.run('-v 2 makesam --sample %s %s' %
@@ -136,7 +135,7 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
 
     def test_FAILS_multiple_targets(self):
         cdodo = CaptureDodo()
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             with chdir(tmpdir):
                 cdodo.run('-v 2 makesam t1 t2')
                 self.assertIn('Too many', cdodo.out, cdodo.out)
@@ -147,7 +146,7 @@ class TestMakeSamples(unittest.TestCase, CustomAssertions):
 
     def test_FAILS_bad_sample(self):
         cdodo = CaptureDodo()
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             with chdir(tmpdir):
                 cdodo.run('-v 2 makesam --sample bad_sample')
                 self.assertIn('bad_sample', cdodo.out, cdodo.out)

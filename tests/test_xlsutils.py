@@ -18,8 +18,7 @@ from pandas.core.generic import NDFrame
 
 import numpy as np
 import pandas as pd
-from tests import _tutils
-from tests._tutils import _init_logging
+from ._tutils import (_init_logging, TemporaryDirectory)
 
 
 log = _init_logging(__name__)
@@ -51,7 +50,7 @@ class TestExcel(unittest.TestCase):
     def test_build_excel(self):
         from pandalone import xlsutils
 
-        with _tutils.TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             wb_inp_fname = from_my_path('..', 'excel', 'ExcelRunner.xlsm')
             wb_out_fname = from_my_path(tmpdir, 'ExcelRunner.xlsm')
             vba_wildcard = from_my_path('..', 'excel', '*.vba')
