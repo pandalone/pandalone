@@ -141,7 +141,10 @@ install_requires=[
     'networkx',
 ]
 if sys.platform in ('darwin', 'win32'):
-    install_requires.append('xlwings')  # For Excel integration
+    install_requires.extend([
+        'xlwings',
+        'easygui',
+    ])  # For Excel integration
 
 setup(
     name=proj_name,
@@ -199,6 +202,9 @@ setup(
         'coverage',
     ],
     test_suite='nose.collector',
+    extras_require = {
+        ':python_version == "2.7"': ['mock'],
+    },
     entry_points={
         'console_scripts': [
             'pndl = %s.__main__:main' % proj_name,

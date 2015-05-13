@@ -8,7 +8,6 @@
 '''Check xlwings excel functionality.
 '''
 
-import logging
 import os
 import sys
 import tempfile
@@ -45,7 +44,7 @@ def close_workbook(wb):
         log.warning('Minor failure while closing Workbook!', exc_info=True)
 
 
-@unittest.skipIf(not ('darwin' in sys.platform or 'win32' in sys.platform), "Cannot test xlwings in Linux")
+@unittest.skipIf(sys.platform not in ('darwin', 'win32'), "Cannot test xlwings in Linux.")
 class TestExcel(unittest.TestCase):
 
     def test_build_excel(self):

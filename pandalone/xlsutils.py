@@ -7,13 +7,11 @@ import os
 import re
 from textwrap import dedent
 
-import easygui
 from jsonschema._utils import URIDict
 from jsonschema.compat import urlsplit, urljoin
 import six
 
 import pandas as pd
-import xlwings as xw
 
 
 __commit__ = ""
@@ -27,6 +25,7 @@ log = logging.getLogger(__name__)
 
 def get_active_workbook():
     from win32com.client import dynamic
+    import xlwings as xw
 
     com_app = dynamic.Dispatch('Excel.Application')
     com_wb = com_app.ActiveWorkbook
@@ -39,6 +38,7 @@ def get_Workbook(wrkb_fname):
     """
     :param str wrkb_fname: if missing return the active excel-workbook 
     """
+    import xlwings as xw
 
     if wrkb_fname:
         wb = xw.Workbook(wrkb_fname)
@@ -64,6 +64,7 @@ def _get_xl_vb_project(xl_wb):
     and then click the above check box. 
     """
     from win32com.universal import com_error
+    import easygui
 
     def show_unlock_msg(msg):
         text = dedent(_get_xl_vb_project.__doc__)
@@ -356,7 +357,8 @@ def resolve_excel_ref(ref_str, default=_undefined, _cntxtx=None):
 
     Note that the "RC-notation" is not converted, so Excel may not support it (unless overridden in its options).
     """
-    six.importer
+    import xlwings as xw
+
     matcher = _excel_ref_specifier_regex.match(ref_str)
     if matcher:
         ref = matcher.groupdict()
