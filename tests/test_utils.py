@@ -5,7 +5,7 @@ import unittest
 import pandalone.utils
 
 
-@unittest.skipIf(sys.version_info < (3, 3), "Doctests are made for py >= 3.3")
+@unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
 class TestDoctest(unittest.TestCase):
 
     def test_doctests(self):

@@ -30,7 +30,7 @@ def pmod2regexstrs(pmod):
         return [r.pattern for r in list(pmod._regxs.keys())]
 
 
-@unittest.skipIf(sys.version_info < (3, 3), "Doctests are made for py >= 3.3")
+@unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
 class TestDoctest(unittest.TestCase):
 
     def test_doctests(self):
@@ -387,7 +387,7 @@ class TestPmod(unittest.TestCase):
         self.assertFalse(bool(pmods._steps))
         self.assertEqual(pmod2regexstrs(pmods), ['a*', 'a[1]?'])
 
-    @unittest.skipIf(sys.version_info < (3, 3), "String repr differ in py-2.")
+    @unittest.skipIf(sys.version_info < (3, 4), "String repr differ in py-2.")
     def test_pmods_from_tuples_repr(self):
         pmods_tuples = [
             ('/a', 'A'),

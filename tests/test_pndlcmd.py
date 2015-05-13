@@ -21,7 +21,7 @@ from pandalone import __main__, pndlcmd
 from ._tutils import (CustomAssertions, TemporaryDirectory)
 
 
-@unittest.skipIf(sys.version_info < (3, 3), "Doctests are made for py >= 3.3")
+@unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
 class TestDoctest(unittest.TestCase):
 
     @unittest.skip('No doctests in `pndl` cmd.')
