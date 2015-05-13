@@ -10,11 +10,11 @@ Functionality for mapping (*renaming* or *relocating*) paths.
 
 See:
 
-- :class:`Pmod`, 
+- :class:`Pmod`,
 - :func:`pmods_from_tuples` & :func:`df_as_pmods_tuples()`, and
 - :class:`Pstep`.
 
-- TODO: Explicit mark pmods_from-tuples() for relative/absolute & regex.
+- TODO: Explicit mark pmods_from_tuples() for relative/absolute & regex.
 """
 
 from __future__ import division, unicode_literals
@@ -22,11 +22,12 @@ from __future__ import division, unicode_literals
 from collections import OrderedDict
 from copy import copy
 import logging
-from pandalone.pandata import (
-    iter_jsonpointer_parts_relaxed, JSchema, unescape_jsonpointer_part)
 import re
 
 import functools as ft
+from pandalone import utils
+from pandalone.pandata import (
+    iter_jsonpointer_parts_relaxed, JSchema, unescape_jsonpointer_part)
 
 
 __commit__ = ""
@@ -42,7 +43,7 @@ class Pmod(object):
     - The :term:`pmods` denotes the hierarchy of all :term:`mappings`,
       that either *rename* or *relocate* path-steps.
 
-    - A single :term:`mapping` transforms an "origin" path to 
+    - A single :term:`mapping` transforms an "origin" path to
       a "destination" one (also called as "from" and "to" paths).
 
     - A mapping always transforms the *final* path-step, like that::
@@ -57,7 +58,7 @@ class Pmod(object):
     - The :term:`pmod` is the mapping of that single path-step.
 
     - It is possible to match fully on path-steps using regular-expressions,
-      and then to use any captured-groups from the *final* step into 
+      and then to use any captured-groups from the *final* step into
       the mapped value::
 
         (/all(.*)/path, foo)   + all_1/path --> /all_1/foo
@@ -83,10 +84,10 @@ class Pmod(object):
 
     Example:
 
-    .. Note:: 
+    .. Note::
         Do not manually construct instances from this class!
-        To construct a hierarchy use the :func:`pmods_from_tuples()` and/or 
-        the :func:`df_as_pmods_tuples()`. 
+        To construct a hierarchy use the :func:`pmods_from_tuples()` and/or
+        the :func:`df_as_pmods_tuples()`.
 
     You can either use it for massively map paths, either for *renaming* them::
 
@@ -116,7 +117,7 @@ class Pmod(object):
         ['/A/AA/foo', '/big/C/hild', '/root']
 
 
-    Here is how you relocate "root" 
+    Here is how you relocate "root"
     (notice that the `''` path is the root)::
 
         >>> pmods = pmods_from_tuples([('', '/NEW/ROOT')])
@@ -131,7 +132,7 @@ class Pmod(object):
         """
         Args passed only for testing, remember `_regxs` to be (k,v) tuple-list!
 
-        .. Note:: Volatile arg-defaults (empty dicts) are knowingly used , 
+        .. Note:: Volatile arg-defaults (empty dicts) are knowingly used ,
             to preserve memory; should never append in them!
 
         """
@@ -144,8 +145,8 @@ class Pmod(object):
             self._regxs = _regxs
 
     def _append_into_steps(self, key):
-        """ 
-        Inserts a child-mappings into `_steps` dict. 
+        """
+        Inserts a child-mappings into `_steps` dict.
 
         :param str key:    the step-name to add
         """
@@ -163,7 +164,7 @@ class Pmod(object):
 
     def _append_into_regxs(self, key):
         """
-        Inserts a child-mappings into `_steps` dict. 
+        Inserts a child-mappings into `_steps` dict.
 
         :param str key:    the regex-pattern to add
         """
@@ -310,7 +311,7 @@ class Pmod(object):
 
         return [(rpmod, match)
                 for rpmod, match
-                in ((rpmod, regex.fullmatch(cstep))
+                in ((rpmod, utils.fullmatch(regex, cstep))
                     for regex, rpmod
                     in self._regxs.items())
                 if match]
@@ -320,7 +321,7 @@ class Pmod(object):
         Return child-pmod with merged any exact child with all matched regexps, along with its alias regex-expaned.
 
         :param str cstep:   the child path-step cstep of the pmod to return
-        :return:            the merged-child pmod, along with the alias; 
+        :return:            the merged-child pmod, along with the alias;
                             both might be None, if nothing matched, or no alias.
         :rtype:             tuple(Pmod, str)
 
@@ -350,9 +351,9 @@ class Pmod(object):
             ...     _steps={'a':
             ...        Pmod(_alias='A', _steps={1: 11})},
             ...     _regxs=[
-            ...        (r'a\w*', Pmod(_alias='AWord', 
+            ...        (r'a\w*', Pmod(_alias='AWord',
             ...                      _steps={2: Pmod(_alias=22)})),
-            ...        (r'a\d*', Pmod(_alias='ADigit', 
+            ...        (r'a\d*', Pmod(_alias='ADigit',
             ...                     _steps={3: Pmod(_alias=33)})),
             ...    ])
             >>> sorted(pm.descend('a')[0]._steps)    ## All children and regexps match.
@@ -466,7 +467,7 @@ class Pmod(object):
             >>> pmods_from_tuples([('', '/New/Root'),]).map_path('/for/plant')
             '/New/Root/for/plant'
 
-        .. Note:: 
+        .. Note::
             Using slash('/') for "from" path will NOT map *root*::
 
                 >>> pmods = pmods_from_tuples([('/', 'New/Root'),])
@@ -577,8 +578,8 @@ def pmods_from_tuples(pmods_tuples):
         ...     ('/a*', 'A1/A2'),
         ...     ('/a/b[123]', 'B'),
         ... ])
-        pmod({'': pmod({'a': 
-                pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))}, 
+        pmod({'': pmod({'a':
+                pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))},
                      OrderedDict([(re.compile('a*'), pmod('A1/A2'))]))})
 
 
@@ -589,9 +590,9 @@ def pmods_from_tuples(pmods_tuples):
         ...     ('/a/b', '/Rooted/B'),        ## But map `b` would be "rooted".
         ... ])
         >>> pmods
-        pmod({'': 
-                pmod('relative/Root', 
-                        {'a': pmod({'b': 
+        pmod({'':
+                pmod('relative/Root',
+                        {'a': pmod({'b':
                                 pmod('/Rooted/B')})})})
 
         >>> pmods.map_path('/a/c')
@@ -638,7 +639,7 @@ def _append_step(steps, step):
     :return: a new or the steps-list updated
     :rtype:  list
 
-    .. Note:: 
+    .. Note::
         An empty-list[] in the `steps` is considered "root,
         but the *root* step is empty-string('').
 
@@ -657,7 +658,7 @@ def _append_step(steps, step):
         ['a', 'b']
 
 
-    Not that an "absolute" path has the 1st-step empty(`''`), 
+    Not that an "absolute" path has the 1st-step empty(`''`),
     (so the previous paths above were all "relative")::
 
         >>> _append_step(['a', 'b'], '')
@@ -701,9 +702,9 @@ def _append_path(steps, path):
     :return: a new or the steps-list updated
     :rtype:  list
 
-    .. Note:: 
-        For `path`, the "root" is signified by the empty(`''`) step; 
-        not the slash(`/`).  
+    .. Note::
+        For `path`, the "root" is signified by the empty(`''`) step;
+        not the slash(`/`).
         A lone slash(`/`) will translate an empty step after root: ``['', '']``.
         The same happens when `/` is the last char of `path`.
 
@@ -725,7 +726,7 @@ def _append_path(steps, path):
         >>> _append_path(['a', 'b'], './c')
         ['a', 'b', 'c']
 
-    Not that an "absolute" path has the 1st-step empty(`''`), 
+    Not that an "absolute" path has the 1st-step empty(`''`),
     (so the previous paths above were all "relative")::
 
         >>> _append_path(['a', 'b'], '/r')
@@ -772,8 +773,8 @@ class Pstep(str):
     that access data-tree paths, natural, while at the same time the "model"
     of those tree-data gets discovered.
 
-    Each pstep keeps internally the *name* of a data-tree step, which, 
-    when created through recursive referencing, concedes with parent's 
+    Each pstep keeps internally the *name* of a data-tree step, which,
+    when created through recursive referencing, concedes with parent's
     branch leading to this step.  That name can be modified with :class:`Pmod`
     so the same data-accessing code can refer to differently-named values
     int the data-tree.
@@ -792,8 +793,8 @@ class Pstep(str):
 
     - Just referencing (non_private) attributes, creates them.
 
-    - Private attributes and functions (starting with '_') exist for 
-      specific operations (ie for specifying json-schema, or 
+    - Private attributes and functions (starting with '_') exist for
+      specific operations (ie for specifying json-schema, or
       for collection all paths).
 
     - Assignments are only allowed to private attributes::
@@ -889,10 +890,10 @@ class Pstep(str):
 
         :param str pname:   this pstep's name; it is stored at `_orig` and
                             if unmapped by pmod, becomes super-str object.
-                            The pname get jsonpointer-escaped 
+                            The pname get jsonpointer-escaped
                             (see :func:`pandata.escape_jsonpointer_part()`)
         :param PMod _pmod:  the mappings for this pstep, or None.
-                            It will apply only if :meth:`Pmod.descend()` 
+                            It will apply only if :meth:`Pmod.descend()`
                             matches the `pname` passed here.
         """
         pname = unescape_jsonpointer_part(pname)  # TODO: Add Escape-path TCs.
@@ -948,7 +949,7 @@ class Pstep(str):
 
         Prefer using one of :attr:`_fix` or :attr:`_lock` instead.
 
-        :param locked:  One of :attr:`CAN_RELOCATE`, :attr:`CAN_RENAME`, 
+        :param locked:  One of :attr:`CAN_RELOCATE`, :attr:`CAN_RENAME`,
                         :attr:`LOCKED`.
         :raise: ValueError when stricter lock-value on a renamed/relocated pstep
         """
@@ -985,7 +986,7 @@ class Pstep(str):
     @property
     def _paths(self):
         """
-        Return all children-paths (str-list) constructed so far, in a list. 
+        Return all children-paths (str-list) constructed so far, in a list.
 
         :rtype: [str]
         """
@@ -997,7 +998,7 @@ class Pstep(str):
 
     def _append_children(self, paths, prefix_steps=[], is_orig=False):
         """
-        Append all child-steps in the `paths` list. 
+        Append all child-steps in the `paths` list.
 
         :param list prefix_steps: default-value always copied
         :rtype: [[str]]
@@ -1014,7 +1015,7 @@ class Pstep(str):
     @property
     def _paths_orig(self):
         """
-        Return children-paths (str-list) before mapping. 
+        Return children-paths (str-list) before mapping.
 
         :rtype: [str]
         """

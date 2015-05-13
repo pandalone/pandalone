@@ -10,8 +10,10 @@ from __future__ import division, unicode_literals
 
 import argparse
 import os
+import re
 import sys
 import unittest
+
 import itertools as itt
 
 
@@ -36,8 +38,15 @@ else:
 
 
 def raise_ex_from(ex_class, chained_ex, *args, **kwds):
-    from six import reraise
+    from six import reraise  # @UnusedImport
 
+try:
+    from re import fullmatch  # @UnusedImport
+except ImportError:
+    def fullmatch(regex, string, flags=0):
+        m = re.match(regex, string, flags=flags)
+        if m and m.span()[1] == len(string):
+            return m
 
 ##############
 #  Utilities
