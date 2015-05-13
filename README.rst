@@ -1,8 +1,10 @@
-:git: $Id$
+.. image:: doc/_static/pandalone_logo.png
+   :width: 300 px
+   :align: center
 
-#################################################################################
-pandalone: Python task-functions to process data-trees using reconfigurable-paths
-#################################################################################
+#######################################################
+pandalone: process data-trees with reconfigurable-paths
+#######################################################
 |dev-status| |build-status| |cover-status| |docs-status| |pypi-status| |downloads-count| |github-issues| |proj-license|
 
 :Release:       0.0.1.dev2
@@ -12,25 +14,28 @@ pandalone: Python task-functions to process data-trees using reconfigurable-path
 :Keywords:      calculation, data, dependencies, engineering, excel, library,  
                 numpy, pandas, processing, python, resolution, scientific,  
                 simulink, tree, utility
-:Copyright:     2015 European Commission (`JRC-IET <https://ec.europa.eu/jrc/en/institutes/iet>`_)
+:Copyright:     2015 European Commission (`JRC-IET 
+                <https://ec.europa.eu/jrc/en/institutes/iet>`_)
 :License:       `EUPL 1.1+ <https://joinup.ec.europa.eu/software/page/eupl>`_
 
-**pandalone** is an open source Python library for writing *task-functions* 
-in python that can process *hierarchical-data* using *reconfigurable-paths*.
+**pandalone** is an open source Python 2/3 library for building
+*component-functions* to process *hierarchical-data* using 
+*reconfigurable-paths*.
 
 
-Our goal is to facilitate building of composable engineering and scientific  
-*models* with loosely-coupled task-functions.  A model should be able to  
-auto-adapt to process different parts of the data, depending on their 
-availability, and to be easy to *remap* the paths accessing those data, 
-so as to consume differently-named values.
+Our goal is to facilitate the composition of *engineering-models* from 
+loosely-coupled *components*.  
+Initially envisioned as an *indirection-framework* around *pandas* coupled
+with a *dependency-resolver*, every model should auto-adapt and process only 
+those data available, and allow *remapping* of the paths accessing them, 
+to run on renamed/relocated *data-trees* without modification on the code.
 
 It is written for *python-3.4* but tested under both *python-2.7* and 
 *python-3.3+*.
 
 .. Note::
-    The project, as of May-2015, is considered at an alpha-stage without
-    any version in *pypi* released.
+    The project, as of May-2015, is considered at an alpha-stage, 
+    without any released version in *pypi* yet.
 
 
 .. _end-opening:
@@ -44,35 +49,44 @@ Introduction
 Overview
 --------
 
-An "execution" or a "run" of a calculation is depicted in the following diagram::
+At the most fundamental level, an "execution" or a "run" of a processing 
+can be thought like that ::
 
-        .---------------------.     _____________       .----------------------------.
-       ;       DataTree      ;     |             |      ;          DataTree          ;
-      ;---------------------;  ==> | <some code> | ==> ;----------------------------;
-     ;                     ;       |_____________|    ;                            ;
-    '---------------------'                         '----------------------------.
+           .--------------.     _____________        .-------------.
+          ;  DataTree    ;    |             |      ;   DataTree   ;
+         ;--------------; ==> |  <cfunc_1>  | ==> ;--------------;
+        ; /some/data   ;      |  <cfunc_2>  |    ; /some/data   ;
+       ;  /some/other ;       |     ...     |   ;  /some/other ;
+      ;   /foo/bar   ;        |_____________|  ;   /foo/bar   ;
+     '--------------'                         '--------------.
 
 
 - The *data-tree* might come from *json*, *hdf5*, *excel-workbooks*, or 
-  plain dictionaries with *numpy*-lists and *pandas*.
-- With *generic-paths* we mean that they can be mapped without affecting 
-  the code of the functions.
-- The *task-functions* should abide to a very simple signature, and should not 
-  return any value, something like that::
+  plain dictionaries and lists.
+  Its values are strings and numbers, *numpy-lists*, *pandas* or 
+  *xray-datasets*, etc.
+      
+- The *component-functions* must abide to the following simple signature::
 
+    cfunc_do_something(pandelone, datatree)
+
+  and must not return any value, just read and write into the data-tree.
+  
+- Here is a simple component-function:
+
+  .. code-block:: python
+  
     def cfunc_standardize(pandelone, datatree):
-        pandelone.
+        pin, pon = pandelone.paths(), 
+        df = datatree.get(pin.A)
+        df[pon.A.B_std] = df[pin.A.B] / df[pin.A.B].std()
+        
+- Notice the use of the *reconfigurable-paths* marked specifically as input or
+  output.
+        
+- TODO: continue rough example...
 
-The *Input & Output Data* might be instances of :dfn:`data-tree`, trees of 
-strings and numbers, assembled with:
 
-- sequences,
-- dictionaries,
-- :class:`pandas.DataFrame`,
-- :class:`pandas.Series`, and
-- URI-references to other data-trees/paths.
-- or as fetched from some other hierarchical library, eg. netCDF 
-  (but untested).
 
 Quick-start
 -----------
