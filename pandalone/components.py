@@ -194,10 +194,10 @@ class FuncComponent(Component):
         ... ])
         >>> comp._build(pmods)
 
-        >>> sorted(comp.pinp()._paths)
+        >>> sorted(comp.pinp()._paths())
         ['/A/B/T', '/A/B/V']
 
-        >>> comp.pout()._paths
+        >>> comp.pout()._paths()
         ['/A/B/Acc']
 
         >>> sorted(comp._inp + comp._out)
@@ -229,7 +229,7 @@ class FuncComponent(Component):
         self._cfunc(self, *args, **kws)
 
     def _fetch_all_paths(self, pstep):
-        return pstep._paths if pstep else []
+        return pstep._paths() if pstep else []
 
     def pinp(self, path=None):
         """The suggested :class:`Pstep` for cfunc to use to access inputs."""

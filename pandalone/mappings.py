@@ -825,7 +825,7 @@ class Pstep(str):
         >>> assert m[p.abc] == 2
         >>> assert m[p['321'].cc] == 33
 
-        >>> sorted(p._paths)
+        >>> sorted(p._paths())
         ['a/321/cc', 'a/abc']
 
 
@@ -841,7 +841,7 @@ class Pstep(str):
         >>> p = Pstep(_pmod=pmods)
         >>> p.abc.foo
         `BAR`
-        >>> p._paths
+        >>> p._paths()
         ['deeper/ROOT/ABC/BAR']
 
     - but exceptions are thrown if mapping any step marked as "locked":
@@ -863,11 +863,11 @@ class Pstep(str):
               >>> p = Pstep()
               >>> _ = p.a1.b
               >>> _ = p.A2
-              >>> p._paths
+              >>> p._paths()
               ['/A2', '/a1/b']
 
               >>> _ = p.a1[''].c
-              >>> p._paths
+              >>> p._paths()
               ['/A2', '/a1/b', '/c']
 
     """
@@ -983,15 +983,14 @@ class Pstep(str):
         self._locked = Pstep.LOCKED
         return self
 
-    @property
-    def _paths(self):
+    def _paths(self, is_orig=False):
         """
         Return all children-paths (str-list) constructed so far, in a list.
 
         :rtype: [str]
         """
         paths = []
-        self._append_children(paths)
+        self._append_children(paths, is_orig=is_orig)
         paths = ['/'.join(p) for p in paths]
 
         return sorted(set(paths))
@@ -1011,19 +1010,6 @@ class Pstep(str):
                 v._append_children(paths, nprefix, is_orig=is_orig)
         else:
             paths.append(nprefix)
-
-    @property
-    def _paths_orig(self):
-        """
-        Return children-paths (str-list) before mapping.
-
-        :rtype: [str]
-        """
-        paths = []
-        self._append_children(paths, is_orig=True)
-        paths = ['/'.join(p) for p in paths]
-
-        return sorted(set(paths))
 
     @property
     def _schema(self):
