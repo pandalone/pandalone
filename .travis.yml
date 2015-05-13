@@ -31,7 +31,7 @@ install:
 script:
     - |
         if [[ $TRAVIS_PYTHON_VERSION = '2.7' ]]; then 
-            echo #python setup.py build_sphinx ## Imitate readthedocs env.
+            echo #python setup.py build_sphinx ## TODO: Imitate readthedocs env.
         fi
 
     - |
@@ -39,9 +39,7 @@ script:
             nose_args="--with-doctest --doctest-extension=.rst --doctest-options=+NORMALIZE_WHITESPACE,+ELLIPSIS,+REPORT_UDIFF";
             nose_args="$nose_args --with-coverage --cover-package=pandalone.components,pandalone.mappings,pandalone.pndlcmd,pandalone.utils  --cover-min-percentage=80";
             echo "RUNNING: nosetests $nose_args"
-        fi
-    - echo "nosetests $nose_args"
-    - nosetests $nose_args
+        fi; nosetests $nose_args
 
     - python setup.py sdist bdist_wheel             ## Create archives for PyPI repo.
 
@@ -50,5 +48,5 @@ script:
     - python setup.py --long-description | rst2html.py  --halt=warning > /dev/null
 
 after_success:
-    coveralls
+    - if [[ $TRAVIS_PYTHON_VERSION == '3.4' ]]; then coveralls; fi
 

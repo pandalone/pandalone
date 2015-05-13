@@ -131,7 +131,7 @@ long_desc = ''.join(yield_sphinx_only_markup(readme_lines))
 download_url = 'https://github.com/%s/%s/tarball/v%s' % (
     proj_name, proj_name, proj_ver)
 
-install_requires=[
+install_requires = [
     'six',
     'jsonschema >= 2.4',
     'numpy',
@@ -157,7 +157,8 @@ setup(
     download_url=download_url,
     keywords=[
         "python", "utility", "library", "data", "tree", "processing",
-        "calculation", "dependencies", "resolution", "scientific", "engineering",
+        "calculation", "dependencies", "resolution", "scientific",
+        "engineering", "pandas", "simulink", 
     ],
     classifiers=[
         "Programming Language :: Python",
@@ -167,7 +168,7 @@ setup(
         "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: Implementation :: CPython",
-        "Development Status :: 1 - Planning",
+        "Development Status :: 1 - Alpha",
         'Natural Language :: English',
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
@@ -202,7 +203,7 @@ setup(
         'coverage',
     ],
     test_suite='nose.collector',
-    extras_require = {
+    extras_require={
         ':python_version == "2.7"': ['mock'],
     },
     entry_points={

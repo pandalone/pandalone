@@ -1,22 +1,37 @@
 :git: $Id$
 
-#####################################
-pandalone: wrapping pandas in trees 
-#####################################
+#################################################################################
+pandalone: Python task-functions to process data-trees using reconfigurable-paths
+#################################################################################
 |dev-status| |build-status| |cover-status| |docs-status| |pypi-status| |downloads-count| |github-issues| |proj-license|
 
 :Release:       0.0.1.dev2
 :Documentation: https://pandalone.readthedocs.org/
 :Source:        https://github.com/pandalone/pandalone
 :PyPI repo:     https://pypi.python.org/pypi/pandalone
-:Keywords:      utility, library, data, tree, processing,
-                calculation, dependencies, resolution, pandas, dictionaries, maps, lists,
-                scientific, engineering
+:Keywords:      calculation, data, dependencies, engineering, excel, library,  
+                numpy, pandas, processing, python, resolution, scientific,  
+                simulink, tree, utility
 :Copyright:     2015 European Commission (`JRC-IET <https://ec.europa.eu/jrc/en/institutes/iet>`_)
 :License:       `EUPL 1.1+ <https://joinup.ec.europa.eu/software/page/eupl>`_
 
-*pandalone* is a python library to facilitate writing reconfigurable tasks that
-process hierarchical data, such as json, hdf5, pandas or plain-dictionaries.
+**pandalone** is an open source Python library for writing *task-functions* 
+in python that can process *hierarchical-data* using *reconfigurable-paths*.
+
+
+Our goal is to facilitate building of composable engineering and scientific  
+*models* with loosely-coupled task-functions.  A model should be able to  
+auto-adapt to process different parts of the data, depending on their 
+availability, and to be easy to *remap* the paths accessing those data, 
+so as to consume differently-named values.
+
+It is written for *python-3.4* but tested under both *python-2.7* and 
+*python-3.3+*.
+
+.. Note::
+    The project, as of May-2015, is considered at an alpha-stage without
+    any version in *pypi* released.
+
 
 .. _end-opening:
 .. contents:: Table of Contents
@@ -29,7 +44,6 @@ Introduction
 Overview
 --------
 
-
 An "execution" or a "run" of a calculation is depicted in the following diagram::
 
         .---------------------.     _____________       .----------------------------.
@@ -38,14 +52,27 @@ An "execution" or a "run" of a calculation is depicted in the following diagram:
      ;                     ;       |_____________|    ;                            ;
     '---------------------'                         '----------------------------.
 
-The *Input & Output Data* are instances of :dfn:`data-tree`, trees of strings and numbers, assembled with:
+
+- The *data-tree* might come from *json*, *hdf5*, *excel-workbooks*, or 
+  plain dictionaries with *numpy*-lists and *pandas*.
+- With *generic-paths* we mean that they can be mapped without affecting 
+  the code of the functions.
+- The *task-functions* should abide to a very simple signature, and should not 
+  return any value, something like that::
+
+    def cfunc_standardize(pandelone, datatree):
+        pandelone.
+
+The *Input & Output Data* might be instances of :dfn:`data-tree`, trees of 
+strings and numbers, assembled with:
 
 - sequences,
 - dictionaries,
 - :class:`pandas.DataFrame`,
 - :class:`pandas.Series`, and
 - URI-references to other data-trees/paths.
-
+- or as fetched from some other hierarchical library, eg. netCDF 
+  (but untested).
 
 Quick-start
 -----------
@@ -586,8 +613,10 @@ Which other projects/ideas have you reviewed when building this library?
   Execute distributed asynchronous tasks using message passing on a single or 
   more worker servers using multiprocessing, Eventlet, or gevent. 
 
-- ss  `Fuzzywuzzy <https://github.com/seatgeek/fuzzywuzzy>`_:
-  Fuzzy String Matching in Python.
+- `Fuzzywuzzy <https://github.com/seatgeek/fuzzywuzzy>`_ and 
+  `Jellyfish <https://github.com/sunlightlabs/jellyfish>`_:
+  Fuzzy string matching in python.  Use it for writting code that can read 
+  coarsely-known column-names.
     
 - `"Other's people's messy data (and how not to hate it)" 
   <https://youtu.be/_eQ_8U5kruQ>`_,
