@@ -22,12 +22,12 @@ The typical development procedure is like this:
 
 
     .. Tip:: You can enter just: ``python setup.py test_all`` instead of the above cmd-line
-        since it has been *aliased* in the :file:`setup.cfg` file.
+        since it has been *aliased* in the `setup.cfg` file.
         Check this file for more example commands to use during development.
 
 
 4. To see the rendered results of the documents, issue the following commands 
-   and read the result html at :file:`build/sphinx/html/index.html`:
+   and read the result html at `build/sphinx/html/index.html`:
 
     .. code-block:: console
 
@@ -40,7 +40,7 @@ The typical development procedure is like this:
 6. Repeat this cycle for further modifications.
 
 7. If you made a rather important modification, update also documentation (i.e. README.rst)
-   the :doc:`CHANGES` and :doc:`AUTHORS`.  
+   the `CHANGES` and `AUTHORS`.  
 
 8. When you are finished, push the changes upstream to *github* and make a *merge_request*.
    You can check whether your merge-request indeed passed the tests by checking

@@ -5,7 +5,8 @@
 #######################################################
 pandalone: process data-trees with reconfigurable-paths
 #######################################################
-|dev-status| |build-status| |cover-status| |docs-status| |pypi-status| |downloads-count| |github-issues| |proj-license|
+|dev-status| |build-status| |cover-status| |docs-status| |pypi-status| \
+|downloads-count| |github-issues| |proj-license|
 
 :Release:       0.0.1.dev2
 :Documentation: https://pandalone.readthedocs.org/
@@ -18,6 +19,7 @@ pandalone: process data-trees with reconfigurable-paths
                 <https://ec.europa.eu/jrc/en/institutes/iet>`_)
 :License:       `EUPL 1.1+ <https://joinup.ec.europa.eu/software/page/eupl>`_
 
+
 **pandalone** is an open source Python 2/3 library for building
 *component-functions* to process *hierarchical-data* using 
 *reconfigurable-paths*.
@@ -26,9 +28,9 @@ pandalone: process data-trees with reconfigurable-paths
 Our goal is to facilitate the composition of *engineering-models* from 
 loosely-coupled *components*.  
 Initially envisioned as an *indirection-framework* around *pandas* coupled
-with a *dependency-resolver*, every model should auto-adapt and process only 
-those data available, and allow *remapping* of the paths accessing them, 
-to run on renamed/relocated *data-trees* without modification on the code.
+with a *dependency-resolver*, every such model should auto-adapt and process 
+only values available, and allow *remapping* of the paths accessing them,
+to run on renamed/relocated *value-trees* without component-code modifications.
 
 It is written for *python-3.4* but tested under both *python-2.7* and 
 *python-3.3+*.
@@ -84,7 +86,7 @@ can be thought like that ::
 - Notice the use of the *reconfigurable-paths* marked specifically as input or
   output.
         
-- TODO: continue rough example...
+- TODO: continue rough example in tutorial...
 
 
 
@@ -198,7 +200,7 @@ Below is a matrix of the two suggested self-wrapped python distributions for run
 |                 | in the downloaded-archive                 | uploaded by users                         |
 |                 |                                           |                                           |
 +-----------------+-------------------------------------------+-------------------------------------------+
-| *Notes*         | After installation, see :doc:`faq` for:   | - Check also the lighter `miniconda       |
+| *Notes*         | After installation, see :ref:`faq` for:   | - Check also the lighter `miniconda       |
 |                 |                                           |   <http://conda.pydata.org/               |
 |                 | - Registering WinPython installation      |   miniconda.html>`_.                      |
 |                 | - Adding your installation in             | - For installing native-dependencies      |
@@ -450,7 +452,7 @@ You assemble data-tree by the use of:
 
 
 
-.. _begin-contribute:
+.. _contribute:
 
 Getting Involved
 ================
@@ -525,7 +527,7 @@ Then you can install all project's dependencies in *`development mode* using the
     $ python setup.py build                             ## Check that the project indeed builds ok.
 
 
-You should now run the test-cases (see :doc:`metrics`) to check
+You should now run the test-cases to check
 that the sources are in good shape:
 
 .. code-block:: console
@@ -556,10 +558,9 @@ that the sources are in good shape:
 
 Development procedure
 ---------------------
-See :doc:`CONTRIBUTING`
+.. include:: CONTRIBUTING.rst
+    :start-after: contents::
 
-
-.. _dev-team:
 
 Authors
 -------
@@ -573,7 +574,7 @@ See `architecture live-document
 
 
 
-.. _begin-faq:
+.. _faq:
 
 FAQ
 ===
@@ -637,7 +638,7 @@ Which other projects/ideas have you reviewed when building this library?
   PyCon 2015(Canada) presentation by Mali Akmanalp.
 
 
-.. _begin-glossary:
+.. _glossary:
 
 Glossary
 ========
@@ -646,7 +647,7 @@ Glossary
     data-tree
         The *container* of data consumed and produced by a :term`model`, which
         may contain also the model.
-        Its values are accessed using :term:`path`s.
+        Its values are accessed using :term:`path` s.
         It is implemented by :class:`pandalone.pandata.Pandel` as 
         a mergeable stack of :term:`JSON-schema` abiding trees of strings and 
         numbers, formed with:
@@ -661,16 +662,16 @@ Glossary
         processed.
 
     model
-        A collection of :term:`component`s and accompanying :term:`mappings`.
+        A collection of :term:`component` s and accompanying :term:`mappings`.
     
     component
-        Encapsulates a data-transformation function, using :term:`paths` 
+        Encapsulates a data-transformation function, using :term:`path` 
         to refer to its inputs/outputs within the :term:`value-tree`.
  
     path
         A `/file/like` string functioning as the *id* of data-values 
         in the :term:`data-tree`.
-        It is composed of :term:`steps`, and it follows the syntax of
+        It is composed of :term:`step`, and it follows the syntax of
         the :term:`JSON-pointer`.
     
     step
@@ -678,7 +679,7 @@ Glossary
         a :term:`path`.
         
     mappings
-        A list of :term:`mapping`s.
+        A list of :term:`mapping` s.
         
     mapping
         Specifies a transformation of an "origin" path to 

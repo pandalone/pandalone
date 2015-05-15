@@ -15,6 +15,7 @@ See:
 - :class:`Pstep`.
 
 - TODO: Explicit mark pmods_from_tuples() for relative/absolute & regex.
+- TODO: Implements "anywhere" pmods(`//`).
 """
 
 from __future__ import division, unicode_literals
@@ -550,18 +551,26 @@ def pmods_from_tuples(pmods_tuples):
       of some component path onto another one into value-trees, such as::
 
           (/rename/path, foo)          --> rename/foo
-          (/relocate/path, foo/bar)    --> relocate/foo/bar
+          (relocate/path, foo/bar)    --> relocate/foo/bar
 
 
-    - The "from" must be an absolute path.
+    - The "from" path may be:
+      - relative, 
+      - absolute(starting with `/`), or 
+      - "anywhere"(starting with `//`).  
 
-    - In case the "from" path contains any of the `[].*()` chars,
-      it is assumed to be a regular-expression::
+    - In case the "from" path starts with tilda(`~`), it is assumed to be 
+      a regular-expression, and it is removed from it.
+      A "anywhere" regex "from" path starts with `~//`.
+      The "to" path can make use of any "from" capture-groups::
 
-          (/all(.*)/path, foo)
-          (/some[\d+]/path, foo\1)
+          ('~/all(.*)/path', 'foo')
+          ('~some[\d+]/path', 'foo\1')
+          ('~//all(.*)/path', 'foo')
 
 
+
+    :param list(tuple(str, str) pmods_tuples: 
     :return: a root pmod
     :rtype:  Pmod
 

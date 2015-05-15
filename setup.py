@@ -75,7 +75,7 @@ def yield_sphinx_only_markup(lines):
         # Selected Sphinx-only Roles.
         #
         (r':abbr:`([^`]+)`',        r'\1'),
-        (r':ref:`([^`]+)`',         r'`\1`_'),
+        (r':ref:`([^`]+)`',         r'ref:`\1`_'),
         (r':term:`([^`]+)`',        r'**\1**'),
         (r':dfn:`([^`]+)`',         r'**\1**'),
         (r':(samp|guilabel|menuselection):`([^`]+)`',        r'``\2``'),
@@ -134,8 +134,9 @@ download_url = 'https://github.com/%s/%s/tarball/v%s' % (
 install_requires = [
     'six',
     'jsonschema >= 2.4',
-    'numpy',
-    'pandas',   # 'openpyxl', 'xlrd',
+    'numpy >= 1.7',
+    'pandas >= 0.15.0',
+    #'openpyxl', 'xlrd',
     'Pillow',   # For UI About boxes
     'doit >= 0.28',
     'networkx',
@@ -194,6 +195,7 @@ setup(
         'setuptools',
         'setuptools-git >= 0.3',  # Gather package-data from all files in git.
         'sphinx >= 1.2',  # >=1.3
+        'sphinx_rtd_theme',
         'coverage',
         'coveralls',
         'wheel',
@@ -204,7 +206,7 @@ setup(
     ],
     test_suite='nose.collector',
     extras_require={
-        ':python_version == "2.7"': ['mock'],
+        ':python_version == "2.7"': ['mock'], # See PEP-426
     },
     entry_points={
         'console_scripts': [
@@ -214,7 +216,7 @@ setup(
     zip_safe=True,
     options={
         'build_sphinx': {
-            'build_dir': 'docs/_build',
+            'build_dir': 'doc/_build',
         },
         'bdist_wheel': {
             'universal': True,

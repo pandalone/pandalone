@@ -31,7 +31,7 @@ install:
 script:
     - |
         if [[ $TRAVIS_PYTHON_VERSION = '2.7' ]]; then 
-            echo #python setup.py build_sphinx ## TODO: Imitate readthedocs env.
+            python setup.py build_sphinx ## Imitate readthedocs env.
         fi
 
     - |
