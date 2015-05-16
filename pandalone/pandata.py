@@ -1196,7 +1196,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
     pdoc = None
     ppart = None
     for i, part in enumerate(parts):
-        if isinstance(doc, Sequence) and not isinstance(doc, str):
+        if isinstance(doc, Sequence) and not isinstance(doc, string_types):
             # Array indexes should be turned into integers
             #
             doclen = len(doc)

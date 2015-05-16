@@ -58,7 +58,7 @@ class TestExcel(unittest.TestCase):
                 wb = xlsutils.import_files_into_excel_workbook(
                     vba_wildcard, wb_inp_fname, wb_out_fname)
             finally:
-                if wb:
+                if 'wb' in locals():
                     close_workbook(wb)
 
     def test_xlwings_smoketest(self):

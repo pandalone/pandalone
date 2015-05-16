@@ -5,6 +5,7 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
+from __future__ import division, unicode_literals
 
 import doctest
 import os
@@ -35,6 +36,7 @@ class TestUtils(unittest.TestCase):
         s2 = m2.expand(template) if m2 else '<NO-MATCH>'
         self.assertEqual(s1, s2, "\n  PY-3: '%s' \n  PY-2: '%s' " % (s1, s2))
 
+    @unittest.skipIf(not 'fullmatch' in dir(re), "Platform has no 'fullmatch() to compare with.")
     def test_fullmatch(self):
         self._assert_expansion('.*', 'foo', r'A')
         self._assert_expansion('(.*)', 'foo', r'A_\1')
@@ -57,9 +59,10 @@ class TestUtils(unittest.TestCase):
 
         os.chdir(os.path.dirname(__file__))
         fname = os.path.basename(__file__)
-        fname1 = 'test_utils1.py'
+        bname, e = os.path.splitext(fname)
+        fname1 = '%s1%s' % (bname, e)
         self.assertEqual(utils.make_unique_filename(fname), fname1)
 
         fname = os.path.join('..', 'tests', os.path.basename(__file__))
-        fname1 = os.path.join('..', 'tests', 'test_utils1.py')
-        self.assertEqual(utils.make_unique_filename(fname), fname1)
+        fname2 = os.path.join('..', 'tests', fname1)
+        self.assertEqual(utils.make_unique_filename(fname), fname2)
