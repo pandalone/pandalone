@@ -143,6 +143,7 @@ install_requires = [
 ]
 if sys.platform in ('darwin', 'win32'):
     install_requires.extend([
+        'pywin32',
         'xlwings',
         'easygui',
     ])  # For Excel integration

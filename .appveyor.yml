@@ -25,17 +25,37 @@ install:
   - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
 
   - ps: $condadeps = get-content requirements/miniconda.txt | select-string -NotMatch -Pattern '#'
-  - ps: echo CONDADEPS $condadeps
   - ps: conda install --yes --quiet $condadeps
+  - "conda install --yes --quiet pywin32"
   - "pip install -r requirements\\execution.txt"
+  - "pip install coveralls"
   - "python setup.py install"
 
 build: false
 
 test_script:
     - ps: |
+        echo "+++ Checking README for PyPy...."
+        $rst2html = &where.exe rst2html.py
+        python setup.py --long-description | &python "$rst2html" --halt=warning > $null
+
+    - ps: |
+        echo "+++ Checking site...."
+        python setup.py build_sphinx
+
+    - ps: |
         if ($env:PYTHON_VERSION -eq "3.4") {
-            &bin/run_tests.ps1 all
+            echo "+++ Checking all TCs, DTs & coverage...."
+            
+            nosetests "--debug=" "--ignore-files=dodo.*" `
+            "--tests=tests,README.rst" `
+            "--with-doctest" "--doctest-extension=.rst" `
+            "--exclude=dodo.py" `
+            "--doctest-options=+NORMALIZE_WHITESPACE,+ELLIPSIS,+REPORT_UDIFF" `
+            "--with-coverage" `
+            "--cover-package=pandalone.components,pandalone.mappings,pandalone.pndlcmd,pandalone.utils,pandalone.xlsutils" `
+            "--cover-min-percentage=60"
         } else {
-            &bin/run_tests.ps1 code
+            echo "+++ Checking only TCs...."
+            nosetests "--where=tests" 
         }
