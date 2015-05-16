@@ -10,7 +10,7 @@
 
 pip
 setuptools
-#nose ## Use `pip install nose` or else `python setup.py nosetests` fails!
+nose
 sphinx
 numpy
 scipy
