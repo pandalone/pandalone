@@ -22,104 +22,77 @@ __commit__ = ""
 ##############
 #  Compatibility
 #
-try:
+try:  # pragma: no cover
     assertRaisesRegex = unittest.TestCase.assertRaisesRegex
-except:
+except:  # pragma: no cover
     assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
 
 # Python-2 compatibility
 #
-try:
+try:  # pragma: no cover
     FileNotFoundError
-except NameError:
+except NameError:  # pragma: no cover
     FileNotFoundError = IOError  # @ReservedAssignment
-else:
+else:  # pragma: no cover
     FileNotFoundError = OSError  # @ReservedAssignment
 
 
-def raise_ex_from(ex_class, chained_ex, *args, **kwds):
+def raise_ex_from(ex_class, chained_ex, *args, **kwds):  # pragma: no cover
     from six import reraise  # @UnusedImport
 
-try:
-    from re import fullmatch  # @UnusedImport
-except ImportError:
-    def fullmatch(regex, string, flags=0):
-        m = re.match(regex, string, flags=flags)
-        if m and m.span()[1] == len(string):
-            return m
 
+def fullmatch_py2(regex, string, flags=0):
+    # NOTE: re.match("(?:" + regex + r")\Z", string, flags=flags)
+    m = re.match(regex, string, flags=flags)
+    if m and m.span()[1] == len(string):
+        return m
+try:  # pragma: no cover
+    from re import fullmatch  # @UnusedImport
+except ImportError:  # pragma: no cover
+    fullmatch = fullmatch_py2
 
 ##############
 #  Utilities
 #
 def str2bool(v):
-    vv = v.lower()
-    if (vv in ("yes", "true", "on")):
-        return True
-    if (vv in ("no", "false", "off")):
-        return False
-    try:
-        return float(v)
-    except:
-        raise argparse.ArgumentTypeError('Invalid boolean(%s)!' % v)
-
-
-def pairwise(t):
     """
-    From http://stackoverflow.com/questions/4628290/pairs-from-single-list
+    Utility for parsing cmd-line args.
 
-    :param t: an iterable
+    :param str v: any of (case insensitive): yes/no, true/false, on/off
 
     Example::
 
-        >>> list(pairwise([1,2,3]))
-        [(1, 2), (2, 3)] 
+        >>> str2bool('ON')
+        True
+        >>> str2bool('no')
+        False
 
-        >>> list(pairwise(i for i in [1]))
-        [] 
+        >>> str2bool('')
+        False
+        >>> str2bool('  ')
+        False
 
-        >>> list(pairwise([]))
-        [] 
+        >>> str2bool(0)
+        Traceback (most recent call last):
+        ValueError: Invalid str-boolean(0) due to: 'int' object has no attribute 'strip'
+        >>> str2bool(None)
+        Traceback (most recent call last):
+        ValueError: Invalid str-boolean(None) due to: 'NoneType' object has no attribute 'strip'
+
     """
-
-    it1, it2 = itt.tee(t)
     try:
-        next(it2)
-    except StopIteration:
-        return []
-    return zip(it1, it2)
+        vv = v.strip().lower()
+        if (vv in ("yes", "true", "on")):
+            return True
+        if (vv in ("no", "false", "off")):
+            return False
+        return bool(vv)
+    except Exception as ex:
+        msg = 'Invalid str-boolean(%s) due to: %s'
+        raise ValueError(msg % (v, ex))
 
 
-# From http://code.activestate.com/recipes/578231-probably-the-fastest-memoization-decorator-in-the-/
-#
-def memoize(f):
-    """ Memoization decorator for functions taking one or more arguments. """
-    class memodict(dict):
-
-        def __init__(self, f):
-            self.f = f
-
-        def __call__(self, *args):
-            return self[args]
-
-        def __missing__(self, key):
-            ret = self[key] = self.f(*key)
-            return ret
-    return memodict(f)
-
-
-# From http://stackoverflow.com/a/4149190/548792
-#
-class Lazy(object):
-
-    def __init__(self, func):
-        self.func = func
-
-    def __str__(self):
-        return self.func()
-
-
-def is_travis():
+def is_travis():  # pragma: no cover
     return 'TRAVIS' in os.environ
 
 
@@ -156,7 +129,7 @@ def ensure_file_ext(fname, ext):
     return fname
 
 
-def open_file_with_os(fpath):
+def open_file_with_os(fpath):  # pragma: no cover
     # From http://stackoverflow.com/questions/434597/open-document-with-default-application-in-python
     #     and http://www.dwheeler.com/essays/open-files-urls.html
     import subprocess
@@ -170,67 +143,5 @@ def open_file_with_os(fpath):
     return
 
 
-###### WINDOWS ######
-#####################
-
-# From: http://stackoverflow.com/questions/2216173/how-to-get-path-of-start-menus-programs-directory
-#
-def win_shell():
-    from win32com.client import Dispatch
-    return Dispatch('WScript.Shell')
-
-
-def win_folder(wshell, folder_name, folder_csidl=None):
-    """
-
-    :param wshell: win32com.client.Dispatch('WScript.Shell')
-    :param str folder_name: ( StartMenu | MyDocuments | ... )
-    :param str folder_csidl: see http://msdn.microsoft.com/en-us/library/windows/desktop/dd378457(v=vs.85).aspx
-    """
-    # from win32com.shell import shell, shellcon                          #@UnresolvedImport
-    #folderid = operator.attrgetter(folder_csidl)(shellcon)
-    #folder = shell.SHGetSpecialFolderPath(0, folderid)
-    folder = wshell.SpecialFolders(folder_name)
-
-    return folder
-
-# See: http://stackoverflow.com/questions/17586599/python-create-shortcut-with-arguments
-#    http://www.blog.pythonlibrary.org/2010/01/23/using-python-to-create-shortcuts/
-#    but keep that for the future:
-# forgot chose:
-# http://timgolden.me.uk/python/win32_how_do_i/create-a-shortcut.html
-
-
-def win_create_shortcut(wshell, path, target_path, wdir=None, target_args=None, icon_path=None, desc=None):
-    """
-
-    :param wshell: win32com.client.Dispatch('WScript.Shell')
-
-    """
-
-    is_url = path.lower().endswith('.url')
-    shcut = wshell.CreateShortCut(path)
-    try:
-        shcut.Targetpath = target_path
-        if icon_path:
-            shcut.IconLocation = icon_path
-        if desc:
-            shcut.Description = desc
-        if target_args:
-            shcut.Arguments = target_args
-        if wdir:
-            shcut.WorkingDirectory = wdir
-    finally:
-        shcut.save()
-
-
-def win_wshell():
-    from win32com.client import Dispatch
-
-    shell = Dispatch('WScript.Shell')
-
-    return shell
-
-
 if __name__ == '__main__':
-    raise "Not runnable!"
+    raise NotImplementedError

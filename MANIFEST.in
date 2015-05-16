@@ -1,2 +1,1 @@
-recursive-exclude doc/doc
 prune doc/doc

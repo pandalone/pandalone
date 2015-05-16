@@ -1038,5 +1038,5 @@ class Pstep(str):
         return '_schema' in vars(self)
 
 
-if __name__ == '__main__':
-    raise "Not runnable!"
+if __name__ == '__main__':  # pragma: no cover
+    raise NotImplementedError
