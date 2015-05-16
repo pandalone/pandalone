@@ -5,8 +5,8 @@
 #######################################################
 pandalone: process data-trees with reconfigurable-paths
 #######################################################
-|dev-status| |build-status| |cover-status| |docs-status| |pypi-status| \
-|downloads-count| |github-issues| |proj-license|
+|dev-status| |travis-status| |appveyor-status| |cover-status| |docs-status| \
+|pypi-status| |downloads-count| |github-issues| |proj-license|
 
 :Release:       0.0.1.dev2
 :Documentation: https://pandalone.readthedocs.org/
@@ -730,10 +730,15 @@ Glossary
 .. |anaconda| replace:: *Anaconda*
 .. _anaconda: http://docs.continuum.io/anaconda/
 
-.. |build-status| image:: https://travis-ci.org/pandalone/pandalone.svg
-    :alt: Integration-build status
+.. |travis-status| image:: https://travis-ci.org/pandalone/pandalone.svg
+    :alt: Travis build status
     :scale: 100%
     :target: https://travis-ci.org/pandalone/builds
+
+.. |appveyor-status| image:: https://img.shields.io/appveyor/ci/ankostis/pandalone.svg
+    :alt: Apveyor build status
+    :scale: 100%
+    :target: https://ci.appveyor.com/project/ankostis/pandalone
 
 .. |cover-status| image:: https://coveralls.io/repos/pandalone/pandalone/badge.svg
     :target: https://coveralls.io/r/pandalone/pandalone

@@ -13,28 +13,29 @@ environment:
       PYTHON_ARCH: "64"
 
 install:
-  # Install miniconda Python
-  - "powershell ./bin/install_python.ps1"
+  - ps: ./bin/install_python.ps1
 
   # Prepend newly installed Python to the PATH of this build (this cannot be
   # done from inside the powershell script as it would require to restart
   # the parent CMD process).
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
 
-  # Check that we have the expected version and architecture for Python
+  # For debugging python-version and architecture.
   - "python --version"
   - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
 
-  # Keep in-sync: requirements/miniconda.txt
-  - "conda install --yes --quiet pip setuptools nose sphinx numpy scipy pandas>=0.15 matplotlib"
+  - ps: $condadeps = get-content requirements/miniconda.txt | select-string -NotMatch -Pattern '#'
+  - ps: echo CONDADEPS $condadeps
+  - ps: conda install --yes --quiet $condadeps
+  - "pip install -r requirements\\execution.txt"
   - "python setup.py install"
 
 build: false
 
 test_script:
-  - >
-    nosetests --with-doctest --doctest-extension=.rst 
-    --doctest-options=+NORMALIZE_WHITESPACE,+ELLIPSIS,+REPORT_UDIFF 
-    --with-coverage 
-    --cover-package=pandalone.components,pandalone.mappings,pandalone.pndlcmd,pandalone.utils,pandalone.xlsutils  
-    --cover-min-percentage=60";
+    - ps: |
+        if ($env:PYTHON_VERSION -eq "3.4") {
+            &bin/run_tests.ps1 all
+        } else {
+            &bin/run_tests.ps1 code
+        }

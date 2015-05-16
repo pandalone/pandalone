@@ -4,7 +4,8 @@ Contributing
 
 .. contents::
 
-For submitting code, use ``UTF-8`` everywhere, unix-eol(``LF``) and set ``git --config core.autocrlf = input``.
+For submitting code, use ``UTF-8`` everywhere, unix-eol(``LF``) and 
+set ``git --config core.autocrlf = input``.
 
 The typical development procedure is like this:
 
@@ -21,8 +22,8 @@ The typical development procedure is like this:
         $ python setup.py test_code_cover
 
 
-    .. Tip:: You can enter just: ``python setup.py test_all`` instead of the above cmd-line
-        since it has been *aliased* in the `setup.cfg` file.
+    .. Tip:: You can enter just: ``python setup.py test_all`` instead of 
+        the above cmd-line since it has been *aliased* in the `setup.cfg` file.
         Check this file for more example commands to use during development.
 
 
@@ -39,12 +40,13 @@ The typical development procedure is like this:
 
 6. Repeat this cycle for further modifications.
 
-7. If you made a rather important modification, update also documentation (i.e. README.rst)
-   the `CHANGES` and `AUTHORS`.  
+7. If you made a rather important modification, update also documentation 
+   (i.e. README.rst) the `CHANGES` and `AUTHORS`.
 
-8. When you are finished, push the changes upstream to *github* and make a *merge_request*.
-   You can check whether your merge-request indeed passed the tests by checking
-   its build-status |build-status| on the integration-server's site (TravisCI).
+8. When you are finished, push the changes upstream to *github* and 
+   make a *merge_request*. You can check whether your merge-request indeed 
+   passed the tests by checking its build-status, on both integration site:
+   Travis: |travis-status|, Appveyor: |appveyor-status|.
 
 .. Hint:: 
     Skim through these small guides:
