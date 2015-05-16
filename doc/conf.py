@@ -137,7 +137,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.extlinks',
     'sphinx.ext.todo',
-    'matplotlib.sphinxext.plot_directive',
+    #'matplotlib.sphinxext.plot_directive',
 ]
 
 ## Prevent Sphinx from doctesting python-modules doctests,
