@@ -3,59 +3,62 @@
 
 environment:
 
-  matrix:
-    - PYTHON: "C:\\Python27-conda32"
-      PYTHON_VERSION: "2.7"
-      PYTHON_ARCH: "32"
-
-    - PYTHON: "C:\\Python34-conda64"
-      PYTHON_VERSION: "3.4"
-      PYTHON_ARCH: "64"
+    matrix:
+      - PYTHON: "C:\\Python27-conda32"
+        PYTHON_VERSION: "2.7"
+        PYTHON_ARCH: "32"
+    
+      - PYTHON: "C:\\Python34-conda64"
+        PYTHON_VERSION: "3.4"
+        PYTHON_ARCH: "64"
 
 install:
-  - ps: ./bin/install_python.ps1
-
-  # Prepend newly installed Python to the PATH of this build (this cannot be
-  # done from inside the powershell script as it would require to restart
-  # the parent CMD process).
-  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
-
-  # For debugging python-version and architecture.
-  - "python --version"
-  - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
-
-  - ps: $condadeps = get-content requirements/miniconda.txt | select-string -NotMatch -Pattern '#'
-  - ps: conda install --yes --quiet $condadeps
-  - "conda install --yes --quiet pywin32"
-  - "pip install -r requirements\\execution.txt"
-  - "pip install coveralls"
-  - "python setup.py install"
+    - ps: ./bin/install_python.ps1
+    
+    # Prepend newly installed Python to the PATH of this build (this cannot be
+    # done from inside the powershell script as it would require to restart
+    # the parent CMD process).
+    - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+    
+    # For debugging python-version and architecture.
+    - "python --version"
+    - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
+    
+    - ps: $condadeps = get-content requirements/miniconda.txt | select-string -NotMatch -Pattern '#'
+    - ps: conda install --yes --quiet $condadeps
+    - "conda install --yes --quiet pywin32"
+    - "pip install -r requirements\\execution.txt"
+    ## To install setup-dependencies.
+    - "pip install pip coverage coveralls"
+    - "python setup.py install"
+    - "python setup.py build"
 
 build: false
 
 test_script:
+    ## Run tests- 1st to install test-dependencies
+    #
+    - ps: |
+        if ($env:PYTHON_VERSION -eq "3.4") {
+            echo "+++ Checking all TCs, DTs & Coverage...."
+            &python setup.py test_all
+        } else {
+            echo "+++ Checking only TCs....";
+            &python setup.py test_code
+        }
+
+    - |
+        echo "+++ Checking README for PyPy....";
+        &python setup.py test
+    
     - ps: |
         echo "+++ Checking README for PyPy...."
-        $rst2html = &where.exe rst2html.py
-        python setup.py --long-description | &python "$rst2html" --halt=warning > $null
+        ./bin/check_readme.ps1
 
     - ps: |
         echo "+++ Checking site...."
-        python setup.py build_sphinx
+        &python setup.py build_sphinx
 
     - ps: |
-        if ($env:PYTHON_VERSION -eq "3.4") {
-            echo "+++ Checking all TCs, DTs & coverage...."
-            
-            nosetests "--debug=" "--ignore-files=dodo.*" `
-            "--tests=tests,README.rst" `
-            "--with-doctest" "--doctest-extension=.rst" `
-            "--exclude=dodo.py" `
-            "--doctest-options=+NORMALIZE_WHITESPACE,+ELLIPSIS,+REPORT_UDIFF" `
-            "--with-coverage" `
-            "--cover-package=pandalone.components,pandalone.mappings,pandalone.pndlcmd,pandalone.utils,pandalone.xlsutils" `
-            "--cover-min-percentage=60"
-        } else {
-            echo "+++ Checking only TCs...."
-            nosetests "--where=tests" 
-        }
+        echo "+++  Checking archives for PyPI repo..."
+        &python setup.py sdist bdist_wheel

@@ -20,7 +20,7 @@ if  python -c 'import sys; print(sys.version_info[0])'| grep -q '3'; then
     python setup.py doctest_code    || fails['doctest_code']=$?
 
     rst="`which rst2html.py`"
-    if [ -n "`which cygpath`" ]; then
+    if [ -x "`which cygpath`" ]; then
         rst="`cygpath -w $rst`"
     fi
     python setup.py --long-description | python "$rst"  --halt=warning > /dev/null || fails['README']=$?

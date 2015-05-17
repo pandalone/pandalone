@@ -16,34 +16,41 @@ before_install:
     - conda config --set always_yes yes --set changeps1 no
     - conda update -q conda
     - conda info -a	## Useful for debugging any conda issues
-  
+
     - deps="`grep -v \# requirements/miniconda.txt`"
     - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION $deps
     - source activate test-environment
 
 install:
-  - pip install -r requirements/execution.txt
-  - pip install coveralls
+    - pip install -r requirements/execution.txt
+    ## To install setup-dependencies.
+    - "pip install pip coverage coveralls"
+    - "python setup.py build"
+    - "python setup.py install"
 
-# command to run tests
 script:
+    ## Run tests- 1st to install test-dependencies
+    #
     - |
-        if [[ $TRAVIS_PYTHON_VERSION = '2.7' ]]; then 
-            python setup.py build_sphinx ## Imitate readthedocs env.
+        if [[ "$TRAVIS_PYTHON_VERSION" = '3.4' ]]; then
+            echo "+++ Checking all TCs, DTs & Coverage....";
+            python setup.py test_all
+        else
+            echo "+++ Checking only TCs....";
+            python setup.py test_code
         fi
 
     - |
-        if [[ "$TRAVIS_PYTHON_VERSION" = '3.4' ]]; then 
-            nose_args="--with-doctest --doctest-extension=.rst --doctest-options=+NORMALIZE_WHITESPACE,+ELLIPSIS,+REPORT_UDIFF";
-            nose_args="$nose_args --with-coverage --cover-package=pandalone.components,pandalone.mappings,pandalone.pndlcmd,pandalone.utils  --cover-min-percentage=80";
-            echo "RUNNING: nosetests $nose_args"
-        fi; nosetests $nose_args
+        echo "+++ Checking README for PyPy...."
+        ./bin/check_readme.sh
 
-    - python setup.py sdist bdist_wheel             ## Create archives for PyPI repo.
+    - |
+        echo "+++ Checking site...."
+        python setup.py build_sphinx ## Imitate readthedocs env.
 
-    ## Ensure README valid ReST for PyPI.
-    ##  In case it fails, improve the filtering-code in ``setup.py``.
-    - python setup.py --long-description | rst2html.py  --halt=warning > /dev/null
+    - |
+        echo "+++  Checking archives for PyPI repo..."
+        python setup.py sdist bdist_wheel
 
 after_success:
     - if [[ $TRAVIS_PYTHON_VERSION == '3.4' ]]; then coveralls; fi
