@@ -268,8 +268,8 @@ After installation, it is important that you check which version is visible in y
 
 .. code-block:: bash
 
-    $ pandalone --version
-    0.0.1-dev.1
+    $ pndlcmd --version
+    0.0.1.dev2
 
 
 To install for different Python versions, repeat the procedure for every required version.
@@ -735,7 +735,7 @@ Glossary
     :scale: 100%
     :target: https://travis-ci.org/pandalone/pandalone
 
-.. |appveyor-status| image:: https://img.shields.io/appveyor/ci/ankostis/pandalone.svg
+.. |appveyor-status| image:: https://ci.appveyor.com/api/projects/status/jayah84y3ae7ddfc?svg=true
     :alt: Apveyor build status
     :scale: 100%
     :target: https://ci.appveyor.com/project/ankostis/pandalone

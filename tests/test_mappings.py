@@ -179,7 +179,6 @@ class TestPmod(unittest.TestCase):
         self.assertEqual(pm2._steps, {})
 
     def test_merge_all(self):
-        """Check merge_all behavior, but function has been inlined in Pmod. """
         def merge_all(pmods):
             return ft.reduce(Pmod._merge, pmods)
 
@@ -828,39 +827,28 @@ class TestPstep(unittest.TestCase):
                          sorted(pmods.map_paths(ps2._paths())))
 
     def test_pstep_vs_pmods_maproot(self):
-        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
-
         root = 'R'
         pmods = pmods_from_tuples([(root, 'AA'), ])
         self._assert_pstep_pmods_with_map_paths(root, pmods)
 
     def test_pstep_vs_pmods_mapslash(self):
-        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
-
         pmods = pmods_from_tuples([('/', 'AA'), ])
         self._assert_pstep_pmods_with_map_paths('P', pmods)
 
     def test_pstep_vs_pmods_mapstep(self):
-        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
 
         pmods = pmods_from_tuples([('/a', 'AA'), ])
         self._assert_pstep_pmods_with_map_paths('P', pmods)
 
     def test_pstep_vs_pmods_maproot_emptyroot(self):
-        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
-
         pmods = pmods_from_tuples([('', 'AA'), ])
         self._assert_pstep_pmods_with_map_paths('', pmods)
 
     def test_pstep_vs_pmods_mapslash_empty1ststep(self):
-        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
-
         pmods = pmods_from_tuples([('/', 'AA'), ])
         self._assert_pstep_pmods_with_map_paths('', pmods)
 
     def test_pstep_vs_pmods_mapstep_empty1ststep(self):
-        """Check ``pmod.map_path ()`` is equal with ``pstep(_pmod=pmod)``"""
-
         pmods = pmods_from_tuples([('/a', 'AA'), ])
         self._assert_pstep_pmods_with_map_paths('', pmods)
 
