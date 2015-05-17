@@ -23,6 +23,13 @@ from ._tutils import (_init_logging, TemporaryDirectory)
 
 log = _init_logging(__name__)
 
+try:
+    from win32com.client import dynamic
+    dynamic.Dispatch('Excel.Application')
+    no_xl = False
+except Exception:  # pragma: no cover
+    no_xl = True
+
 
 def from_my_path(*parts):
     return os.path.join(os.path.dirname(__file__), *parts)
@@ -44,7 +51,7 @@ def close_workbook(wb):
         log.warning('Minor failure while closing Workbook!', exc_info=True)
 
 
-@unittest.skipIf(sys.platform not in ('darwin', 'win32'), "Cannot test xlwings in Linux.")
+@unittest.skipIf(no_xl, "Cannot test xlwings in Linux or without MS Excel.")
 class TestExcel(unittest.TestCase):
 
     def test_build_excel(self):

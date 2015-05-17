@@ -195,9 +195,8 @@ setup(
     setup_requires=[
         'setuptools',
         'setuptools-git >= 0.3',  # Gather package-data from all files in git.
-        'sphinx >= 1.2',  # >=1.3
+        'sphinx',  # >=1.3
         'sphinx_rtd_theme',
-        'coverage',
         'coveralls',
         'wheel',
     ],

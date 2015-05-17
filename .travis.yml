@@ -22,24 +22,12 @@ before_install:
     - source activate test-environment
 
 install:
-    - pip install -r requirements/execution.txt
-    ## To install setup-dependencies.
-    - "pip install pip coverage coveralls"
-    - "python setup.py build"
-    - "python setup.py install"
+    - pip install -r requirements/development.txt -r requirements/execution.txt
+    - python setup.py develop
+    - python setup.py build
+    # - python setup.py install ## NO, requirements installed in "develop' mode.
 
 script:
-    ## Run tests- 1st to install test-dependencies
-    #
-    - |
-        if [[ "$TRAVIS_PYTHON_VERSION" = '3.4' ]]; then
-            echo "+++ Checking all TCs, DTs & Coverage....";
-            python setup.py test_all
-        else
-            echo "+++ Checking only TCs....";
-            python setup.py test_code
-        fi
-
     - |
         echo "+++ Checking README for PyPy...."
         ./bin/check_readme.sh
@@ -51,6 +39,15 @@ script:
     - |
         echo "+++  Checking archives for PyPI repo..."
         python setup.py sdist bdist_wheel
+
+    - |
+        if [[ "$TRAVIS_PYTHON_VERSION" = '3.4' ]]; then
+            echo "+++ Checking all TCs, DTs & Coverage....";
+            python setup.py test_all
+        else
+            echo "+++ Checking only TCs....";
+            python setup.py test_code
+        fi
 
 after_success:
     - if [[ $TRAVIS_PYTHON_VERSION == '3.4' ]]; then coveralls; fi

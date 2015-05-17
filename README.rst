@@ -733,7 +733,7 @@ Glossary
 .. |travis-status| image:: https://travis-ci.org/pandalone/pandalone.svg
     :alt: Travis build status
     :scale: 100%
-    :target: https://travis-ci.org/pandalone/builds
+    :target: https://travis-ci.org/pandalone/pandalone
 
 .. |appveyor-status| image:: https://img.shields.io/appveyor/ci/ankostis/pandalone.svg
     :alt: Apveyor build status
