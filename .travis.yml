@@ -34,7 +34,7 @@ script:
 
     - |
         echo "+++ Checking site...."
-        python setup.py build_sphinx ## Imitate readthedocs env.
+        python setup.py build_sphinx
 
     - |
         echo "+++  Checking archives for PyPI repo..."

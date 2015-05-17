@@ -33,7 +33,7 @@ only values available, and allow *remapping* of the paths accessing them,
 to run on renamed/relocated *value-trees* without component-code modifications.
 
 It is written for *python-3.4* but tested under both *python-2.7* and 
-*python-3.3+*.
+*python-3.3+*, for *Windows* and *Linux*.
 
 .. Note::
     The project, as of May-2015, is considered at an alpha-stage, 
