@@ -15,7 +15,7 @@ import unittest
 import pandalone.xlsreader as xr
 import pandas as pd
 from datetime import datetime
-from tests.test_utils import chdir
+from tests.test_pndlcmd import chdir
 import xlrd as xd
 # noinspection PyUnresolvedReferences
 from six.moves.urllib.parse import urlparse

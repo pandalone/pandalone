@@ -1,0 +1,19 @@
+## Dependencies for the *conda* package-manager.
+## Use this command to install them::
+##
+##      conda install `cat requirements/minconda.txt`
+##
+## To install the rest deps of the project use the "standard"::
+##
+##      pip install -r requirements/execution.txt
+##
+
+pip
+setuptools
+nose
+numpy
+scipy
+pandas>=0.15
+#pywin32 # NO, it fails on linux.
+matplotlib
+

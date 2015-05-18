@@ -6,6 +6,8 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+*.egg
+*.egg-info
 .Python
 env/
 build/
@@ -37,6 +39,7 @@ htmlcov/
 .tox/
 .coverage
 .cache
+cover
 nosetests.xml
 coverage.xml
 
@@ -48,7 +51,8 @@ coverage.xml
 *.log
 
 # Sphinx documentation
-docs/_build/
+/doc/_build/
+/doc/doc
 
 # PyBuilder
 target/

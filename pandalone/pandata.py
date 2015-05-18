@@ -1,12 +1,15 @@
 #! python
 #-*- coding: utf-8 -*-
 #
-# Copyright 2013-2014 European Commission (JRC);
+# Copyright 2013-2015 European Commission (JRC);
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
-"""A :dfn:`pandas-model` is a tree of strings, numbers, sequences, dicts, pandas instances and resolvable
-URI-references, implemented by :class:`Pandel`. """
+
+"""
+A :dfn:`pandas-model` is a tree of strings, numbers, sequences, dicts, pandas instances and resolvable
+URI-references, implemented by :class:`Pandel`. 
+"""
 
 from __future__ import division, unicode_literals
 
@@ -19,7 +22,6 @@ import numbers
 import pickle
 import re
 
-from enum import IntEnum
 from jsonschema import Draft3Validator, Draft4Validator, ValidationError
 import jsonschema
 from jsonschema.exceptions import SchemaError, RefResolutionError
@@ -147,19 +149,6 @@ class ModelOperations(namedtuple('ModelOperations', 'inp out conv')):
 
     def choose_convertor(self, from_type, to_type):
         pass
-
-
-# TODO: ImplementPathMaps as ModelOperations.
-class PathMaps(object):
-
-    """
-    Cascade prefix-mapping of json-paths to any values (here :class:`ModelOperations`.
-    """
-    pass
-
-
-class TreeVisitorMixin(object):
-    pass
 
 
 # Workaround https://github.com/Julian/jsonschema/issues/178
@@ -1045,26 +1034,98 @@ class Pandel(object):
         resolve_jsonpointer(self.model, path, **kws)
 
 
+def escape_jsonpointer_part(part):
+    return part.replace(u"~", u"~0").replace(u"/", u"~1")
 
-def iter_jsonpointer_parts(jsonpointer):
+
+def unescape_jsonpointer_part(part):
+    return part.replace(u"~1", u"/").replace(u"~0", u"~")
+
+
+def iter_jsonpointer_parts(jsonpath):
     """
-    Iterates over the ``jsonpointer`` parts.
+    Generates the ``jsonpath`` parts according to jsonpointer spec.
 
-    :param str jsonpointer: a jsonpointer to resolve within document
-    :return: a generator over the parts of the json-pointer
+    :param str jsonpath:  a jsonpath to resolve within document
+    :return:              The parts of the path as generator), without 
+                          converting any step to int, and None if None.
 
     :author: Julian Berman, ankostis
+
+    Examples::
+
+        >>> list(iter_jsonpointer_parts('/a/b'))
+        ['a', 'b']     
+
+        >>> list(iter_jsonpointer_parts('/a//b'))
+        ['a', '', 'b']     
+
+        >>> list(iter_jsonpointer_parts('/'))
+        ['']     
+
+        >>> list(iter_jsonpointer_parts(''))
+        []     
+
+
+    But paths are strings begining (NOT_MPL: but not ending) with slash('/')::
+
+        >>> list(iter_jsonpointer_parts(None))
+        Traceback (most recent call last):
+        AttributeError: 'NoneType' object has no attribute 'split'
+
+        >>> list(iter_jsonpointer_parts('a'))
+        Traceback (most recent call last):
+        jsonschema.exceptions.RefResolutionError: Jsonpointer-path(a) must start with '/'!
+
+        #>>> list(iter_jsonpointer_parts('/a/'))
+        #Traceback (most recent call last):
+        #jsonschema.exceptions.RefResolutionError: Jsonpointer-path(a) must NOT ends with '/'!
+
     """
 
-    if jsonpointer:
-        parts = jsonpointer.split(u"/")
-        if parts.pop(0) != '':
-            raise RefResolutionError('Location must starts with /')
+#     if jsonpath.endswith('/'):
+#         msg = "Jsonpointer-path({}) must NOT finish with '/'!"
+#         raise RefResolutionError(msg.format(jsonpath))
+    parts = jsonpath.split(u"/")
+    if parts.pop(0) != '':
+        msg = "Jsonpointer-path({}) must start with '/'!"
+        raise RefResolutionError(msg.format(jsonpath))
 
-        for part in parts:
-            part = part.replace(u"~1", u"/").replace(u"~0", u"~")
+    for part in parts:
+        part = unescape_jsonpointer_part(part)
 
-            yield part
+        yield part
+
+
+def iter_jsonpointer_parts_relaxed(jsonpointer):
+    """
+    Like :func:`iter_jsonpointer_parts()` but accepting also non-absolute paths.
+
+    The 1st step of absolute-paths is always ''.
+
+    Examples::
+
+        >>> list(iter_jsonpointer_parts_relaxed('a'))
+        ['a']
+        >>> list(iter_jsonpointer_parts_relaxed('a/'))
+        ['a', '']
+        >>> list(iter_jsonpointer_parts_relaxed('a/b'))
+        ['a', 'b']
+
+        >>> list(iter_jsonpointer_parts_relaxed('/a'))
+        ['', 'a']
+        >>> list(iter_jsonpointer_parts_relaxed('/a/'))
+        ['', 'a', '']
+
+        >>> list(iter_jsonpointer_parts_relaxed('/'))
+        ['', '']
+
+        >>> list(iter_jsonpointer_parts_relaxed(''))
+        ['']
+
+    """
+    for part in jsonpointer.split(u"/"):
+        yield unescape_jsonpointer_part(part)
 
 _scream = object()
 
@@ -1135,7 +1196,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
     pdoc = None
     ppart = None
     for i, part in enumerate(parts):
-        if isinstance(doc, Sequence) and not isinstance(doc, str):
+        if isinstance(doc, Sequence) and not isinstance(doc, string_types):
             # Array indexes should be turned into integers
             #
             doclen = len(doc)
@@ -1214,6 +1275,42 @@ def build_all_jsonpaths(schema):
     return paths
 
 
+_NONE = object()
+"""Denotes non-existent json-schema attribute in :class:`JSchema`."""
+
+
+class JSchema(object):
+
+    """
+    Facilitates the construction of json-schema-v4 nodes on :class:`PStep` code.
+
+    It does just rudimentary args-name check.   Further validations
+    should apply using a proper json-schema validator.
+
+    :param type: if omitted, derived as 'object' if it has children
+    :param kws:  for all the rest see http://json-schema.org/latest/json-schema-validation.html
+
+    """
+    type = _NONE,  # @ReservedAssignment
+    items = _NONE,  # @ReservedAssignment
+    required = _NONE,
+    title = _NONE,
+    description = _NONE,
+    minimum = _NONE,
+    exclusiveMinimum = _NONE,
+    maximum = _NONE,
+    exclusiveMaximum = _NONE,
+    patternProperties = _NONE,
+    pattern = _NONE,
+    enum = _NONE,
+    allOf = _NONE,
+    oneOf = _NONE,
+    anyOf = _NONE,
+
+    def todict(self):
+        return {k: v for k, v in vars(self).items() if v is not _NONE}
+
+
 class JSONCodec():
 
     """
@@ -1270,5 +1367,5 @@ class JSONCodec():
             return o
 
 
-if __name__ == '__main__':
-    raise "Not runnable!"
+if __name__ == '__main__':  # pragma: no cover
+    raise NotImplementedError

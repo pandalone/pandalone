@@ -1,0 +1,58 @@
+# CI on Windows via appveyor
+# This file was based on Olivier Grisel's python-appveyor-demo
+
+environment:
+
+    matrix:
+      - PYTHON: "C:\\Python27-conda32"
+        PYTHON_VERSION: "2.7"
+        PYTHON_ARCH: "32"
+    
+      - PYTHON: "C:\\Python34-conda64"
+        PYTHON_VERSION: "3.4"
+        PYTHON_ARCH: "64"
+
+install:
+    - ps: ./bin/install_python.ps1
+    
+    # Prepend newly installed Python to the PATH of this build (this cannot be
+    # done from inside the powershell script as it would require to restart
+    # the parent CMD process).
+    - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+    
+    # For debugging python-version and architecture.
+    - "python --version"
+    - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
+    
+    - ps: $condadeps = get-content requirements/miniconda.txt | select-string -NotMatch -Pattern '#'
+    - ps: conda install --yes --quiet $condadeps
+    - "conda install --yes --quiet pywin32"
+    - "pip install -r requirements\\development.txt -r requirements\\execution.txt"
+    - "python setup.py develop"
+    - "python setup.py build"
+    # - "python setup.py install" ## NO, requirements installed in "develop' mode.
+
+build: false
+
+test_script:
+    - ps: |
+        echo "+++ Checking README for PyPy...."
+        ./bin/check_readme.ps1
+
+    - ps: |
+        echo "+++ Checking site...."
+        &python setup.py build_sphinx
+
+    - ps: |
+        echo "+++  Checking archives for PyPI repo..."
+        &python setup.py sdist bdist_wheel
+
+    - ps: |
+        if ($env:PYTHON_VERSION -eq "3.4") {
+            echo "+++ Checking all TCs, DTs & Coverage...."
+            &python setup.py test_all
+        } else {
+            echo "+++ Checking only TCs....";
+            &python setup.py test_code
+        }
+

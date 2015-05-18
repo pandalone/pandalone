@@ -1,22 +1,44 @@
-:git: $Id$
+.. image:: doc/_static/pandalone_logo.png
+   :width: 300 px
+   :align: center
 
-#####################################
-pandalone: wrapping pandas in trees 
-#####################################
-|dev-status| |build-status| |cover-status| |docs-status| |pypi-status| |downloads-count| |github-issues|
+#######################################################
+pandalone: process data-trees with reconfigurable-paths
+#######################################################
+|dev-status| |travis-status| |appveyor-status| |cover-status| |docs-status| \
+|pypi-status| |downloads-count| |github-issues| |proj-license|
 
-:Release:       0.0.1-dev.1
+:Release:       0.0.1.dev2
 :Documentation: https://pandalone.readthedocs.org/
 :Source:        https://github.com/pandalone/pandalone
 :PyPI repo:     https://pypi.python.org/pypi/pandalone
-:Keywords:      utility, library, data, tree, processing,
-                calculation, dependencies, resolution, pandas, dictionaries, maps, lists,
-                scientific, engineering
-:Copyright:     2015 European Commission (`JRC-IET <https://ec.europa.eu/jrc/en/institutes/iet>`_)
+:Keywords:      calculation, data, dependencies, engineering, excel, library,  
+                numpy, pandas, processing, python, resolution, scientific,  
+                simulink, tree, utility
+:Copyright:     2015 European Commission (`JRC-IET 
+                <https://ec.europa.eu/jrc/en/institutes/iet>`_)
 :License:       `EUPL 1.1+ <https://joinup.ec.europa.eu/software/page/eupl>`_
 
-*pandalone* is a python library for processing hierarchical data (json, hdf5, pandas), 
-for scientific and engineering exploration.
+
+**pandalone** is an open source Python 2/3 library for building
+*component-functions* to process *hierarchical-data* using 
+*reconfigurable-paths*.
+
+
+Our goal is to facilitate the composition of *engineering-models* from 
+loosely-coupled *components*.  
+Initially envisioned as an *indirection-framework* around *pandas* coupled
+with a *dependency-resolver*, every such model should auto-adapt and process 
+only values available, and allow *remapping* of the paths accessing them,
+to run on renamed/relocated *value-trees* without component-code modifications.
+
+It is written for *python-3.4* but tested under both *python-2.7* and 
+*python-3.3+*.
+
+.. Note::
+    The project, as of May-2015, is considered at an alpha-stage, 
+    without any released version in *pypi* yet.
+
 
 .. _end-opening:
 .. contents:: Table of Contents
@@ -29,22 +51,43 @@ Introduction
 Overview
 --------
 
+At the most fundamental level, an "execution" or a "run" of a processing 
+can be thought like that ::
 
-An "execution" or a "run" of a calculation is depicted in the following diagram::
+           .--------------.     _____________        .-------------.
+          ;  DataTree    ;    |             |      ;   DataTree   ;
+         ;--------------; ==> |  <cfunc_1>  | ==> ;--------------;
+        ; /some/data   ;      |  <cfunc_2>  |    ; /some/data   ;
+       ;  /some/other ;       |     ...     |   ;  /some/other ;
+      ;   /foo/bar   ;        |_____________|  ;   /foo/bar   ;
+     '--------------'                         '--------------.
 
-        .---------------------.     _____________       .----------------------------.
-       ;       DataTree      ;     |             |      ;          DataTree          ;
-      ;---------------------;  ==> | <some code> | ==> ;----------------------------;
-     ;                     ;       |_____________|    ;                            ;
-    '---------------------'                         '----------------------------.
 
-The *Input & Output Data* are instances of :dfn:`data-tree`, trees of strings and numbers, assembled with:
+- The *data-tree* might come from *json*, *hdf5*, *excel-workbooks*, or 
+  plain dictionaries and lists.
+  Its values are strings and numbers, *numpy-lists*, *pandas* or 
+  *xray-datasets*, etc.
+      
+- The *component-functions* must abide to the following simple signature::
 
-- sequences,
-- dictionaries,
-- :class:`pandas.DataFrame`,
-- :class:`pandas.Series`, and
-- URI-references to other data-trees/paths.
+    cfunc_do_something(pandelone, datatree)
+
+  and must not return any value, just read and write into the data-tree.
+  
+- Here is a simple component-function:
+
+  .. code-block:: python
+  
+    def cfunc_standardize(pandelone, datatree):
+        pin, pon = pandelone.paths(), 
+        df = datatree.get(pin.A)
+        df[pon.A.B_std] = df[pin.A.B] / df[pin.A.B].std()
+        
+- Notice the use of the *reconfigurable-paths* marked specifically as input or
+  output.
+        
+- TODO: continue rough example in tutorial...
+
 
 
 Quick-start
@@ -157,7 +200,7 @@ Below is a matrix of the two suggested self-wrapped python distributions for run
 |                 | in the downloaded-archive                 | uploaded by users                         |
 |                 |                                           |                                           |
 +-----------------+-------------------------------------------+-------------------------------------------+
-| *Notes*         | After installation, see :doc:`faq` for:   | - Check also the lighter `miniconda       |
+| *Notes*         | After installation, see :ref:`faq` for:   | - Check also the lighter `miniconda       |
 |                 |                                           |   <http://conda.pydata.org/               |
 |                 | - Registering WinPython installation      |   miniconda.html>`_.                      |
 |                 | - Adding your installation in             | - For installing native-dependencies      |
@@ -225,8 +268,8 @@ After installation, it is important that you check which version is visible in y
 
 .. code-block:: bash
 
-    $ pandalone --version
-    0.0.1-dev.1
+    $ pndlcmd --version
+    0.0.1.dev2
 
 
 To install for different Python versions, repeat the procedure for every required version.
@@ -380,7 +423,7 @@ First run :command:`python` or :command:`ipython` and try to import the project 
     >>> import pandalone
 
     >>> pandalone.__version__           ## Check version once more.
-    '0.0.1-dev.1'
+    '0.0.1.dev2'
 
     >>> pandalone.__file__              ## To check where it was installed.         # doctest: +SKIP
     /usr/local/lib/site-package/pandalone-...
@@ -409,7 +452,7 @@ You assemble data-tree by the use of:
 
 
 
-.. _begin-contribute:
+.. _contribute:
 
 Getting Involved
 ================
@@ -484,7 +527,7 @@ Then you can install all project's dependencies in *`development mode* using the
     $ python setup.py build                             ## Check that the project indeed builds ok.
 
 
-You should now run the test-cases (see :doc:`metrics`) to check
+You should now run the test-cases to check
 that the sources are in good shape:
 
 .. code-block:: console
@@ -515,14 +558,13 @@ that the sources are in good shape:
 
 Development procedure
 ---------------------
-.. include:: ../CONTRIBUTING.rst
-    :start-after: .. contents:
+.. include:: CONTRIBUTING.rst
+    :start-after: contents::
 
-.. _dev-team:
 
 Authors
 -------
-.. include:: ../AUTHORS.rst
+.. include:: AUTHORS.rst
 
 
 Design
@@ -532,63 +574,144 @@ See `architecture live-document
 
 
 
-.. _begin-faq:
+.. _faq:
 
 FAQ
 ===
 
 Why another XXX?  What about YYY?
 ---------------------------------
-- These are the knowngly related python projects: 
+These are the knowingly related python projects: 
 
-  `OpenMDAO <http://openmdao.org/>`_: 
-    It has influenced pandalone's design. 
-    It is planned to interoperate by converting to and from it's data-types.
-    But it works on python-2 only and its architecture needs attending from 
-    programmers (no `setup.py`, no official test-cases).  
+- `OpenMDAO <http://openmdao.org/>`_: 
+  It has influenced pandalone's design. 
+  It is planned to interoperate by converting to and from it's data-types.
+  But it works on python-2 only and its architecture needs attending from 
+  programmers (no `setup.py`, no official test-cases).  
 
-  `PyDSTool <http://www2.gsu.edu/~matrhc/PyDSTool.htm>`_:
-    It does not overlap, since it does not cover IO and dependencies of data.  
-    Also planned to interoperate with it (as soon as we have 
-    a better grasp of it :-).
-    It has some issues with the documentation, but they are working on it.
+- `PyDSTool <http://www2.gsu.edu/~matrhc/PyDSTool.htm>`_:
+  It does not overlap, since it does not cover IO and dependencies of data.  
+  Also planned to interoperate with it (as soon as we have 
+  a better grasp of it :-).
+  It has some issues with the documentation, but they are working on it.
 
-  `xray <http://xray.readthedocs.org/en/stable/faq.html>`_:
-    pandas for higher dimensions; should in principle work "xray" data-trees.
+- `xray <http://xray.readthedocs.org/en/stable/faq.html>`_:
+  Pandas for higher dimensions; data-trees should in principle work 
+  with "xray".
 
-  `netCDF4 <http://unidata.github.io/netcdf4-python/>`_:
-    Hierarchical file-data-format similar to `hdf5`.
+- `Blaze <http://blaze.pydata.org>`_:
+  NumPy and Pandas interface to Big Data; data-trees should in principle work 
+  with "blaze".
+  
+- `netCDF4 <http://unidata.github.io/netcdf4-python/>`_:
+  Hierarchical file-data-format similar to `hdf5`; a data-tree may derive 
+  in principle from "netCDF4 ".
 
-  `hdf5 <http://www.h5py.org/>`_:
-    Hierarchical file-data-format, `supported natively by pandas 
-    <http://pandas.pydata.org/pandas-docs/version/0.15.2/io.html#io-hdf5>`_.
+- `hdf5 <http://www.h5py.org/>`_:
+  Hierarchical file-data-format, `supported natively by pandas 
+  <http://pandas.pydata.org/pandas-docs/version/0.15.2/io.html#io-hdf5>`_;
+  a data-tree may derive in principle from "netCDF4 ".
+
+Which other projects/ideas have you reviewed when building this library?
+------------------------------------------------------------------------
+- `bubbles ETL <http://bubbles.databrewery.org/documentation.html>`_:
+  Processing-pipelines for (mostly) categorical data.
+
+- `Data-protocols <http://dataprotocols.org/>`_:
+
+  - `JTSKit <https://github.com/okfn/jtskit-py>`_, A utility library for 
+    working with `JSON Table Schema <http://dataprotocols.org/json-table-schema/>`_ 
+    in Python.
+  - `Data Packages <http://dataprotocols.org/data-packages/>`_
+
+- `Celery <http://www.celeryproject.org/>`_:
+  Execute distributed asynchronous tasks using message passing on a single or 
+  more worker servers using multiprocessing, Eventlet, or gevent. 
+
+- `Fuzzywuzzy <https://github.com/seatgeek/fuzzywuzzy>`_ and 
+  `Jellyfish <https://github.com/sunlightlabs/jellyfish>`_:
+  Fuzzy string matching in python.  Use it for writting code that can read 
+  coarsely-known column-names.
+    
+- `"Other's people's messy data (and how not to hate it)" 
+  <https://youtu.be/_eQ_8U5kruQ>`_,
+  PyCon 2015(Canada) presentation by Mali Akmanalp.
 
 
-
-
-.. _begin-glossary:
+.. _glossary:
 
 Glossary
 ========
 .. glossary::
 
     data-tree
-        The *container* of data that the gear-shift calculator consumes and produces.
-        It is implemented by :class:`pandalone.pandata.Pandel` as a mergeable stack of 
-        :term:`JSON-schema` abiding trees of strings and numbers, formed with sequences, dictionaries, 
-        :mod:`pandas`-instances and URI-references.
+        The *container* of data consumed and produced by a :term`model`, which
+        may contain also the model.
+        Its values are accessed using :term:`path` s.
+        It is implemented by :class:`pandalone.pandata.Pandel` as 
+        a mergeable stack of :term:`JSON-schema` abiding trees of strings and 
+        numbers, formed with:
+        
+            - sequences, 
+            - dictionaries, 
+            - :mod:`pandas` instances, and 
+            - URI-references.
 
+    value-tree
+        That part of the :term:`data-tree`  that relates only to the I/O data 
+        processed.
+
+    model
+        A collection of :term:`component` s and accompanying :term:`mappings`.
+    
+    component
+        Encapsulates a data-transformation function, using :term:`path` 
+        to refer to its inputs/outputs within the :term:`value-tree`.
+ 
+    path
+        A `/file/like` string functioning as the *id* of data-values 
+        in the :term:`data-tree`.
+        It is composed of :term:`step`, and it follows the syntax of
+        the :term:`JSON-pointer`.
+    
+    step
+        The parts between between two conjecutive slashes(`/`) within 
+        a :term:`path`.
+        
+    mappings
+        A list of :term:`mapping` s.
+        
+    mapping
+        Specifies a transformation of an "origin" path to 
+        a "destination" one (also called as "from" and "to" paths).
+        The mapping always transforms the *final* path-step, and it can 
+        either *rename* or *relocate* that step, like that::
+
+            ORIGIN          DESTINATION   RESULT_PATH
+            ------          -----------   -----------
+            /rename/path    foo       --> /rename/foo        ## renaming
+            /relocate/path  foo/bar   --> /relocate/foo/bar  ## relocation
+            /root           a/b/c     --> /a/b/c             ## Relocates all /root sub-paths.
+
+    pmods
+        Denotes the hierarchy formed by :class:`Pmod` instances, 
+        which is build when parsing the :term:`mappings` list.
+        
     JSON-schema
-        The `JSON schema <http://json-schema.org/>`_ is an `IETF draft <http://tools.ietf.org/html/draft-zyp-json-schema-03>`_
-        that provides a *contract* for what JSON-data is required for a given application and how to interact
-        with it.  JSON Schema is intended to define validation, documentation, hyperlink navigation, and
-        interaction control of JSON data.
-        You can learn more about it from this `excellent guide <http://spacetelescope.github.io/understanding-json-schema/>`_,
+        The `JSON schema <http://json-schema.org/>`_ is an `IETF draft 
+        <http://tools.ietf.org/html/draft-zyp-json-schema-03>`_
+        that provides a *contract* for what JSON-data is required for 
+        a given application and how to interact with it.  
+        JSON Schema is intended to define validation, documentation, 
+        hyperlink navigation, and interaction control of JSON data.
+        You can learn more about it from this `excellent guide 
+        <http://spacetelescope.github.io/understanding-json-schema/>`_,
         and experiment with this `on-line validator <http://www.jsonschema.net/>`_.
 
     JSON-pointer
-        JSON Pointer(:rfc:`6901`) defines a string syntax for identifying a specific value within
-        a JavaScript Object Notation (JSON) document. It aims to serve the same purpose as *XPath* from the XML world,
+        JSON Pointer(:rfc:`6901`) defines a string syntax for identifying 
+        a specific value within a JavaScript Object Notation (JSON) document. 
+        It aims to serve the same purpose as *XPath* from the XML world,
         but it is much simpler.
 
 
@@ -607,13 +730,18 @@ Glossary
 .. |anaconda| replace:: *Anaconda*
 .. _anaconda: http://docs.continuum.io/anaconda/
 
-.. |build-status| image:: https://travis-ci.org/pandalone.svg
-    :alt: Integration-build status
+.. |travis-status| image:: https://travis-ci.org/pandalone/pandalone.svg
+    :alt: Travis build status
     :scale: 100%
-    :target: https://travis-ci.org/pandalone/builds
+    :target: https://travis-ci.org/pandalone/pandalone
 
-.. |cover-status| image:: https://coveralls.io/repos/pandalone/badge.png?branch=master
-    :target: https://coveralls.io/r/pandalone?branch=master
+.. |appveyor-status| image:: https://ci.appveyor.com/api/projects/status/jayah84y3ae7ddfc?svg=true
+    :alt: Apveyor build status
+    :scale: 100%
+    :target: https://ci.appveyor.com/project/ankostis/pandalone
+
+.. |cover-status| image:: https://coveralls.io/repos/pandalone/pandalone/badge.svg
+    :target: https://coveralls.io/r/pandalone/pandalone
 
 .. |docs-status| image:: https://readthedocs.org/projects/pandalone/badge/
     :alt: Documentation status
@@ -636,6 +764,10 @@ Glossary
     :target: https://pypi.python.org/pypi/pandalone/
     :alt: Downloads
 
-.. |github-issues| image:: http://img.shields.io/github/issues/pandalone.svg
+.. |github-issues| image:: https://img.shields.io/github/issues/pandalone/pandalone.svg
     :target: https://github.com/pandalone/pandalone/issues
     :alt: Issues count
+    
+.. |proj-license| image:: https://img.shields.io/badge/license-EUPL%201.1%2B-blue.svg
+    :target: https://raw.githubusercontent.com/pandalone/pandalone/master/LICENSE.txt
+    :alt: Project License

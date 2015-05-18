@@ -607,7 +607,7 @@ def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
     Example::
 
         >>> import tempfile, pandas as pd, xlrd
-        >>> from tests.test_utils import chdir
+        >>> from tests.test_pndlcmd import chdir
         >>> with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
         ...     df = pd.DataFrame()
         ...     tmp = 'sample.xlsx'
@@ -646,7 +646,7 @@ def open_xl_sheet(xl_ref_child, xl_ref_parent=None):
     Example::
 
         >>> import tempfile, pandas as pd, xlrd
-        >>> from tests.test_utils import chdir
+        >>> from tests.test_pndlcmd import chdir
         >>> with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
         ...     df = pd.DataFrame()
         ...     tmp = 'sample.xlsx'

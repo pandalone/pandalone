@@ -1,7 +1,7 @@
 #! python
 #-*- coding: utf-8 -*-
 #
-# Copyright 2013-2014 European Commission (JRC);
+# Copyright 2013-2015 European Commission (JRC);
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
@@ -54,7 +54,8 @@ mydir = os.path.dirname(__file__)
 ##
 def read_project_version():
     fglobals = {}
-    with io.open(os.path.join(mydir, proj_name, '_version.py')) as fd:
+    with io.open(os.path.join(
+            mydir, proj_name, '_version.py'), encoding='UTF-8') as fd:
         exec(fd.read(), fglobals)  # To read __version__
     return fglobals['__version__']
 
@@ -74,7 +75,7 @@ def yield_sphinx_only_markup(lines):
         # Selected Sphinx-only Roles.
         #
         (r':abbr:`([^`]+)`',        r'\1'),
-        (r':ref:`([^`]+)`',         r'`\1`_'),
+        (r':ref:`([^`]+)`',         r'ref:`\1`_'),
         (r':term:`([^`]+)`',        r'**\1**'),
         (r':dfn:`([^`]+)`',         r'**\1**'),
         (r':(samp|guilabel|menuselection):`([^`]+)`',        r'``\2``'),
@@ -85,7 +86,7 @@ def yield_sphinx_only_markup(lines):
         #        :a:foo:`bar` XXX afoo(``bar``)
         #
         #(r'(:(\w+))?:(\w+):`([^`]*)`', r'\2\3(``\4``)'),
-        (r':(\w+):`([^`]*)`', r'\1(``\2``)'),
+        (r':(\w+):`([^`]*)`', r'\1(`\2`)'),
 
 
         # Sphinx-only Directives.
@@ -130,6 +131,23 @@ long_desc = ''.join(yield_sphinx_only_markup(readme_lines))
 download_url = 'https://github.com/%s/%s/tarball/v%s' % (
     proj_name, proj_name, proj_ver)
 
+install_requires = [
+    'six',
+    'jsonschema >= 2.4',
+    'numpy >= 1.7',
+    'pandas >= 0.15.0',
+    #'openpyxl', 'xlrd',
+    'Pillow',   # For UI About boxes
+    'doit >= 0.28',
+    'networkx',
+]
+if sys.platform in ('darwin', 'win32'):
+    install_requires.extend([
+        'pywin32',
+        'xlwings',
+        'easygui',
+    ])  # For Excel integration
+
 setup(
     name=proj_name,
     version=proj_ver,
@@ -141,7 +159,8 @@ setup(
     download_url=download_url,
     keywords=[
         "python", "utility", "library", "data", "tree", "processing",
-        "calculation", "dependencies", "resolution", "scientific", "engineering",
+        "calculation", "dependencies", "resolution", "scientific",
+        "engineering", "pandas", "simulink", 
     ],
     classifiers=[
         "Programming Language :: Python",
@@ -151,7 +170,7 @@ setup(
         "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: Implementation :: CPython",
-        "Development Status :: 1 - Planning",
+        "Development Status :: 1 - Alpha",
         'Natural Language :: English',
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
@@ -172,24 +191,12 @@ setup(
     # package_data= {
     #    proj_name: ['*.vba', '*.ico'],
     #},
-    install_requires=[
-        'enum34',
-        'six',
-        'jsonschema>=2.4',
-        'numpy',
-        'pandas',   # 'openpyxl', 'xlrd',
-        'Pillow',   # For UI About boxes
-        'xlwings',  # For Excel integration
-        'doit',
-        'networkx',
-        'matplotlib',
-    ],
+    install_requires=install_requires,
     setup_requires=[
         'setuptools',
         'setuptools-git >= 0.3',  # Gather package-data from all files in git.
-        'sphinx >= 1.2',  # >=1.3
+        'sphinx',  # >=1.3
         'sphinx_rtd_theme',
-        'jsonschema >= 2.4',
         'coveralls',
         'wheel',
     ],
@@ -198,6 +205,9 @@ setup(
         'coverage',
     ],
     test_suite='nose.collector',
+    extras_require={
+        ':python_version == "2.7"': ['mock'], # See PEP-426
+    },
     entry_points={
         'console_scripts': [
             'pndl = %s.__main__:main' % proj_name,
@@ -206,7 +216,7 @@ setup(
     zip_safe=True,
     options={
         'build_sphinx': {
-            'build_dir': 'docs/_build',
+            'build_dir': 'doc/_build',
         },
         'bdist_wheel': {
             'universal': True,

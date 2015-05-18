@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#! python
 # -*- coding: UTF-8 -*-
 #
-# Copyright 2014 European Commission (JRC);
+# Copyright 2014-2015 European Commission (JRC);
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
@@ -10,6 +10,7 @@ from __future__ import division, print_function, unicode_literals
 
 import doctest
 import json
+import sys
 import unittest
 
 from jsonschema.exceptions import RefResolutionError
@@ -17,15 +18,23 @@ from jsonschema.exceptions import RefResolutionError
 import numpy as np
 import numpy.testing as npt
 from pandalone import pandata
-from pandalone.pandata import JSONCodec
+from pandalone.pandata import JSONCodec, iter_jsonpointer_parts,\
+    iter_jsonpointer_parts_relaxed, escape_jsonpointer_part,\
+    unescape_jsonpointer_part
 import pandas as pd
+from tests._tutils import _init_logging
 
 
+log = _init_logging(__name__)
+
+
+@unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
 class TestDoctest(unittest.TestCase):
 
-    def runTest(self):
+    def test_doctests(self):
         failure_count, test_count = doctest.testmod(
-            pandata, optionflags=doctest.NORMALIZE_WHITESPACE)
+            pandata,
+            optionflags=doctest.NORMALIZE_WHITESPACE)  # | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
@@ -80,6 +89,131 @@ class TestJSONCodec(unittest.TestCase):
 
 
 class TestJsonPointer(unittest.TestCase):
+
+    def test_jsonpointer_escape_parts(self):
+        def un_esc(part):
+            return unescape_jsonpointer_part(escape_jsonpointer_part(part))
+        part = 'hi/there'
+        self.assertEqual(un_esc(part), part)
+        part = 'hi~there'
+        self.assertEqual(un_esc(part), part)
+        part = '/hi~there/'
+        self.assertEqual(un_esc(part), part)
+
+    def test_iter_jsonpointer_empty(self):
+        self.assertListEqual(list(iter_jsonpointer_parts('')), [])
+        self.assertListEqual(list(iter_jsonpointer_parts_relaxed('')), [''])
+
+    def test_iter_jsonpointer_root(self):
+        self.assertListEqual(list(iter_jsonpointer_parts('/')), [''])
+        self.assertListEqual(
+            list(iter_jsonpointer_parts_relaxed('/')), ['', ''])
+
+    def test_iter_jsonpointer_regular(self):
+        self.assertListEqual(list(iter_jsonpointer_parts('/a')), ['a'])
+        self.assertListEqual(
+            list(iter_jsonpointer_parts_relaxed('/a')), ['', 'a'])
+
+        self.assertListEqual(list(iter_jsonpointer_parts('/a/b')), ['a', 'b'])
+        self.assertListEqual(
+            list(iter_jsonpointer_parts_relaxed('/a/b')), ['', 'a', 'b'])
+
+    def test_iter_jsonpointer_folder(self):
+        self.assertListEqual(list(iter_jsonpointer_parts('/a/')), ['a', ''])
+        self.assertListEqual(
+            list(iter_jsonpointer_parts_relaxed('/a/')), ['', 'a', ''])
+
+    def test_iter_jsonpointer_non_absolute(self):
+        with self.assertRaises(RefResolutionError):
+            list(iter_jsonpointer_parts('a'))
+        with self.assertRaises(RefResolutionError):
+            list(iter_jsonpointer_parts('a/b'))
+
+    def test_iter_jsonpointer_None(self):
+        with self.assertRaises(AttributeError):
+            list(iter_jsonpointer_parts(None))
+        with self.assertRaises(AttributeError):
+            list(iter_jsonpointer_parts_relaxed(None))
+
+    def test_iter_jsonpointer_with_spaces(self):
+        self.assertListEqual(
+            list(iter_jsonpointer_parts('/ some ')), [' some '])
+        self.assertListEqual(
+            list(iter_jsonpointer_parts('/ some /  ')), [' some ', '  '])
+
+        self.assertListEqual(
+            list(iter_jsonpointer_parts_relaxed(' some ')), [' some '])
+        self.assertListEqual(
+            list(iter_jsonpointer_parts_relaxed(' some /  ')), [' some ', '  '])
+
+    def test_iter_jsonpointer_massive(self):
+        cases = [
+            ('/a', ['a']),
+            ('/a/', ['a', '']),
+            ('/a/b', ['a', 'b']),
+            ('/a/b/', ['a', 'b', '']),
+            ('/a//b', ['a', '', 'b']),
+            ('/a/../b', ['a', '..', 'b']),
+            ('/', ['']),
+            ('', []),
+            ('/ some ', [' some ']),
+            ('/ some /', [' some ', '']),
+            ('/ some /  ', [' some ', '  ']),
+            ('/ some /  /', [' some ', '  ', '']),
+            (None, AttributeError),
+            ('a', RefResolutionError),
+        ]
+        for i, (inp, out) in enumerate(cases):
+            msg = 'case #%i' % i
+            try:
+                if issubclass(out, Exception):
+                    with self.assertRaises(out, msg=msg):
+                        list(iter_jsonpointer_parts(inp))
+                continue
+            except TypeError as ex:
+                if ex.args[0].startswith('issubclass()'):
+                    self.assertEqual(
+                        list(iter_jsonpointer_parts(inp)), out, msg)
+                else:
+                    raise ex
+
+    def test_iter_jsonpointer_relaxed_massive(self):
+        cases = [
+            ('/a', ['', 'a']),
+            ('/a/', ['', 'a', '']),
+            ('/a/b', ['', 'a', 'b']),
+            ('/a/b/', ['', 'a', 'b', '']),
+            ('/a//b', ['', 'a', '', 'b']),
+            ('/', ['', '']),
+            ('', ['']),
+            ('/ some ', ['', ' some ']),
+            ('/ some /', ['', ' some ', '']),
+            ('/ some /  ', ['', ' some ', '  ']),
+            (None, AttributeError),
+            ('a', ['a']),
+            ('a/', ['a', '']),
+            ('a/b', ['a', 'b']),
+            ('a/b/', ['a', 'b', '']),
+            ('a/../b/.', ['a', '..', 'b', '.']),
+            ('a/../b/.', ['a', '..', 'b', '.']),
+            (' some ', [' some ']),
+            (' some /', [' some ', '']),
+            (' some /  ', [' some ', '  ']),
+            (' some /  /', [' some ', '  ', '']),
+        ]
+        for i, (inp, out) in enumerate(cases):
+            msg = 'case #%i' % i
+            try:
+                if issubclass(out, Exception):
+                    with self.assertRaises(out, msg=msg):
+                        list(iter_jsonpointer_parts_relaxed(inp))
+                continue
+            except TypeError as ex:
+                if ex.args[0].startswith('issubclass()'):
+                    self.assertEqual(
+                        list(iter_jsonpointer_parts_relaxed(inp)), out, msg)
+                else:
+                    raise ex
 
     def test_resolve_jsonpointer_existing(self):
         doc = {
@@ -296,3 +430,8 @@ class TestJsonPointer(unittest.TestCase):
         print('\n'.join(paths))
         # TODO: build and check_all_paths support $ref
         self.assertIn('/a/b', paths)
+
+
+if __name__ == "__main__":
+    #import sys;sys.argv = ['', 'Test.testName']
+    unittest.main()
