@@ -1,14 +1,13 @@
-#!/usr/bin/env python
+#! python
 # -*- coding: UTF-8 -*-
 #
-# Copyright 2014 European Commission (JRC);
+# Copyright 2014-2015 European Commission (JRC);
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 '''Check xlwings excel functionality.
 '''
 
-import logging
 import os
 import sys
 import tempfile
@@ -19,20 +18,17 @@ from pandas.core.generic import NDFrame
 
 import numpy as np
 import pandas as pd
+from ._tutils import (_init_logging, TemporaryDirectory)
 
 
-DEFAULT_LOG_LEVEL = logging.INFO
+log = _init_logging(__name__)
 
-
-def _init_logging(loglevel):
-    logging.basicConfig(level=loglevel)
-    logging.getLogger().setLevel(level=loglevel)
-
-    log = logging.getLogger(__name__)
-    log.trace = lambda *args, **kws: log.log(0, *args, **kws)
-
-    return log
-log = _init_logging(DEFAULT_LOG_LEVEL)
+try:
+    from win32com.client import dynamic
+    dynamic.Dispatch('Excel.Application')
+    no_xl = False
+except Exception:  # pragma: no cover
+    no_xl = True
 
 
 def from_my_path(*parts):
@@ -55,13 +51,13 @@ def close_workbook(wb):
         log.warning('Minor failure while closing Workbook!', exc_info=True)
 
 
-@unittest.skipIf(not ('darwin' in sys.platform or 'win32' in sys.platform), "Cannot test xlwings in Linux")
+@unittest.skipIf(no_xl, "Cannot test xlwings in Linux or without MS Excel.")
 class TestExcel(unittest.TestCase):
 
     def test_build_excel(self):
         from pandalone import xlsutils
 
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             wb_inp_fname = from_my_path('..', 'excel', 'ExcelRunner.xlsm')
             wb_out_fname = from_my_path(tmpdir, 'ExcelRunner.xlsm')
             vba_wildcard = from_my_path('..', 'excel', '*.vba')
@@ -69,7 +65,7 @@ class TestExcel(unittest.TestCase):
                 wb = xlsutils.import_files_into_excel_workbook(
                     vba_wildcard, wb_inp_fname, wb_out_fname)
             finally:
-                if wb:
+                if 'wb' in locals():
                     close_workbook(wb)
 
     def test_xlwings_smoketest(self):
@@ -84,6 +80,7 @@ class TestExcel(unittest.TestCase):
         finally:
             close_workbook(wb)
 
+    @unittest.skip("Will use xlreader instead.")
     def test_excel_refs(self):
         from pandalone.xlsutils import resolve_excel_ref
         sheetname = 'Input'

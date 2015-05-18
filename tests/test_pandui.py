@@ -1,7 +1,7 @@
 #! python
 #-*- coding: utf-8 -*-
 #
-# Copyright 2013-2014 European Commission (JRC);
+# Copyright 2013-2015 European Commission (JRC);
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
@@ -13,6 +13,7 @@ import unittest
 import six
 
 from pandalone import utils
+from tests._tutils import _init_logging
 
 
 try:
@@ -22,6 +23,10 @@ except (ImportError, NotImplementedError):
     pass
 
 
+log = _init_logging(__name__)
+
+
+@unittest.skip("Development paused temporarily.")
 class TkUiTest(unittest.TestCase):
 
     @unittest.skipIf(utils.is_travis() or six.PY2, "TravisCI has no XServer!")

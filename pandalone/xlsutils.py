@@ -1,7 +1,12 @@
-#!python
-#-*- coding: utf-8 -*-
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+#
+# Copyright 2015 European Commission (JRC);
+# Licensed under the EUPL (the 'Licence');
+# You may not use this work except in compliance with the Licence.
+# You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
+
 import glob
-from jsonschema.compat import urlsplit, urljoin
 import logging
 import operator
 import os
@@ -9,43 +14,24 @@ import re
 from textwrap import dedent
 
 from jsonschema._utils import URIDict
+from jsonschema.compat import urlsplit, urljoin
 import six
-from win32com.universal import com_error
 
 import pandas as pd
 
 
-try:
-    import xlwings as xw
-except ImportError:
-    from pip import pip
-    pip.main('install xlwings==0.2.3'.split())  # @UndefinedVariable
-    import xlwings as xw
-try:
-    import easygui
-except ImportError:
-    from pip import pip
-    pip.main('install easygui'.split())  # @UndefinedVariable
-    import easygui
-
 __commit__ = ""
 
 log = logging.getLogger(__name__)
-log.trace = lambda *args, **kws: log.log(0, *args, **kws)
-
-DEFAULT_LOG_LEVEL = logging.DEBUG
-
-
-def _init_logging(loglevel=DEFAULT_LOG_LEVEL):
-    logging.basicConfig(level=loglevel)
-    logging.getLogger().setLevel(level=loglevel)
-
 
 # Probably Windows-only:
 #    TODO: Should become a class-method on xw.Workbook
 # when/if it works reliably, see github/xlwings #30.
+
+
 def get_active_workbook():
     from win32com.client import dynamic
+    import xlwings as xw
 
     com_app = dynamic.Dispatch('Excel.Application')
     com_wb = com_app.ActiveWorkbook
@@ -58,6 +44,7 @@ def get_Workbook(wrkb_fname):
     """
     :param str wrkb_fname: if missing return the active excel-workbook 
     """
+    import xlwings as xw
 
     if wrkb_fname:
         wb = xw.Workbook(wrkb_fname)
@@ -82,6 +69,9 @@ def _get_xl_vb_project(xl_wb):
       [ALT] + [t][m][s] 
     and then click the above check box. 
     """
+    from win32com.universal import com_error
+    import easygui
+
     def show_unlock_msg(msg):
         text = dedent(_get_xl_vb_project.__doc__)
 #        try:
@@ -154,6 +144,8 @@ def _import_vba_files(xl_vbcs, vba_file_map):
     :param dict vba_file_map: a map {module_name --> full_path}.
 
     """
+    from win32com.universal import com_error
+
     cwd = os.getcwd()
     for vba_modname, vba_fpath in vba_file_map.items():
         try:
@@ -371,7 +363,8 @@ def resolve_excel_ref(ref_str, default=_undefined, _cntxtx=None):
 
     Note that the "RC-notation" is not converted, so Excel may not support it (unless overridden in its options).
     """
-    six.importer
+    import xlwings as xw
+
     matcher = _excel_ref_specifier_regex.match(ref_str)
     if matcher:
         ref = matcher.groupdict()
@@ -425,7 +418,6 @@ def main(*argv):
         {cmd}  --pandalone inp.xls [out]    # Add 'pandalone-xlwings' modules.
     """
 
-    _init_logging()
     cmd = os.path.basename(argv[0])
     if len(argv) < 2:
         exit('Too few arguments! \n%s' % dedent(main.__doc__.format(cmd=cmd)))
