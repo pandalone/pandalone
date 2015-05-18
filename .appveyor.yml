@@ -16,22 +16,32 @@ install:
     - ps: ./bin/install_python.ps1
     
     # Prepend newly installed Python to the PATH of this build (this cannot be
-    # done from inside the powershell script as it would require to restart
-    # the parent CMD process).
-    - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+    #   done from inside the powershell script as it would require to restart
+    #   the parent CMD process).
+    - SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
     
-    # For debugging python-version and architecture.
-    - "python --version"
-    - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
-    
-    - ps: $condadeps = get-content requirements/miniconda.txt | select-string -NotMatch -Pattern '#'
-    - ps: conda install --yes --quiet $condadeps
-    - "conda install --yes --quiet pywin32"
-    - "pip install -r requirements\\development.txt -r requirements\\execution.txt"
-    - "pip install nose -UI"
-    - "python setup.py develop"
-    - "python setup.py build"
-    # - "python setup.py install" ## NO, requirements installed in "develop' mode.
+    ## Print python-version and architecture for debugging .
+    #
+    - |
+        python --version 
+        python -c "import struct; print(struct.calcsize('P') * 8)"
+        conda info -a
+
+    - ps: |
+        $condadeps = type "requirements/miniconda.txt" | select-string -Not -Pattern '#'
+        conda install --yes --quiet $condadeps
+
+    ## `win32` dep not includeed in miniconda for it will fail in linux.
+    - conda install --yes --quiet pywin32
+
+    - pip install -r requirements\\development.txt
+
+    ## Fix ``python setup.py nosetests`` failing with conda:
+    #   https://github.com/ContinuumIO/anaconda-issues/issues/280
+    - pip uninstall -y nose & pip uninstall -y nose & pip install -UI nose
+
+    # - "python setup.py develop" ## NO, pip installed in "develop' mode, above.
+    - python setup.py build
 
 build: false
 
@@ -48,4 +58,15 @@ test_script:
         echo "+++  Checking archives for PyPI repo..."
         python setup.py sdist bdist_wheel
 
-    - ".\\bin\\run_code_tests.bat"
+    -   IF "%PYTHON_VERSION%"=="3.4" (
+            echo "+++ Checking all TCs, DTs & Coverage...." &
+            python setup.py test_all
+        ) ELSE (
+            echo "+++ Checking only TCs...." &
+            python setup.py test_code
+        )
+
+
+    - |
+        echo "+++ Checking install...."
+        python setup.py install
