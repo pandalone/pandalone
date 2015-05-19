@@ -329,11 +329,21 @@ class TestPmod(unittest.TestCase):
         self.assertEqual(pm.map_path('/a'), 'root/a')
         # self.assertEqual(pm.map_path('/'), 'root')  ## TODO: FIX map2slash
 
+        pm = pmods_from_tuples([('', 'root'), ('/', 'root2')])
+        self.assertEqual(pm.map_path(''), 'root')
+        self.assertEqual(pm.map_path('/a'), 'root/a')
+        self.assertEqual(pm.map_path('/'), 'root/root2')
+
     def test_map_path_rootMapped_absolute(self):
         pm = pmods_from_tuples([('', '/root')])
         self.assertEqual(pm.map_path(''), '/root')
         self.assertEqual(pm.map_path('/a'), '/root/a')
         # self.assertEqual(pm.map_path('/'), '/root')  ## TODO: FIX map2slash
+
+        pm = pmods_from_tuples([('', '/root'), ('/', 'root2')])
+        self.assertEqual(pm.map_path(''), '/root')
+        self.assertEqual(pm.map_path('/a'), '/root/a')
+        self.assertEqual(pm.map_path('/'), '/root/root2')
 
     def test_map_path_missed(self):
         pm = self._build_simple_pmod_from_tuples()
@@ -499,7 +509,7 @@ class TestPmod(unittest.TestCase):
         self.assertEqual(pmods.map_path(''), '')
 
         pmods = pmods_from_tuples([('', '..')])
-        #self.assertEqual(pmods.map_path('/'), '/')
+        self.assertEqual(pmods.map_path('/'), '')
         self.assertEqual(pmods.map_path('/a'), '/a')
         self.assertEqual(pmods.map_path('/a/b'), '/a/b')
         self.assertEqual(pmods.map_path(''), '')
@@ -632,7 +642,7 @@ class TestPstep(unittest.TestCase):
         ]
         self.assertListEqual(sorted(p._paths()), sorted(exp))
         self.assertEqual(
-            Pstep._append_children.__defaults__[0], [])  # @UndefinedVariable
+            Pstep._append_subtree.__defaults__[0], [])  # @UndefinedVariable
 
     def test_paths_multi_nonemptyroot(self):
         p = Pstep('r')
@@ -650,7 +660,7 @@ class TestPstep(unittest.TestCase):
         ]
         self.assertListEqual(sorted(p._paths()), sorted(exp))
         self.assertEqual(
-            Pstep._append_children.__defaults__[0], [])  # @UndefinedVariable
+            Pstep._append_subtree.__defaults__[0], [])  # @UndefinedVariable
 
     ### DOT ###
 

@@ -621,7 +621,7 @@ def pmods_from_tuples(pmods_tuples):
     for i, (f, t) in enumerate(pmods_tuples):
         if (f, t) == ('', '') or f is None or t is None:
             msg = 'pmod-tuple #%i of %i: Invalid "from-to" tuple (%r, %r).'
-            log.warning(msg, i+1, len(pmods_tuples), f, t)
+            log.warning(msg, i + 1, len(pmods_tuples), f, t)
             continue
 
         pmod = root
@@ -913,17 +913,19 @@ class Pstep(str):
         self = str.__new__(cls, alias)
         self._orig = pname
         self._pmod = _pmod
-        self._csteps = {}
+        self._csteps = None
         vars(self)['_locked'] = Pstep.CAN_RELOCATE
 
         return self
 
     def __missing__(self, cpname):
+        if not self._csteps:
+            self._csteps = {}
         self._csteps[cpname] = child = Pstep(cpname, self._pmod)
         return child
 
     def __getitem__(self, cpname):
-        child = self._csteps.get(cpname, None)
+        child = self._csteps and self._csteps.get(cpname, None)
         return child or self.__missing__(cpname)
 
     def __setitem__(self, cpname, value):
@@ -933,7 +935,7 @@ class Pstep(str):
         if cpname.startswith('_'):
             msg = "'%s' object has no attribute '%s'"
             raise AttributeError(msg % (self, cpname))
-        child = self._csteps.get(cpname, None)
+        child = self._csteps and self._csteps.get(cpname, None)
         return child or self.__missing__(cpname)
 
     def __setattr__(self, cpname, value):
@@ -997,12 +999,12 @@ class Pstep(str):
         :rtype: [str]
         """
         paths = []
-        self._append_children(paths, is_orig=is_orig)
+        self._append_subtree(paths, is_orig=is_orig)
         paths = ['/'.join(p) for p in paths]
 
         return sorted(set(paths))
 
-    def _append_children(self, paths, prefix_steps=[], is_orig=False):
+    def _append_subtree(self, paths, prefix_steps=[], is_orig=False):
         """
         Append all child-steps in the `paths` list.
 
@@ -1014,7 +1016,7 @@ class Pstep(str):
         # nprefix.append(self)
         if self._csteps:
             for v in self._csteps.values():
-                v._append_children(paths, nprefix, is_orig=is_orig)
+                v._append_subtree(paths, nprefix, is_orig=is_orig)
         else:
             paths.append(nprefix)
 
