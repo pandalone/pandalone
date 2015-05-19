@@ -14,7 +14,6 @@ See:
 - :func:`pmods_from_tuples` & :func:`df_as_pmods_tuples()`, and
 - :class:`Pstep`.
 
-- TODO: Explicit mark pmods_from_tuples() for relative/absolute & regex.
 - TODO: Implements "anywhere" pmods(`//`).
 """
 
@@ -94,8 +93,8 @@ class Pmod(object):
 
         >>> pmods = pmods_from_tuples([
         ...         ('/a',           'A'),
-        ...         ('/b.*',        r'BB\g<0>'),  ## Previous match.
-        ...         ('/b.*/c.(.*)', r'W\1ER'),    ## Capturing-group(1)
+        ...         ('/~b.*',        r'BB\g<0>'),  ## Previous match.
+        ...         ('/~b.*/~c.(.*)', r'W\1ER'),    ## Capturing-group(1)
         ... ])
         >>> pmods.map_paths(['/a', '/a/foo'])     ## 1st rule
         ['/A', '/A/foo']
@@ -111,8 +110,8 @@ class Pmod(object):
 
         >>> pmods = pmods_from_tuples([
         ...         ('/a',           'A/AA'),
-        ...         ('/b.*/c(.*)',  r'../C/\1'),
-        ...         ('/b.*/.*/r.*', r'/\g<0>'),
+        ...         ('/~b.*/~c(.*)',  r'../C/\1'),
+        ...         ('/~b.*/~.*/~r.*', r'/\g<0>'),
         ... ])
         >>> pmods.map_paths(['/a/foo', '/big/child', '/begin/from/root'])
         ['/A/AA/foo', '/big/C/hild', '/root']
@@ -429,11 +428,11 @@ class Pmod(object):
 
             >>> pmods = pmods_from_tuples([
             ...         ('/a',              'A/AA'),
-            ...         ('/a(\\w*)',       r'BB\1'),
-            ...         ('/a\\w*/d.*',     r'D \g<0>'),
-            ...         ('/a(\\d+)',       r'C/\1'),
-            ...         ('/a(\\d+)/(c.*)', r'CC-/\1'), # The 1st group is ignored!
-            ...         ('/a\\d+/e.*',     r'/newroot/\g<0>'), # Rooted mapping.
+            ...         ('/~a(\\w*)',       r'BB\1'),
+            ...         ('/~a\\w*/~d.*',     r'D \g<0>'),
+            ...         ('/~a(\\d+)',       r'C/\1'),
+            ...         ('/~a(\\d+)/~(c.*)', r'CC-/\1'), # The 1st group is ignored!
+            ...         ('/~a\\d+/~e.*',     r'/newroot/\g<0>'), # Rooted mapping.
             ... ])
 
             >>> pmods.map_path('/a')
@@ -557,16 +556,15 @@ def pmods_from_tuples(pmods_tuples):
     - The "from" path may be:
       - relative, 
       - absolute(starting with `/`), or 
-      - "anywhere"(starting with `//`).  
+      - TODO: "anywhere"(starting with `//`).  
 
-    - In case the "from" path starts with tilda(`~`), it is assumed to be 
-      a regular-expression, and it is removed from it.
-      A "anywhere" regex "from" path starts with `~//`.
+    - In case a "step" in the "from" path starts with tilda(`~`), 
+      it is assumed to be a regular-expression, and it is removed from it.
       The "to" path can make use of any "from" capture-groups::
 
-          ('~/all(.*)/path', 'foo')
+          ('/~all(.*)/path', 'foo')
           ('~some[\d+]/path', 'foo\1')
-          ('~//all(.*)/path', 'foo')
+          ('//~all(.*)/path', 'foo')
 
 
 
@@ -584,8 +582,8 @@ def pmods_from_tuples(pmods_tuples):
         pmod({'': pmod({'a': pmod('A1/A2', {'b': pmod('B')})})})
 
         >>> pmods_from_tuples([
-        ...     ('/a*', 'A1/A2'),
-        ...     ('/a/b[123]', 'B'),
+        ...     ('/~a*', 'A1/A2'),
+        ...     ('/a/~b[123]', 'B'),
         ... ])
         pmod({'': pmod({'a':
                 pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))},
@@ -622,15 +620,15 @@ def pmods_from_tuples(pmods_tuples):
     root = Pmod()
     for i, (f, t) in enumerate(pmods_tuples):
         if (f, t) == ('', '') or f is None or t is None:
-            msg = 'pmod-tuple(%i): `to(%s)` were empty!'
-            log.warning(msg, i, f, t)
+            msg = 'pmod-tuple #%i of %i: Invalid "from-to" tuple (%r, %r).'
+            log.warning(msg, i+1, len(pmods_tuples), f, t)
             continue
 
         pmod = root
         for srcstep in iter_jsonpointer_parts_relaxed(f):
-            is_regex = any(set('[]().*+?') & set(srcstep))
+            is_regex = srcstep.startswith('~')
             if is_regex:
-                pmod = pmod._append_into_regxs(srcstep)
+                pmod = pmod._append_into_regxs(srcstep[1:])
             else:
                 pmod = pmod._append_into_steps(srcstep)
 

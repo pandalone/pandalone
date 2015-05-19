@@ -190,7 +190,7 @@ class FuncComponent(Component):
         >>> from pandalone.mappings import pmods_from_tuples
 
         >>> pmods = pmods_from_tuples([
-        ...     ('.*', '/A/B'),
+        ...     ('~.*', '/A/B'),
         ... ])
         >>> comp._build(pmods)
 
@@ -282,7 +282,7 @@ class Assembly(Component):  # TODO: Assembly inherit Component
         >>> from pandalone.mappings import pmods_from_tuples
 
         >>> pmod = pmods_from_tuples([
-        ...     ('.*',  '/root'), 
+        ...     ('~.*',  '/root'), 
         ... ])
         >>> ass._build(pmod)
         >>> sorted(ass._inp + ass._out)

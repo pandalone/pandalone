@@ -319,8 +319,8 @@ class TestPmod(unittest.TestCase):
 
     def _build_simple_pmod_from_tuples(self):
         return pmods_from_tuples([('/a', 'A'),
-                                  ('/a(\w*)', 'AWord'),
-                                  ('/a(\d*)', 'A_\\1'),
+                                  ('/~a(\w*)', 'AWord'),
+                                  ('/~a(\d*)', 'A_\\1'),
                                   ])
 
     def test_map_path_rootMapped_relative(self):
@@ -356,7 +356,7 @@ class TestPmod(unittest.TestCase):
         self.assertEqual(pm.map_path('/a12/b'), '/A_12/b')
 
     def test_map_path_regex_2_dot_dotdot_root_abs(self):
-        pmods = pmods_from_tuples([('/b.*/c(.*)',  r'../C/\1')])
+        pmods = pmods_from_tuples([('/~b.*/~c(.*)',  r'../C/\1')])
         #self.assertEqual(pmods.map_path('/'), '/')
         self.assertEqual(pmods.map_path('/a'), '/a')
         self.assertEqual(pmods.map_path('/big/child'), '/big/C/hild')
@@ -377,8 +377,8 @@ class TestPmod(unittest.TestCase):
 
     def test_build_pmods_regex_no_steps(self):
         pmods_tuples = [
-            ('/a*', 'A1/A2'),
-            ('/a[1]?/b?', 'B'),
+            ('/~a*', 'A1/A2'),
+            ('/~a[1]?/~b?', 'B'),
         ]
         pmods = pmods_from_tuples(pmods_tuples)
 
@@ -390,8 +390,8 @@ class TestPmod(unittest.TestCase):
     def test_pmods_from_tuples_repr(self):
         pmods_tuples = [
             ('/a', 'A'),
-            ('/a\w*', 'A1/A2'),
-            ('/a\d*/b?', 'D/D'),
+            ('/~a\w*', 'A1/A2'),
+            ('/~a\d*/~b?', 'D/D'),
         ]
         pmods = pmods_from_tuples(pmods_tuples)
 
@@ -516,8 +516,14 @@ class TestPmod(unittest.TestCase):
         self.assertEqual(pmods.map_path('/a/b'), '/A/B/a/b')
         self.assertEqual(pmods.map_path(''), '/A/B')
 
+    def test_pmods_from_tuple_ignores_empties(self):
         # Ignored by :func:`pmods_from_tuples().
-        # pmods = pmods_from_tuples([('', '')])
+        pmods = pmods_from_tuples([('', '')])
+        self.assertEqual(pmods, Pmod())
+        pmods = pmods_from_tuples([('spam', None)])
+        self.assertEqual(pmods, Pmod())
+        pmods = pmods_from_tuples([(None, 'spam')])
+        self.assertEqual(pmods, Pmod())
 
 
 class TestPstep(unittest.TestCase):
