@@ -644,6 +644,10 @@ class TestPstep(unittest.TestCase):
         self.assertEqual(
             Pstep._append_subtree.__defaults__[0], [])  # @UndefinedVariable
 
+        self.assertListEqual(sorted(p._paths(is_orig=True)), sorted(exp))
+        self.assertEqual(
+            Pstep._append_subtree.__defaults__[0], [])  # @UndefinedVariable
+
     def test_paths_multi_nonemptyroot(self):
         p = Pstep('r')
         p.abc
@@ -659,6 +663,10 @@ class TestPstep(unittest.TestCase):
             'r/n123',
         ]
         self.assertListEqual(sorted(p._paths()), sorted(exp))
+        self.assertEqual(
+            Pstep._append_subtree.__defaults__[0], [])  # @UndefinedVariable
+
+        self.assertListEqual(sorted(p._paths(is_orig=True)), sorted(exp))
         self.assertEqual(
             Pstep._append_subtree.__defaults__[0], [])  # @UndefinedVariable
 
@@ -868,22 +876,39 @@ class TestPstep(unittest.TestCase):
         pmods = pmods_from_tuples([('/a', 'AA'), ])
         self._assert_pstep_pmods_with_map_paths('', pmods)
 
-    def test_pmods_mass(self):
+    def test_paths_pmods_mass(self):
         p = Pstep(_pmod=self.PMODS())
         p.a
         p.abc['def']['123']
-        self.assertListEqual(
-            sorted(p._paths()),
-            sorted(['root/b', 'root/BAR/DEF/234']),
-            (p, p._paths()))
+        exp = ['root/b', 'root/BAR/DEF/234']
+        self.assertListEqual(sorted(p._paths()), sorted(exp), (p, p._paths()))
 
         p = Pstep(_pmod=self.PMODS(absolute=True))
         p.a
         p.abc['def']['123']
+        exp = ['/root/b', '/root/BAR/DEF/234']
+        self.assertListEqual(sorted(p._paths()), sorted(exp), (p, p._paths()))
+
+    def test_paths_pmods_orig_mass(self):
+        p = Pstep(_pmod=self.PMODS())
+        p.a
+        p.abc['def']['123']
+        exp = [
+            '(-->)root/(a-->)b',
+            '(-->)root/(abc-->)BAR/(def-->)DEF/(123-->)234'
+        ]
         self.assertListEqual(
-            sorted(p._paths()),
-            sorted(['/root/b', '/root/BAR/DEF/234']),
-            (p, p._paths()))
+            sorted(p._paths(is_orig=True)), sorted(exp), (p, p._paths()))
+
+        p = Pstep(_pmod=self.PMODS(absolute=True))
+        p.a
+        p.abc['def']['123']
+        exp = [
+            '(-->)/root/(a-->)b',
+            '(-->)/root/(abc-->)BAR/(def-->)DEF/(123-->)234'
+        ]
+        self.assertListEqual(
+            sorted(p._paths(is_orig=True)), sorted(exp), (p, p._paths()))
 
     def test_pmods_lock_not_applying(self):
         p = Pstep('not dot', _pmod=self.PMODS())

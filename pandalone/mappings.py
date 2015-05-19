@@ -911,17 +911,21 @@ class Pstep(str):
         else:
             alias = pname
         self = str.__new__(cls, alias)
-        self._orig = pname
-        self._pmod = _pmod
-        self._csteps = None
-        vars(self)['_locked'] = Pstep.CAN_RELOCATE
+        self.__dict__ = {
+            '_orig': pname,
+            '_pmod': _pmod,
+            '_csteps': None,
+            '_locked': Pstep.CAN_RELOCATE,
+        }
 
         return self
 
     def __missing__(self, cpname):
-        if not self._csteps:
-            self._csteps = {}
-        self._csteps[cpname] = child = Pstep(cpname, self._pmod)
+        child = Pstep(cpname, self._pmod)
+        if self._csteps:
+            self._csteps[cpname] = child
+        else:
+            self._csteps = {cpname: child}
         return child
 
     def __getitem__(self, cpname):
@@ -995,7 +999,7 @@ class Pstep(str):
     def _paths(self, is_orig=False):
         """
         Return all children-paths (str-list) constructed so far, in a list.
-
+        :param bool is_orig: wheter to include also orig-path, for debug.
         :rtype: [str]
         """
         paths = []
@@ -1012,7 +1016,10 @@ class Pstep(str):
         :rtype: [[str]]
         """
         nprefix = list(prefix_steps)
-        nprefix = _append_path(nprefix, self._orig if is_orig else self)
+        me = self
+        if is_orig and me != self._orig:
+            me = '(%s-->)%s' % (self._orig, me)
+        nprefix = _append_path(nprefix, me)
         # nprefix.append(self)
         if self._csteps:
             for v in self._csteps.values():
@@ -1027,10 +1034,11 @@ class Pstep(str):
         # Lazy create it
         #    (clients should check before`_schema_exists()`)
         #
-        jschema = vars(self).get('_schema')
+        sdict = vars(self)
+        jschema = sdict.get('_schema')
         if jschema is None:
-            jschema = JSchema()
-            vars(self)['_schema'] = jschema
+            sdict['_schema'] = jschema = JSchema()
+
         return jschema
 
     def _schema_exists(self):
