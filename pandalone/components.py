@@ -43,42 +43,6 @@ __commit__ = ""
 log = logging.getLogger(__name__)
 
 
-def _append_step(steps, step):
-    """
-    Joins `steps`-list with `path`, respecting '/', '..', '.', ''.
-
-    :return: the new or updated steps-list.
-    :rtype:  list
-
-    Example::
-
-        >>> _append_step([], 'a')
-        ['a']
-
-        >>> _append_step([], '..')
-        []
-        >>> _append_step(['a', 'b'], '..')
-        ['a']
-
-        >>> _append_step(['a', 'b'], '.')
-        ['a', 'b']
-
-        >>> _append_step(['a', 'b'], '')
-        []
-
-    """
-    if step == '':
-        steps = []
-    elif step == '.':
-        pass
-    elif step == '..':
-        steps = steps[:-1]
-    else:
-        steps.append(step)
-
-    return steps
-
-
 name_uniqueizer = None  # TODO: Handle clashes on component-names.
 
 
