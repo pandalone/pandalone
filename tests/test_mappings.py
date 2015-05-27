@@ -894,8 +894,8 @@ class TestPstep(unittest.TestCase):
         p.a
         p.abc['def']['123']
         exp = [
-            '(-->)root/(a-->)b',
-            '(-->)root/(abc-->)BAR/(def-->)DEF/(123-->)234'
+            '(-->root)/(a-->b)',
+            '(-->root)/(abc-->BAR)/(def-->DEF)/(123-->234)'
         ]
         self.assertListEqual(
             sorted(p._paths(is_orig=True)), sorted(exp), (p, p._paths()))
@@ -904,8 +904,8 @@ class TestPstep(unittest.TestCase):
         p.a
         p.abc['def']['123']
         exp = [
-            '(-->)/root/(a-->)b',
-            '(-->)/root/(abc-->)BAR/(def-->)DEF/(123-->)234'
+            '(-->/root)/(a-->b)',
+            '(-->/root)/(abc-->BAR)/(def-->DEF)/(123-->234)'
         ]
         self.assertListEqual(
             sorted(p._paths(is_orig=True)), sorted(exp), (p, p._paths()))

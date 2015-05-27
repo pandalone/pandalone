@@ -1004,28 +1004,28 @@ class Pstep(str):
         """
         paths = []
         self._append_subtree(paths, is_orig=is_orig)
-        paths = ['/'.join(p) for p in paths]
 
         return sorted(set(paths))
 
     def _append_subtree(self, paths, prefix_steps=[], is_orig=False):
         """
-        Append all child-steps in the `paths` list.
+        Recursively append all child-steps in the `paths` list.
 
-        :param list prefix_steps: default-value always copied
-        :rtype: [[str]]
+        :param list paths:             Where to append subtree-paths built.
+        :param list prefix_steps:      default-value, never modified
+        :rtype: [str]
         """
         nprefix = list(prefix_steps)
         me = self
         if is_orig and me != self._orig:
-            me = '(%s-->)%s' % (self._orig, me)
+            me = '(%s-->%s)' % (self._orig, me)
         nprefix = _append_path(nprefix, me)
         # nprefix.append(self)
         if self._csteps:
             for v in self._csteps.values():
                 v._append_subtree(paths, nprefix, is_orig=is_orig)
         else:
-            paths.append(nprefix)
+            paths.append('/'.join(nprefix))
 
     @property
     def _schema(self):
