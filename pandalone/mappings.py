@@ -14,6 +14,7 @@ See:
 - :func:`pmods_from_tuples` & :func:`df_as_pmods_tuples()`, and
 - :class:`Pstep`.
 
+- TODO: Can joining psteps work again?
 - TODO: Implements "anywhere" pmods(`//`).
 """
 
@@ -23,8 +24,8 @@ from collections import OrderedDict
 from copy import copy
 import logging
 import re
-
 import functools as ft
+
 from pandalone import utils
 from pandalone.pandata import (
     iter_jsonpointer_parts_relaxed, JSchema, unescape_jsonpointer_part)
@@ -488,41 +489,52 @@ class Pmod(object):
             ''
 
         """
-#         if path.endswith('/'):
-#             is_folder = True
-#             path = path[:-1]
-#         else:
-#             is_folder = False
+        is_folder = len(path) > 1 and path.endswith('/')
+        if is_folder:
+            path = path[:-1]
 
-        steps = list(iter_jsonpointer_parts_relaxed(path))
-        nsteps = []
-        if not self._alias is None:
-            nsteps.append(self._alias)
+        steps = tuple(iter_jsonpointer_parts_relaxed(path))
+        if self._alias is None:
+            nsteps = ()
+        else:
+            nsteps = tuple(iter_jsonpointer_parts_relaxed(self._alias))
+
         if steps:
             pmod = self
+            # Separate last-step from loop below, since
+            #    merged child-pmods in `descend` are not needed.
+            #
             for step in steps[:-1]:
                 if pmod:
                     pmod, alias = pmod.descend(step)
-                if not alias is None:
+                if alias is not None:
                     if alias.startswith('.'):
-                        nsteps.append(step)
+                        nsteps += (step, )
                     step = alias
-                nsteps = _append_path(nsteps, step)
+                # XXX: Monkey business here.
+                if len(step) > 1 and step.endswith('/'):
+                    step = step[:-1]
+                nsteps += tuple(iter_jsonpointer_parts_relaxed(step))
 
-            # On last step, the merging of child-pmods is a waste,
-            #    so make it outside above-loop to
-            #    avoid calling expensive `descend`.
-            #
             final_step = steps[-1]
             if pmod:
                 alias = pmod.alias(final_step)
-                if not alias is None:
+                if alias is not None:
                     if alias.startswith('.'):
-                        nsteps.append(final_step)
+                        nsteps += (final_step, )
                     final_step = alias
-            nsteps = _append_path(nsteps, final_step)
+            # XXX: Monkey business here.
+            is_folder = len(final_step) > 1 and final_step.endswith('/')
+            if is_folder:
+                final_step = final_step[:-1]
+            nsteps += tuple(iter_jsonpointer_parts_relaxed(final_step))
 
-        return '/'.join(nsteps)
+        npath = _join_paths(*nsteps)
+
+        if is_folder:
+            path += '%s/' % path
+
+        return npath
 
     def map_paths(self, paths):
         return [self.map_path(p) for p in paths]
@@ -639,136 +651,186 @@ def pmods_from_tuples(pmods_tuples):
 
 def _append_step(steps, step):
     """
-    Joins `steps`-list with `path`, respecting '/', '..', '.', ''.
+    Joins `step` at the right of `steps`, respecting '/', '..', '.', ''.
 
-    :param list steps:  where to append into ("absolute" when 1st-element is '')
-    :param str step:    what to append (may be 'foo', '.', '..', ''-->"root")
-    :return: a new or the steps-list updated
-    :rtype:  list
+    :param tuple steps:  where to append into 
+                         ("absolute" when 1st-element is '')
+    :param str step:     what to append 
+                         (may be: ``'foo', '.', '..', ''``)
+    :rtype:  tuple
 
     .. Note::
-        An empty-list[] in the `steps` is considered "root,
-        but the *root* step is empty-string('').
+        The empty-string('') is the "root" for both `steps` and `step`.
+        An empty-tuple `steps` is considered "relative", equivalent to dot(`.`).
 
 
     Example::
 
-        >>> _append_step([], 'a')
-        ['a']
+        >>> _append_step((), 'a')
+        ('a',)
 
-        >>> _append_step([], '..')
-        []
-        >>> _append_step(['a', 'b'], '..')
-        ['a']
+        >>> _append_step(('a', 'b'), '..')
+        ('a',)
 
-        >>> _append_step(['a', 'b'], '.')
-        ['a', 'b']
+        >>> _append_step(('a', 'b'), '.')
+        ('a', 'b')
 
 
     Not that an "absolute" path has the 1st-step empty(`''`),
     (so the previous paths above were all "relative")::
 
-        >>> _append_step(['a', 'b'], '')
-        ['']
-        >>> _append_step([''], '')
-        ['']
-        >>> _append_step(['', 'a'], '')
-        ['']
-        >>> _append_step([''], '.')
-        ['']
+        >>> _append_step(('a', 'b'), '')
+        ('',)
+
+        >>> _append_step(('',), '')
+        ('',)
+
+        >>> _append_step((), '')
+        ('',)
 
 
-    But dot-doting(`..`) on absolute paths preserves rooted-ness::
+    Dot-dots preserve "relative" and "absolute" paths, respectively,
+    and hence do not coalesce when at the left::
 
-        >>> _append_path([''], '..')
-        ['']
-        >>> _append_path(['', ''], '..')
-        ['']
+        >>> _append_step(('',), '..')
+        ('',)
+
+        >>> _append_step(('',), '.')
+        ('',)
+
+        >>> _append_step(('a',), '..')
+        ()
+
+        >>> _append_step((), '..')
+        ('..',)
+
+        >>> _append_step(('..',), '..')
+        ('..', '..')
+
+        >>> _append_step((), '.')
+        ()
+
+
+
+    Single-dots('.') just dissappear::
+
+        >>> _append_step(('.',), '.')
+        ()
+
+        >>> _append_step(('.',), '..')
+        ('..',)
 
     """
-    _append_step_funcs = {
-        '': lambda steps, step: [''],
-        '.': lambda steps, step: steps,
-        '..': lambda steps, step: steps[:-1] if [''] != steps else steps,
+    assert isinstance(steps, tuple), (steps, step)
+    assert not step or isinstance(step, str), (steps, step)
+
+    if step == '':
+        return ('',)
+
+    _last_pair_choices = {
+        ('.',): (),
+        ('..',): ('..',),
+        ('.', '.'): (),
+        ('.', '..',): ('..',),
+        ('..', '.'): ('..',),
+        ('..', '..'): ('..', '..'),
+        ('', '.'): ('',),
+        ('', '..'): ('',),
     }
 
     try:
-        steps = _append_step_funcs[step](steps, step)
+        last_pair = steps[-1:] + (step,)
+        steps = steps[:-1] + _last_pair_choices[last_pair]
     except KeyError:
-        steps.append(step)
+        if step == '.':
+            pass
+        elif step == '..':
+            steps = steps[:-1]
+        else:
+            steps += (step,)
 
     return steps
 
 
-def _append_path(steps, path):
+def _join_paths(*steps):
     """
-    Joins `steps`-list with `path`, respecting '/', '..', '.', ''.
+    Joins all path-steps in a single string, respecting ``'/', '..', '.', ''``.
 
-    :param list steps:  where to append into ("absolute" when 1st-element is '')
-    :param str path:    what to append (ie '/foo/', '.', '..', ''-->"root")
-    :return: a new or the steps-list updated
-    :rtype:  list
+    :param str steps:  single json-steps, from left to right
+    :rtype: str
 
     .. Note::
-        For `path`, the "root" is signified by the empty(`''`) step;
-        not the slash(`/`).
-        A lone slash(`/`) will translate an empty step after root: ``['', '']``.
-        The same happens when `/` is the last char of `path`.
+        If you use :func:`iter_jsonpointer_parts_relaxed()` to generate
+        path-steps, the "root" is signified by the empty(`''`) step; 
+        not the slash(`/`)!
 
-    Example::
+        Hence a lone slash(`/`) gets splitted to an empty step after "root"
+        like that: ``('', '')``, which generates just "root"(`''`).
 
-        >>> _append_path([], 'a')
-        ['a']
-
-        >>> _append_path([], '../a')
-        ['a']
-        >>> _append_path(['a', 'b'], '../c')
-        ['a', 'c']
-        >>> _append_path(['a', 'b'], '../../c')
-        ['c']
-
-        >>> _append_path(['a', 'b'], '.')
-        ['a', 'b']
-
-        >>> _append_path(['a', 'b'], './c')
-        ['a', 'b', 'c']
-
-    Not that an "absolute" path has the 1st-step empty(`''`),
-    (so the previous paths above were all "relative")::
-
-        >>> _append_path(['a', 'b'], '/r')
-        ['', 'r']
-
-        >>> _append_path(['a', 'b'], '')
-        ['']
+        Therefore a "folder" (i.e. `some/folder/`) when splitted equals
+        ``('some', 'folder', '')``, which results again in the "root"(`''`)!
 
 
-    But dot-doting on "rooted" paths (1st-step empty), preserves them::
+    Examples::
 
-        >>> _append_path([''], '..')
-        ['']
+        >>> _join_paths('r', 'a', 'b')
+        'r/a/b'
 
-        >>> _append_path([''], '../../a')
-        ['', 'a']
+        >>> _join_paths('', 'a', 'b', '..', 'bb', 'cc')
+        '/a/bb/cc'
 
-        >>> _append_path(['', 'foo'], '/')
-        ['', '']
+        >>> _join_paths('a', 'b', '.', 'c')
+        'a/b/c'
 
+
+    An empty-step "roots" the remaining path-steps::
+
+        >>> _join_paths('a', 'b', '', 'r', 'aa', 'bb')
+        '/r/aa/bb'
+
+
+    All `steps` have to be already "splitted"::
+
+        >>> _join_paths('a', 'b', '../bb')
+        'a/b/../bb'
+
+
+    Dot-doting preserves "relative" and "absolute" paths, respectively::
+
+        >>> _join_paths('..')
+        '..'
+
+        >>> _join_paths('a', '..')
+        '.'
+
+        >>> _join_paths('a', '..', '..', '..')
+        '../..'
+
+        >>> _join_paths('', 'a', '..', '..')
+        ''
+
+
+    Some more special cases::
+
+        >>> _join_paths('..', 'a')
+        '../a'
+
+        >>> _join_paths('', '.', '..', '..')
+        ''
+
+        >>> _join_paths('.', '..')
+        '..'
+
+        >>> _join_paths('..', '.', '..')
+        '../..'
+
+    .. seealso:: _append_step
     """
-
-    if path.endswith('/'):
-        is_folder = True
-        path = path[:-1]
+    nsteps = ft.reduce(_append_step, steps, ())
+    if not nsteps:
+        return '.'
     else:
-        is_folder = False
-
-    for step in iter_jsonpointer_parts_relaxed(path):
-        steps = _append_step(steps, step)
-
-    if is_folder:
-        steps.append('')
-
-    return steps
+        return '/'.join(nsteps)
 
 
 class Pstep(str):
@@ -999,6 +1061,7 @@ class Pstep(str):
     def _paths(self, is_orig=False):
         """
         Return all children-paths (str-list) constructed so far, in a list.
+
         :param bool is_orig: wheter to include also orig-path, for debug.
         :rtype: [str]
         """
@@ -1007,25 +1070,31 @@ class Pstep(str):
 
         return sorted(set(paths))
 
-    def _append_subtree(self, paths, prefix_steps=[], is_orig=False):
+    def _append_subtree(self, paths, prefix_steps=(), is_orig=False):
         """
         Recursively append all child-steps in the `paths` list.
 
         :param list paths:             Where to append subtree-paths built.
-        :param list prefix_steps:      default-value, never modified
+        :param sequence prefix_steps: never modified
+
         :rtype: [str]
         """
-        nprefix = list(prefix_steps)
-        me = self
-        if is_orig and me != self._orig:
-            me = '(%s-->%s)' % (self._orig, me)
-        nprefix = _append_path(nprefix, me)
-        # nprefix.append(self)
-        if self._csteps:
-            for v in self._csteps.values():
-                v._append_subtree(paths, nprefix, is_orig=is_orig)
+        sdict = vars(self)
+        step = self
+        if is_orig:
+            orig = sdict['_orig']
+            if step != orig:
+                step = '(%s-->%s)' % (orig, step)
+            prefix_steps += (step, )
         else:
-            paths.append('/'.join(nprefix))
+            prefix_steps += tuple(iter_jsonpointer_parts_relaxed(step))
+        csteps = sdict.get('_csteps')
+        if csteps:
+            for v in csteps.values():
+                v._append_subtree(
+                    paths, prefix_steps, is_orig=is_orig)
+        else:
+            paths.append(_join_paths(*prefix_steps))
 
     @property
     def _schema(self):

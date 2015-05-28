@@ -17,7 +17,7 @@ import unittest
 
 import functools as ft
 from pandalone.mappings import (
-    Pmod, pmods_from_tuples, Pstep, _append_path)
+    Pmod, pmods_from_tuples, Pstep, _join_paths, _append_step)
 import pandalone.mappings
 from tests._tutils import _init_logging
 
@@ -43,20 +43,55 @@ class TestDoctest(unittest.TestCase):
 
 class TestJoinPaths(unittest.TestCase):
 
-    def test_append_paths_dotdot_on_empty(self):
-        steps = []
-        self.assertEqual(_append_path(steps, '..'), [])
+    def _check_append_step(self, all_steps, exp_steps):
+        steps = all_steps[:-1]
+        step = all_steps[-1]
+        msg = "{} + {} != {}".format(steps, step, exp_steps)
+        self.assertEqual(_append_step(steps, step), exp_steps, msg)
 
-    def test_append_paths_dotdot_on_rooted(self):
-        steps = ['']
-        self.assertEqual(_append_path(steps, '..'), [''])
+    def _masscheck_append_step(self, cases):
+        for all_steps, exp_steps in cases:
+            self._check_append_step(all_steps, exp_steps)
 
-    def test_append_paths_slash(self):
-        steps = ['', 'a']
-        self.assertEqual(_append_path(steps, '/'), ['', ''])
+    def test_append_step_simple(self):
+        cases = [
+            [('a',), ('a',)],
+            [('a', 'b', '..'), ('a',)],
+            [('a', 'b', '.'), ('a', 'b')],
+        ]
+        self._masscheck_append_step(cases)
 
-        steps = ['']
-        self.assertEqual(_append_path(steps, '/'), ['', ''])
+    def test_append_step_absolute(self):
+        cases = [
+            [('a', 'b', ''), ('',)],
+            [('', ''), ('',)],
+            [('',), ('',)],
+        ]
+        self._masscheck_append_step(cases)
+
+    def test_append_step_dotdot(self):
+        cases = [
+            [('', '..'), ('',)],
+            [('', '.'), ('',)],
+            [('a', '..'), ()],
+            [('..',), ('..',)],
+            [('..', '..'), ('..', '..')],
+            [('.',), ()],
+        ]
+        self._masscheck_append_step(cases)
+
+    def test_join_paths_dotdot_on_empty(self):
+        self.assertEqual(_join_paths('..',), '..')
+        self.assertEqual(_join_paths('a', '..', '..'), '..')
+        self.assertEqual(_join_paths('..'), '..')
+
+    def test_join_paths_dotdot_on_rooted(self):
+        self.assertEqual(_join_paths('', '..'), '',)
+
+    def test_join_paths_root_end(self):
+        self.assertEqual(_join_paths('', 'a', ''), '')
+        self.assertEqual(_join_paths('', ''), '')
+        self.assertEqual(_join_paths(''), '')
 
 
 class TestPmod(unittest.TestCase):
@@ -367,7 +402,7 @@ class TestPmod(unittest.TestCase):
 
     def test_map_path_regex_2_dot_dotdot_root_abs(self):
         pmods = pmods_from_tuples([('/~b.*/~c(.*)',  r'../C/\1')])
-        #self.assertEqual(pmods.map_path('/'), '/')
+        self.assertEqual(pmods.map_path('/'), '')
         self.assertEqual(pmods.map_path('/a'), '/a')
         self.assertEqual(pmods.map_path('/big/child'), '/big/C/hild')
         self.assertEqual(pmods.map_path(''), '')
@@ -472,7 +507,7 @@ class TestPmod(unittest.TestCase):
 
     def test_map_path_slash_2_dot_dotdot_root_abs(self):
         pmods = pmods_from_tuples([('/', '.')])
-        self.assertEqual(pmods.map_path('/'), '/')
+        self.assertEqual(pmods.map_path('/'), '')
         self.assertEqual(pmods.map_path('/a'), '/a')
         self.assertEqual(pmods.map_path('/a/b'), '/a/b')
         self.assertEqual(pmods.map_path(''), '')
@@ -490,7 +525,7 @@ class TestPmod(unittest.TestCase):
         self.assertEqual(pmods.map_path(''), '')
 
         pmods = pmods_from_tuples([('/', '/')])
-        self.assertEqual(pmods.map_path('/'), '/')
+        self.assertEqual(pmods.map_path('/'), '')
         self.assertEqual(pmods.map_path('/a'), '/a')
         self.assertEqual(pmods.map_path('/a/b'), '/a/b')
         self.assertEqual(pmods.map_path(''), '')
@@ -503,7 +538,7 @@ class TestPmod(unittest.TestCase):
 
     def test_map_path_root_2_dot_dotdot_root_abs(self):
         pmods = pmods_from_tuples([('', '.')])
-        # self.assertEqual(pmods.map_path('/'), '/')  ## TODO: FIX map2slash
+        self.assertEqual(pmods.map_path('/'), '')
         self.assertEqual(pmods.map_path('/a'), '/a')
         self.assertEqual(pmods.map_path('/a/b'), '/a/b')
         self.assertEqual(pmods.map_path(''), '')
@@ -515,13 +550,13 @@ class TestPmod(unittest.TestCase):
         self.assertEqual(pmods.map_path(''), '')
 
         pmods = pmods_from_tuples([('', '/')])
-        #self.assertEqual(pmods.map_path('/'), '/')
-        self.assertEqual(pmods.map_path('/a'), '//a')
-        self.assertEqual(pmods.map_path('/a/b'), '//a/b')
-        self.assertEqual(pmods.map_path(''), '/')
+        self.assertEqual(pmods.map_path('/'), '')
+        self.assertEqual(pmods.map_path('/a'), '/a')
+        self.assertEqual(pmods.map_path('/a/b'), '/a/b')
+        self.assertEqual(pmods.map_path(''), '')
 
         pmods = pmods_from_tuples([('', '/A/B')])
-        #self.assertEqual(pmods.map_path('/'), '/A/B/')
+        #self.assertEqual(pmods.map_path('/'), '/A/B')
         self.assertEqual(pmods.map_path('/a'), '/A/B/a')
         self.assertEqual(pmods.map_path('/a/b'), '/A/B/a/b')
         self.assertEqual(pmods.map_path(''), '/A/B')
@@ -641,12 +676,8 @@ class TestPstep(unittest.TestCase):
             '/n123',
         ]
         self.assertListEqual(sorted(p._paths()), sorted(exp))
-        self.assertEqual(
-            Pstep._append_subtree.__defaults__[0], [])  # @UndefinedVariable
 
         self.assertListEqual(sorted(p._paths(is_orig=True)), sorted(exp))
-        self.assertEqual(
-            Pstep._append_subtree.__defaults__[0], [])  # @UndefinedVariable
 
     def test_paths_multi_nonemptyroot(self):
         p = Pstep('r')
@@ -663,12 +694,8 @@ class TestPstep(unittest.TestCase):
             'r/n123',
         ]
         self.assertListEqual(sorted(p._paths()), sorted(exp))
-        self.assertEqual(
-            Pstep._append_subtree.__defaults__[0], [])  # @UndefinedVariable
 
         self.assertListEqual(sorted(p._paths(is_orig=True)), sorted(exp))
-        self.assertEqual(
-            Pstep._append_subtree.__defaults__[0], [])  # @UndefinedVariable
 
     ### DOT ###
 
@@ -1026,7 +1053,6 @@ class TestPstep(unittest.TestCase):
     @unittest.skip('Unknwon why sets fail with Pstep!')
     def test_json_sets(self):
         json.dumps({Pstep(), Pstep()})
-
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
