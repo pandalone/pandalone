@@ -848,13 +848,14 @@ class Pstep(str):
     so the same data-accessing code can refer to differently-named values
     int the data-tree.
 
-    :ivar Pstep _csteps: the child-psteps
-    :ivar dict _pmod:   path-modifications used to construct this and
-                         relayed to children
+    :ivar dict _csteps:  the child-psteps by their name (default `None`)
+    :ivar dict _pmod:    path-modifications used to construct this and
+                         relayed to children (default `None`)
     :ivar int _locked:   one of
-                         - :const:`Pstep.CAN_RELOCATE`(default, reparenting allowed),
+                         - :const:`Pstep.CAN_RELOCATE` (default),
                          - :const:`Pstep.CAN_RENAME`,
                          - :const:`Pstep.LOCKED' (neither from the above).
+    :ivar set _tags:     A set of strings (default `()`)
     :ivar dict _schema:  json-schema data.
 
 
@@ -902,8 +903,8 @@ class Pstep(str):
 
         >>> from pandalone import mappings
 
-        >>> pmods = mappings.pmods_from_tuples([
-        ...     ('',               'deeper/ROOT'),
+        >>> pmods = pmods_from_tuples([
+        ...     ('',         'deeper/ROOT'),
         ...     ('/abc',     'ABC'),
         ...     ('/abc/foo', 'BAR'),
         ... ])
@@ -978,6 +979,7 @@ class Pstep(str):
             '_pmod': _pmod,
             '_csteps': None,
             '_locked': Pstep.CAN_RELOCATE,
+            '_tags': ()
         }
 
         return self
@@ -1051,50 +1053,107 @@ class Pstep(str):
 
     @property
     def _lock(self):
-        """Sets :attr:`locked` = `LOCKED`.
-        :return: self
+        """Set :attr:`locked` = `LOCKED`.
+        :return: self, for chained use
         :raise: ValueError if step has been renamed/relocated pstep
         """
         self._locked = Pstep.LOCKED
         return self
 
-    def _paths(self, is_orig=False):
+    def _tag(self, tag):
+        """Add a "tag" for this pstep.
+
+        :return: self, for chained use
+        """
+        tags = self._tags
+        if tags:
+            tags.add(tag)
+        else:
+            self._tags = set([tag])
+
+        return self
+
+    def _dtag(self, tag):
+        """Delete a "tag" from this pstep.
+
+        :return: self, for chained use
+        """
+        tags = self._tags
+        if tags:
+            tags.discard(tag)
+
+        return self
+
+    def _paths(self, with_orig=False, tag=None):
         """
         Return all children-paths (str-list) constructed so far, in a list.
 
-        :param bool is_orig: wheter to include also orig-path, for debug.
+        :param bool with_orig: wheter to include also orig-path, for debug.
+        :param str tag:        If not 'None', fetches all paths with `tag` 
+                               in their last step.
         :rtype: [str]
+
+
+        Examples::
+
+              >>> p = Pstep()
+              >>> _ = p.a1._tag('inp').b._tag('inp').c
+              >>> _ = p.a2.b2
+
+              >>> p._paths()
+              ['/a1/b/c', '/a2/b2']
+
+              >>> p._paths(tag='inp')
+              ['/a1', '/a1/b']
+
+
+        For debugging set `with_orig` to `True`::
+
+            >>> pmods = pmods_from_tuples([
+            ...     ('',         'ROOT'),
+            ...     ('/a',     'A/AA'),
+            ... ])
+            >>> p = Pstep(_pmod=pmods)
+            >>> _ = p.a.b
+            >>> p._paths(with_orig=True)
+             ['(-->ROOT)/(a-->A/AA)/b']
+
         """
         paths = []
-        self._append_subtree(paths, is_orig=is_orig)
+        self._append_subtree(paths, with_orig=with_orig, tag=tag)
 
         return sorted(set(paths))
 
-    def _append_subtree(self, paths, prefix_steps=(), is_orig=False):
+    def _append_subtree(self, paths, prefix_steps=(), with_orig=False, tag=None):
         """
         Recursively append all child-steps in the `paths` list.
 
         :param list paths:             Where to append subtree-paths built.
-        :param sequence prefix_steps: never modified
-
+        :param tuple prefix_steps:     branch currently visiting
+        :param str, True, None tag:    If not 'None', fetches all paths  
+                                       with `tag` in their last step.
         :rtype: [str]
         """
-        sdict = vars(self)
-        step = self
-        if is_orig:
-            orig = sdict['_orig']
-            if step != orig:
-                step = '(%s-->%s)' % (orig, step)
-            prefix_steps += (step, )
+        me = self
+        if with_orig:
+            orig = self._orig
+            if me != orig:
+                me = '(%s-->%s)' % (orig, me)
+            prefix_steps += (me, )
         else:
-            prefix_steps += tuple(iter_jsonpointer_parts_relaxed(step))
-        csteps = sdict.get('_csteps')
+            prefix_steps += tuple(iter_jsonpointer_parts_relaxed(me))
+
+        if tag in self._tags:
+            paths.append(_join_paths(*prefix_steps))
+
+        csteps = self._csteps
         if csteps:
             for v in csteps.values():
                 v._append_subtree(
-                    paths, prefix_steps, is_orig=is_orig)
+                    paths, prefix_steps, with_orig=with_orig, tag=tag)
         else:
-            paths.append(_join_paths(*prefix_steps))
+            if not tag:
+                paths.append(_join_paths(*prefix_steps))
 
     @property
     def _schema(self):

@@ -677,7 +677,7 @@ class TestPstep(unittest.TestCase):
         ]
         self.assertListEqual(sorted(p._paths()), sorted(exp))
 
-        self.assertListEqual(sorted(p._paths(is_orig=True)), sorted(exp))
+        self.assertListEqual(sorted(p._paths(with_orig=True)), sorted(exp))
 
     def test_paths_multi_nonemptyroot(self):
         p = Pstep('r')
@@ -695,7 +695,7 @@ class TestPstep(unittest.TestCase):
         ]
         self.assertListEqual(sorted(p._paths()), sorted(exp))
 
-        self.assertListEqual(sorted(p._paths(is_orig=True)), sorted(exp))
+        self.assertListEqual(sorted(p._paths(with_orig=True)), sorted(exp))
 
     ### DOT ###
 
@@ -925,7 +925,7 @@ class TestPstep(unittest.TestCase):
             '(-->root)/(abc-->BAR)/(def-->DEF)/(123-->234)'
         ]
         self.assertListEqual(
-            sorted(p._paths(is_orig=True)), sorted(exp), (p, p._paths()))
+            sorted(p._paths(with_orig=True)), sorted(exp), (p, p._paths()))
 
         p = Pstep(_pmod=self.PMODS(absolute=True))
         p.a
@@ -935,7 +935,7 @@ class TestPstep(unittest.TestCase):
             '(-->/root)/(abc-->BAR)/(def-->DEF)/(123-->234)'
         ]
         self.assertListEqual(
-            sorted(p._paths(is_orig=True)), sorted(exp), (p, p._paths()))
+            sorted(p._paths(with_orig=True)), sorted(exp), (p, p._paths()))
 
     def test_pmods_lock_not_applying(self):
         p = Pstep('not dot', _pmod=self.PMODS())
@@ -1053,6 +1053,66 @@ class TestPstep(unittest.TestCase):
     @unittest.skip('Unknwon why sets fail with Pstep!')
     def test_json_sets(self):
         json.dumps({Pstep(), Pstep()})
+
+    def test_tags(self):
+        p = Pstep()
+        self.assertEqual(p._tags, ())
+        self.assertEqual(p._paths(tag='BAD'), [])
+
+        p._tag('inp')
+        self.assertSequenceEqual(sorted(p._tags), ['inp'])
+        self.assertEqual(p._paths(tag='BAD'), [])
+#         self.assertEqual(p._paths(tag='inp'), [''])
+
+        self.assertEqual(p.a._tags, ())
+
+        p.a._tag('t')
+        self.assertSequenceEqual(sorted(p._paths(tag='t')), ['/a'])
+        self.assertEqual(p._paths(tag='BAD'), [])
+        p.b
+        self.assertSequenceEqual(sorted(p._paths(tag='t')), ['/a'])
+        p.a.aa
+        self.assertSequenceEqual(sorted(p._paths(tag='t')), ['/a'])
+        p.b.c
+        self.assertSequenceEqual(sorted(p._paths(tag='t')), ['/a'])
+        p.b._tag('t')
+        self.assertSequenceEqual(sorted(p._paths(tag='t')), ['/a', '/b'])
+        p.b.c._tag('t')
+        self.assertSequenceEqual(
+            sorted(p._paths(tag='t')), ['/a', '/b', '/b/c'])
+        p.a.aa._tag('nt')
+        self.assertSequenceEqual(
+            sorted(p._paths(tag='t')), ['/a', '/b', '/b/c'])
+        p.a.aa._tag('t')
+        self.assertSequenceEqual(
+            sorted(p._paths(tag='t')), ['/a', '/a/aa', '/b', '/b/c'])
+
+    def test_tags_delete(self):
+        p = Pstep()
+        p.a._tag('u').aa._tag('t').aaa
+        p.b.c._tag('u')
+        self.assertSequenceEqual(sorted(p._paths()), ['/a/aa/aaa', '/b/c'])
+        self.assertSequenceEqual(sorted(p._paths(tag='t')), ['/a/aa'])
+        self.assertSequenceEqual(sorted(p._paths(tag='u')), ['/a', '/b/c'])
+        self.assertSequenceEqual(sorted(p._paths(tag='BAD')), [])
+
+        p.a._dtag('u').aa.aaa
+        self.assertSequenceEqual(sorted(p._paths()), ['/a/aa/aaa', '/b/c'])
+        self.assertSequenceEqual(sorted(p._paths(tag='t')), ['/a/aa'])
+        self.assertSequenceEqual(sorted(p._paths(tag='u')), ['/b/c'])
+
+        p.a.aa._dtag('t').aaa
+        p.a.aa._dtag('u').aaa  # Useless
+        p.b.c._dtag('u')
+        self.assertSequenceEqual(sorted(p._paths()), ['/a/aa/aaa', '/b/c'])
+        self.assertSequenceEqual(sorted(p._paths(tag='t')), [])
+        self.assertSequenceEqual(sorted(p._paths(tag='u')), [])
+
+        p.a.aa.aaa._dtag('u')  # Useless
+        p.a.aa.aaa._dtag('t')
+        self.assertSequenceEqual(sorted(p._paths()), ['/a/aa/aaa', '/b/c'])
+        self.assertSequenceEqual(sorted(p._paths(tag='t')), [])
+        self.assertSequenceEqual(sorted(p._paths(tag='u')), [])
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
