@@ -24,6 +24,7 @@ from collections import OrderedDict
 from copy import copy
 import logging
 import re
+import six
 import functools as ft
 
 from pandalone import utils
@@ -722,7 +723,7 @@ def _append_step(steps, step):
 
     """
     assert isinstance(steps, tuple), (steps, step)
-    assert not step or isinstance(step, str), (steps, step)
+    assert not step or isinstance(step, six.string_types), (steps, step)
 
     if step == '':
         return ('',)
