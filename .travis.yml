@@ -33,7 +33,7 @@ install:
     - source activate test-environment
     - pip install -r requirements/development.txt
 
-    ## Fix ``python setup.py nosetests`` failing with conda:
+    ## TODO: Check if FIXED ``python setup.py nosetests`` failing with conda:
     #   https://github.com/ContinuumIO/anaconda-issues/issues/280
     - |
         pip uninstall -y nose
