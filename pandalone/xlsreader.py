@@ -8,97 +8,163 @@
 """
 Implements an "Excel-url" format for capturing ranges from sheets.
 
-Excel-range addressing ("xl-refs")
-==================================
+.. seealso:: Example spreadsheet: :download:`xls_ref.xlsx`
+
+Excel-range addressing
+======================
 
 Syntax::
 
-    <1st-cell>[:[<2nd-cell>][:<expansions>]]
+    <1st-cell>[:[<2nd-cell>][:<expansions>]][<filters>]
     :
 
 
-Example:
-<code>
-     :term:`scan-moves`────────┐
-     :term:`cell-coords`─────┐ │
-                            ┌┤┌┴─┐
+Annotated Example::
 
-                            A1(RD):..(RD):L?DR
-
-                            └─┬──┘ └─┬──┘ └─┬─┘
-     :term:`1st-cell-ref`─────┘      │      │
-     :term:`2nd-cell-ref`────────────┘      │
-     :term:`range-expansions`───────────────┘
-</code>
+    target-moves───┐
+    cell-coords──────┐ │
+                    ┌┤┌┴─┐
+                    A1(RD):..(RD):L?DR{"fun": "df", "kws": {"header": false}}
+                    └─┬──┘ └─┬──┘ └┬─┘└───────────────┬─────────────────────┘
+    1st-cell-pos──────┘      │     │                  │
+    2nd-cell-pos─────────────┘     │                  │
+    range-expansions───────────────┘                  │
+    filters───────────────────────────────────────────┘
 
 
 Definitions
 -----------
 
+.. default-role:: term
 .. glossary::
 
-    1st-cell-ref
-        The cell-ref specifying where scan-moves start.
-        It supports absolute-coordinates only.
+    excel-url
+    xl-url
+        Any url with its fragment abiding to the `xl-range` syntax.
 
-    2nd-cell-ref
-        The 2nd cell-ref specifying where scan-moves stop.
-        It supports relative-coordinates as well.
+    excel-range
+    xl-range
+    excel-ref
+    xl-ref
+        The syntax for `capturing` ranges from excel-sheets, 
+        specified within the fragment-part of a `xl-url`.
 
-    cell-ref
-        A pair of row/col cell-coordinates, optionally followed by scan-moves.
+    cell-pos
+    cell-position
+        A pair of row/col cell `coordinates` optionally followed by 
+        a parenthesized `target-moves`.
 
+    coord
+    coords
+    coordinate
+    coordinates
     cell-coords
-        The cell-col (in letters) and cell-row (number) of a cell.
-
-    scan-moves
-        The 12 primitive directions in the cell-ref's parentheses,
-        scanning for changes of cell-states, specified with a *single* or 
-        a *pair* of the letters `LURD`.
-
-    start-cell
-        The cell identified by the coordinates of the ref alone.
-
-    target-cell
-        The cell identified after applying scan-moves on the start-cell.
-        Failure to identify a target-cell raises an error.
-
-    cell-state
-        Whether a cell is empty or full(non-empty).
+    row-coordinate
+    row-coord
+    column-coordinate
+    col-coord
+        The cell-column (in letters) and cell-row (number) of a cell.
 
     absolute-coordinate
+    absolute
         Any cell row/col identified with column-characters, row-numbers, or
         the following special-characters:
 
-        - `^`            The top/Left full cell-coordinate.
-        - `_`            The bottom/right full cell-coordinate.
+        - ``^``          The top/Left full-cell `coordinate`.
+        - ``_``          The bottom/right full-cell `coordinate`.
 
     relative-coordinate
-        Any 2nd-cell's coordinate identified with a dot(`.`),
+    relative
+        Any `2nd-cell` `coordinate` identified with a dot(``.``),
         which means that:
 
-            > 2nd start-cell coordinate = 1st target-cell coordinate
+            > 2nd-start-cell coordinate = 1st target-cell coordinate
 
-        .. Note:: The cell-ref of the 2nd-cell might contain a "mix" of
-            absolute and relative coordinates.
+        .. Note:: The cell-pos of the 2nd-cell might contain a "mix" of
+            `absolute` and `relative` coordinates.
 
-    search-opposite-state
-        The target-cell is the first cell found according to the scan-moves 
-        that has the opposite state of the start-cell.
+    target-moves
+    targeting
+    traverse-directions
+    traversing
+        A combination of the 4 primitive directions ``LURD``,
+        specified with a *single* or a *pair* of the letters inside the 
+        `cell-pos` parenthesis.  The pairs ``UD`` and ``LR``, 
+        and their inverse, are invalid moves.
 
-    search-same-state
-        The target-cell is the last cell found according to the scan-move 
-        that has the same state of the start-cell.
+    start-cell
+    start
+        The cell identified by the `coordinates` of the `cell-pos` alone.
+
+    target-cell
+    target
+        The cell identified after applying `target-moves` on the `start-cell`.
+        Failure to identify a target-cell raises an error.
+
+    1st
+    1st-cell
+    1st-cell-pos
+    1st-start-cell
+    1st-target-cell
+        The `capturing` of a range starts from the `target` of this `cell-pos`.
+        It supports `absolute` coordinates only.
+
+    2nd
+    2nd-cell
+    2nd-cell-pos
+    2nd-start-cell
+    2nd-target-cell
+        The `capturing` of a range stops at the `target` of this `cell-pos`.
+        It supports both `absolute` and `relative` coordinates.
+
+    capture
+    capturing
+    capturing-phase
+    capture-moves
+    captured-rectangle
+    captured-range
+    range
+        The reading of the excel-sheet values from a rectangular area, 
+        bounded by the `1st-target-cell` and the `2nd-target-cell`.
+
+    state
+    cell-state
+        Whether a cell is empty or full(non-empty).
+
+    termination-rule
+    target-termination-rule
+        The condition for stopping `target-moves` while searching for 
+        a `target-cell`.
+        It can be either `search-same` or `search-opposite`.
+
+    search-same
+        The `target-cell` is the LAST cell with the SAME `state` as
+        the `start-cell`, while `traversing` from it.
+
+    search-opposite
+        The `target-cell` is the FIRST cell with OPPOSITE `state` from 
+        the `start-cell`, while `traversing` from it.
 
     range-expansions
-        How to expand the initially captured rectangle.
+    expansions
+        How to expand the initial `captured-rectangle`.
+        It can be an arbitrary combinations for the ``LURD?`` letters,
+        with repetitions.
+
+    filter
+    filters
+    filter-function
+    filter-functions
+        Predefined functions to apply for transforming the `captured-range`
+        specified as nested *json* dictionaries.
 
 
-Scan moves
-----------
 
-There are 12 primitive scan-directions named with a *single* or a *pair* of
-the letters `LURD`::
+Target-moves
+-------------
+
+There are 12 `target-moves` named with a *single* or a *pair* of
+letters denoting the 4 primitive directions, ``LURD``::
 
             U
      UL◄───┐▲┌───►UR
@@ -117,22 +183,19 @@ the letters `LURD`::
     - The 'X' at the center points the starting cell.
 
 
-So a `RD` primitive-move means:
+So a ``RD`` move means *"traverse cells first by rows then by columns"*, 
+or more lengthy description would be:
 
-  > Scan cells by rows: start moving *right* till 1st empty/non-empty cell,
-  > and then move *down* to the next row, and scan right again."
+  > Start moving *right* till 1st state change, and then 
+  > move *down* to the next row, and start traversing right again."
 
 
 Target-cells
 ------------
 
-Using these moves we can identify a "target" xl-cell from a known
-"starting" position (ie `A1`, or `^^` and `__` for the start/end of the sheet)
-when the values visited in the 1st row/column *change* from empty to non-empty,
-and vice versa.
-
-For instance, given this xl-sheet below, here some of the ways
-to identify (or target) the non-empty values `X`::
+Using these moves we can identify a `target-cell` in relation to 
+the `start-cell`. For instance, given this xl-sheet below, there are
+multiple ways to identify (or target) the non-empty values ``X``, below::
 
       A B C D E F
     1
@@ -142,30 +205,30 @@ to identify (or target) the non-empty values `X`::
     5   X          ──────► B5    A1(DR)   A_(UR)     _5(L)
     6           X  ──────► F6    __       _^(D)      A_(R)
 
-    - The 'X' signify non-empty cells.
+    - The 'X' signifies non-empty cells.
 
 
-So we can target cells with "absolute coordinates" (the usual "A1" notation),
-expanded with:
+So we can target cells with "absolute coordinates", the usual ``A1`` notation,
+augmented with the following special characters:
 
-  - undesrcore(`_`) for bottom/right, and
-  - accent(`^`) for top/left
+  - undesrcore(``_``) for bottom/right, and
+  - accent(``^``) for top/left
 
 columns/rows of the sheet with non-empty values.
 
-When no `LURD`s are specified, the target-cell coinceds with the starting one.
+When no ``LURD`` moves are specified, the target-cell coinceds with the starting one.
 
-.. Seealso:: `Scan rules`_ section
+.. Seealso:: `Target-termination rules`_ section
 
 
 Ranges
 ------
 
-To specify a complete "range" we need to identify a 2nd cell.
+To specify a complete `range` we need to identify a 2nd cell.
 The 2nd target-cell may be specified:
 
-  - either with absolute coordinates, as above, or
-  - with "relative" coords, using the dot(`.`) to refer to the 1st cell.
+  - either with `absolute` coordinates, as above, or
+  - with `relative` coords, using the dot(``.``) to refer to the 1st cell.
 
 
 In the above example-sheet, here are some ways to specify ranges::
@@ -187,64 +250,65 @@ In the above example-sheet, here are some ways to specify ranges::
 
 
 .. Warning::
-   Of course, the above ranges WILL FAIL since the range-traversing moves
-   will stop immediately due to `X`s being surrounded by empty-cells.
+   Of course, the above ranges WILL FAIL since the `target-moves`
+   will stop immediately due to ``X`` values being surrounded by empty-cells.
 
    But the above diagram was to just convey the general idea.
-   Under normal circumstances, all the in-between cells must be non-empty.
-
-
-The required moves for traversing from 1st to 2nd cell are
-calculated automatically from the relative positions of the 2 targets cells.
-In the case of relative-coords, these moves may or may not concede
-with the moves of the 2nd-cell.
-
-For instance, to capture `B4:E5` in the above sheet we may use `_5(L):E.(U)`.
-In that case the target cells are `B5` and `E4` and the traversing-move
-to reach the 2nd one is calculated to be `UR` which is different from `U`.
-
+   To make it work, all the in-between cells of the peripheral row and columns 
+   should have been also non-empty.
 
 .. Note::
-    The traversing-moves from 1st to 2nd target cell will fetch
-    the same values regardless of whether we are traversing "row-first" or
-    "column-first".
+    The `capture-moves` from `1st` to `2nd-target-cell` are independent from 
+    the implied `target-moves` in the case of `relative` coords.
 
-.. Seealso:: `Scan rules`_ section
+    More specifically, the `capturing` will always fetch the same values 
+    regardless of "row-first" or "column-first" order; this is not the case 
+    with `traversing` (``LURD``) moves.
+
+    For instance, to capture ``B4:E5`` in the above sheet we may use 
+    ``_5(L):E.(U)``.
+    In that case the target cells are ``B5`` and ``E4`` and the `target-moves`
+    to reach the 2nd one are ``UR`` which are different from the ``U`` 
+    specified on the 2nd cell.
 
 
-Scan rules
-----------
+.. Seealso:: `Target-termination rules`_ section
+
+
+Target-termination rules
+--------------------------
 
 - For the 1st target-cell:
-  Target-cell is identified using :term:`search-opposite-state` rule.
-  
-  .. Note:: Might be useful to allow user to reverse this behavior 
-      (ie by the use of the `-` char).
- 
+  Target-cell is identified using `search-opposite` rule.
+
+  .. Note:: It might be useful to allow the user to reverse this behavior 
+      (ie by the use of the ``-`` char).
+
 - For the 2nd target cell:
-  - If 2nd-start-cell-state == 1st-target-cell-state:
-    Use :term:`search-same-state` to identify target.
-  
-  - If 2nd-start-cell-state != 1st-target-cell-state:
-    Use :term:`search-opposite-state` to identify target.
+
+  - If the `state` of the `2nd-start-cell` == `1st-target-cell`:
+    - Use `search-same` to identify target.
+
+  - Otherwise:
+    - Use `search-opposite` to identify target.
 
 
-Expansion
----------
 
-Captured rect-ranges ("values") may be limited due to empty-cells in the
-1st row/column.
-To overcome this, the xl-ref may specify "expansions" directions using
-a 3rd `:`-section like that::
+Expansions
+----------
+
+Captured-ranges ("values") may be limited due to empty-cells in the 1st 
+row/column traversed.  To overcome this, the xl-ref may specify `expansions` 
+directions using a 3rd ``:``-section like that::
 
     _5(L):1_(UR):RDL?U?
 
 This particular case means:
 
-  > Try expanding Right and Down repeatedly and then one Left and Up.
+  > Try expanding Right and Down repeatedly and then try once Left and Up.
 
-Expansion happens row-by-row or column-by-column basis, and terminates when
-a full empty(or non-empty) line is met.
+Expansion happens on a row-by-row or column-by-column basis, and terminates 
+when a full empty(or non-empty) line is met.
 
 Example-refs are given below for capturing the 2 marked tables::
 
@@ -265,7 +329,11 @@ Example-refs are given below for capturing the 2 marked tables::
     7               X
 
     - The 'X' signify non-empty cells.
-    - The '1' and `2` signify the identified target-cells.
+    - The '1' and '2' signify the identified target-cells.
+
+
+
+.. default-role:: obj
 
 """
 import re
@@ -296,15 +364,25 @@ else:
     xlrd_0_9_3 = False
 
 
-XL_UP_ABS = object()
-XL_BOTTOM_ABS = object()
-CELL_RELATIVE = object()
+class _Token(object):
+
+    def __init__(self, name, **kws):
+        self.name = name
+        vars(self).update(kws)
+
+    def __repr__(self):
+        return self.name
+
+
+CELL_UL = _Token('CELL_UL')
+CELL_DR = _Token('CELL_DR')
+CELL_REL = _Token('CELL_REL')
 MAX_TIME = None
 
 _c_pos = {
-    '^': XL_UP_ABS,
-    '_': XL_BOTTOM_ABS,
-    '.': CELL_RELATIVE
+    '^': CELL_UL,
+    '_': CELL_DR,
+    '.': CELL_REL
 }
 
 _function_types = {
@@ -356,35 +434,93 @@ _re_rng_ext_parser = re.compile(
     $""", re.IGNORECASE | re.X)
 
 
-StartPos = namedtuple('StartPos', ['cell', 'mov'])
+CellPos = namedtuple('CellPos', ['cell', 'mov'])
 
 
 Cell = namedtuple('Cell', ['row', 'col'])
 
 
-def col2num(col_str):
+def row2num(coord):
     """
-    Converts the Excel 'str' column ref in a 'int' column ref.
+    Converts the Excel `str` row to a zero-based `int`, reporting invalids.
 
-    :param col_str: excel column ref
-    :type col_str: str
+    :param str, int coord:     excel row coordinate
 
-    :return:  excel column number [0, ...]
-    :rtype: int
+    :return:    excel row number, >= 0
+    :rtype:     int
 
     Example::
 
+        >>> row2num('1')
+        0
+
+        >>> row2num('10') == row2num(10)
+        True
+
+        >>> row2num('0')
+        Traceback (most recent call last):
+        ValueError: Invalid row('0')!
+
+        >>> row2num('a')
+        Traceback (most recent call last):
+        ValueError: Invalid row('a')!
+
+        >>> row2num(None)
+        Traceback (most recent call last):
+        ValueError: Invalid row(None)!
+
+    """
+    try:
+        row = int(coord) - 1
+        if row < 0:
+            raise
+        return row 
+    except Exception:
+        raise ValueError('Invalid row({!r})!'.format(coord))
+
+
+def col2num(coord):
+    """
+    Converts the Excel `str` column to a zero-based `int`, reporting invalids.
+
+    :param str coord:     excel column coordinate
+
+    :return:    excel column number, >= 0
+    :rtype:     int
+
+    Examples::
+
         >>> col2num('D')
         3
+
         >>> col2num('d')
         3
+
+        >>> col2num('AaZ')
+        727
+
+        >>> col2num(None)
+        Traceback (most recent call last):
+        ValueError: Invalid column(None)!
+
+        >>> col2num('4')
+        Traceback (most recent call last):
+        ValueError: Invalid column('4')!
+
+        >>> col2num(4)
+        Traceback (most recent call last):
+        ValueError: Invalid column(4)!
+
     """
 
-    num = 0
-    for c in col_str:
-        num = num * 26 + ascii_uppercase.rindex(c.upper()) + 1
+    try:
+        num = 0
+        for c in coord:
+            num = num * 26 + ascii_uppercase.rindex(c.upper()) + 1
 
-    return num - 1
+        return num - 1
+    except Exception:
+        raise ValueError('Invalid column({!r})!'.format(coord))
 
 
 def fetch_cell_ref(cell_col, cell_row, cell_mov):
@@ -400,37 +536,53 @@ def fetch_cell_ref(cell_col, cell_row, cell_mov):
     :type cell_row: str, None
 
     :param cell_mov:
-        scan-directions
+        traverse-directions
     :type cell_mov: str, None
 
     :return:
         a cell-start
-    :rtype: StartPos
+    :rtype: CellPos
 
-    Example::
+    Examples::
         >>> fetch_cell_ref('A', '1', 'R')
-        StartPos(cell=Cell(row=0, col=0), mov='R')
-        >>> res = fetch_cell_ref('^', '^', 'R')
-        >>> res.cell == Cell(row=XL_UP_ABS, col=XL_UP_ABS)
-        True
-        >>> res = fetch_cell_ref('_', '_', 'L')
-        >>> res.cell == Cell(row=XL_BOTTOM_ABS, col=XL_BOTTOM_ABS)
-        True
-        >>> res = fetch_cell_ref('.', '.', 'D')
-        >>> res.cell == Cell(row=CELL_RELATIVE, col=CELL_RELATIVE)
-        True
+        CellPos(cell=Cell(row=0, col=0), mov='R')
+
+        >>> fetch_cell_ref('^', '^', 'R').cell
+        Cell(row=CELL_UL, col=CELL_UL)
+
+        >>> fetch_cell_ref('_', '_', 'L').cell
+        Cell(row=CELL_DR, col=CELL_DR)
+
+        >>> fetch_cell_ref('.', '.', 'D').cell
+        Cell(row=CELL_REL, col=CELL_REL)
+
         >>> fetch_cell_ref(None, None, None)
 
-    """
-    if cell_col == cell_row == cell_mov is None:
-        return None
-    elif cell_row != '0':
-        row = _c_pos[cell_row] if cell_row in _c_pos else int(cell_row) - 1
-        col = _c_pos[cell_col] if cell_col in _c_pos else col2num(cell_col)
-        mov = cell_mov.upper() if cell_mov else None
-        return StartPos(cell=Cell(col=col, row=row), mov=mov)
+        >>> fetch_cell_ref('1', '.', None)
+        Traceback (most recent call last):
+        ValueError: Invalid cell(col='1', row='.') due to: Invalid column('1')!
 
-    raise ValueError('Invalid row format ({})'.format(cell_row))
+        >>> fetch_cell_ref('A', 'B', None)
+        Traceback (most recent call last):
+        ValueError: Invalid cell(col='A', row='B') due to: Invalid row('B')!
+
+        >>> fetch_cell_ref('A', '1', 12)
+        Traceback (most recent call last):
+        ValueError: Invalid cell(col='A', row='1') due to: 'int' object has no attribute 'upper'
+    """
+
+    try:
+        if cell_col == cell_row == cell_mov is None:
+            return None
+        else:
+            row = _c_pos[cell_row] if cell_row in _c_pos else row2num(cell_row)
+            col = _c_pos[cell_col] if cell_col in _c_pos else col2num(cell_col)
+            mov = cell_mov.upper() if cell_mov else None
+
+            return CellPos(cell=Cell(col=col, row=row), mov=mov)
+    except Exception as ex:
+        msg = 'Invalid cell(col={!r}, row={!r}) due to: {}'
+        raise ValueError(msg.format(cell_col, cell_row, ex))
 
 
 def repeat_moves(moves, times=None):
@@ -451,7 +603,7 @@ def parse_rng_ext(rng_ext):
         A list of primitive move chains.
     :rtype: list
 
-    Example::
+    Examples::
 
         >>> res = parse_rng_ext('LURD?')
 
@@ -502,19 +654,23 @@ def parse_xl_ref(xl_ref):
 
     :rtype: dict
 
-    Example::
+    Examples::
         >>> from itertools import chain
         >>> xl_ref = 'Sheet1!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}'
         >>> res = parse_xl_ref(xl_ref)
 
         >>> res['xl_sheet_name']
         'Sheet1'
+
         >>> res['st_cell']
-        StartPos(cell=Cell(row=0, col=0), mov='DR')
+        CellPos(cell=Cell(row=0, col=0), mov='DR')
+
         >>> res['nd_cell']
-        StartPos(cell=Cell(row=19, col=25), mov='UL')
+        CellPos(cell=Cell(row=19, col=25), mov='UL')
+
         >>> list(chain(*res['rng_ext']))
         ['L', 'U', 'U', 'R', 'D']
+
         >>> res['json'] == {'json': '...'}
         True
     """
@@ -568,7 +724,7 @@ def parse_xl_url(url):
 
     :rtype: dict
 
-    Example::
+    Examples::
 
         >>> url = 'file:///sample.xls#Sheet1!A1{"2": "ciao"}'
         >>> res = parse_xl_url(url)
@@ -576,7 +732,7 @@ def parse_xl_url(url):
         [('json', {'2': 'ciao'}),
          ('nd_cell', None),
          ('rng_ext', None),
-         ('st_cell', StartPos(cell=Cell(row=0, col=0), mov=None)),
+         ('st_cell', CellPos(cell=Cell(row=0, col=0), mov=None)),
          ('url_file', 'file:///sample.xls'),
          ('xl_sheet_name', 'Sheet1')]
     """
@@ -598,27 +754,10 @@ def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
     """
     Opens the excel workbook of an excel ref.
 
-    :param xl_ref_child: excel ref of the child
-    :type xl_ref_child: dict
+    :param dict xl_ref_child: excel ref of the child
 
     :param xl_ref_parent: excel ref of the parent
-    :type xl_ref_parent: dict, None, optional
-
-    Example::
-
-        >>> import tempfile, pandas as pd, xlrd
-        >>> from tests.test_pndlcmd import chdir
-        >>> with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
-        ...     df = pd.DataFrame()
-        ...     tmp = 'sample.xlsx'
-        ...     writer = pd.ExcelWriter(tmp)
-        ...     df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
-        ...     writer.save()
-        ...     url = 'file://%s#!A1' % '/'.join([tmpdir, tmp])
-        ...     xl_ref = parse_xl_url(url)
-        ...     open_xl_workbook(xl_ref)
-        ...     isinstance(xl_ref['xl_workbook'], xlrd.book.Book)
-        True
+    :type xl_ref_parent: dict, None
 
     """
     url_fl = xl_ref_child['url_file']
@@ -637,32 +776,11 @@ def open_xl_sheet(xl_ref_child, xl_ref_parent=None):
     """
     Opens the excel sheet of an excel ref.
 
-    :param xl_ref_child: excel ref of the child
-    :type xl_ref_child: dict
+    :param dict xl_ref_child: excel ref of the child
 
     :param xl_ref_parent: excel ref of the parent
-    :type xl_ref_parent: dict, None, optional
+    :type xl_ref_parent: dict, None
 
-    Example::
-
-        >>> import tempfile, pandas as pd, xlrd
-        >>> from tests.test_pndlcmd import chdir
-        >>> with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
-        ...     df = pd.DataFrame()
-        ...     tmp = 'sample.xlsx'
-        ...     writer = pd.ExcelWriter(tmp)
-        ...     df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
-        ...     writer.save()
-        ...     url_parent = 'file://%s#Sheet1!A1' % '/'.join([tmpdir, tmp])
-        ...     xl_ref_parent = parse_xl_url(url_parent)
-        ...     open_xl_workbook(xl_ref_parent)
-        ...     open_xl_sheet(xl_ref_parent)
-        ...     url_child = '#A1:B2'
-        ...     xl_ref_child = parse_xl_url(url_child)
-        ...     open_xl_workbook(xl_ref_child, xl_ref_parent)
-        ...     open_xl_sheet(xl_ref_child, xl_ref_parent)
-        ...     isinstance(xl_ref_child['xl_sheet'], xlrd.sheet.Sheet)
-        True
     """
     try:
         if xl_ref_child['xl_sheet_name']:
@@ -690,12 +808,12 @@ def get_xl_abs_margins(no_empty):
     dn_r, dn_c = indices.max(0)
     xl_margins = {
         'col': {
-            XL_UP_ABS: up_c,
-            XL_BOTTOM_ABS: dn_c
+            CELL_UL: up_c,
+            CELL_DR: dn_c
         },
         'row': {
-            XL_UP_ABS: up_r,
-            XL_BOTTOM_ABS: dn_r
+            CELL_UL: up_r,
+            CELL_DR: dn_r
         }
     }
     return xl_margins, indices.tolist()
@@ -712,7 +830,7 @@ def get_xl_margins(sheet):
 
 
 def set_coord(cell, xl_margins, parent=None):
-    c = {CELL_RELATIVE: parent} if parent is not None else {}
+    c = {CELL_REL: parent} if parent is not None else {}
     c.update(xl_margins)
     return c[cell] if cell in c else cell
 
@@ -736,7 +854,7 @@ def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
     :param directions:
     :return:
 
-    Example::
+    Examples::
         >>> non_empty = np.array(\
             [[False, False, False, False, False, False, False],\
              [False, False, False, False, False, False, False],\
@@ -749,37 +867,42 @@ def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
         >>> args = (False, Cell(1, 1), non_empty, (0, 0), (7, 6))
         >>> search_opposite_state(*(args + ('DR', )))
         Cell(row=6, col=3)
+
         >>> search_opposite_state(*(args + ('RD', )))
         Cell(row=5, col=4)
+
         >>> search_opposite_state(*(args + ('D', )))
         Traceback (most recent call last):
-        ...
         ValueError: Invalid Cell(row=1, col=1) with movement(D)
+
         >>> search_opposite_state(*(args + ('U', )))
         Traceback (most recent call last):
-        ...
         ValueError: Invalid Cell(row=1, col=1) with movement(U)
+
         >>> search_opposite_state(*(args + ('R', )))
         Traceback (most recent call last):
-        ...
         ValueError: Invalid Cell(row=1, col=1) with movement(R)
+
         >>> search_opposite_state(*(args + ('L', )))
         Traceback (most recent call last):
-        ...
         ValueError: Invalid Cell(row=1, col=1) with movement(L)
+
         >>> search_opposite_state(*(args + ('LU', )))
         Traceback (most recent call last):
-        ...
         ValueError: Invalid Cell(row=1, col=1) with movement(LU)
+
         >>> args = (True, Cell(6, 3), non_empty, (0, 0), (7, 6))
         >>> search_opposite_state(*(args + ('D', )))
         Cell(row=8, col=3)
+
         >>> args = (True, Cell(10, 3), non_empty, (0, 0), (7, 6))
         >>> search_opposite_state(*(args + ('U', )))
         Cell(row=10, col=3)
+
         >>> args = (False, Cell(10, 10), non_empty, (0, 0), (7, 6))
         >>> search_opposite_state(*(args + ('UL', )))
         Cell(row=7, col=6)
+
         >>> non_empty = np.array(\
             [[True, True, True],\
              [True, True, True],\
@@ -841,7 +964,7 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
     :param directions:
     :return:
 
-    Example::
+    Examples::
         >>> no_empty = np.array(\
             [[False, False, False, False, False, False, False],\
              [False, False, False, False, False, False, False],\
@@ -854,20 +977,25 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
         >>> args = (True, Cell(7, 6), no_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('UL', )))
         Cell(row=5, col=3)
+
         >>> search_same_state(*(args + ('U', )))
         Cell(row=5, col=6)
+
         >>> search_same_state(*(args + ('L', )))
         Cell(row=7, col=3)
+
         >>> args = (True, Cell(5, 3), no_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
+
         >>> args = (False, Cell(5, 3), no_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
+
         >>> search_same_state(*(args + ('UL', )))
         Traceback (most recent call last):
-        ...
         ValueError: Invalid Cell(row=5, col=3) with movement(U)
+
         >>> args = (True, Cell(5, 6), no_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('DL', )))
         Cell(row=7, col=4)
@@ -965,9 +1093,9 @@ def get_range(no_empty, up, dn, xl_margins, indices, st_cell, nd_cell=None, rng_
     :param sheet:
     :type sheet: xlrd.sheet.Sheet
     :param st_cell:
-    :type st_cell: StartPos
+    :type st_cell: CellPos
     :param nd_cell:
-    :type nd_cell: StartPos
+    :type nd_cell: CellPos
     :param rng_ext:
     :param epoch1904:
     :return:
@@ -986,11 +1114,12 @@ def get_range(no_empty, up, dn, xl_margins, indices, st_cell, nd_cell=None, rng_
 
         >>> up, dn = ((0, 0), (7, 6))
         >>> xl_margins, ind = get_xl_abs_margins(no_empty)
-        >>> st_cell = StartPos(Cell(0, 0), 'DR')
-        >>> nd_cell = StartPos(Cell(CELL_RELATIVE, CELL_RELATIVE), 'DR')
+        >>> st_cell = CellPos(Cell(0, 0), 'DR')
+        >>> nd_cell = CellPos(Cell(CELL_REL, CELL_REL), 'DR')
         >>> get_range(no_empty, up, dn, xl_margins, ind, st_cell, nd_cell)
         (Cell(row=6, col=3), Cell(row=7, col=3))
-        >>> nd_cell = StartPos(Cell(7, 6), 'UL')
+
+        >>> nd_cell = CellPos(Cell(7, 6), 'UL')
         >>> get_range(no_empty, up, dn, xl_margins, ind, st_cell, nd_cell)
         (Cell(row=5, col=3), Cell(row=6, col=3))
     """
@@ -1039,7 +1168,7 @@ def parse_cell(cell, epoch1904=False):
         Which date system was in force when this file was last saved.
         False => 1900 system (the Excel for Windows default).
         True => 1904 system (the Excel for Macintosh default).
-    :type epoch1904: bool, optional
+    :type epoch1904: bool
 
     :return: formatted cell value
     :rtype:
@@ -1052,8 +1181,10 @@ def parse_cell(cell, epoch1904=False):
         >>> from xlrd.sheet import Cell
         >>> parse_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
         1.2
+
         >>> parse_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
         datetime.datetime(1900, 1, 1, 4, 48)
+
         >>> parse_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
         'hi'
     """
@@ -1122,8 +1253,8 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
         >>> xl_margins, indices = get_xl_abs_margins(get_no_empty_cells(sheet))
 
         # minimum matrix in the sheet
-        >>> st = set_start_cell(Cell(XL_UP_ABS, XL_UP_ABS), xl_margins)
-        >>> nd = set_start_cell(Cell(XL_BOTTOM_ABS, XL_BOTTOM_ABS), xl_margins)
+        >>> st = set_start_cell(Cell(CELL_UL, CELL_UL), xl_margins)
+        >>> nd = set_start_cell(Cell(CELL_DR, CELL_DR), xl_margins)
         >>> get_xl_table(sheet, (st, nd), indices)
         [[None, 0, 1, 2],
          [0, None, None, None],
@@ -1135,13 +1266,13 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
 
         # get column vector
         >>> st = set_start_cell(Cell(0, 3), xl_margins)
-        >>> nd = set_start_cell(Cell(XL_BOTTOM_ABS, 3), xl_margins)
+        >>> nd = set_start_cell(Cell(CELL_DR, 3), xl_margins)
         >>> get_xl_table(sheet, (st, nd), indices)
         [None, None, None, None, None, None, 0, 1]
 
         # get row vector
         >>> st = set_start_cell(Cell(5, 0), xl_margins)
-        >>> nd = set_start_cell(Cell(5, XL_BOTTOM_ABS), xl_margins)
+        >>> nd = set_start_cell(Cell(5, CELL_DR), xl_margins)
         >>> get_xl_table(sheet, (st, nd), indices)
         [None, None, None, None, 0, 1, 2]
 
@@ -1205,7 +1336,7 @@ def redim_xl_range(value, dim_min, dim_max=None):
     :type dim_min: int, None
 
     :param dim_max: maximum dimension
-    :type dim_max: int, None, optional
+    :type dim_max: int, None
 
     :return: reshaped value
     :rtype: list of lists, list, value
@@ -1214,15 +1345,18 @@ def redim_xl_range(value, dim_min, dim_max=None):
 
         >>> redim_xl_range([1, 2], 2)
         [[1, 2]]
+
         >>> redim_xl_range([[1, 2]], 1)
         [[1, 2]]
+
         >>> redim_xl_range([[1, 2]], 1, 1)
         [1, 2]
+
         >>> redim_xl_range([], 2)
         [[]]
+
         >>> redim_xl_range([[1, 2]], 0, 0)
         Traceback (most recent call last):
-        ...
         ValueError: value cannot be reduced of -2
 
     """
@@ -1245,7 +1379,7 @@ def process_xl_table(value, type=None, args=[], kwargs={}, filters=None):
     :type value: list of lists, list, value
 
     :param type: reference type
-    :type type: str, None, optional
+    :type type: str, None
 
     :param args: additional arguments for the construction function
     :type args: list, optional
@@ -1267,10 +1401,10 @@ def process_xl_table(value, type=None, args=[], kwargs={}, filters=None):
         [(1, 2),
          (3, 4),
          (5, 6)]
+
         >>> value = [[1, 9], [8, 10], [5, 11]]
-        >>> process_xl_table(value, filters=[{'type':'sorted',\
-                                              'kwargs':{'reverse': True}\
-                                              }])
+        >>> process_xl_table(value, 
+        ...     filters=[{'type':'sorted', 'kwargs':{'reverse': True}}])
         [[8, 10],
          [5, 11],
          [1, 9]]
