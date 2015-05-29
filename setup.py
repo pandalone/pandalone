@@ -136,7 +136,7 @@ install_requires = [
     'jsonschema >= 2.4',
     'numpy >= 1.7',
     'pandas >= 0.15.0',
-    #'openpyxl', 'xlrd',
+    'xlrd',
     'Pillow',   # For UI About boxes
     'doit >= 0.28',
     'networkx',
@@ -160,7 +160,7 @@ setup(
     keywords=[
         "python", "utility", "library", "data", "tree", "processing",
         "calculation", "dependencies", "resolution", "scientific",
-        "engineering", "pandas", "simulink", 
+        "engineering", "pandas", "simulink",
     ],
     classifiers=[
         "Programming Language :: Python",
@@ -206,7 +206,7 @@ setup(
     ],
     test_suite='nose.collector',
     extras_require={
-        ':python_version == "2.7"': ['mock'], # See PEP-426
+        ':python_version == "2.7"': ['mock'],  # See PEP-426
     },
     entry_points={
         'console_scripts': [

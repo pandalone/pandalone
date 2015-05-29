@@ -6,13 +6,13 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-Functionality for mapping (*renaming* or *relocating*) paths.
+Programmatically build paths and later *rename* or *relocate* them.
 
-See:
+.. autosummary::
 
-- :class:`Pmod`,
-- :func:`pmods_from_tuples` & :func:`df_as_pmods_tuples()`, and
-- :class:`Pstep`.
+    Pstep
+    pmods_from_tuples
+    Pmod
 
 - TODO: Explicit mark pmods_from_tuples() for relative/absolute & regex.
 - TODO: Implements "anywhere" pmods(`//`).
@@ -423,7 +423,7 @@ class Pmod(object):
 
         :param str path: a rooted path to transform
         :return:         the rooted mapped path or '/' if path was '/'
-        :rtype           str or None
+        :rtype:          str or None
 
         Examples::
 
@@ -791,18 +791,19 @@ class Pstep(str):
     :ivar Pstep _csteps: the child-psteps
     :ivar dict _pmod:   path-modifications used to construct this and
                          relayed to children
-    :ivar int _locked:   one of
-                         - :const:`Pstep.CAN_RELOCATE`(default, reparenting allowed),
+    :ivar int _locked:   one of:
+
+                         - :const:`Pstep.CAN_RELOCATE` 
+                           (default, reparenting allowed),
                          - :const:`Pstep.CAN_RENAME`,
-                         - :const:`Pstep.LOCKED' (neither from the above).
+                         - :const:`Pstep.LOCKED` (neither from the above).
     :ivar dict _schema:  json-schema data.
 
-
-    Usage:
+    **Usage:**
 
     - Just referencing (non_private) attributes, creates them.
 
-    - Private attributes and functions (starting with '_') exist for
+    - Private attributes and functions (starting with ``_``) exist for
       specific operations (ie for specifying json-schema, or
       for collection all paths).
 

@@ -6,7 +6,7 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-Implements an "Excel-url" format for capturing ranges from sheets.
+A mini-language to capture rectangular-ranges from Excel-sheets by scanning empty/full cells.
 
 .. seealso:: Example spreadsheet: :download:`xls_ref.xlsx`
 
@@ -19,7 +19,7 @@ Syntax::
     :
 
 
-Annotated Example::
+Annotated example::
 
     target-moves───┐
     cell-coords──────┐ │
@@ -80,13 +80,11 @@ Definitions
 
             > 2nd-start-cell coordinate = 1st target-cell coordinate
 
-        .. Note:: The cell-pos of the 2nd-cell might contain a "mix" of
-            `absolute` and `relative` coordinates.
+        The cell-pos of the 2nd-cell might contain a "mix" of `absolute` and 
+        `relative` coordinates.
 
     target-moves
     targeting
-    traverse-directions
-    traversing
         A combination of the 4 primitive directions ``LURD``,
         specified with a *single* or a *pair* of the letters inside the 
         `cell-pos` parenthesis.  The pairs ``UD`` and ``LR``, 
@@ -101,7 +99,6 @@ Definitions
         The cell identified after applying `target-moves` on the `start-cell`.
         Failure to identify a target-cell raises an error.
 
-    1st
     1st-cell
     1st-cell-pos
     1st-start-cell
@@ -109,23 +106,24 @@ Definitions
         The `capturing` of a range starts from the `target` of this `cell-pos`.
         It supports `absolute` coordinates only.
 
-    2nd
     2nd-cell
     2nd-cell-pos
     2nd-start-cell
     2nd-target-cell
         The `capturing` of a range stops at the `target` of this `cell-pos`.
-        It supports both `absolute` and `relative` coordinates.
+        It supports both `absolute` coordinates and `relative` ones from the 
+        `1st-target-cell`.
 
-    capture
-    capturing
-    capturing-phase
-    capture-moves
-    captured-rectangle
-    captured-range
+    capture-rectangle
+    capture-range
     range
-        The reading of the excel-sheet values from a rectangular area, 
-        bounded by the `1st-target-cell` and the `2nd-target-cell`.
+        The sheet's rectangular area bounded by the `1st-target-cell` and 
+        the `2nd-target-cell`.
+
+    capturing
+    capture-moves
+        The reading of the `capture-rectangle` by traversing from 
+        the `1st-target-cell` to the `2nd-target-cell`.
 
     state
     cell-state
@@ -139,15 +137,15 @@ Definitions
 
     search-same
         The `target-cell` is the LAST cell with the SAME `state` as
-        the `start-cell`, while `traversing` from it.
+        the `start-cell`, while `targeting` from it.
 
     search-opposite
         The `target-cell` is the FIRST cell with OPPOSITE `state` from 
-        the `start-cell`, while `traversing` from it.
+        the `start-cell`, while `targeting` from it.
 
     range-expansions
     expansions
-        How to expand the initial `captured-rectangle`.
+        How to expand the initial `capture-rectangle`.
         It can be an arbitrary combinations for the ``LURD?`` letters,
         with repetitions.
 
@@ -155,7 +153,7 @@ Definitions
     filters
     filter-function
     filter-functions
-        Predefined functions to apply for transforming the `captured-range`
+        Predefined functions to apply for transforming the `capture-rectangle`
         specified as nested *json* dictionaries.
 
 
@@ -224,7 +222,7 @@ When no ``LURD`` moves are specified, the target-cell coinceds with the starting
 Ranges
 ------
 
-To specify a complete `range` we need to identify a 2nd cell.
+To specify a complete `capture-rectangle` we need to identify a 2nd cell.
 The 2nd target-cell may be specified:
 
   - either with `absolute` coordinates, as above, or
@@ -258,12 +256,12 @@ In the above example-sheet, here are some ways to specify ranges::
    should have been also non-empty.
 
 .. Note::
-    The `capture-moves` from `1st` to `2nd-target-cell` are independent from 
+    The `capture-moves` from `1st-cell` to `2nd-target-cell` are independent from 
     the implied `target-moves` in the case of `relative` coords.
 
     More specifically, the `capturing` will always fetch the same values 
     regardless of "row-first" or "column-first" order; this is not the case 
-    with `traversing` (``LURD``) moves.
+    with `targeting` (``LURD``) moves.
 
     For instance, to capture ``B4:E5`` in the above sheet we may use 
     ``_5(L):E.(U)``.
@@ -474,7 +472,7 @@ def row2num(coord):
         row = int(coord) - 1
         if row < 0:
             raise
-        return row 
+        return row
     except Exception:
         raise ValueError('Invalid row({!r})!'.format(coord))
 
@@ -536,7 +534,7 @@ def fetch_cell_ref(cell_col, cell_row, cell_mov):
     :type cell_row: str, None
 
     :param cell_mov:
-        traverse-directions
+        target-moves
     :type cell_mov: str, None
 
     :return:
