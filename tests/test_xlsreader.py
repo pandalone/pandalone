@@ -22,21 +22,6 @@ from six.moves.urllib.parse import urlparse
 # noinspection PyUnresolvedReferences
 from six.moves.urllib.request import urlopen
 
-DEFAULT_LOG_LEVEL = logging.INFO
-
-
-def _init_logging(loglevel):
-    logging.basicConfig(level=loglevel)
-    logging.getLogger().setLevel(level=loglevel)
-
-    log = logging.getLogger(__name__)
-    log.trace = lambda *args, **kws: log.log(0, *args, **kws)
-
-    return log
-
-
-log = _init_logging(DEFAULT_LOG_LEVEL)
-
 
 def _make_sample_workbook(path, matrix, sheet_name, startrow=0, startcol=0):
     df = pd.DataFrame(matrix)
@@ -56,7 +41,7 @@ class TestDoctest(unittest.TestCase):
 
 class TestXlsReader(unittest.TestCase):
 
-    def test_single_value_get_rect_range(self):
+    def single_value_get_rect_range(self):
         with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
@@ -87,7 +72,7 @@ class TestXlsReader(unittest.TestCase):
             args = (sheet, xr.StartPos(7, 8))
             self.assertEqual(xr.get_rect_range(*args), None)
 
-    def test_vector_get_rect_range(self):
+    def vector_get_rect_range(self):
         with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
@@ -160,7 +145,7 @@ class TestXlsReader(unittest.TestCase):
             res = [None, None, None, None, 0, 1, None]
             self.assertEqual(xr.get_rect_range(*args), res)
 
-    def test_matrix_get_rect_range(self):
+    def matrix_get_rect_range(self):
         with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,

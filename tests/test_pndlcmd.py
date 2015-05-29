@@ -18,7 +18,7 @@ import unittest
 import six
 
 from pandalone import __main__, pndlcmd
-from tests._tutils import (CustomAssertions, TemporaryDirectory)
+from tests._tutils import CustomAssertions, TemporaryDirectory
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
