@@ -13,7 +13,7 @@ import doctest
 import logging
 import sys
 import tempfile
-from tests._tutils import chdir
+from tests._tutils import (TemporaryDirectory, chdir)
 import unittest
 
 import pandalone.xlsreader as xr
@@ -61,7 +61,7 @@ class TestXlsReader(unittest.TestCase):
 
     @unittest.skip('Needs conversion to new logic.')
     def test_single_value_get_rect_range(self):
-        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
@@ -93,7 +93,7 @@ class TestXlsReader(unittest.TestCase):
 
     @unittest.skip('Needs conversion to new logic.')
     def test_vector_get_rect_range(self):
-        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
@@ -167,7 +167,7 @@ class TestXlsReader(unittest.TestCase):
 
     @unittest.skip('Needs conversion to new logic.')
     def test_matrix_get_rect_range(self):
-        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
@@ -340,7 +340,7 @@ class TestXlsReader(unittest.TestCase):
         self.assertEquals(res['url_file'], '')
 
     def test_parse_cell(self):
-        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
             xl = [datetime(1900, 8, 2), True, None, u'', 'hi', 1.4, 5.0]
             _make_sample_workbook(file_path, xl, 'Sheet1')
@@ -365,7 +365,7 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(xr.get_xl_table(*args), res)
 
     def test_comparison_vs_pandas_parse_cell(self):
-        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
             xl = [datetime(1900, 8, 2), True, None, u'', 'hi', 1.4, 5.0]
             _make_sample_workbook(file_path,
@@ -399,7 +399,7 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(df, res)
 
     def test_xlwings_vs_get_xl_table(self):
-        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
             file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
                                   [[1, 2, None], [None, 6.1, 7.1]],
@@ -551,7 +551,7 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(xr.get_xl_table(*args), res)
 
     def test_open_xl_workbook(self):
-        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
             df = pd.DataFrame()
             file_path = 'sample.xlsx'
             writer = pd.ExcelWriter(file_path)
@@ -579,7 +579,7 @@ class TestXlsReader(unittest.TestCase):
                               xl_ref_parent['xl_workbook'])
 
     def test_open_xl_sheet(self):
-        with tempfile.TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
             df = pd.DataFrame()
             file_path = 'sample.xlsx'
             writer = pd.ExcelWriter(file_path)
