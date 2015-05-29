@@ -362,26 +362,7 @@ else:
     xlrd_0_9_3 = False
 
 
-class _Token(object):
-
-    def __init__(self, name, **kws):
-        self.name = name
-        vars(self).update(kws)
-
-    def __repr__(self):
-        return self.name
-
-
-CELL_UL = _Token('CELL_UL')
-CELL_DR = _Token('CELL_DR')
-CELL_REL = _Token('CELL_REL')
-MAX_TIME = None
-
-_c_pos = {
-    '^': CELL_UL,
-    '_': CELL_DR,
-    '.': CELL_REL
-}
+_special_coords = {'^', '_', '.'}
 
 _function_types = {
     None: {'fun': lambda x: x},
@@ -420,6 +401,7 @@ _re_xl_ref_parser = re.compile(
             (?P<rng_ext>[LURD?\d]+)                      # range extension [opt]
         )?
     )?
+    \s*
     (?P<json>\{.*\})?                                    # any json object [opt]
     \s*$""", re.IGNORECASE | re.X)
 
@@ -442,7 +424,7 @@ def row2num(coord):
     """
     Converts the Excel `str` row to a zero-based `int`, reporting invalids.
 
-    :param str, int coord:     excel row coordinate
+    :param str, int coord:  excel-row coordinate or one of ``^_.``
 
     :return:    excel row number, >= 0
     :rtype:     int
@@ -454,6 +436,11 @@ def row2num(coord):
 
         >>> row2num('10') == row2num(10)
         True
+
+        ## "Special" cells are also valid.
+        #
+        >>> row2num('_'), row2num('^')
+        ('_', '^')
 
         >>> row2num('0')
         Traceback (most recent call last):
@@ -468,6 +455,9 @@ def row2num(coord):
         ValueError: Invalid row(None)!
 
     """
+    if coord in _special_coords:
+        return coord
+
     try:
         row = int(coord) - 1
         if row < 0:
@@ -481,7 +471,7 @@ def col2num(coord):
     """
     Converts the Excel `str` column to a zero-based `int`, reporting invalids.
 
-    :param str coord:     excel column coordinate
+    :param str coord:     excel-column coordinate or one of ``^_.``
 
     :return:    excel column number, >= 0
     :rtype:     int
@@ -497,6 +487,11 @@ def col2num(coord):
         >>> col2num('AaZ')
         727
 
+        ## "Special" cells are also valid.
+        #
+        >>> col2num('_'), col2num('^')
+        ('_', '^')
+
         >>> col2num(None)
         Traceback (most recent call last):
         ValueError: Invalid column(None)!
@@ -510,6 +505,9 @@ def col2num(coord):
         ValueError: Invalid column(4)!
 
     """
+
+    if coord in _special_coords:
+        return coord
 
     try:
         num = 0
@@ -546,13 +544,13 @@ def fetch_cell_ref(cell_col, cell_row, cell_mov):
         CellPos(cell=Cell(row=0, col=0), mov='R')
 
         >>> fetch_cell_ref('^', '^', 'R').cell
-        Cell(row=CELL_UL, col=CELL_UL)
+        Cell(row='^', col='^')
 
         >>> fetch_cell_ref('_', '_', 'L').cell
-        Cell(row=CELL_DR, col=CELL_DR)
+        Cell(row='_', col='_')
 
         >>> fetch_cell_ref('.', '.', 'D').cell
-        Cell(row=CELL_REL, col=CELL_REL)
+        Cell(row='.', col='.')
 
         >>> fetch_cell_ref(None, None, None)
 
@@ -573,8 +571,8 @@ def fetch_cell_ref(cell_col, cell_row, cell_mov):
         if cell_col == cell_row == cell_mov is None:
             return None
         else:
-            row = _c_pos[cell_row] if cell_row in _c_pos else row2num(cell_row)
-            col = _c_pos[cell_col] if cell_col in _c_pos else col2num(cell_col)
+            row = row2num(cell_row)
+            col = col2num(cell_col)
             mov = cell_mov.upper() if cell_mov else None
 
             return CellPos(cell=Cell(col=col, row=row), mov=mov)
@@ -801,17 +799,17 @@ def get_no_empty_cells(sheet):
 
 def get_xl_abs_margins(no_empty):
     """ Returns upper and lower absolute positions"""
-    indices = np.array(np.where(no_empty)).T
+    indices = np.array(np.where(no_empty)).T  # XXX: Loads all sheet here?!?
     up_r, up_c = indices.min(0)
     dn_r, dn_c = indices.max(0)
     xl_margins = {
         'col': {
-            CELL_UL: up_c,
-            CELL_DR: dn_c
+            '^': up_c,
+            '_': dn_c
         },
         'row': {
-            CELL_UL: up_r,
-            CELL_DR: dn_r
+            '^': up_r,
+            '_': dn_r
         }
     }
     return xl_margins, indices.tolist()
@@ -828,7 +826,7 @@ def get_xl_margins(sheet):
 
 
 def set_coord(cell, xl_margins, parent=None):
-    c = {CELL_REL: parent} if parent is not None else {}
+    c = {'.': parent} if parent is not None else {}
     c.update(xl_margins)
     return c[cell] if cell in c else cell
 
@@ -1113,7 +1111,7 @@ def get_range(no_empty, up, dn, xl_margins, indices, st_cell, nd_cell=None, rng_
         >>> up, dn = ((0, 0), (7, 6))
         >>> xl_margins, ind = get_xl_abs_margins(no_empty)
         >>> st_cell = CellPos(Cell(0, 0), 'DR')
-        >>> nd_cell = CellPos(Cell(CELL_REL, CELL_REL), 'DR')
+        >>> nd_cell = CellPos(Cell('.', '.'), 'DR')
         >>> get_range(no_empty, up, dn, xl_margins, ind, st_cell, nd_cell)
         (Cell(row=6, col=3), Cell(row=7, col=3))
 
@@ -1251,8 +1249,8 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
         >>> xl_margins, indices = get_xl_abs_margins(get_no_empty_cells(sheet))
 
         # minimum matrix in the sheet
-        >>> st = set_start_cell(Cell(CELL_UL, CELL_UL), xl_margins)
-        >>> nd = set_start_cell(Cell(CELL_DR, CELL_DR), xl_margins)
+        >>> st = set_start_cell(Cell('^', '^'), xl_margins)
+        >>> nd = set_start_cell(Cell('_', '_'), xl_margins)
         >>> get_xl_table(sheet, (st, nd), indices)
         [[None, 0, 1, 2],
          [0, None, None, None],
@@ -1264,13 +1262,13 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
 
         # get column vector
         >>> st = set_start_cell(Cell(0, 3), xl_margins)
-        >>> nd = set_start_cell(Cell(CELL_DR, 3), xl_margins)
+        >>> nd = set_start_cell(Cell('_', 3), xl_margins)
         >>> get_xl_table(sheet, (st, nd), indices)
         [None, None, None, None, None, None, 0, 1]
 
         # get row vector
         >>> st = set_start_cell(Cell(5, 0), xl_margins)
-        >>> nd = set_start_cell(Cell(5, CELL_DR), xl_margins)
+        >>> nd = set_start_cell(Cell(5, '_'), xl_margins)
         >>> get_xl_table(sheet, (st, nd), indices)
         [None, None, None, None, 0, 1, 2]
 
