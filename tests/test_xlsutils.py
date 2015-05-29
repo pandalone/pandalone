@@ -18,7 +18,7 @@ from pandas.core.generic import NDFrame
 
 import numpy as np
 import pandas as pd
-from ._tutils import (_init_logging, TemporaryDirectory)
+from tests._tutils import _init_logging, TemporaryDirectory
 
 
 log = _init_logging(__name__)
