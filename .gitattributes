@@ -1,1 +1,2 @@
-*.py filter=gitstamping
+*.py    		filter=gitstamping
+*.bat	eol=crlf

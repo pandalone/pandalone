@@ -1,3 +1,5 @@
+-r execution.txt
+
 setuptools
 setuptools-git>=0.3
 sphinx>=1.3
