@@ -851,15 +851,16 @@ def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
     :return:
 
     Examples::
-        >>> non_empty = np.array(\
-            [[False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False,  True,  True,  True],\
-             [False, False, False,  True, False, False, False],\
-             [False, False, False,  True,  True,  True,  True]])
+        >>> non_empty = np.array([
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 1, 1, 1],
+        ...     [0, 0, 0, 1, 0, 0, 1],
+        ...     [0, 0, 0, 1, 1, 1, 1]
+        ... ])
         >>> args = (False, Cell(1, 1), non_empty, (0, 0), (7, 6))
         >>> search_opposite_state(*(args + ('DR', )))
         Cell(row=6, col=3)
@@ -899,10 +900,11 @@ def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
         >>> search_opposite_state(*(args + ('UL', )))
         Cell(row=7, col=6)
 
-        >>> non_empty = np.array(\
-            [[True, True, True],\
-             [True, True, True],\
-             [True, True, True]])
+        >>> non_empty = np.array([
+        ...     [1, 1, 1],
+        ...     [1, 1, 1],
+        ...     [1, 1, 1],
+        ... ])
         >>> args = (True, Cell(0, 2), non_empty, (0, 0), (2, 2))
         >>> search_opposite_state(*(args + ('LD', )))
         Cell(row=3, col=2)
@@ -961,16 +963,17 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
     :return:
 
     Examples::
-        >>> no_empty = np.array(\
-            [[False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False,  True,  True,  True],\
-             [False, False, False,  True, False, False,  True],\
-             [False, False, False,  True,  True,  True,  True]])
-        >>> args = (True, Cell(7, 6), no_empty, (0, 0), (7, 6))
+        >>> non_empty = np.array([
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 1, 1, 1],
+        ...     [0, 0, 0, 1, 0, 0, 1],
+        ...     [0, 0, 0, 1, 1, 1, 1]
+        ... ])
+        >>> args = (True, Cell(7, 6), non_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('UL', )))
         Cell(row=5, col=3)
 
@@ -980,11 +983,11 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
         >>> search_same_state(*(args + ('L', )))
         Cell(row=7, col=3)
 
-        >>> args = (True, Cell(5, 3), no_empty, (0, 0), (7, 6))
+        >>> args = (True, Cell(5, 3), non_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
 
-        >>> args = (False, Cell(5, 3), no_empty, (0, 0), (7, 6))
+        >>> args = (False, Cell(5, 3), non_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
 
@@ -992,7 +995,7 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=5, col=3) with movement(U)
 
-        >>> args = (True, Cell(5, 6), no_empty, (0, 0), (7, 6))
+        >>> args = (True, Cell(5, 6), non_empty, (0, 0), (7, 6))
         >>> search_same_state(*(args + ('DL', )))
         Cell(row=7, col=4)
 
@@ -1020,35 +1023,34 @@ def extend_range(state, xl_range, no_empty, rng_ext):
 
     Example::
 
-        >>> no_empty = np.array(\
-            [[False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False,  True,  True,  True],\
-             [False, False, False,  True, False, False,  True],\
-             [False, False, False,  True,  True,  True,  True]])
-
-
+        >>> non_empty = np.array([
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 1, 1, 1],
+        ...     [0, 0, 0, 1, 0, 0, 1],
+        ...     [0, 0, 0, 1, 1, 1, 1]
+        ... ])
         >>> rng = (Cell(row=6, col=3), Cell(row=6, col=3))
         >>> rng_ext = [repeat_moves('U', times=10)]
-        >>> extend_range(True, rng, no_empty, rng_ext)
+        >>> extend_range(True, rng, non_empty, rng_ext)
         [Cell(row=6, col=3), Cell(row=6, col=3)]
 
         >>> rng = (Cell(row=6, col=3), Cell(row=7, col=3))
         >>> rng_ext = [repeat_moves('R', times=10)]
-        >>> extend_range(True, rng, no_empty, rng_ext)
+        >>> extend_range(True, rng, non_empty, rng_ext)
         [Cell(row=6, col=3), Cell(row=7, col=6)]
 
         >>> rng = (Cell(row=6, col=3), Cell(row=10, col=3))
         >>> rng_ext = [repeat_moves('R', times=10)]
-        >>> extend_range(True, rng, no_empty, rng_ext)
+        >>> extend_range(True, rng, non_empty, rng_ext)
         [Cell(row=6, col=3), Cell(row=10, col=6)]
 
         >>> rng = (Cell(row=6, col=5), Cell(row=6, col=5))
         >>> rng_ext = [repeat_moves('LURD')]
-        >>> extend_range(True, rng, no_empty, rng_ext)
+        >>> extend_range(True, rng, non_empty, rng_ext)
         [Cell(row=5, col=3), Cell(row=7, col=6)]
 
     """
@@ -1098,25 +1100,25 @@ def get_range(no_empty, up, dn, xl_margins, indices, st_cell, nd_cell=None, rng_
 
     Example::
 
-        >>> no_empty = np.array(\
-            [[False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False, False, False, False],\
-             [False, False, False, False,  True,  True,  True],\
-             [False, False, False,  True, False, False,  True],\
-             [False, False, False,  True,  True,  True,  True]])
-
+        >>> non_empty = np.array([
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 1, 1, 1],
+        ...     [0, 0, 0, 1, 0, 0, 1],
+        ...     [0, 0, 0, 1, 1, 1, 1]
+        ... ])
         >>> up, dn = ((0, 0), (7, 6))
-        >>> xl_margins, ind = get_xl_abs_margins(no_empty)
+        >>> xl_margins, ind = get_xl_abs_margins(non_empty)
         >>> st_cell = CellPos(Cell(0, 0), 'DR')
         >>> nd_cell = CellPos(Cell('.', '.'), 'DR')
-        >>> get_range(no_empty, up, dn, xl_margins, ind, st_cell, nd_cell)
+        >>> get_range(non_empty, up, dn, xl_margins, ind, st_cell, nd_cell)
         (Cell(row=6, col=3), Cell(row=7, col=3))
 
         >>> nd_cell = CellPos(Cell(7, 6), 'UL')
-        >>> get_range(no_empty, up, dn, xl_margins, ind, st_cell, nd_cell)
+        >>> get_range(non_empty, up, dn, xl_margins, ind, st_cell, nd_cell)
         (Cell(row=5, col=3), Cell(row=6, col=3))
     """
 
