@@ -10,10 +10,9 @@ from __future__ import division, print_function, unicode_literals
 
 from datetime import datetime
 import doctest
-import logging
 import sys
-import tempfile
-from tests._tutils import (TemporaryDirectory, chdir)
+from tests import _tutils
+from tests._tutils import check_xl_installed
 import unittest
 
 import pandalone.xlsreader as xr
@@ -22,22 +21,18 @@ from six.moves.urllib.request import urlopen  # @UnresolvedImport
 import xlrd as xd
 
 
-# noinspection PyUnresolvedReferences
-# noinspection PyUnresolvedReferences
-DEFAULT_LOG_LEVEL = logging.INFO
+log = _tutils._init_logging(__name__)
+xl_installed = check_xl_installed()
 
 
-def _init_logging(loglevel):
-    logging.basicConfig(level=loglevel)
-    logging.getLogger().setLevel(level=loglevel)
+def _make_xl_margins(sheet):
+    full_cells = xr.get_full_cells(sheet)
 
-    log = logging.getLogger(__name__)
-    log.trace = lambda *args, **kws: log.log(0, *args, **kws)
+    up = (0, 0)
 
-    return log
+    dn = (sheet.nrows - 1, sheet.ncols - 1)
 
-
-log = _init_logging(DEFAULT_LOG_LEVEL)
+    return full_cells, up, dn
 
 
 def _make_sample_workbook(path, matrix, sheet_name, startrow=0, startcol=0):
@@ -61,7 +56,7 @@ class TestXlsReader(unittest.TestCase):
 
     @unittest.skip('Needs conversion to new logic.')
     def test_single_value_get_rect_range(self):
-        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
@@ -76,8 +71,9 @@ class TestXlsReader(unittest.TestCase):
 
             url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
             res = xr.parse_xl_url(url)
-            wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
-            sheet = wb.sheet_by_name(res['xl_sheet_name'])
+            wb = xd.open_workbook(
+                file_contents=urlopen(res['url_file']).read())
+            sheet = wb.sheet_by_name(res['sheet'])
 
             # get single value [D7]
             args = (sheet, xr.CellPos(3, 6))
@@ -93,7 +89,7 @@ class TestXlsReader(unittest.TestCase):
 
     @unittest.skip('Needs conversion to new logic.')
     def test_vector_get_rect_range(self):
-        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
@@ -108,8 +104,9 @@ class TestXlsReader(unittest.TestCase):
 
             url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
             res = xr.parse_xl_url(url)
-            wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
-            sheet = wb.sheet_by_name(res['xl_sheet_name'])
+            wb = xd.open_workbook(
+                file_contents=urlopen(res['url_file']).read())
+            sheet = wb.sheet_by_name(res['sheet'])
 
             # single value in the sheet [D7:D7]
             args = (sheet, xr.CellPos(3, 6), xr.CellPos(3, 6))
@@ -167,7 +164,7 @@ class TestXlsReader(unittest.TestCase):
 
     @unittest.skip('Needs conversion to new logic.')
     def test_matrix_get_rect_range(self):
-        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             file_path = 'sample.xlsx'
             _make_sample_workbook(file_path,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
@@ -182,8 +179,9 @@ class TestXlsReader(unittest.TestCase):
 
             url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
             res = xr.parse_xl_url(url)
-            wb = xd.open_workbook(file_contents=urlopen(res['url_file']).read())
-            sheet = wb.sheet_by_name(res['xl_sheet_name'])
+            wb = xd.open_workbook(
+                file_contents=urlopen(res['url_file']).read())
+            sheet = wb.sheet_by_name(res['sheet'])
 
             # minimum matrix in the sheet [:]
             args = (sheet, xr.CellPos(None, None), xr.CellPos(None, None))
@@ -272,7 +270,7 @@ class TestXlsReader(unittest.TestCase):
     def test_basic_parse_xl_ref(self):
         xl_ref = 'Sheet1!A1(L):C2(UL)'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['xl_sheet_name'], 'Sheet1')
+        self.assertEquals(res['sheet'], 'Sheet1')
         self.assertEquals(res['st_cell'].cell, xr.Cell(col=0, row=0))
         self.assertEquals(res['nd_cell'].cell, xr.Cell(col=2, row=1))
         self.assertEquals(res['st_cell'].mov, 'L')
@@ -300,47 +298,50 @@ class TestXlsReader(unittest.TestCase):
         self.assertRaises(ValueError, xr.parse_xl_ref, 's!A0:B1')
 
     def test_fetch_cell_ref(self):
-        self.assertEquals(xr.fetch_cell_ref('A', '1', 'L'),
+        self.assertEquals(xr.make_CellPos('A', '1', 'L'),
                           xr.CellPos(xr.Cell(row=0, col=0), 'L'))
-        self.assertEquals(xr.fetch_cell_ref('A', '_', 'D'),
+        self.assertEquals(xr.make_CellPos('A', '_', 'D'),
                           xr.CellPos(xr.Cell('_', 0), 'D'))
-        self.assertEquals(xr.fetch_cell_ref('_', '1', None),
+        self.assertEquals(xr.make_CellPos('_', '1', None),
                           xr.CellPos(xr.Cell(0, '_'), None))
-        self.assertEquals(xr.fetch_cell_ref('_', '_', None),
+        self.assertEquals(xr.make_CellPos('_', '_', None),
                           xr.CellPos(xr.Cell('_',
-                                              '_'), None))
-        self.assertEquals(xr.fetch_cell_ref('A', '^', 'D'),
+                                             '_'), None))
+        self.assertEquals(xr.make_CellPos('A', '^', 'D'),
                           xr.CellPos(xr.Cell('^', 0), 'D'))
-        self.assertEquals(xr.fetch_cell_ref('^', '1', None),
+        self.assertEquals(xr.make_CellPos('^', '1', None),
                           xr.CellPos(xr.Cell(0, '^'), None))
-        self.assertEquals(xr.fetch_cell_ref('^', '^', None),
+        self.assertEquals(xr.make_CellPos('^', '^', None),
                           xr.CellPos(xr.Cell('^',
-                                              '^'), None))
+                                             '^'), None))
 
-        self.assertRaises(ValueError, xr.fetch_cell_ref, *('_0', '_', '0'))
-        self.assertRaises(ValueError, xr.fetch_cell_ref, *('@@', '@', '@'))
+        self.assertRaises(ValueError, xr.make_CellPos, *('_0', '_', '0'))
+        self.assertRaises(ValueError, xr.make_CellPos, *('@@', '@', '@'))
 
     def test_col2num(self):
         self.assertEqual(xr.col2num('D'), 3)
         self.assertEqual(xr.col2num('aAa'), 702)
 
-    def test_parse_xl_url(self):
-        url = 'file://path/to/file.xls#Sheet1!U10(L):D20(D){"json":"..."}'
+    def test_parse_xl_url_Ok(self):
+        url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D){"json":"..."}'
         res = xr.parse_xl_url(url)
 
-        self.assertEquals(res['url_file'], 'file://path/to/file.xls')
-        self.assertEquals(res['xl_sheet_name'], 'Sheet1')
+        self.assertEquals(res['url_file'], 'file://path/to/file.xlsx')
+        self.assertEquals(res['sheet'], 'Sheet1')
         self.assertEquals(res['json'], {"json": "..."})
         self.assertEquals(res['st_cell'], xr.CellPos(xr.Cell(9, 20), 'L'))
         self.assertEquals(res['nd_cell'], xr.CellPos(xr.Cell(19, 3), 'D'))
 
+    def test_parse_xl_url_Bad(self):
         self.assertRaises(ValueError, xr.parse_xl_url, *('#!:{"json":"..."', ))
-        url = '#xl_sheet_name!UP10:DOWN20{"json":"..."}'
+
+    def test_parse_xl_url_Only_fragment(self):
+        url = '#sheet_name!UP10:DOWN20{"json":"..."}'
         res = xr.parse_xl_url(url)
         self.assertEquals(res['url_file'], '')
 
     def test_parse_cell(self):
-        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             file_path = 'sample.xlsx'
             xl = [datetime(1900, 8, 2), True, None, u'', 'hi', 1.4, 5.0]
             _make_sample_workbook(file_path, xl, 'Sheet1')
@@ -355,9 +356,9 @@ class TestXlsReader(unittest.TestCase):
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(
                 file_contents=urlopen(res['url_file']).read())
-            sheet = wb.sheet_by_name(res['xl_sheet_name'])
+            sheet = wb.sheet_by_name(res['sheet'])
 
-            indices = xr.get_xl_abs_margins(xr.get_no_empty_cells(sheet))[1]
+            indices = xr.get_sheet_margins(xr.get_full_cells(sheet))[1]
             # row vector in the sheet [B2:B_]
             args = (
                 sheet, (xr.Cell(1, 1), xr.Cell(7, 1)), indices, wb.datemode)
@@ -365,7 +366,7 @@ class TestXlsReader(unittest.TestCase):
             self.assertEqual(xr.get_xl_table(*args), res)
 
     def test_comparison_vs_pandas_parse_cell(self):
-        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             file_path = 'sample.xlsx'
             xl = [datetime(1900, 8, 2), True, None, u'', 'hi', 1.4, 5.0]
             _make_sample_workbook(file_path,
@@ -382,9 +383,9 @@ class TestXlsReader(unittest.TestCase):
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(
                 file_contents=urlopen(res['url_file']).read())
-            sheet = wb.sheet_by_name(res['xl_sheet_name'])
+            sheet = wb.sheet_by_name(res['sheet'])
 
-            indices = xr.get_xl_abs_margins(xr.get_no_empty_cells(sheet))[1]
+            indices = xr.get_sheet_margins(xr.get_full_cells(sheet))[1]
             # row vector in the sheet [B2:B_]
             args = (
                 sheet, (xr.Cell(1, 1), xr.Cell(7, 1)), indices, wb.datemode)
@@ -398,160 +399,8 @@ class TestXlsReader(unittest.TestCase):
 
             self.assertEqual(df, res)
 
-    def test_xlwings_vs_get_xl_table(self):
-        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
-            file_path = 'sample.xlsx'
-            _make_sample_workbook(file_path,
-                                  [[1, 2, None], [None, 6.1, 7.1]],
-                                  'Sheet1',
-                                  startrow=5, startcol=3)
-
-            # load sheet for --> get_rect_range
-            if tmpdir[0] != '/':
-                url = '/'.join(['', tmpdir, file_path])
-            else:
-                url = '/'.join([tmpdir, file_path])
-
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
-            res = xr.parse_xl_url(url)
-            wb = xd.open_workbook(
-                file_contents=urlopen(res['url_file']).read())
-            sheet = wb.sheet_by_name(res['xl_sheet_name'])
-            datemode = wb.datemode
-            # load Workbook for --> xlwings
-            from xlwings import Workbook, Range
-            wb = Workbook('/'.join([tmpdir, file_path]))
-            res = {}
-            res[0] = Range("Sheet1", "D7").vertical.value
-            res[1] = Range("Sheet1", "E6").vertical.value
-            res[2] = Range("Sheet1", "E6").horizontal.value
-            res[3] = Range("Sheet1", "E6").table.value
-            res[4] = Range("Sheet1", "D6:F8").value
-            res[5] = Range("Sheet1", "A1:F8").value
-            res[6] = Range("Sheet1", "A7:D7").value
-            res[7] = Range("Sheet1", "D3:D9").value
-            wb.close()
-
-            no_empty, up, dn = xr.get_xl_margins(sheet)
-            xl_ma, ind = xr.get_xl_abs_margins(no_empty)
-
-            # minimum delimited column in the sheet [D7:D.(D)]
-            st = xr.CellPos(xr.Cell(6, 3), None)
-            nd = xr.CellPos(xr.Cell('.', '.'), 'D')
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[0])
-
-            # minimum delimited column in the sheet [E6:E.(D)]
-            st = xr.CellPos(xr.Cell(5, 4), None)
-            nd = xr.CellPos(xr.Cell('.', '.'), 'D')
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[1])
-
-            # minimum delimited row in the sheet [E6:.6(R)]
-            st = xr.CellPos(xr.Cell(5, 4), None)
-            nd = xr.CellPos(xr.Cell('.', '.'), 'R')
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[2])
-
-            # minimum delimited matrix in the sheet [E6:..(RD)]
-            st = xr.CellPos(xr.Cell(5, 4), None)
-            nd = xr.CellPos(xr.Cell('.', '.'), 'RD')
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[3])
-
-            st = xr.CellPos(xr.Cell(5, 4), None)
-            nd = xr.CellPos(xr.Cell('.', '.'), 'DR')
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[3])
-
-            # delimited matrix in the sheet [D6:F8]
-            st = xr.CellPos(xr.Cell(7, 5), None)
-            nd = xr.CellPos(xr.Cell(5, 3), None)
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[4])
-
-            # delimited matrix in the sheet [A1:F8]
-            st = xr.CellPos(xr.Cell(7, 5), None)
-            nd = xr.CellPos(xr.Cell(0, 0), None)
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[5])
-
-            # delimited row in the sheet [A7:D7]
-            st = xr.CellPos(xr.Cell(6, 0), None)
-            nd = xr.CellPos(xr.Cell(6, 3), None)
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[6])
-
-            # delimited column in the sheet [D3:D9]
-            st = xr.CellPos(xr.Cell(8, 3), None)
-            nd = xr.CellPos(xr.Cell(2, 3), None)
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[7])
-
-            # minimum delimited matrix in the sheet [F7:..(UL)]
-            st = xr.CellPos(xr.Cell(6, 5), None)
-            nd = xr.CellPos(xr.Cell('.', '.'), 'UL')
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            res = [[None, 0, 1],
-                   [0, 1, 2]]
-            self.assertEqual(xr.get_xl_table(*args), res)
-
-            # minimum delimited matrix in the sheet [F7:F7:LURD]
-            st = xr.CellPos(xr.Cell(6, 5), None)
-            nd = xr.CellPos(xr.Cell(6, 5), None)
-            rng_ext = xr.parse_rng_ext('LURD')
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd, rng_ext)
-            args = (sheet, rng, ind, datemode)
-            res = [[None, 0, 1, 2],
-                   [0, 1, 2, None],
-                   [1, None, 6.1, 7.1]]
-            self.assertEqual(xr.get_xl_table(*args), res)
-
-            # minimum delimited matrix in the sheet [F7:A1(RD)]
-            st = xr.CellPos(xr.Cell(6, 5), None)
-            nd = xr.CellPos(xr.Cell(0, 0), 'RD')
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            res = [[0, 1],
-                   [1, 2]]
-            self.assertEqual(xr.get_xl_table(*args), res)
-
-            # minimum delimited row in the sheet [_8:G8]
-            st = xr.CellPos(xr.Cell(7, 6), None)
-            nd = xr.CellPos(xr.Cell(7, '.'), 'L')
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            res = [6.1, 7.1]
-            self.assertEqual(xr.get_xl_table(*args), res)
-
-            # minimum delimited column in the sheet [D_:D8]
-            st = xr.CellPos(xr.Cell(7, 3), None)
-            nd = xr.CellPos(xr.Cell('.', 3), 'U')
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            res = [0, 1]
-            self.assertEqual(xr.get_xl_table(*args), res)
-
-            # single value [D8]
-            st = xr.CellPos(xr.Cell(7, 3), None)
-            nd = None
-            rng = xr.get_range(no_empty, up, dn, xl_ma, ind, st, nd)
-            args = (sheet, rng, ind, datemode)
-            res = [1]
-            self.assertEqual(xr.get_xl_table(*args), res)
-
     def test_open_xl_workbook(self):
-        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             df = pd.DataFrame()
             file_path = 'sample.xlsx'
             writer = pd.ExcelWriter(file_path)
@@ -579,7 +428,7 @@ class TestXlsReader(unittest.TestCase):
                               xl_ref_parent['xl_workbook'])
 
     def test_open_xl_sheet(self):
-        with TemporaryDirectory() as tmpdir, chdir(tmpdir):
+        with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             df = pd.DataFrame()
             file_path = 'sample.xlsx'
             writer = pd.ExcelWriter(file_path)
@@ -619,3 +468,161 @@ class TestXlsReader(unittest.TestCase):
                               xl_ref_parent['xl_workbook'])
             self.assertNotEquals(xl_ref_child['xl_sheet'],
                                  xl_ref_parent['xl_sheet'])
+
+
+@unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
+class TestVsXlwings(unittest.TestCase):
+
+    def test_xlwings_vs_get_xl_table(self):
+        import xlwings as xw
+
+        with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
+            file_path = 'sample.xlsx'
+            _make_sample_workbook(file_path,
+                                  [[1, 2, None], [None, 6.1, 7.1]],
+                                  'Sheet1',
+                                  startrow=5, startcol=3)
+
+            # load sheet for --> get_rect_range
+            if tmpdir[0] != '/':
+                url = '/'.join(['', tmpdir, file_path])
+            else:
+                url = '/'.join([tmpdir, file_path])
+
+            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
+            res = xr.parse_xl_url(url)
+            wb = xd.open_workbook(
+                file_contents=urlopen(res['url_file']).read())
+            sheet = wb.sheet_by_name(res['sheet'])
+            datemode = wb.datemode
+            # load Workbook for --> xlwings
+            wb = xw.Workbook('/'.join([tmpdir, file_path]))
+            res = {}
+            res[0] = xw.Range("Sheet1", "D7").vertical.value
+            res[1] = xw.Range("Sheet1", "E6").vertical.value
+            res[2] = xw.Range("Sheet1", "E6").horizontal.value
+            res[3] = xw.Range("Sheet1", "E6").table.value
+            res[4] = xw.Range("Sheet1", "D6:F8").value
+            res[5] = xw.Range("Sheet1", "A1:F8").value
+            res[6] = xw.Range("Sheet1", "A7:D7").value
+            res[7] = xw.Range("Sheet1", "D3:D9").value
+            wb.close()
+
+            full_cells, up, dn = _make_xl_margins(sheet)
+            xl_ma, ind = xr.get_sheet_margins(full_cells)
+
+            # minimum delimited column in the sheet [D7:D.(D)]
+            st = xr.CellPos(xr.Cell(6, 3), None)
+            nd = xr.CellPos(xr.Cell('.', '.'), 'D')
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            self.assertEqual(xr.get_xl_table(*args), res[0])
+
+            # minimum delimited column in the sheet [E6:E.(D)]
+            st = xr.CellPos(xr.Cell(5, 4), None)
+            nd = xr.CellPos(xr.Cell('.', '.'), 'D')
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            self.assertEqual(xr.get_xl_table(*args), res[1])
+
+            # minimum delimited row in the sheet [E6:.6(R)]
+            st = xr.CellPos(xr.Cell(5, 4), None)
+            nd = xr.CellPos(xr.Cell('.', '.'), 'R')
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            self.assertEqual(xr.get_xl_table(*args), res[2])
+
+            # minimum delimited matrix in the sheet [E6:..(RD)]
+            st = xr.CellPos(xr.Cell(5, 4), None)
+            nd = xr.CellPos(xr.Cell('.', '.'), 'RD')
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            self.assertEqual(xr.get_xl_table(*args), res[3])
+
+            st = xr.CellPos(xr.Cell(5, 4), None)
+            nd = xr.CellPos(xr.Cell('.', '.'), 'DR')
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            self.assertEqual(xr.get_xl_table(*args), res[3])
+
+            # delimited matrix in the sheet [D6:F8]
+            st = xr.CellPos(xr.Cell(7, 5), None)
+            nd = xr.CellPos(xr.Cell(5, 3), None)
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            self.assertEqual(xr.get_xl_table(*args), res[4])
+
+            # delimited matrix in the sheet [A1:F8]
+            st = xr.CellPos(xr.Cell(7, 5), None)
+            nd = xr.CellPos(xr.Cell(0, 0), None)
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            self.assertEqual(xr.get_xl_table(*args), res[5])
+
+            # delimited row in the sheet [A7:D7]
+            st = xr.CellPos(xr.Cell(6, 0), None)
+            nd = xr.CellPos(xr.Cell(6, 3), None)
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            self.assertEqual(xr.get_xl_table(*args), res[6])
+
+            # delimited column in the sheet [D3:D9]
+            st = xr.CellPos(xr.Cell(8, 3), None)
+            nd = xr.CellPos(xr.Cell(2, 3), None)
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            self.assertEqual(xr.get_xl_table(*args), res[7])
+
+            # minimum delimited matrix in the sheet [F7:..(UL)]
+            st = xr.CellPos(xr.Cell(6, 5), None)
+            nd = xr.CellPos(xr.Cell('.', '.'), 'UL')
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            res = [[None, 0, 1],
+                   [0, 1, 2]]
+            self.assertEqual(xr.get_xl_table(*args), res)
+
+            # minimum delimited matrix in the sheet [F7:F7:LURD]
+            st = xr.CellPos(xr.Cell(6, 5), None)
+            nd = xr.CellPos(xr.Cell(6, 5), None)
+            rng_exp = xr._parse_range_expansions('LURD')
+            rng = xr._capture_range(
+                full_cells, up, dn, xl_ma, ind, st, nd, rng_exp)
+            args = (sheet, rng, ind, datemode)
+            res = [[None, 0, 1, 2],
+                   [0, 1, 2, None],
+                   [1, None, 6.1, 7.1]]
+            self.assertEqual(xr.get_xl_table(*args), res)
+
+            # minimum delimited matrix in the sheet [F7:A1(RD)]
+            st = xr.CellPos(xr.Cell(6, 5), None)
+            nd = xr.CellPos(xr.Cell(0, 0), 'RD')
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            res = [[0, 1],
+                   [1, 2]]
+            self.assertEqual(xr.get_xl_table(*args), res)
+
+            # minimum delimited row in the sheet [_8:G8]
+            st = xr.CellPos(xr.Cell(7, 6), None)
+            nd = xr.CellPos(xr.Cell(7, '.'), 'L')
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            res = [6.1, 7.1]
+            self.assertEqual(xr.get_xl_table(*args), res)
+
+            # minimum delimited column in the sheet [D_:D8]
+            st = xr.CellPos(xr.Cell(7, 3), None)
+            nd = xr.CellPos(xr.Cell('.', 3), 'U')
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            res = [0, 1]
+            self.assertEqual(xr.get_xl_table(*args), res)
+
+            # single value [D8]
+            st = xr.CellPos(xr.Cell(7, 3), None)
+            nd = None
+            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            args = (sheet, rng, ind, datemode)
+            res = [1]
+            self.assertEqual(xr.get_xl_table(*args), res)

@@ -10,8 +10,8 @@ A mini-language to capture rectangular-ranges from Excel-sheets by scanning empt
 
 .. seealso:: Example spreadsheet: :download:`xls_ref.xlsx`
 
-Excel-range addressing
-======================
+Excel-ref
+=========
 
 Syntax::
 
@@ -40,10 +40,9 @@ Definitions
 
     excel-url
     xl-url
-        Any url with its fragment abiding to the `xl-range` syntax.
+        Any url with its fragment abiding to the `excel-ref` syntax.
+        Its file-part should resolve to an excel-file. 
 
-    excel-range
-    xl-range
     excel-ref
     xl-ref
         The syntax for `capturing` ranges from excel-sheets, 
@@ -53,6 +52,7 @@ Definitions
     cell-position
         A pair of row/col cell `coordinates` optionally followed by 
         a parenthesized `target-moves`.
+        It actually specifies 2 cells, `start-cell` and `target-cell`.
 
     coord
     coords
@@ -73,22 +73,26 @@ Definitions
         - ``^``          The top/Left full-cell `coordinate`.
         - ``_``          The bottom/right full-cell `coordinate`.
 
-    relative-coordinate
-    relative
+    dependent-coordinate
+    dependent
         Any `2nd-cell` `coordinate` identified with a dot(``.``),
         which means that:
 
             > 2nd-start-cell coordinate = 1st target-cell coordinate
 
-        The cell-pos of the 2nd-cell might contain a "mix" of `absolute` and 
-        `relative` coordinates.
+        The `2nd-cell` might contain a "mix" of `absolute` and *dependent* 
+        coordinates.
 
+    primitive-directions
+        The 4 *primitive-directions* in are denoted with one of the letters
+        ``LURD``.
+    
     target-moves
     targeting
-        A combination of the 4 primitive directions ``LURD``,
-        specified with a *single* or a *pair* of the letters inside the 
-        `cell-pos` parenthesis.  The pairs ``UD`` and ``LR``, 
-        and their inverse, are invalid moves.
+        A single or a pair of the 4 `primitive-directions` letters, 
+        specified inside the `cell-pos` parenthesis that follows 
+        the `coordinates` of the `start-cell`
+        The pairs ``UD`` and ``LR``, and their inverse, are invalid.
 
     start-cell
     start
@@ -103,18 +107,17 @@ Definitions
     1st-cell-pos
     1st-start-cell
     1st-target-cell
-        The `capturing` of a range starts from the `target` of this `cell-pos`.
+        The`capturing` STARTS from the `target` of *this* `cell-pos`.
         It supports `absolute` coordinates only.
 
     2nd-cell
     2nd-cell-pos
     2nd-start-cell
     2nd-target-cell
-        The `capturing` of a range stops at the `target` of this `cell-pos`.
-        It supports both `absolute` coordinates and `relative` ones from the 
+        The `capturing` STOPS at the `target` of this `cell-pos`.
+        It supports both `absolute` coordinates, and `dependent` ones from the 
         `1st-target-cell`.
 
-    capture-rectangle
     capture-range
     range
         The sheet's rectangular area bounded by the `1st-target-cell` and 
@@ -122,7 +125,7 @@ Definitions
 
     capturing
     capture-moves
-        The reading of the `capture-rectangle` by traversing from 
+        The reading of the `capture-range` by traversing from 
         the `1st-target-cell` to the `2nd-target-cell`.
 
     state
@@ -145,7 +148,7 @@ Definitions
 
     range-expansions
     expansions
-        How to expand the initial `capture-rectangle`.
+        How to expand the initial `capture-range`.
         It can be an arbitrary combinations for the ``LURD?`` letters,
         with repetitions.
 
@@ -153,7 +156,7 @@ Definitions
     filters
     filter-function
     filter-functions
-        Predefined functions to apply for transforming the `capture-rectangle`
+        Predefined functions to apply for transforming the `capture-range`
         specified as nested *json* dictionaries.
 
 
@@ -222,11 +225,11 @@ When no ``LURD`` moves are specified, the target-cell coinceds with the starting
 Ranges
 ------
 
-To specify a complete `capture-rectangle` we need to identify a 2nd cell.
+To specify a complete `capture-range` we need to identify a 2nd cell.
 The 2nd target-cell may be specified:
 
   - either with `absolute` coordinates, as above, or
-  - with `relative` coords, using the dot(``.``) to refer to the 1st cell.
+  - with `dependent` coords, using the dot(``.``) to refer to the 1st cell.
 
 
 In the above example-sheet, here are some ways to specify ranges::
@@ -257,7 +260,7 @@ In the above example-sheet, here are some ways to specify ranges::
 
 .. Note::
     The `capture-moves` from `1st-cell` to `2nd-target-cell` are independent from 
-    the implied `target-moves` in the case of `relative` coords.
+    the implied `target-moves` in the case of `dependent` coords.
 
     More specifically, the `capturing` will always fetch the same values 
     regardless of "row-first" or "column-first" order; this is not the case 
@@ -341,7 +344,7 @@ import pandas as pd
 import numpy as np
 from string import ascii_uppercase
 from collections import namedtuple
-from itertools import repeat
+import itertools as itt
 
 # noinspection PyUnresolvedReferences
 from six.moves.urllib.parse import urldefrag  # @UnresolvedImport
@@ -364,14 +367,6 @@ else:
 
 _special_coords = {'^', '_', '.'}
 
-_function_types = {
-    None: {'fun': lambda x: x},
-    'df': {'fun': pd.DataFrame},
-    'nparray': {'fun': np.array},
-    'dict': {'fun': dict},
-    'sorted': {'fun': sorted}
-}
-
 _primitive_dir = {
     'L': np.array([0, -1]),
     'U': np.array([-1, 0]),
@@ -381,7 +376,7 @@ _primitive_dir = {
 
 _re_xl_ref_parser = re.compile(
     r"""
-    ^\s*(?:(?P<xl_sheet_name>[^!]+)?!)?                  # xl sheet name
+    ^\s*(?:(?P<sheet>[^!]+)?!)?                          # xl sheet name
     (?:                                                  # first cell
         (?P<st_col>[A-Z]+|_|\^)                          # first col
         (?P<st_row>\d+|_|\^)                             # first row
@@ -398,18 +393,19 @@ _re_xl_ref_parser = re.compile(
             \)
         )?
         (?::
-            (?P<rng_ext>[LURD?\d]+)                      # range extension [opt]
+            (?P<rng_exp>[LURD?\d]+)                      # range expansion [opt]
         )?
     )?
     \s*
     (?P<json>\{.*\})?                                    # any json object [opt]
     \s*$""", re.IGNORECASE | re.X)
 
-_re_rng_ext_splitter = re.compile('([LURD]\d+)', re.IGNORECASE | re.X)
+_re_rng_exp_splitter = re.compile('([LURD]\d+)', re.IGNORECASE)
 
-_re_rng_ext_parser = re.compile(
+# TODO: Drop `?` from range_expansions, use numbers only.
+_re_range_expansion_parser = re.compile(
     r"""
-    ^(?P<mov>[LURD]+)                                    # primitive moves
+    ^(?P<moves>[LURD]+)                                    # primitive moves
     (?P<times>\?|\d+)?                                   # repetition times
     $""", re.IGNORECASE | re.X)
 
@@ -429,7 +425,8 @@ def row2num(coord):
     :return:    excel row number, >= 0
     :rtype:     int
 
-    Example::
+
+    Examples::
 
         >>> row2num('1')
         0
@@ -438,7 +435,6 @@ def row2num(coord):
         True
 
         ## "Special" cells are also valid.
-        #
         >>> row2num('_'), row2num('^')
         ('_', '^')
 
@@ -476,6 +472,7 @@ def col2num(coord):
     :return:    excel column number, >= 0
     :rtype:     int
 
+
     Examples::
 
         >>> col2num('D')
@@ -488,7 +485,6 @@ def col2num(coord):
         727
 
         ## "Special" cells are also valid.
-        #
         >>> col2num('_'), col2num('^')
         ('_', '^')
 
@@ -519,52 +515,51 @@ def col2num(coord):
         raise ValueError('Invalid column({!r})!'.format(coord))
 
 
-def fetch_cell_ref(cell_col, cell_row, cell_mov):
+def make_CellPos(cell_col, cell_row, cell_mov):
     """
     Fetch a cell reference string.
 
-    :param cell_col:
-        column reference
+    :param cell_col:    column reference
     :type cell_col: str, None
 
-    :param cell_row:
-        row reference
+    :param cell_row:    row reference
     :type cell_row: str, None
 
-    :param cell_mov:
-        target-moves
+    :param cell_mov:    target-moves
     :type cell_mov: str, None
 
     :return:
         a cell-start
     :rtype: CellPos
 
+
     Examples::
-        >>> fetch_cell_ref('A', '1', 'R')
+        >>> make_CellPos('A', '1', 'R')
         CellPos(cell=Cell(row=0, col=0), mov='R')
 
-        >>> fetch_cell_ref('^', '^', 'R').cell
+        >>> make_CellPos('^', '^', 'R').cell
         Cell(row='^', col='^')
 
-        >>> fetch_cell_ref('_', '_', 'L').cell
+        >>> make_CellPos('_', '_', 'L').cell
         Cell(row='_', col='_')
 
-        >>> fetch_cell_ref('.', '.', 'D').cell
+        >>> make_CellPos('.', '.', 'D').cell
         Cell(row='.', col='.')
 
-        >>> fetch_cell_ref(None, None, None)
+        >>> make_CellPos(None, None, None)
 
-        >>> fetch_cell_ref('1', '.', None)
+        >>> make_CellPos('1', '.', None)
         Traceback (most recent call last):
         ValueError: Invalid cell(col='1', row='.') due to: Invalid column('1')!
 
-        >>> fetch_cell_ref('A', 'B', None)
+        >>> make_CellPos('A', 'B', None)
         Traceback (most recent call last):
         ValueError: Invalid cell(col='A', row='B') due to: Invalid row('B')!
 
-        >>> fetch_cell_ref('A', '1', 12)
+        >>> make_CellPos('A', '1', 12)
         Traceback (most recent call last):
-        ValueError: Invalid cell(col='A', row='1') due to: 'int' object has no attribute 'upper'
+        ValueError: Invalid cell(col='A', row='1') due to: 
+            'int' object has no attribute 'upper'
     """
 
     try:
@@ -581,81 +576,100 @@ def fetch_cell_ref(cell_col, cell_row, cell_mov):
         raise ValueError(msg.format(cell_col, cell_row, ex))
 
 
-def repeat_moves(moves, times=None):
-    # repeat_moves('ABC', 3) --> ABC ABC ABC
-    return repeat(moves, int(times)) if times is not None else repeat(moves)
-
-
-def parse_rng_ext(rng_ext):
+def _repeat_moves(moves, times=None):
     """
-    Parses and fetches the contents of range-extension ref.
+    Examples::
 
-    :param rng_ext:
+         >>> list(_repeat_moves('ABC', '3'))
+         ['ABC', 'ABC', 'ABC']
+
+         >>> list(_repeat_moves('ABC', '0'))
+         []
+
+         >>> _repeat_moves('ABC')  ## infinite repetitions
+         repeat('ABC')
+
+     """
+    args = (moves,)
+    if times is not None:
+        args += (int(times), )
+    return itt.repeat(*args)
+
+
+def _parse_range_expansions(rng_exp):
+    """
+    Parse range-expansion into a list of dir-letters iterables.
+
+    :param rng_exp:
         A string with a sequence of primitive moves:
         es. L1U1R1D1
     :type xl_ref: str
 
     :return:
-        A list of primitive move chains.
+        A list of primitive-dir chains.
     :rtype: list
+
 
     Examples::
 
-        >>> res = parse_rng_ext('LURD?')
-
+        >>> res = _parse_range_expansions('LURD?')
         >>> res
         [repeat('LUR'), repeat('D', 1)]
 
         # infinite generator
         >>> [next(res[0]) for i in range(10)]
         ['LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR']
+
         >>> list(res[1])
         ['D']
-        >>> parse_rng_ext('1LURD')
+
+        >>> _parse_range_expansions('1LURD')
         Traceback (most recent call last):
-        ...
-        ValueError: Invalid range-extension(1LURD) due to: 'NoneType' object has no attribute 'groups'
+        ValueError: Invalid range-expansion(1LURD) due to: 
+                'NoneType' object has no attribute 'groupdict'
+
     """
     try:
-        res = _re_rng_ext_splitter.split(rng_ext.replace('?', '1'))
+        res = _re_rng_exp_splitter.split(rng_exp.replace('?', '1'))
 
-        return [repeat_moves(*_re_rng_ext_parser.match(v).groups())
+        return [_repeat_moves(**_re_range_expansion_parser.match(v).groupdict())
                 for v in res
                 if v != '']
 
     except Exception as ex:
-        raise ValueError('Invalid range-extension({}) '
-                         'due to: {}'.format(rng_ext, ex))
+        msg = 'Invalid range-expansion({}) due to: {}'
+        raise ValueError(msg.format(rng_exp, ex))
 
 
 def parse_xl_ref(xl_ref):
     """
-    Parses and fetches the contents of excel ref.
+    Parses a :term:`excel-ref` and splits it in its "ingredients".
 
     :param xl_ref:
         a string with the following format:
-        <xl_sheet_name>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):
-        <rng_ext>{<json>}
-        es. xl_sheet_name!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}
+        <sheet>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):
+        <rng_exp>{<json>}
+        es. sheet!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}
     :type xl_ref: str
 
     :return:
         dictionary containing the following parameters::
 
-        - xl_sheet_name
+        - sheet
         - st_cell
         - nd_cell
-        - rng_ext
+        - rng_exp
         - json
 
     :rtype: dict
+
 
     Examples::
         >>> from itertools import chain
         >>> xl_ref = 'Sheet1!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}'
         >>> res = parse_xl_ref(xl_ref)
 
-        >>> res['xl_sheet_name']
+        >>> res['sheet']
         'Sheet1'
 
         >>> res['st_cell']
@@ -664,7 +678,7 @@ def parse_xl_ref(xl_ref):
         >>> res['nd_cell']
         CellPos(cell=Cell(row=19, col=25), mov='UL')
 
-        >>> list(chain(*res['rng_ext']))
+        >>> list(chain(*res['rng_exp']))
         ['L', 'U', 'U', 'R', 'D']
 
         >>> res['json'] == {'json': '...'}
@@ -677,16 +691,17 @@ def parse_xl_ref(xl_ref):
         # resolve json
         r['json'] = json.loads(r['json']) if r['json'] else None
 
-        # resolve range extensions
-        r['rng_ext'] = parse_rng_ext(r['rng_ext']) if r['rng_ext'] else None
+        # resolve range expansions
+        r['rng_exp'] = _parse_range_expansions(
+            r['rng_exp']) if r['rng_exp'] else None
 
         p = r.pop
 
         # fetch 1st cell
-        r['st_cell'] = fetch_cell_ref(p('st_col'), p('st_row'), p('st_mov'))
+        r['st_cell'] = make_CellPos(p('st_col'), p('st_row'), p('st_mov'))
 
         # fetch 2nd cell
-        r['nd_cell'] = fetch_cell_ref(p('nd_col'), p('nd_row'), p('nd_mov'))
+        r['nd_cell'] = make_CellPos(p('nd_col'), p('nd_row'), p('nd_mov'))
 
         return r
 
@@ -698,18 +713,20 @@ def parse_xl_url(url):
     """
     Parses the contents of an excel url.
 
-    :param url:
-        a string with the following format:
+    :param str url:
+        a string with the following format::
 
-        <url_file>#<xl_sheet_name>!<cell_up>:<cell_down><json>
-        es. file:///path/to/file.xls#xl_sheet_name!UP10:DN20{"json":"..."}
-    :type url: str
+            <url_file>#<sheet>!<1st_cell>:<2nd_cell>:<expand><json>
+
+        Exxample::
+
+            file:///path/to/file.xls#sheet_name!UP10:DN20:LDL1{"dim":2}
 
     :return:
         dictionary containing the following parameters::
 
         - url_file
-        - xl_sheet_name
+        - sheet
         - st_col
         - st_row
         - st_mov
@@ -720,17 +737,19 @@ def parse_xl_url(url):
 
     :rtype: dict
 
+
     Examples::
 
-        >>> url = 'file:///sample.xls#Sheet1!A1{"2": "ciao"}'
+        >>> url = 'file:///sample.xlsx#Sheet1!A1{"2": "ciao"}'
         >>> res = parse_xl_url(url)
         >>> sorted(res.items())
         [('json', {'2': 'ciao'}),
          ('nd_cell', None),
-         ('rng_ext', None),
+         ('rng_exp', None),
+         ('sheet', 'Sheet1'),
          ('st_cell', CellPos(cell=Cell(row=0, col=0), mov=None)),
-         ('url_file', 'file:///sample.xls'),
-         ('xl_sheet_name', 'Sheet1')]
+         ('url_file', 'file:///sample.xlsx')]
+
     """
 
     try:
@@ -746,63 +765,57 @@ def parse_xl_url(url):
         raise ValueError("Invalid excel-url({}) due to: {}".format(url, ex))
 
 
-def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
-    """
-    Opens the excel workbook of an excel ref.
-
-    :param dict xl_ref_child: excel ref of the child
-
-    :param xl_ref_parent: excel ref of the parent
-    :type xl_ref_parent: dict, None
-
-    """
-    url_fl = xl_ref_child['url_file']
-    try:
-        if url_fl:
-            wb = open_workbook(file_contents=urlopen(url_fl).read())
-        else:
-            wb = xl_ref_parent['xl_workbook']
-        xl_ref_child['xl_workbook'] = wb
-
-    except Exception as ex:
-        raise ValueError("Invalid excel-file({}) due to:{}".format(url_fl, ex))
-
-
-def open_xl_sheet(xl_ref_child, xl_ref_parent=None):
-    """
-    Opens the excel sheet of an excel ref.
-
-    :param dict xl_ref_child: excel ref of the child
-
-    :param xl_ref_parent: excel ref of the parent
-    :type xl_ref_parent: dict, None
-
-    """
-    try:
-        if xl_ref_child['xl_sheet_name']:
-            wb = xl_ref_child['xl_workbook']
-            sheet = wb.sheet_by_name(xl_ref_child['xl_sheet_name'])
-        else:
-            sheet = xl_ref_parent['xl_sheet']
-        xl_ref_child['xl_sheet'] = sheet
-
-    except Exception as ex:
-        sh = xl_ref_child['xl_sheet_name']
-        raise ValueError("Invalid excel-sheet({}) due to:{}".format(sh, ex))
-
-
 # noinspection PyProtectedMember
-def get_no_empty_cells(sheet):
+def get_full_cells(sheet):
+    """
+    Returns a boolean ndarray with `False` wherever cell are blank or empty.
+    """
     types = np.array(sheet._cell_types)
     return (types != xlrd.XL_CELL_EMPTY) & (types != xlrd.XL_CELL_BLANK)
 
 
-def get_xl_abs_margins(no_empty):
-    """ Returns upper and lower absolute positions"""
-    indices = np.array(np.where(no_empty)).T  # XXX: Loads all sheet here?!?
+def get_sheet_margins(full_cells):
+    """ 
+    Returns upper and lower absolute positions.
+
+    :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
+                                blank or empty. Use :func:`get_full_cells()`.
+    return:  a 2-tuple with margins and indixes for full-cells
+
+
+    Examples::
+
+        >>> full_cells = [
+        ...    [0, 0, 0],
+        ...    [0, 1, 0],
+        ...    [0, 1, 1],
+        ...    [0, 0, 1],
+        ... ]
+        >>> sheet_margins, indices = get_sheet_margins(full_cells)
+
+        #>>> sorted(sheet_margins.items()) ## FIXME: Nested DICT??
+        [('col', {'^': 1, '_': 2}), 
+         ('row', {'^': 1, '_': 3})]
+
+        >>> indices
+         [[1, 1], [2, 1], [2, 2], [3, 2]]
+
+        >>> full_cells = [
+        ...    [0, 0, 0, 0],
+        ...    [0, 1, 0, 0],
+        ...    [0, 1, 1, 0],
+        ...    [0, 0, 1, 0],
+        ...    [0, 0, 0, 0],
+        ... ]
+        >>> sheet_margins_2, _ = get_sheet_margins(full_cells)
+        >>> sheet_margins_2 == sheet_margins
+        True
+
+    """
+    indices = np.array(np.where(full_cells)).T  # XXX: Loads all sheet here?!?
     up_r, up_c = indices.min(0)
     dn_r, dn_c = indices.max(0)
-    xl_margins = {
+    sheet_margins = {
         'col': {
             '^': up_c,
             '_': dn_c
@@ -812,46 +825,75 @@ def get_xl_abs_margins(no_empty):
             '_': dn_r
         }
     }
-    return xl_margins, indices.tolist()
+    return sheet_margins, indices.tolist()
 
 
-def get_xl_margins(sheet):
-    no_empty = get_no_empty_cells(sheet)
+def _get_abs_coord(coord, coord_margins, pcoord=None):
+    """
+    Translates any special or dependent coord to absolute ones.
 
-    up = (0, 0)
-
-    dn = (sheet.nrows - 1, sheet.ncols - 1)
-
-    return no_empty, up, dn
+    :param int, str coord:    the coord to translate
+    :param int, None pcoord:  the basis for dependent coord, if any
 
 
-def set_coord(cell, xl_margins, parent=None):
-    c = {'.': parent} if parent is not None else {}
-    c.update(xl_margins)
-    return c[cell] if cell in c else cell
+    No other checks performed::
+
+        >>> margins = {}
+        >>> _get_abs_coord('_', margins)
+        '_'
+
+        >>> _get_abs_coord('$', margins)
+        '$'
+    """
+    if pcoord:
+        try:
+            from collections import ChainMap
+            coord_margins = ChainMap(coord_margins, {'.': pcoord})
+        except ImportError:
+            # TODO: FIX hack when ChainMap backported to py2.
+            c = {'.': pcoord}
+            c.update(coord_margins)
+            coord_margins = c
+
+    return coord_margins.get(coord, coord)
 
 
-def set_start_cell(cell, xl_margins, parent_cell=None):
-    if parent_cell:
-        row = set_coord(cell.row, xl_margins['row'], parent_cell.row)
-        col = set_coord(cell.col, xl_margins['col'], parent_cell.col)
-    else:
-        row = set_coord(cell.row, xl_margins['row'], None)
-        col = set_coord(cell.col, xl_margins['col'], None)
+def _make_start_Cell(cell, sheet_margins, pcell=None):
+    """
+    Makes a Cell by translating any special coords to absolute ones.
+
+    :param Cell cell:    The cell to translate its coords.
+    :param Cell pcell:   The cell to base any dependent coords (``.``).
+
+
+    Examples::
+
+        >>> _make_start_Cell(Cell(3, 1), {'row':{}, 'col':{}})
+        Cell(row=3, col=1)
+
+    """
+    row = _get_abs_coord(
+        cell.row, sheet_margins['row'], pcell and pcell.row)
+    col = _get_abs_coord(
+        cell.col, sheet_margins['col'], pcell and pcell.col)
+
     return Cell(row=row, col=col)
 
 
-def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
+def _search_opposite_state(state, cell, full_cells, up, dn, moves, last=False):
     """
 
+    :param bool state:      the starting-state
     :param cell:
-    :param no_empty:
+    :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
+                                blank or empty. Use :func:`get_full_cells()`.
     :param sheet:
     :param directions:
     :return:
 
+
     Examples::
-        >>> non_empty = np.array([
+        >>> full_cells = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -861,52 +903,52 @@ def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (False, Cell(1, 1), non_empty, (0, 0), (7, 6))
-        >>> search_opposite_state(*(args + ('DR', )))
+        >>> args = (False, Cell(1, 1), full_cells, (0, 0), (7, 6))
+        >>> _search_opposite_state(*(args + ('DR', )))
         Cell(row=6, col=3)
 
-        >>> search_opposite_state(*(args + ('RD', )))
+        >>> _search_opposite_state(*(args + ('RD', )))
         Cell(row=5, col=4)
 
-        >>> search_opposite_state(*(args + ('D', )))
+        >>> _search_opposite_state(*(args + ('D', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=1, col=1) with movement(D)
 
-        >>> search_opposite_state(*(args + ('U', )))
+        >>> _search_opposite_state(*(args + ('U', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=1, col=1) with movement(U)
 
-        >>> search_opposite_state(*(args + ('R', )))
+        >>> _search_opposite_state(*(args + ('R', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=1, col=1) with movement(R)
 
-        >>> search_opposite_state(*(args + ('L', )))
+        >>> _search_opposite_state(*(args + ('L', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=1, col=1) with movement(L)
 
-        >>> search_opposite_state(*(args + ('LU', )))
+        >>> _search_opposite_state(*(args + ('LU', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=1, col=1) with movement(LU)
 
-        >>> args = (True, Cell(6, 3), non_empty, (0, 0), (7, 6))
-        >>> search_opposite_state(*(args + ('D', )))
+        >>> args = (True, Cell(6, 3), full_cells, (0, 0), (7, 6))
+        >>> _search_opposite_state(*(args + ('D', )))
         Cell(row=8, col=3)
 
-        >>> args = (True, Cell(10, 3), non_empty, (0, 0), (7, 6))
-        >>> search_opposite_state(*(args + ('U', )))
+        >>> args = (True, Cell(10, 3), full_cells, (0, 0), (7, 6))
+        >>> _search_opposite_state(*(args + ('U', )))
         Cell(row=10, col=3)
 
-        >>> args = (False, Cell(10, 10), non_empty, (0, 0), (7, 6))
-        >>> search_opposite_state(*(args + ('UL', )))
+        >>> args = (False, Cell(10, 10), full_cells, (0, 0), (7, 6))
+        >>> _search_opposite_state(*(args + ('UL', )))
         Cell(row=7, col=6)
 
-        >>> non_empty = np.array([
+        >>> full_cells = np.array([
         ...     [1, 1, 1],
         ...     [1, 1, 1],
         ...     [1, 1, 1],
         ... ])
-        >>> args = (True, Cell(0, 2), non_empty, (0, 0), (2, 2))
-        >>> search_opposite_state(*(args + ('LD', )))
+        >>> args = (True, Cell(0, 2), full_cells, (0, 0), (2, 2))
+        >>> _search_opposite_state(*(args + ('LD', )))
         Cell(row=3, col=2)
     """
     mv = _primitive_dir[moves[0]]  # first move
@@ -925,7 +967,7 @@ def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
         c1 = c0
         while (up <= c1).all():
             try:
-                if no_empty[c1[0], c1[1]] != state:
+                if full_cells[c1[0], c1[1]] != state:
                     if last and flag:
                         c1 = c1 - mv
                     return Cell(*(c1[0], c1[1]))
@@ -953,17 +995,20 @@ def search_opposite_state(state, cell, no_empty, up, dn, moves, last=False):
     raise ValueError('Invalid {} with movement({})'.format(cell, moves))
 
 
-def search_same_state(state, cell, no_empty, up, dn, moves):
+def _search_same_state(state, cell, full_cells, up, dn, moves):
     """
 
+    :param bool state:      the starting-state
     :param cell:
-    :param no_empty:
+    :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
+                                blank or empty. Use :func:`get_full_cells()`.
     :param sheet:
     :param directions:
     :return:
 
+
     Examples::
-        >>> non_empty = np.array([
+        >>> full_cells = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -973,30 +1018,30 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (True, Cell(7, 6), non_empty, (0, 0), (7, 6))
-        >>> search_same_state(*(args + ('UL', )))
+        >>> args = (True, Cell(7, 6), full_cells, (0, 0), (7, 6))
+        >>> _search_same_state(*(args + ('UL', )))
         Cell(row=5, col=3)
 
-        >>> search_same_state(*(args + ('U', )))
+        >>> _search_same_state(*(args + ('U', )))
         Cell(row=5, col=6)
 
-        >>> search_same_state(*(args + ('L', )))
+        >>> _search_same_state(*(args + ('L', )))
         Cell(row=7, col=3)
 
-        >>> args = (True, Cell(5, 3), non_empty, (0, 0), (7, 6))
-        >>> search_same_state(*(args + ('DR', )))
+        >>> args = (True, Cell(5, 3), full_cells, (0, 0), (7, 6))
+        >>> _search_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
 
-        >>> args = (False, Cell(5, 3), non_empty, (0, 0), (7, 6))
-        >>> search_same_state(*(args + ('DR', )))
+        >>> args = (False, Cell(5, 3), full_cells, (0, 0), (7, 6))
+        >>> _search_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
 
-        >>> search_same_state(*(args + ('UL', )))
+        >>> _search_same_state(*(args + ('UL', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=5, col=3) with movement(U)
 
-        >>> args = (True, Cell(5, 6), non_empty, (0, 0), (7, 6))
-        >>> search_same_state(*(args + ('DL', )))
+        >>> args = (True, Cell(5, 6), full_cells, (0, 0), (7, 6))
+        >>> _search_same_state(*(args + ('DL', )))
         Cell(row=7, col=4)
 
     """
@@ -1004,26 +1049,28 @@ def search_same_state(state, cell, no_empty, up, dn, moves):
     c1 = list(cell)
 
     for mv in moves:
-        c = search_opposite_state(state, cell, no_empty, up, dn, mv, True)
+        c = _search_opposite_state(state, cell, full_cells, up, dn, mv, True)
         dis = _primitive_dir[mv]
         c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
     return Cell(*c1)
 
 
-def extend_range(state, xl_range, no_empty, rng_ext):
+def expand_range(state, xl_range, full_cells, rng_exp):
     """
 
     :param state:
     :param up:
     :param dn:
     :param rng:
-    :param no_empty:
-    :param rng_ext:
+    :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
+                                blank or empty. Use :func:`get_full_cells()`.
+    :param rng_exp:
     :return:
 
-    Example::
 
-        >>> non_empty = np.array([
+    Examples::
+
+        >>> full_cells = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -1034,23 +1081,23 @@ def extend_range(state, xl_range, no_empty, rng_ext):
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
         >>> rng = (Cell(row=6, col=3), Cell(row=6, col=3))
-        >>> rng_ext = [repeat_moves('U', times=10)]
-        >>> extend_range(True, rng, non_empty, rng_ext)
+        >>> rng_exp = [_repeat_moves('U', times=10)]
+        >>> expand_range(True, rng, full_cells, rng_exp)
         [Cell(row=6, col=3), Cell(row=6, col=3)]
 
         >>> rng = (Cell(row=6, col=3), Cell(row=7, col=3))
-        >>> rng_ext = [repeat_moves('R', times=10)]
-        >>> extend_range(True, rng, non_empty, rng_ext)
+        >>> rng_exp = [_repeat_moves('R', times=10)]
+        >>> expand_range(True, rng, full_cells, rng_exp)
         [Cell(row=6, col=3), Cell(row=7, col=6)]
 
         >>> rng = (Cell(row=6, col=3), Cell(row=10, col=3))
-        >>> rng_ext = [repeat_moves('R', times=10)]
-        >>> extend_range(True, rng, non_empty, rng_ext)
+        >>> rng_exp = [_repeat_moves('R', times=10)]
+        >>> expand_range(True, rng, full_cells, rng_exp)
         [Cell(row=6, col=3), Cell(row=10, col=6)]
 
         >>> rng = (Cell(row=6, col=5), Cell(row=6, col=5))
-        >>> rng_ext = [repeat_moves('LURD')]
-        >>> extend_range(True, rng, non_empty, rng_ext)
+        >>> rng_exp = [_repeat_moves('LURD')]
+        >>> expand_range(True, rng, full_cells, rng_exp)
         [Cell(row=5, col=3), Cell(row=7, col=6)]
 
     """
@@ -1061,7 +1108,7 @@ def extend_range(state, xl_range, no_empty, rng_ext):
         'D': (1, 0)
     }
     xl_range = [np.array(v) for v in xl_range]
-    for moves in rng_ext:
+    for moves in rng_exp:
         for directions in moves:
             flag = True
             for d in directions:
@@ -1071,9 +1118,9 @@ def extend_range(state, xl_range, no_empty, rng_ext):
                 st = st + mv
                 nd = [p2 if k == 0 else p1 for p1, p2, k in zip(st, nd, mv)]
                 if i == 1:
-                    v = no_empty[nd[0]:st[0] + 1, nd[1]:st[1] + 1]
+                    v = full_cells[nd[0]:st[0] + 1, nd[1]:st[1] + 1]
                 else:
-                    v = no_empty[st[0]:nd[0] + 1, st[1]:nd[1] + 1]
+                    v = full_cells[st[0]:nd[0] + 1, st[1]:nd[1] + 1]
                 if (not v.size and state) or (v != state).all():
                     continue
                 xl_range[i] = st
@@ -1085,22 +1132,20 @@ def extend_range(state, xl_range, no_empty, rng_ext):
     return [Cell(*v) for v in xl_range]
 
 
-def get_range(no_empty, up, dn, xl_margins, indices, st_cell, nd_cell=None, rng_ext=None):
+def _capture_range(full_cells, up, dn, sheet_margins, indices, st_cell,
+                   nd_cell=None, rng_exp=None):
     """
 
-    :param sheet:
-    :type sheet: xlrd.sheet.Sheet
-    :param st_cell:
-    :type st_cell: CellPos
-    :param nd_cell:
-    :type nd_cell: CellPos
-    :param rng_ext:
-    :param epoch1904:
+    :param xlrd.sheet.Sheet sheet:
+    :param CellPos st_cell:
+    :param CellPos nd_cell:
+    :param rng_exp:
     :return:
 
-    Example::
 
-        >>> non_empty = np.array([
+    Examples::
+
+        >>> full_cells = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -1111,51 +1156,51 @@ def get_range(no_empty, up, dn, xl_margins, indices, st_cell, nd_cell=None, rng_
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
         >>> up, dn = ((0, 0), (7, 6))
-        >>> xl_margins, ind = get_xl_abs_margins(non_empty)
+        >>> sheet_margins, ind = get_sheet_margins(full_cells)
         >>> st_cell = CellPos(Cell(0, 0), 'DR')
         >>> nd_cell = CellPos(Cell('.', '.'), 'DR')
-        >>> get_range(non_empty, up, dn, xl_margins, ind, st_cell, nd_cell)
+        >>> _capture_range(full_cells, up, dn, sheet_margins, ind, st_cell, nd_cell)
         (Cell(row=6, col=3), Cell(row=7, col=3))
 
         >>> nd_cell = CellPos(Cell(7, 6), 'UL')
-        >>> get_range(non_empty, up, dn, xl_margins, ind, st_cell, nd_cell)
+        >>> _capture_range(full_cells, up, dn, sheet_margins, ind, st_cell, nd_cell)
         (Cell(row=5, col=3), Cell(row=6, col=3))
     """
 
-    st = set_start_cell(st_cell.cell, xl_margins)
+    st = _make_start_Cell(st_cell.cell, sheet_margins)
     try:
-        state = no_empty[st]
+        state = full_cells[st]
     except IndexError:
         state = False
 
     if st_cell.mov is not None:
-        st = search_opposite_state(state, st, no_empty, up, dn, st_cell.mov)
+        st = _search_opposite_state(state, st, full_cells, up, dn, st_cell.mov)
         state = not state
 
     if nd_cell is None:
         nd = Cell(*st)
     else:
-        nd = set_start_cell(nd_cell.cell, xl_margins, st)
+        nd = _make_start_Cell(nd_cell.cell, sheet_margins, st)
 
         if nd_cell.mov is not None:
             mov = nd_cell.mov
-            if state == no_empty[nd]:
-                nd = search_same_state(state, nd, no_empty, up, dn, mov)
+            if state == full_cells[nd]:
+                nd = _search_same_state(state, nd, full_cells, up, dn, mov)
             else:
-                nd = search_opposite_state(
-                    not state, nd, no_empty, up, dn, mov)
+                nd = _search_opposite_state(
+                    not state, nd, full_cells, up, dn, mov)
 
         c = np.array([st, nd])
 
         st, nd = (Cell(*list(c.min(0))), Cell(*list(c.max(0))))
 
-    if rng_ext is None:
+    if rng_exp is None:
         return (st, nd)
     else:
-        return extend_range(state, (st, nd), no_empty, rng_ext)
+        return expand_range(state, (st, nd), full_cells, rng_exp)
 
 
-def parse_cell(cell, epoch1904=False):
+def _parse_cell(cell, epoch1904=False):
     """
     Parse a xl-cell.
 
@@ -1173,17 +1218,18 @@ def parse_cell(cell, epoch1904=False):
         int, float, datetime.datetime, bool, None, str, datetime.time,
         float('nan')
 
-    Example::
+
+    Examples::
 
         >>> import xlrd
         >>> from xlrd.sheet import Cell
-        >>> parse_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
+        >>> _parse_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
         1.2
 
-        >>> parse_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
+        >>> _parse_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
         datetime.datetime(1900, 1, 1, 4, 48)
 
-        >>> parse_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
+        >>> _parse_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
         'hi'
     """
 
@@ -1236,9 +1282,11 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
     :param epoch1904:
     :return:
 
-    Example::
+
+    Examples::
 
         >>> import os, tempfile, xlrd, pandas as pd
+
         >>> os.chdir(tempfile.mkdtemp())
         >>> df = pd.DataFrame([[None, None, None], [5.1, 6.1, 7.1]])
         >>> tmp = 'sample.xlsx'
@@ -1248,11 +1296,11 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
 
         >>> sheet = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
 
-        >>> xl_margins, indices = get_xl_abs_margins(get_no_empty_cells(sheet))
+        >>> sheet_margins, indices = get_sheet_margins(get_full_cells(sheet))
 
         # minimum matrix in the sheet
-        >>> st = set_start_cell(Cell('^', '^'), xl_margins)
-        >>> nd = set_start_cell(Cell('_', '_'), xl_margins)
+        >>> st = _make_start_Cell(Cell('^', '^'), sheet_margins)
+        >>> nd = _make_start_Cell(Cell('_', '_'), sheet_margins)
         >>> get_xl_table(sheet, (st, nd), indices)
         [[None, 0, 1, 2],
          [0, None, None, None],
@@ -1263,20 +1311,20 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
         [0]
 
         # get column vector
-        >>> st = set_start_cell(Cell(0, 3), xl_margins)
-        >>> nd = set_start_cell(Cell('_', 3), xl_margins)
+        >>> st = _make_start_Cell(Cell(0, 3), sheet_margins)
+        >>> nd = _make_start_Cell(Cell('_', 3), sheet_margins)
         >>> get_xl_table(sheet, (st, nd), indices)
         [None, None, None, None, None, None, 0, 1]
 
         # get row vector
-        >>> st = set_start_cell(Cell(5, 0), xl_margins)
-        >>> nd = set_start_cell(Cell(5, '_'), xl_margins)
+        >>> st = _make_start_Cell(Cell(5, 0), sheet_margins)
+        >>> nd = _make_start_Cell(Cell(5, '_'), sheet_margins)
         >>> get_xl_table(sheet, (st, nd), indices)
         [None, None, None, None, 0, 1, 2]
 
         # get row vector
-        >>> st = set_start_cell(Cell(5, 0), xl_margins)
-        >>> nd = set_start_cell(Cell(5, 10), xl_margins)
+        >>> st = _make_start_Cell(Cell(5, 0), sheet_margins)
+        >>> nd = _make_start_Cell(Cell(5, 10), sheet_margins)
         >>> get_xl_table(sheet, (st, nd), indices)
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
@@ -1287,7 +1335,7 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
         tbl.append(row)
         for c in range(xl_range[0].col, xl_range[1].col + 1):
             if [r, c] in indices:
-                row.append(parse_cell(sheet.cell(r, c), epoch1904))
+                row.append(_parse_cell(sheet.cell(r, c), epoch1904))
             else:
                 row.append(None)
     # vector
@@ -1305,6 +1353,7 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
 
 
 def _get_value_dim(value):
+    """ FIXME: _get_value_dim() UNUSED? """
     try:
         if isinstance(value, list):
             return 1 + _get_value_dim(value[0])
@@ -1323,7 +1372,7 @@ def _redim_value(value, n):
     return value
 
 
-def redim_xl_range(value, dim_min, dim_max=None):
+def redim_captured_values(value, dim_min, dim_max=None):
     """
     Reshapes the output value of get_rect_range function.
 
@@ -1339,23 +1388,24 @@ def redim_xl_range(value, dim_min, dim_max=None):
     :return: reshaped value
     :rtype: list of lists, list, value
 
-    Example::
 
-        >>> redim_xl_range([1, 2], 2)
+    Examples::
+
+        >>> redim_captured_values([1, 2], 2)
         [[1, 2]]
 
-        >>> redim_xl_range([[1, 2]], 1)
+        >>> redim_captured_values([[1, 2]], 1)
         [[1, 2]]
 
-        >>> redim_xl_range([[1, 2]], 1, 1)
+        >>> redim_captured_values([[1, 2]], 1, 1)
         [1, 2]
 
-        >>> redim_xl_range([], 2)
+        >>> redim_captured_values([], 2)
         [[]]
 
-        >>> redim_xl_range([[1, 2]], 0, 0)
+        >>> redim_captured_values([[1, 2]], 0, 0)
         Traceback (most recent call last):
-        ValueError: value cannot be reduced of -2
+        ValueError: Cannot reduce Captured-values dimension(2) to (0, 0)!
 
     """
     val_dim = _get_value_dim(value)
@@ -1366,49 +1416,115 @@ def redim_xl_range(value, dim_min, dim_max=None):
             return _redim_value(value, dim_max - val_dim)
         return value
     except:
-        raise ValueError('value cannot be reduced of %d' % (dim_max - val_dim))
+        # TODO: Make redimming use np-arrays.
+        msg = 'Cannot reduce Captured-values dimension({}) to ({}, {})!'
+        raise ValueError(msg.format(val_dim, dim_min, dim_max))
 
 
-def process_xl_table(value, type=None, args=[], kwargs={}, filters=None):
+default_range_filters = {
+    None: {'fun': lambda x: x},  # TODO: Actually redim_captured_values().
+    'df': {'fun': pd.DataFrame},
+    'nparray': {'fun': np.array},
+    'dict': {'fun': dict},
+    'sorted': {'fun': sorted}
+}
+
+
+def process_captured_values(value, type=None, args=(), kws=None, filters=None,
+                            available_filters=default_range_filters):
     """
     Processes the output value of get_rect_range function.
 
-    :param value: matrix or vector or value
+    FIXME: Actually use process_captured_values()!
+
+    :param value: matrix or vector or a scalar-value
     :type value: list of lists, list, value
 
-    :param type: reference type
-    :type type: str, None
-
-    :param args: additional arguments for the construction function
-    :type args: list, optional
-
-    :param kwargs: additional key=value arguments for the construction function
-    :type kwargs: dict, optional
-
-    :param filters:
-    :type filters: list, optional
-
-    :return: processed output value
+    :param str, None type:  
+            The 1st-filter to apply, if missing, applies the mapping found in 
+            the ``None --> <filter`` entry of the `available_filters` dict.
+    :param dict, None kws:  keyword arguments for the filter function
+    :param sequence, None args: 
+            arguments for the type-function
+    :param [(callable, *args, **kws)] filters:  
+            A list of 3-tuples ``(filter_callable, *args, **kws)``
+            to further process range-values.
+    :param dict available_filters:
+            Entries of ``<fun_names> --> <callables>`` for pre-configured 
+            filters available to post-process range-values.
+            The callable for `None` key will be always called
+            to the original values to ensure correct dimensionality
+    :return: processed range-values
     :rtype: given type, or list of lists, list, value
 
-    Example::
+
+    Examples::
 
         >>> value = [[1, 2], [3, 4], [5, 6]]
-        >>> res = process_xl_table(value, type='dict')
+        >>> res = process_captured_values(value, type='dict')
         >>> sorted(res.items())
         [(1, 2),
          (3, 4),
          (5, 6)]
 
         >>> value = [[1, 9], [8, 10], [5, 11]]
-        >>> process_xl_table(value, 
-        ...     filters=[{'type':'sorted', 'kwargs':{'reverse': True}}])
+        >>> process_captured_values(value, 
+        ...     filters=[{'type':'sorted', 'kws':{'reverse': True}}])
         [[8, 10],
          [5, 11],
          [1, 9]]
     """
-    val = _function_types[type]['fun'](value, *args, **kwargs)
+    if not kws:
+        kws = {}
+    val = available_filters[type]['fun'](value, *args, **kws)
     if filters:
         for v in filters:
-            val = process_xl_table(val, **v)
+            val = process_captured_values(val, **v)
     return val
+
+
+#### XLRD HELPER FUNCS ###
+
+def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
+    """
+    Opens the excel workbook of an excel ref.
+
+    :param dict xl_ref_child: excel ref of the child
+
+    :param xl_ref_parent: excel ref of the parent
+    :type xl_ref_parent: dict, None
+
+    """
+    url_fl = xl_ref_child['url_file']
+    try:
+        if url_fl:
+            wb = open_workbook(file_contents=urlopen(url_fl).read())
+        else:
+            wb = xl_ref_parent['xl_workbook']
+        xl_ref_child['xl_workbook'] = wb
+
+    except Exception as ex:
+        raise ValueError("Invalid excel-file({}) due to:{}".format(url_fl, ex))
+
+
+def open_xl_sheet(xl_ref_child, xl_ref_parent=None):
+    """
+    Opens the excel sheet of an excel ref.
+
+    :param dict xl_ref_child: excel ref of the child
+
+    :param xl_ref_parent: excel ref of the parent
+    :type xl_ref_parent: dict, None
+
+    """
+    try:
+        if xl_ref_child['sheet']:
+            wb = xl_ref_child['xl_workbook']
+            sheet = wb.sheet_by_name(xl_ref_child['sheet'])
+        else:
+            sheet = xl_ref_parent['xl_sheet']
+        xl_ref_child['xl_sheet'] = sheet
+
+    except Exception as ex:
+        sh = xl_ref_child['sheet']
+        raise ValueError("Invalid excel-sheet({}) due to:{}".format(sh, ex))

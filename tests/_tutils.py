@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 DEFAULT_LOG_LEVEL = logging.INFO
 
 
+# TODO: Make it public
 def _init_logging(module_name, loglevel=DEFAULT_LOG_LEVEL):
     logging.basicConfig(level=loglevel)
     logging.getLogger().setLevel(level=loglevel)
@@ -29,6 +30,22 @@ def _init_logging(module_name, loglevel=DEFAULT_LOG_LEVEL):
     log.trace = lambda *args, **kws: log.log(0, *args, **kws)
 
     return log
+
+_xl_installed = None
+
+
+def check_xl_installed():
+    """Checks once and returns `True` if Excel-app is installed in the system."""
+    global _xl_installed
+    if _xl_installed is None:
+        try:
+            from win32com.client import dynamic
+            dynamic.Dispatch('Excel.Application')
+            _xl_installed = True
+        except Exception:  # pragma: no cover
+            _xl_installed = False
+
+    return _xl_installed
 
 
 class CustomAssertions(object):

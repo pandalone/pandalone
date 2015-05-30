@@ -10,7 +10,8 @@
 
 import os
 import sys
-import tempfile
+from tests._tutils import (
+    _init_logging, TemporaryDirectory, check_xl_installed)
 import unittest
 
 from numpy import testing as npt
@@ -18,17 +19,10 @@ from pandas.core.generic import NDFrame
 
 import numpy as np
 import pandas as pd
-from tests._tutils import (_init_logging, TemporaryDirectory)
 
 
 log = _init_logging(__name__)
-
-try:
-    from win32com.client import dynamic
-    dynamic.Dispatch('Excel.Application')
-    no_xl = False
-except Exception:  # pragma: no cover
-    no_xl = True
+xl_installed = check_xl_installed()
 
 
 def from_my_path(*parts):
@@ -51,7 +45,7 @@ def close_workbook(wb):
         log.warning('Minor failure while closing Workbook!', exc_info=True)
 
 
-@unittest.skipIf(no_xl, "Cannot test xlwings in Linux or without MS Excel.")
+@unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
 class TestExcel(unittest.TestCase):
 
     def test_build_excel(self):

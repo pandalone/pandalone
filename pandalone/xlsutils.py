@@ -7,15 +7,13 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 
 import glob
+from jsonschema._utils import URIDict
+from jsonschema.compat import urlsplit, urljoin
 import logging
 import operator
 import os
 import re
 from textwrap import dedent
-
-from jsonschema._utils import URIDict
-from jsonschema.compat import urlsplit, urljoin
-import six
 
 import pandas as pd
 

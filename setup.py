@@ -136,8 +136,9 @@ install_requires = [
     'jsonschema >= 2.4',
     'numpy >= 1.7',
     'pandas >= 0.15.0',
-    'xlrd',
-    'Pillow',   # For UI About boxes
+    'xlrd', 
+    'openpyxl==1.8.6', ## TODO: openpyxl-444 & pandas-10125
+    'Pillow',          ## For UI About boxes
     'doit >= 0.28',
     'networkx',
 ]
