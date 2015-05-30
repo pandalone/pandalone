@@ -207,7 +207,10 @@ setup(
     ],
     test_suite='nose.collector',
     extras_require={
-        ':python_version == "2.7"': ['mock'],  # See PEP-426
+        ':python_version == "2.7"': [  # See PEP-426
+                'mock',
+                'pathlib',  ## TODO: Remove pathlib when use `python-future`. 
+                ], 
     },
     entry_points={
         'console_scripts': [

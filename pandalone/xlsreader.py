@@ -8,34 +8,96 @@
 """
 A mini-language to capture rectangular-ranges from Excel-sheets by scanning empty/full cells.
 
-.. seealso:: Example spreadsheet: :download:`xls_ref.xlsx`
+.. default-role:: term
 
-Excel-ref
-=========
 
-Syntax::
+Introduction
+============
+
+The purpose of this library is to use of simple traversal operations 
+to extract rectangular `regions` from excel-sheets when their exact positions 
+is not known beforehand.
+
+The `capturing` depends only on the full/empty `state` of the cells, 
+and not on their values . Use another library (i.e. "pandas") to examine 
+the values of the `capture-region' afterwards.
+
+
+Excel-ref Syntax
+----------------
+::
 
     <1st-cell>[:[<2nd-cell>][:<expansions>]][<filters>]
     :
 
 
-Annotated example::
+Annotated example
+-----------------
+::
 
     target-moves───┐
     cell-coords──────┐ │
                     ┌┤┌┴─┐
-                    A1(RD):..(RD):L?DR{"fun": "df", "kws": {"header": false}}
+                    A1(RD):..(RD):L1DR{"type": "df", "kws": {"header": false}}
                     └─┬──┘ └─┬──┘ └┬─┘└───────────────┬─────────────────────┘
     1st-cell-pos──────┘      │     │                  │
     2nd-cell-pos─────────────┘     │                  │
     range-expansions───────────────┘                  │
     filters───────────────────────────────────────────┘
 
+which means:
+
+    Capture any rectangular range from the 1st `full-cell` beyond ``A1`` 
+    while *moving* Right and Down, till the 1st `exterior` `empty-cell`;
+    then try to `expand` the `capture-range` once to the Left,
+    and then Down and Right untill a full-empty line/row is met, repectively.
+
+
+.. seealso:: Example spreadsheet: :download:`xls_ref.xlsx`
+
+Example
+-------
+::
+
+      A B C D E
+    1  ┌───────┐   
+    2  │  X X  │ 
+    3  │X X    │ 
+    3  │X      │ 
+    4  │  X   X│
+       └───────┴─► Β2:E4   ^^.__    A1(RD):__:L1   ^^(DR)..(DR):U1DR
+
+
+      A B C D E
+    1  ┌─────┐   
+    2  │  X X│ 
+    3  │X X  │ 
+    3  │X    │ 
+    4  │  X  │X
+       └─────┴───► Β2:D_   A1(RD):..(RD):L1D   C_:^^   A^(DR):C_:U
+
+
+      A B C D E
+    1    ┌───┐   
+    2    │X X│ 
+    3   X│X  │
+         └───┴───► ^^(RD):..(RD)   _^(R):^.(DR) 
+    3   X      
+    4     X   X
+
+
+      A B C D E
+    1  ┌───┐   
+    2  │  X│X  
+    3  │X X│   
+    3  │X  │   
+    4  │  X│  X
+       └───┴─────► Β2:C4   A1(RD):^_   C_:^^   A^(DR):C_:U   ^^(RD):..(D):D
+
 
 Definitions
------------
+===========
 
-.. default-role:: term
 .. glossary::
 
     excel-url
@@ -55,15 +117,13 @@ Definitions
         It actually specifies 2 cells, `start-cell` and `target-cell`.
 
     coord
-    coords
     coordinate
+        Either a *cell-column* (in letters) or *cell-row* (number);
+        each one might be `absolute` or `dependent`, independently.
+
+    coords
     coordinates
-    cell-coords
-    row-coordinate
-    row-coord
-    column-coordinate
-    col-coord
-        The cell-column (in letters) and cell-row (number) of a cell.
+        The column/row pair of a `start-cell`.
 
     absolute-coordinate
     absolute
@@ -78,21 +138,37 @@ Definitions
         Any `2nd-cell` `coordinate` identified with a dot(``.``),
         which means that:
 
-            > 2nd-start-cell coordinate = 1st target-cell coordinate
+            *"2nd-start-cell coordinate = 1st target-cell coordinate"*
 
         The `2nd-cell` might contain a "mix" of `absolute` and *dependent* 
         coordinates.
 
+    directions
     primitive-directions
-        The 4 *primitive-directions* in are denoted with one of the letters
+        The 4 *primitive-directions* that are denoted with one of the letters
         ``LURD``.
-    
+
     target-moves
+        Specify the traversing order while `targeting` from `start-cell`, 
+        based on `primitive-directions` pairs; so ``DR`` means:  
+        
+            *"Start going right, column-by-column, travesring columns 
+            from top to bottom."*
+        
+        The pairs ``UD`` and ``LR`` (and their inverse) are invalid.
+
     targeting
-        A single or a pair of the 4 `primitive-directions` letters, 
-        specified inside the `cell-pos` parenthesis that follows 
-        the `coordinates` of the `start-cell`
-        The pairs ``UD`` and ``LR``, and their inverse, are invalid.
+        The search for the `target-cell` starts from the `start-cell`,
+        follows the specified `target-moves`, and ends when a `state-change` 
+        is detected on an `exterior` column or row.
+        column or row, according to the enacted `termination-rule`.
+
+    exterior
+    exterior-column
+    exterior-row
+        The column and the row of the `start-cell`; Any `state-change` on 
+        them, triggers the `termination-rule`.
+
 
     start-cell
     start
@@ -104,14 +180,12 @@ Definitions
         Failure to identify a target-cell raises an error.
 
     1st-cell
-    1st-cell-pos
     1st-start-cell
     1st-target-cell
         The`capturing` STARTS from the `target` of *this* `cell-pos`.
         It supports `absolute` coordinates only.
 
     2nd-cell
-    2nd-cell-pos
     2nd-start-cell
     2nd-target-cell
         The `capturing` STOPS at the `target` of this `cell-pos`.
@@ -129,14 +203,23 @@ Definitions
         the `1st-target-cell` to the `2nd-target-cell`.
 
     state
-    cell-state
-        Whether a cell is empty or full(non-empty).
+    full-cell
+    empty-cell
+        A cell is *full* when it is not *empty* or *blank* 
+        (in Excel's parlance).
+
+    state-change
+        Whether we are traversing from an `empty-cell` to a `full-cell`, and
+        vice-versa, while `targeting`.
 
     termination-rule
-    target-termination-rule
-        The condition for stopping `target-moves` while searching for 
-        a `target-cell`.
-        It can be either `search-same` or `search-opposite`.
+        The condition to stop `targeting` while traversing an `exterior` 
+        column/row and detecting a `state-change`.
+        The are 2 rules: `search-same` and `search-opposite`.
+        
+        .. seealso:: 
+            Check `Target-termination rules`_ for when each rule 
+            applies.
 
     search-same
         The `target-cell` is the LAST cell with the SAME `state` as
@@ -146,20 +229,26 @@ Definitions
         The `target-cell` is the FIRST cell with OPPOSITE `state` from 
         the `start-cell`, while `targeting` from it.
 
-    range-expansions
+    expand
     expansions
-        How to expand the initial `capture-range`.
-        It can be an arbitrary combinations for the ``LURD?`` letters,
-        with repetitions.
+    range-expansions
+        Due to `state-change` on the 'exterior' cells the `capture-range` 
+        might be smaller that a wider contigious but "convex" rectangular area.
+        
+        The * expansions* attempt to remedy this by providing for expanding on 
+        arbitrary `directions` accompanied by a multiplicity for each one.
+        If multiplicity is unspecified, infinite assumed, so it exampndas 
+        until an empty/full row/column is met.
 
     filter
     filters
     filter-function
-    filter-functions
         Predefined functions to apply for transforming the `capture-range`
         specified as nested *json* dictionaries.
 
 
+Details
+=======
 
 Target-moves
 -------------
@@ -187,8 +276,8 @@ letters denoting the 4 primitive directions, ``LURD``::
 So a ``RD`` move means *"traverse cells first by rows then by columns"*, 
 or more lengthy description would be:
 
-  > Start moving *right* till 1st state change, and then 
-  > move *down* to the next row, and start traversing right again."
+    *"Start moving *right* till 1st state change, and then 
+    move *down* to the next row, and start traversing right again."*
 
 
 Target-cells
@@ -277,7 +366,7 @@ In the above example-sheet, here are some ways to specify ranges::
 
 
 Target-termination rules
---------------------------
+------------------------
 
 - For the 1st target-cell:
   Target-cell is identified using `search-opposite` rule.
@@ -306,7 +395,7 @@ directions using a 3rd ``:``-section like that::
 
 This particular case means:
 
-  > Try expanding Right and Down repeatedly and then try once Left and Up.
+     *"Try expanding Right and Down repeatedly and then try once Left and Up."*
 
 Expansion happens on a row-by-row or column-by-column basis, and terminates 
 when a full empty(or non-empty) line is met.
@@ -337,32 +426,34 @@ Example-refs are given below for capturing the 2 marked tables::
 .. default-role:: obj
 
 """
-import re
-import json
-import datetime
-import pandas as pd
-import numpy as np
-from string import ascii_uppercase
 from collections import namedtuple
-import itertools as itt
-
-# noinspection PyUnresolvedReferences
-from six.moves.urllib.parse import urldefrag  # @UnresolvedImport
-# noinspection PyUnresolvedReferences
-from six.moves.urllib.request import urlopen  # @UnresolvedImport
-
-import xlrd
+import datetime
+from distutils.version import LooseVersion
+import json
+import logging
+import re
+from string import ascii_uppercase
 
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
                   XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER,
                   open_workbook)
+import xlrd
 
-from distutils.version import LooseVersion
+import itertools as itt
+import numpy as np
+import pandas as pd
+from six.moves.urllib.parse import urldefrag  # @UnresolvedImport
+from six.moves.urllib.request import urlopen  # @UnresolvedImport
 
+
+# noinspection PyUnresolvedReferences
+# noinspection PyUnresolvedReferences
 if LooseVersion(xlrd.__VERSION__) >= LooseVersion("0.9.3"):
     xlrd_0_9_3 = True
 else:
     xlrd_0_9_3 = False
+
+log = logging.getLogger(__name__)
 
 
 _special_coords = {'^', '_', '.'}
@@ -706,7 +797,8 @@ def parse_xl_ref(xl_ref):
         return r
 
     except Exception as ex:
-        raise ValueError("Invalid excel-ref({}) due to: {}".format(xl_ref, ex))
+        log.debug("Invalid excel-ref(%s) due to: %s", xl_ref, ex, exc_info=1)
+        raise ValueError("Invalid excel-ref({})!".format(xl_ref))
 
 
 def parse_xl_url(url):
@@ -780,7 +872,7 @@ def get_sheet_margins(full_cells):
 
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
                                 blank or empty. Use :func:`get_full_cells()`.
-    return:  a 2-tuple with margins and indixes for full-cells
+    :return:  a 2-tuple with margins and indixes for full-cells
 
 
     Examples::
@@ -1446,7 +1538,7 @@ def process_captured_values(value, type=None, args=(), kws=None, filters=None,
     :param dict, None kws:  keyword arguments for the filter function
     :param sequence, None args: 
             arguments for the type-function
-    :param [(callable, *args, **kws)] filters:  
+    :param list filters:  
             A list of 3-tuples ``(filter_callable, *args, **kws)``
             to further process range-values.
     :param dict available_filters:

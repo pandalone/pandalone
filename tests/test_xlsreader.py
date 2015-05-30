@@ -10,6 +10,8 @@ from __future__ import division, print_function, unicode_literals
 
 from datetime import datetime
 import doctest
+import os
+from pathlib import posixpath
 import sys
 from tests import _tutils
 from tests._tutils import check_xl_installed
@@ -37,9 +39,13 @@ def _make_xl_margins(sheet):
 
 def _make_sample_workbook(path, matrix, sheet_name, startrow=0, startcol=0):
     df = pd.DataFrame(matrix)
-    writer = pd.ExcelWriter(path)
-    df.to_excel(writer, sheet_name, startrow=startrow, startcol=startcol)
-    writer.save()
+    with pd.ExcelWriter(path) as writer:
+        df.to_excel(writer, sheet_name, startrow=startrow, startcol=startcol)
+
+
+def _make_local_url(fname, fragment=''):
+    fpath = os.path.abspath(fname)
+    return r'file:///{}#{}'.format(fpath, fragment)
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
@@ -57,19 +63,15 @@ class TestXlsReader(unittest.TestCase):
     @unittest.skip('Needs conversion to new logic.')
     def test_single_value_get_rect_range(self):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
-            file_path = 'sample.xlsx'
-            _make_sample_workbook(file_path,
+            wb_fname = 'sample.xlsx'
+            _make_sample_workbook(wb_fname,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
                                   'Sheet1',
                                   startrow=5, startcol=3)
 
             # load sheet for --> get_rect_range
-            if tmpdir[0] != '/':
-                url = '/'.join(['', tmpdir, file_path])
-            else:
-                url = '/'.join([tmpdir, file_path])
-
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
+            fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
+            url = _make_local_url(wb_fname, fragment)
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(
                 file_contents=urlopen(res['url_file']).read())
@@ -90,19 +92,15 @@ class TestXlsReader(unittest.TestCase):
     @unittest.skip('Needs conversion to new logic.')
     def test_vector_get_rect_range(self):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
-            file_path = 'sample.xlsx'
-            _make_sample_workbook(file_path,
+            wb_fname = 'sample.xlsx'
+            _make_sample_workbook(wb_fname,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
                                   'Sheet1',
                                   startrow=5, startcol=3)
 
             # load sheet for --> get_rect_range
-            if tmpdir[0] != '/':
-                url = '/'.join(['', tmpdir, file_path])
-            else:
-                url = '/'.join([tmpdir, file_path])
-
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
+            fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
+            url = _make_local_url(wb_fname, fragment)
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(
                 file_contents=urlopen(res['url_file']).read())
@@ -165,19 +163,15 @@ class TestXlsReader(unittest.TestCase):
     @unittest.skip('Needs conversion to new logic.')
     def test_matrix_get_rect_range(self):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
-            file_path = 'sample.xlsx'
-            _make_sample_workbook(file_path,
+            wb_fname = 'sample.xlsx'
+            _make_sample_workbook(wb_fname,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
                                   'Sheet1',
                                   startrow=5, startcol=3)
 
             # load sheet for --> get_rect_range
-            if tmpdir[0] != '/':
-                url = '/'.join(['', tmpdir, file_path])
-            else:
-                url = '/'.join([tmpdir, file_path])
-
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
+            fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
+            url = _make_local_url(wb_fname, fragment)
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(
                 file_contents=urlopen(res['url_file']).read())
@@ -342,17 +336,13 @@ class TestXlsReader(unittest.TestCase):
 
     def test_parse_cell(self):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
-            file_path = 'sample.xlsx'
+            wb_fname = 'sample.xlsx'
             xl = [datetime(1900, 8, 2), True, None, u'', 'hi', 1.4, 5.0]
-            _make_sample_workbook(file_path, xl, 'Sheet1')
+            _make_sample_workbook(wb_fname, xl, 'Sheet1')
 
             # load sheet for --> get_rect_range
-            if tmpdir[0] != '/':
-                url = '/'.join(['', tmpdir, file_path])
-            else:
-                url = '/'.join([tmpdir, file_path])
-
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
+            fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
+            url = _make_local_url(wb_fname, fragment)
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(
                 file_contents=urlopen(res['url_file']).read())
@@ -367,19 +357,15 @@ class TestXlsReader(unittest.TestCase):
 
     def test_comparison_vs_pandas_parse_cell(self):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
-            file_path = 'sample.xlsx'
+            wb_fname = 'sample.xlsx'
+            wb_fpath = os.path.abspath(wb_fname)
             xl = [datetime(1900, 8, 2), True, None, u'', 'hi', 1.4, 5.0]
-            _make_sample_workbook(file_path,
+            _make_sample_workbook(wb_fname,
                                   xl,
                                   'Sheet1')
 
             # load sheet for --> get_rect_range
-            if tmpdir[0] != '/':
-                url = '/'.join(['', tmpdir, file_path])
-            else:
-                url = '/'.join([tmpdir, file_path])
-
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
+            url = 'file:///%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % wb_fpath
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(
                 file_contents=urlopen(res['url_file']).read())
@@ -392,7 +378,7 @@ class TestXlsReader(unittest.TestCase):
 
             res = xr.get_xl_table(*args)
 
-            df = pd.read_excel(file_path, 'Sheet1')[0]
+            df = pd.read_excel(wb_fname, 'Sheet1')[0]
 
             # in pandas None values are converted in float('nan')
             df = df.where(pd.notnull(df), None).values.tolist()
@@ -402,17 +388,14 @@ class TestXlsReader(unittest.TestCase):
     def test_open_xl_workbook(self):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             df = pd.DataFrame()
-            file_path = 'sample.xlsx'
-            writer = pd.ExcelWriter(file_path)
+            wb_fname = 'sample.xlsx'
+            wb_fpath = os.path.abspath(wb_fname)
+            writer = pd.ExcelWriter(wb_fname)
             df.to_excel(writer, 'Sheet1')
             writer.save()
             # load sheet for --> get_rect_range
-            if tmpdir[0] != '/':
-                url = '/'.join(['', tmpdir, file_path])
-            else:
-                url = '/'.join([tmpdir, file_path])
 
-            url_parent = 'file://%s#Sheet1!A1' % url
+            url_parent = 'file:///%s#Sheet1!A1' % wb_fpath
             xl_ref_parent = xr.parse_xl_url(url_parent)
             xr.open_xl_workbook(xl_ref_parent)
 
@@ -430,18 +413,14 @@ class TestXlsReader(unittest.TestCase):
     def test_open_xl_sheet(self):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             df = pd.DataFrame()
-            file_path = 'sample.xlsx'
-            writer = pd.ExcelWriter(file_path)
+            wb_fname = 'sample.xlsx'
+            writer = pd.ExcelWriter(wb_fname)
             df.to_excel(writer, 'Sheet1')
             df.to_excel(writer, 'Sheet2')
             writer.save()
             # load sheet for --> get_rect_range
-            if tmpdir[0] != '/':
-                url = '/'.join(['', tmpdir, file_path])
-            else:
-                url = '/'.join([tmpdir, file_path])
-
-            url_parent = 'file://%s#Sheet1!A1' % url
+            fragment = 'Sheet1!A1'
+            url_parent = _make_local_url(wb_fname, fragment)
             xl_ref_parent = xr.parse_xl_url(url_parent)
             xr.open_xl_workbook(xl_ref_parent)
             xr.open_xl_sheet(xl_ref_parent)
@@ -477,26 +456,25 @@ class TestVsXlwings(unittest.TestCase):
         import xlwings as xw
 
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
-            file_path = 'sample.xlsx'
-            _make_sample_workbook(file_path,
-                                  [[1, 2, None], [None, 6.1, 7.1]],
-                                  'Sheet1',
-                                  startrow=5, startcol=3)
+            wb_fname = 'sample.xlsx'
+            wb_fpath = os.path.abspath(wb_fname)
+            _make_sample_workbook(wb_fname, [
+                [1, 2, None],
+                [None, 6.1, 7.1]
+            ],
+                'Sheet1',
+                startrow=5, startcol=3)
 
-            # load sheet for --> get_rect_range
-            if tmpdir[0] != '/':
-                url = '/'.join(['', tmpdir, file_path])
-            else:
-                url = '/'.join([tmpdir, file_path])
-
-            url = 'file://%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % url
+            fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
+            url = _make_local_url(wb_fname, fragment)
             res = xr.parse_xl_url(url)
             wb = xd.open_workbook(
                 file_contents=urlopen(res['url_file']).read())
             sheet = wb.sheet_by_name(res['sheet'])
             datemode = wb.datemode
+
             # load Workbook for --> xlwings
-            wb = xw.Workbook('/'.join([tmpdir, file_path]))
+            wb = xw.Workbook(wb_fpath)
             res = {}
             res[0] = xw.Range("Sheet1", "D7").vertical.value
             res[1] = xw.Range("Sheet1", "E6").vertical.value
