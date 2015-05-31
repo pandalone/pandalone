@@ -36,8 +36,8 @@ Excel-ref Syntax
     :
 
 
-Annotated syntax-example
-------------------------
+Annotated Syntax
+----------------
 ::
 
     target-moves────────┐
@@ -52,11 +52,13 @@ Annotated syntax-example
 
 Which means:
 
-    Capture any rectangular range from the 1st `full-cell` beyond ``A1``
-    while *moving* Right and Down, till the 1st `exterior` `empty-cell`;
-    then try to `expand` the `capture-range` once to the Left,
-    and then Down and Right until a full-empty line/row is met, respectively;
-    Finally `filter` captured cells to wrap them up in a pandas DataFrame.
+    * `target` the 1st `full-cell` beyond ``A1`` traversing row by row 
+      to the right and down;
+    * from this point continue right-down to `target` the `2nd-cell`;
+    * `capture` the cells in between.
+    * try to `expand` the `capture-range` once to the left,
+      and then down and right until a full-empty line/row is met, respectively;
+    * finally `filter` captured cells to wrap them up in a pandas DataFrame.
 
 
 Examples
@@ -530,7 +532,7 @@ _re_range_expansion_parser = re.compile(
     $""", re.IGNORECASE | re.X)
 
 
-CellPos = namedtuple('CellPos', ['cell', 'mov'])
+Target = namedtuple('Target', ['cell', 'mov'])
 
 
 Cell = namedtuple('Cell', ['row', 'col'])
@@ -635,7 +637,7 @@ def col2num(coord):
         raise ValueError('Invalid column({!r})!'.format(coord))
 
 
-def make_CellPos(cell_col, cell_row, cell_mov):
+def _make_Target(cell_col, cell_row, cell_mov):
     """
     Fetch a cell reference string.
 
@@ -650,33 +652,33 @@ def make_CellPos(cell_col, cell_row, cell_mov):
 
     :return:
         a cell-start
-    :rtype: CellPos
+    :rtype: Target
 
 
     Examples::
-        >>> make_CellPos('A', '1', 'R')
-        CellPos(cell=Cell(row=0, col=0), mov='R')
+        >>> _make_Target('A', '1', 'R')
+        Target(cell=Cell(row=0, col=0), mov='R')
 
-        >>> make_CellPos('^', '^', 'R').cell
+        >>> _make_Target('^', '^', 'R').cell
         Cell(row='^', col='^')
 
-        >>> make_CellPos('_', '_', 'L').cell
+        >>> _make_Target('_', '_', 'L').cell
         Cell(row='_', col='_')
 
-        >>> make_CellPos('.', '.', 'D').cell
+        >>> _make_Target('.', '.', 'D').cell
         Cell(row='.', col='.')
 
-        >>> make_CellPos(None, None, None)
+        >>> _make_Target(None, None, None)
 
-        >>> make_CellPos('1', '.', None)
+        >>> _make_Target('1', '.', None)
         Traceback (most recent call last):
         ValueError: Invalid cell(col='1', row='.') due to: Invalid column('1')!
 
-        >>> make_CellPos('A', 'B', None)
+        >>> _make_Target('A', 'B', None)
         Traceback (most recent call last):
         ValueError: Invalid cell(col='A', row='B') due to: Invalid row('B')!
 
-        >>> make_CellPos('A', '1', 12)
+        >>> _make_Target('A', '1', 12)
         Traceback (most recent call last):
         ValueError: Invalid cell(col='A', row='1') due to:
             'int' object has no attribute 'upper'
@@ -690,7 +692,7 @@ def make_CellPos(cell_col, cell_row, cell_mov):
             col = col2num(cell_col)
             mov = cell_mov.upper() if cell_mov else None
 
-            return CellPos(cell=Cell(col=col, row=row), mov=mov)
+            return Target(cell=Cell(col=col, row=row), mov=mov)
     except Exception as ex:
         msg = 'Invalid cell(col={!r}, row={!r}) due to: {}'
         raise ValueError(msg.format(cell_col, cell_row, ex))
@@ -793,10 +795,10 @@ def parse_xl_ref(xl_ref):
         'Sheet1'
 
         >>> res['st_cell']
-        CellPos(cell=Cell(row=0, col=0), mov='DR')
+        Target(cell=Cell(row=0, col=0), mov='DR')
 
         >>> res['nd_cell']
-        CellPos(cell=Cell(row=19, col=25), mov='UL')
+        Target(cell=Cell(row=19, col=25), mov='UL')
 
         >>> list(chain(*res['rng_exp']))
         ['L', 'U', 'U', 'R', 'D']
@@ -818,10 +820,10 @@ def parse_xl_ref(xl_ref):
         p = r.pop
 
         # fetch 1st cell
-        r['st_cell'] = make_CellPos(p('st_col'), p('st_row'), p('st_mov'))
+        r['st_cell'] = _make_Target(p('st_col'), p('st_row'), p('st_mov'))
 
         # fetch 2nd cell
-        r['nd_cell'] = make_CellPos(p('nd_col'), p('nd_row'), p('nd_mov'))
+        r['nd_cell'] = _make_Target(p('nd_col'), p('nd_row'), p('nd_mov'))
 
         return r
 
@@ -868,7 +870,7 @@ def parse_xl_url(url):
          ('nd_cell', None),
          ('rng_exp', None),
          ('sheet', 'Sheet1'),
-         ('st_cell', CellPos(cell=Cell(row=0, col=0), mov=None)),
+         ('st_cell', Target(cell=Cell(row=0, col=0), mov=None)),
          ('url_file', 'file:///sample.xlsx')]
 
     """
@@ -892,8 +894,11 @@ def get_sheet_margins(full_cells):
 
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
                                 blank or empty. Use :func:`get_full_cells()`.
-    :return:  a 2-tuple with zero-based margins and indixes for full-cells
+    :return:  a 2-tuple with:
 
+              - a `Cell` with zero-based margins for rows/cols, 
+              - indices for full-cells
+    :rtype: tuple
 
     Examples::
 
@@ -929,10 +934,9 @@ def get_sheet_margins(full_cells):
     indices = np.array(np.where(full_cells)).T  # XXX: Loads all sheet here?!?
     up_r, up_c = indices.min(0)
     dn_r, dn_c = indices.max(0)
-    sheet_margins = (
-        {'^': up_r, '_': dn_r},
-        {'^': up_c, '_': dn_c},
-    )
+    sheet_margins = Cell(
+        row={'^': up_r, '_': dn_r},
+        col={'^': up_c, '_': dn_c})
     return sheet_margins, indices.tolist()
 
 
@@ -966,7 +970,7 @@ def _get_abs_coord(coord, coord_margins, pcoord=None):
     return coord_margins.get(coord, coord)
 
 
-def resolve_cell(cell, sheet_margins, pcell=None):
+def _resolve_cell(cell, sheet_margins, pcell=None):
     """
     Translates any special coords to absolute ones.
 
@@ -977,12 +981,21 @@ def resolve_cell(cell, sheet_margins, pcell=None):
 
     Examples::
 
-        >>> resolve_cell(Cell(3, 1), [{},{}])
-        Cell(row=3, col=1)
+        >>> margins = Cell(
+        ...     row={'^':1, '_':10},
+        ...     col={'^':2, '_':6})
+        >>> _resolve_cell(Cell(4, 5), margins)
+        Cell(row=4, col=5)
+
+        >>> _resolve_cell(Cell('^', '^'), margins)
+        Cell(row=1, col=2)
+
+        >>> _resolve_cell(Cell('_', '_'), margins)
+        Cell(row=10, col=6)
 
     """
-    row = _get_abs_coord(cell.row, sheet_margins[0], pcell and pcell.row)
-    col = _get_abs_coord(cell.col, sheet_margins[1], pcell and pcell.col)
+    row = _get_abs_coord(cell.row, sheet_margins.row, pcell and pcell.row)
+    col = _get_abs_coord(cell.col, sheet_margins.col, pcell and pcell.col)
 
     return Cell(row=row, col=col)
 
@@ -1243,8 +1256,8 @@ def resolve_capture_range(full_cells, sheet_margins, st_cell,
     :param ndarray full_cells:
             A boolean ndarray with `False` wherever cell are
             blank or empty. Use :func:`get_full_cells()`.
-    :param CellPos st_cell:
-    :param CellPos nd_cell:
+    :param Target st_cell:
+    :param Target nd_cell:
     :param rng_exp:
     :return: a ``(Cell, Cell)`` with the 1st and 2nd bouding-cells of the range
     :rtype: tuple
@@ -1263,20 +1276,20 @@ def resolve_capture_range(full_cells, sheet_margins, st_cell,
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
         >>> sheet_margins, _ = get_sheet_margins(full_cells)
-        >>> st_cell = CellPos(Cell(0, 0), 'DR')
-        >>> nd_cell = CellPos(Cell('.', '.'), 'DR')
+        >>> st_cell = Target(Cell(0, 0), 'DR')
+        >>> nd_cell = Target(Cell('.', '.'), 'DR')
         >>> resolve_capture_range(full_cells, sheet_margins,
         ...         st_cell, nd_cell)
         (Cell(row=6, col=3), Cell(row=7, col=3))
 
-        >>> nd_cell = CellPos(Cell(7, 6), 'UL')
+        >>> nd_cell = Target(Cell(7, 6), 'UL')
         >>> resolve_capture_range(full_cells, sheet_margins,
         ...         st_cell, nd_cell)
         (Cell(row=5, col=3), Cell(row=6, col=3))
     """
     dn = (sheet_margins[0]['_'], sheet_margins[1]['_'])
 
-    st = resolve_cell(st_cell.cell, sheet_margins)
+    st = _resolve_cell(st_cell.cell, sheet_margins)
     try:
         state = full_cells[st]
     except IndexError:
@@ -1289,7 +1302,7 @@ def resolve_capture_range(full_cells, sheet_margins, st_cell,
     if nd_cell is None:
         nd = Cell(*st)
     else:
-        nd = resolve_cell(nd_cell.cell, sheet_margins, st)
+        nd = _resolve_cell(nd_cell.cell, sheet_margins, st)
 
         if nd_cell.mov is not None:
             mov = nd_cell.mov
@@ -1335,8 +1348,8 @@ def read_range_values(sheet, xl_range, indices, epoch1904=False):
         >>> sheet_margins, indices = get_sheet_margins(get_full_cells(sheet))
 
         # minimum matrix in the sheet
-        >>> st = resolve_cell(Cell('^', '^'), sheet_margins)
-        >>> nd = resolve_cell(Cell('_', '_'), sheet_margins)
+        >>> st = _resolve_cell(Cell('^', '^'), sheet_margins)
+        >>> nd = _resolve_cell(Cell('_', '_'), sheet_margins)
         >>> read_range_values(sheet, (st, nd), indices)
         [[None, 0, 1, 2],
          [0, None, None, None],
@@ -1347,20 +1360,20 @@ def read_range_values(sheet, xl_range, indices, epoch1904=False):
         [0]
 
         # get column vector
-        >>> st = resolve_cell(Cell(0, 3), sheet_margins)
-        >>> nd = resolve_cell(Cell('_', 3), sheet_margins)
+        >>> st = _resolve_cell(Cell(0, 3), sheet_margins)
+        >>> nd = _resolve_cell(Cell('_', 3), sheet_margins)
         >>> read_range_values(sheet, (st, nd), indices)
         [None, None, None, None, None, None, 0, 1]
 
         # get row vector
-        >>> st = resolve_cell(Cell(5, 0), sheet_margins)
-        >>> nd = resolve_cell(Cell(5, '_'), sheet_margins)
+        >>> st = _resolve_cell(Cell(5, 0), sheet_margins)
+        >>> nd = _resolve_cell(Cell(5, '_'), sheet_margins)
         >>> read_range_values(sheet, (st, nd), indices)
         [None, None, None, None, 0, 1, 2]
 
         # get row vector
-        >>> st = resolve_cell(Cell(5, 0), sheet_margins)
-        >>> nd = resolve_cell(Cell(5, 10), sheet_margins)
+        >>> st = _resolve_cell(Cell(5, 0), sheet_margins)
+        >>> nd = _resolve_cell(Cell(5, 10), sheet_margins)
         >>> read_range_values(sheet, (st, nd), indices)
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
