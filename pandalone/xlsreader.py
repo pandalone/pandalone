@@ -434,10 +434,6 @@ import logging
 import re
 from string import ascii_uppercase
 
-from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
-                  XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER,
-                  open_workbook)
-import xlrd
 
 import itertools as itt
 import numpy as np
@@ -445,13 +441,6 @@ import pandas as pd
 from six.moves.urllib.parse import urldefrag  # @UnresolvedImport
 from six.moves.urllib.request import urlopen  # @UnresolvedImport
 
-
-# noinspection PyUnresolvedReferences
-# noinspection PyUnresolvedReferences
-if LooseVersion(xlrd.__VERSION__) >= LooseVersion("0.9.3"):
-    xlrd_0_9_3 = True
-else:
-    xlrd_0_9_3 = False
 
 log = logging.getLogger(__name__)
 
@@ -855,15 +844,6 @@ def parse_xl_url(url):
 
     except Exception as ex:
         raise ValueError("Invalid excel-url({}) due to: {}".format(url, ex))
-
-
-# noinspection PyProtectedMember
-def get_full_cells(sheet):
-    """
-    Returns a boolean ndarray with `False` wherever cell are blank or empty.
-    """
-    types = np.array(sheet._cell_types)
-    return (types != xlrd.XL_CELL_EMPTY) & (types != xlrd.XL_CELL_BLANK)
 
 
 def get_sheet_margins(full_cells):
@@ -1296,79 +1276,6 @@ def _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell,
         return expand_range(state, (st, nd), full_cells, rng_exp)
 
 
-def _read_cell(cell, epoch1904=False):
-    """
-    Parse a xl-cell.
-
-    :param cell: an excel cell
-    :type cell: xlrd.sheet.Cell
-
-    :param epoch1904:
-        Which date system was in force when this file was last saved.
-        False => 1900 system (the Excel for Windows default).
-        True => 1904 system (the Excel for Macintosh default).
-    :type epoch1904: bool
-
-    :return: formatted cell value
-    :rtype:
-        int, float, datetime.datetime, bool, None, str, datetime.time,
-        float('nan')
-
-
-    Examples::
-
-        >>> import xlrd
-        >>> from xlrd.sheet import Cell
-        >>> _read_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
-        1.2
-
-        >>> _read_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
-        datetime.datetime(1900, 1, 1, 4, 48)
-
-        >>> _read_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
-        'hi'
-    """
-
-    ctype = cell.ctype
-
-    if ctype == XL_CELL_NUMBER:
-        # GH5394 - Excel 'numbers' are always floats
-        # it's a minimal perf hit and less suprising
-        val = int(cell.value)
-        if val == cell.value:
-            return val
-        return cell.value
-    elif ctype in (XL_CELL_EMPTY, XL_CELL_BLANK):
-        return None
-    elif ctype == XL_CELL_TEXT:
-        return cell.value
-    elif ctype == XL_CELL_BOOLEAN:
-        return bool(cell.value)
-    elif ctype == XL_CELL_DATE:  # modified from Pandas library
-        if xlrd_0_9_3:
-            # Use the newer xlrd datetime handling.
-            d = xldate.xldate_as_datetime(cell.value, epoch1904)
-
-            # Excel doesn't distinguish between dates and time, so we treat
-            # dates on the epoch as times only. Also, Excel supports 1900 and
-            # 1904 epochs.
-            epoch = (1904, 1, 1) if epoch1904 else (1899, 12, 31)
-            if (d.timetuple())[0:3] == epoch:
-                d = datetime.time(d.hour, d.minute, d.second, d.microsecond)
-        else:
-            # Use the xlrd <= 0.9.2 date handling.
-            d = xldate.xldate_as_tuple(cell.value, epoch1904)
-            if d[0] < datetime.MINYEAR:  # time
-                d = datetime.time(*d[3:])
-            else:  # date
-                d = datetime.datetime(*d)
-        return d
-    elif ctype == XL_CELL_ERROR:
-        return float('nan')
-
-    raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
-
-
 def read_range_values(sheet, xl_range, indices, epoch1904=False):
     """
 
@@ -1579,7 +1486,20 @@ def process_captured_values(value, type=None, args=(), kws=None, filters=None,
     return val
 
 
-#### XLRD HELPER FUNCS ###
+#### XLRD FUNCS ###
+
+import xlrd
+from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
+                  XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER,
+                  open_workbook)
+
+# noinspection PyUnresolvedReferences
+# noinspection PyUnresolvedReferences
+if LooseVersion(xlrd.__VERSION__) >= LooseVersion("0.9.3"):
+    xlrd_0_9_3 = True
+else:
+    xlrd_0_9_3 = False
+
 
 def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
     """
@@ -1624,3 +1544,85 @@ def open_xl_sheet(xl_ref_child, xl_ref_parent=None):
     except Exception as ex:
         sh = xl_ref_child['sheet']
         raise ValueError("Invalid excel-sheet({}) due to:{}".format(sh, ex))
+
+
+def _read_cell(cell, epoch1904=False):
+    """
+    Parse a xl-cell.
+
+    :param cell: an excel cell
+    :type cell: xlrd.sheet.Cell
+
+    :param epoch1904:
+        Which date system was in force when this file was last saved.
+        False => 1900 system (the Excel for Windows default).
+        True => 1904 system (the Excel for Macintosh default).
+    :type epoch1904: bool
+
+    :return: formatted cell value
+    :rtype:
+        int, float, datetime.datetime, bool, None, str, datetime.time,
+        float('nan')
+
+
+    Examples::
+
+        >>> import xlrd
+        >>> from xlrd.sheet import Cell
+        >>> _read_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
+        1.2
+
+        >>> _read_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
+        datetime.datetime(1900, 1, 1, 4, 48)
+
+        >>> _read_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
+        'hi'
+    """
+
+    ctype = cell.ctype
+
+    if ctype == XL_CELL_NUMBER:
+        # GH5394 - Excel 'numbers' are always floats
+        # it's a minimal perf hit and less suprising
+        val = int(cell.value)
+        if val == cell.value:
+            return val
+        return cell.value
+    elif ctype in (XL_CELL_EMPTY, XL_CELL_BLANK):
+        return None
+    elif ctype == XL_CELL_TEXT:
+        return cell.value
+    elif ctype == XL_CELL_BOOLEAN:
+        return bool(cell.value)
+    elif ctype == XL_CELL_DATE:  # modified from Pandas library
+        if xlrd_0_9_3:
+            # Use the newer xlrd datetime handling.
+            d = xldate.xldate_as_datetime(cell.value, epoch1904)
+
+            # Excel doesn't distinguish between dates and time, so we treat
+            # dates on the epoch as times only. Also, Excel supports 1900 and
+            # 1904 epochs.
+            epoch = (1904, 1, 1) if epoch1904 else (1899, 12, 31)
+            if (d.timetuple())[0:3] == epoch:
+                d = datetime.time(d.hour, d.minute, d.second, d.microsecond)
+        else:
+            # Use the xlrd <= 0.9.2 date handling.
+            d = xldate.xldate_as_tuple(cell.value, epoch1904)
+            if d[0] < datetime.MINYEAR:  # time
+                d = datetime.time(*d[3:])
+            else:  # date
+                d = datetime.datetime(*d)
+        return d
+    elif ctype == XL_CELL_ERROR:
+        return float('nan')
+
+    raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
+
+
+# noinspection PyProtectedMember
+def get_full_cells(sheet):
+    """
+    Returns a boolean ndarray with `False` wherever cell are blank or empty.
+    """
+    types = np.array(sheet._cell_types)
+    return (types != XL_CELL_EMPTY) & (types != XL_CELL_BLANK)

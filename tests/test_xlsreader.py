@@ -227,7 +227,7 @@ class TestXlsReader(unittest.TestCase):
                 [0, None, None],
                 [1, 5.1, 6.1]
             ]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(xr.re_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [E:F8]
             args = (sheet, xr.CellPos(None, 6), xr.CellPos(5, 7))
