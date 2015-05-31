@@ -1128,7 +1128,7 @@ def _search_same_state(state, cell, full_cells, up, dn, moves):
     return Cell(*c1)
 
 
-def expand_range(state, xl_range, full_cells, rng_exp):
+def _expand_range(state, xl_range, full_cells, rng_exp):
     """
 
     :param state:
@@ -1155,22 +1155,22 @@ def expand_range(state, xl_range, full_cells, rng_exp):
         ... ])
         >>> rng = (Cell(row=6, col=3), Cell(row=6, col=3))
         >>> rng_exp = [_repeat_moves('U', times=10)]
-        >>> expand_range(True, rng, full_cells, rng_exp)
+        >>> _expand_range(True, rng, full_cells, rng_exp)
         [Cell(row=6, col=3), Cell(row=6, col=3)]
 
         >>> rng = (Cell(row=6, col=3), Cell(row=7, col=3))
         >>> rng_exp = [_repeat_moves('R', times=10)]
-        >>> expand_range(True, rng, full_cells, rng_exp)
+        >>> _expand_range(True, rng, full_cells, rng_exp)
         [Cell(row=6, col=3), Cell(row=7, col=6)]
 
         >>> rng = (Cell(row=6, col=3), Cell(row=10, col=3))
         >>> rng_exp = [_repeat_moves('R', times=10)]
-        >>> expand_range(True, rng, full_cells, rng_exp)
+        >>> _expand_range(True, rng, full_cells, rng_exp)
         [Cell(row=6, col=3), Cell(row=10, col=6)]
 
         >>> rng = (Cell(row=6, col=5), Cell(row=6, col=5))
         >>> rng_exp = [_repeat_moves('LURD')]
-        >>> expand_range(True, rng, full_cells, rng_exp)
+        >>> _expand_range(True, rng, full_cells, rng_exp)
         [Cell(row=5, col=3), Cell(row=7, col=6)]
 
     """
@@ -1273,7 +1273,7 @@ def _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell,
     if rng_exp is None:
         return (st, nd)
     else:
-        return expand_range(state, (st, nd), full_cells, rng_exp)
+        return _expand_range(state, (st, nd), full_cells, rng_exp)
 
 
 def read_range_values(sheet, xl_range, indices, epoch1904=False):
