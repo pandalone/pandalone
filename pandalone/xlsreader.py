@@ -798,7 +798,7 @@ def parse_xl_ref(xl_ref):
 
     except Exception as ex:
         log.debug("Invalid excel-ref(%s) due to: %s", xl_ref, ex, exc_info=1)
-        raise ValueError("Invalid excel-ref({})!".format(xl_ref))
+        raise ValueError("Invalid excel-ref({}) due to: ".format(xl_ref, ex))
 
 
 def parse_xl_url(url):
@@ -950,17 +950,18 @@ def _get_abs_coord(coord, coord_margins, pcoord=None):
     return coord_margins.get(coord, coord)
 
 
-def _make_start_Cell(cell, sheet_margins, pcell=None):
+def resolve_cell(cell, sheet_margins, pcell=None):
     """
-    Makes a Cell by translating any special coords to absolute ones.
+    Translates any special coords to absolute ones.
 
     :param Cell cell:    The cell to translate its coords.
     :param Cell pcell:   The cell to base any dependent coords (``.``).
+    :rtype: Cell
 
 
     Examples::
 
-        >>> _make_start_Cell(Cell(3, 1), {'row':{}, 'col':{}})
+        >>> resolve_cell(Cell(3, 1), {'row':{}, 'col':{}})
         Cell(row=3, col=1)
 
     """
@@ -1224,15 +1225,18 @@ def expand_range(state, xl_range, full_cells, rng_exp):
     return [Cell(*v) for v in xl_range]
 
 
-def _capture_range(full_cells, up, dn, sheet_margins, indices, st_cell,
-                   nd_cell=None, rng_exp=None):
+def _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell,
+                           nd_cell=None, rng_exp=None):
     """
 
-    :param xlrd.sheet.Sheet sheet:
+    :param ndarray full_cells:  
+            A boolean ndarray with `False` wherever cell are
+            blank or empty. Use :func:`get_full_cells()`.
     :param CellPos st_cell:
     :param CellPos nd_cell:
     :param rng_exp:
-    :return:
+    :return: a ``(Cell, Cell)`` with the 1st and 2nd bouding-cells of the range
+    :rtype: tuple
 
 
     Examples::
@@ -1248,18 +1252,18 @@ def _capture_range(full_cells, up, dn, sheet_margins, indices, st_cell,
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
         >>> up, dn = ((0, 0), (7, 6))
-        >>> sheet_margins, ind = get_sheet_margins(full_cells)
+        >>> sheet_margins, _ = get_sheet_margins(full_cells)
         >>> st_cell = CellPos(Cell(0, 0), 'DR')
         >>> nd_cell = CellPos(Cell('.', '.'), 'DR')
-        >>> _capture_range(full_cells, up, dn, sheet_margins, ind, st_cell, nd_cell)
+        >>> _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell, nd_cell)
         (Cell(row=6, col=3), Cell(row=7, col=3))
 
         >>> nd_cell = CellPos(Cell(7, 6), 'UL')
-        >>> _capture_range(full_cells, up, dn, sheet_margins, ind, st_cell, nd_cell)
+        >>> _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell, nd_cell)
         (Cell(row=5, col=3), Cell(row=6, col=3))
     """
 
-    st = _make_start_Cell(st_cell.cell, sheet_margins)
+    st = resolve_cell(st_cell.cell, sheet_margins)
     try:
         state = full_cells[st]
     except IndexError:
@@ -1272,7 +1276,7 @@ def _capture_range(full_cells, up, dn, sheet_margins, indices, st_cell,
     if nd_cell is None:
         nd = Cell(*st)
     else:
-        nd = _make_start_Cell(nd_cell.cell, sheet_margins, st)
+        nd = resolve_cell(nd_cell.cell, sheet_margins, st)
 
         if nd_cell.mov is not None:
             mov = nd_cell.mov
@@ -1292,7 +1296,7 @@ def _capture_range(full_cells, up, dn, sheet_margins, indices, st_cell,
         return expand_range(state, (st, nd), full_cells, rng_exp)
 
 
-def _parse_cell(cell, epoch1904=False):
+def _read_cell(cell, epoch1904=False):
     """
     Parse a xl-cell.
 
@@ -1315,13 +1319,13 @@ def _parse_cell(cell, epoch1904=False):
 
         >>> import xlrd
         >>> from xlrd.sheet import Cell
-        >>> _parse_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
+        >>> _read_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
         1.2
 
-        >>> _parse_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
+        >>> _read_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
         datetime.datetime(1900, 1, 1, 4, 48)
 
-        >>> _parse_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
+        >>> _read_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
         'hi'
     """
 
@@ -1365,7 +1369,7 @@ def _parse_cell(cell, epoch1904=False):
     raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
 
 
-def get_xl_table(sheet, xl_range, indices, epoch1904=False):
+def read_range_values(sheet, xl_range, indices, epoch1904=False):
     """
 
     :param sheet:
@@ -1391,33 +1395,33 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
         >>> sheet_margins, indices = get_sheet_margins(get_full_cells(sheet))
 
         # minimum matrix in the sheet
-        >>> st = _make_start_Cell(Cell('^', '^'), sheet_margins)
-        >>> nd = _make_start_Cell(Cell('_', '_'), sheet_margins)
-        >>> get_xl_table(sheet, (st, nd), indices)
+        >>> st = resolve_cell(Cell('^', '^'), sheet_margins)
+        >>> nd = resolve_cell(Cell('_', '_'), sheet_margins)
+        >>> read_range_values(sheet, (st, nd), indices)
         [[None, 0, 1, 2],
          [0, None, None, None],
          [1, 5.1, 6.1, 7.1]]
 
         # get single value
-        >>> get_xl_table(sheet, (Cell(6, 3), Cell(6, 3)), indices)
+        >>> read_range_values(sheet, (Cell(6, 3), Cell(6, 3)), indices)
         [0]
 
         # get column vector
-        >>> st = _make_start_Cell(Cell(0, 3), sheet_margins)
-        >>> nd = _make_start_Cell(Cell('_', 3), sheet_margins)
-        >>> get_xl_table(sheet, (st, nd), indices)
+        >>> st = resolve_cell(Cell(0, 3), sheet_margins)
+        >>> nd = resolve_cell(Cell('_', 3), sheet_margins)
+        >>> read_range_values(sheet, (st, nd), indices)
         [None, None, None, None, None, None, 0, 1]
 
         # get row vector
-        >>> st = _make_start_Cell(Cell(5, 0), sheet_margins)
-        >>> nd = _make_start_Cell(Cell(5, '_'), sheet_margins)
-        >>> get_xl_table(sheet, (st, nd), indices)
+        >>> st = resolve_cell(Cell(5, 0), sheet_margins)
+        >>> nd = resolve_cell(Cell(5, '_'), sheet_margins)
+        >>> read_range_values(sheet, (st, nd), indices)
         [None, None, None, None, 0, 1, 2]
 
         # get row vector
-        >>> st = _make_start_Cell(Cell(5, 0), sheet_margins)
-        >>> nd = _make_start_Cell(Cell(5, 10), sheet_margins)
-        >>> get_xl_table(sheet, (st, nd), indices)
+        >>> st = resolve_cell(Cell(5, 0), sheet_margins)
+        >>> nd = resolve_cell(Cell(5, 10), sheet_margins)
+        >>> read_range_values(sheet, (st, nd), indices)
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
     """
@@ -1427,7 +1431,7 @@ def get_xl_table(sheet, xl_range, indices, epoch1904=False):
         tbl.append(row)
         for c in range(xl_range[0].col, xl_range[1].col + 1):
             if [r, c] in indices:
-                row.append(_parse_cell(sheet.cell(r, c), epoch1904))
+                row.append(_read_cell(sheet.cell(r, c), epoch1904))
             else:
                 row.append(None)
     # vector

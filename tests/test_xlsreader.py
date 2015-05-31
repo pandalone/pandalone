@@ -353,7 +353,7 @@ class TestXlsReader(unittest.TestCase):
             args = (
                 sheet, (xr.Cell(1, 1), xr.Cell(7, 1)), indices, wb.datemode)
             res = [datetime(1900, 8, 2), True, None, None, 'hi', 1.4, 5]
-            self.assertEqual(xr.get_xl_table(*args), res)
+            self.assertEqual(xr.read_range_values(*args), res)
 
     def test_comparison_vs_pandas_parse_cell(self):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
@@ -376,7 +376,7 @@ class TestXlsReader(unittest.TestCase):
             args = (
                 sheet, (xr.Cell(1, 1), xr.Cell(7, 1)), indices, wb.datemode)
 
-            res = xr.get_xl_table(*args)
+            res = xr.read_range_values(*args)
 
             df = pd.read_excel(wb_fname, 'Sheet1')[0]
 
@@ -492,115 +492,115 @@ class TestVsXlwings(unittest.TestCase):
             # minimum delimited column in the sheet [D7:D.(D)]
             st = xr.CellPos(xr.Cell(6, 3), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'D')
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[0])
+            self.assertEqual(xr.read_range_values(*args), res[0])
 
             # minimum delimited column in the sheet [E6:E.(D)]
             st = xr.CellPos(xr.Cell(5, 4), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'D')
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[1])
+            self.assertEqual(xr.read_range_values(*args), res[1])
 
             # minimum delimited row in the sheet [E6:.6(R)]
             st = xr.CellPos(xr.Cell(5, 4), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'R')
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[2])
+            self.assertEqual(xr.read_range_values(*args), res[2])
 
             # minimum delimited matrix in the sheet [E6:..(RD)]
             st = xr.CellPos(xr.Cell(5, 4), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'RD')
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[3])
+            self.assertEqual(xr.read_range_values(*args), res[3])
 
             st = xr.CellPos(xr.Cell(5, 4), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'DR')
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[3])
+            self.assertEqual(xr.read_range_values(*args), res[3])
 
             # delimited matrix in the sheet [D6:F8]
             st = xr.CellPos(xr.Cell(7, 5), None)
             nd = xr.CellPos(xr.Cell(5, 3), None)
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[4])
+            self.assertEqual(xr.read_range_values(*args), res[4])
 
             # delimited matrix in the sheet [A1:F8]
             st = xr.CellPos(xr.Cell(7, 5), None)
             nd = xr.CellPos(xr.Cell(0, 0), None)
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[5])
+            self.assertEqual(xr.read_range_values(*args), res[5])
 
             # delimited row in the sheet [A7:D7]
             st = xr.CellPos(xr.Cell(6, 0), None)
             nd = xr.CellPos(xr.Cell(6, 3), None)
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[6])
+            self.assertEqual(xr.read_range_values(*args), res[6])
 
             # delimited column in the sheet [D3:D9]
             st = xr.CellPos(xr.Cell(8, 3), None)
             nd = xr.CellPos(xr.Cell(2, 3), None)
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
-            self.assertEqual(xr.get_xl_table(*args), res[7])
+            self.assertEqual(xr.read_range_values(*args), res[7])
 
             # minimum delimited matrix in the sheet [F7:..(UL)]
             st = xr.CellPos(xr.Cell(6, 5), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'UL')
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             res = [[None, 0, 1],
                    [0, 1, 2]]
-            self.assertEqual(xr.get_xl_table(*args), res)
+            self.assertEqual(xr.read_range_values(*args), res)
 
             # minimum delimited matrix in the sheet [F7:F7:LURD]
             st = xr.CellPos(xr.Cell(6, 5), None)
             nd = xr.CellPos(xr.Cell(6, 5), None)
             rng_exp = xr._parse_range_expansions('LURD')
-            rng = xr._capture_range(
-                full_cells, up, dn, xl_ma, ind, st, nd, rng_exp)
+            rng = xr._resolve_capture_range(
+                full_cells, up, dn, xl_ma, st, nd, rng_exp)
             args = (sheet, rng, ind, datemode)
             res = [[None, 0, 1, 2],
                    [0, 1, 2, None],
                    [1, None, 6.1, 7.1]]
-            self.assertEqual(xr.get_xl_table(*args), res)
+            self.assertEqual(xr.read_range_values(*args), res)
 
             # minimum delimited matrix in the sheet [F7:A1(RD)]
             st = xr.CellPos(xr.Cell(6, 5), None)
             nd = xr.CellPos(xr.Cell(0, 0), 'RD')
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             res = [[0, 1],
                    [1, 2]]
-            self.assertEqual(xr.get_xl_table(*args), res)
+            self.assertEqual(xr.read_range_values(*args), res)
 
             # minimum delimited row in the sheet [_8:G8]
             st = xr.CellPos(xr.Cell(7, 6), None)
             nd = xr.CellPos(xr.Cell(7, '.'), 'L')
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             res = [6.1, 7.1]
-            self.assertEqual(xr.get_xl_table(*args), res)
+            self.assertEqual(xr.read_range_values(*args), res)
 
             # minimum delimited column in the sheet [D_:D8]
             st = xr.CellPos(xr.Cell(7, 3), None)
             nd = xr.CellPos(xr.Cell('.', 3), 'U')
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             res = [0, 1]
-            self.assertEqual(xr.get_xl_table(*args), res)
+            self.assertEqual(xr.read_range_values(*args), res)
 
             # single value [D8]
             st = xr.CellPos(xr.Cell(7, 3), None)
             nd = None
-            rng = xr._capture_range(full_cells, up, dn, xl_ma, ind, st, nd)
+            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             res = [1]
-            self.assertEqual(xr.get_xl_table(*args), res)
+            self.assertEqual(xr.read_range_values(*args), res)
