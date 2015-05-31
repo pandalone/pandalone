@@ -21,6 +21,7 @@ import pandalone.xlsreader as xr
 import pandas as pd
 from six.moves.urllib.request import urlopen  # @UnresolvedImport
 import xlrd as xd
+from pandalone.xlsreader import CellPos
 
 
 log = _tutils._init_logging(__name__)
@@ -51,10 +52,8 @@ def _make_local_url(fname, fragment=''):
 def _read_rect_range(sheet, st_cell, nd_cell=None):
     full_cells = xr.get_full_cells(sheet)
     sheet_margins, indices = xr.get_sheet_margins(full_cells)
-#     st_cell = xr.resolve_cell(st_cell.cell, sheet_margins)
-#     nd_cell = xr.resolve_cell(nd_cell.cell, sheet_margins)
-    xl_range = xr._resolve_capture_range(full_cells, st_cell, nd_cell, 
-            sheet_margins)
+    xl_range = xr.resolve_capture_range(full_cells, sheet_margins,
+                                        st_cell, nd_cell)  # or CellPos(None, None))
     return xr.read_range_values(sheet, xl_range, indices)
 
 
@@ -75,9 +74,9 @@ class TestXlsReader(unittest.TestCase):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             wb_fname = 'sample.xlsx'
             _make_sample_sheet(wb_fname,
-                                  [[None, None, None], [5.1, 6.1, 7.1]],
-                                  'Sheet1',
-                                  startrow=5, startcol=3)
+                               [[None, None, None], [5.1, 6.1, 7.1]],
+                               'Sheet1',
+                               startrow=5, startcol=3)
 
             # load sheet for --> get_rect_range
             fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
@@ -104,9 +103,9 @@ class TestXlsReader(unittest.TestCase):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             wb_fname = 'sample.xlsx'
             _make_sample_sheet(wb_fname,
-                                  [[None, None, None], [5.1, 6.1, 7.1]],
-                                  'Sheet1',
-                                  startrow=5, startcol=3)
+                               [[None, None, None], [5.1, 6.1, 7.1]],
+                               'Sheet1',
+                               startrow=5, startcol=3)
 
             # load sheet for --> get_rect_range
             fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
@@ -175,9 +174,9 @@ class TestXlsReader(unittest.TestCase):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             wb_fname = 'sample.xlsx'
             _make_sample_sheet(wb_fname,
-                                  [[None, None, None], [5.1, 6.1, 7.1]],
-                                  'Sheet1',
-                                  startrow=5, startcol=3)
+                               [[None, None, None], [5.1, 6.1, 7.1]],
+                               'Sheet1',
+                               startrow=5, startcol=3)
 
             # load sheet for --> get_rect_range
             fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
@@ -371,8 +370,8 @@ class TestXlsReader(unittest.TestCase):
             wb_fpath = os.path.abspath(wb_fname)
             xl = [datetime(1900, 8, 2), True, None, u'', 'hi', 1.4, 5.0]
             _make_sample_sheet(wb_fname,
-                                  xl,
-                                  'Sheet1')
+                               xl,
+                               'Sheet1')
 
             # load sheet for --> get_rect_range
             url = 'file:///%s#Sheet1!A1:C2{"1":4,"2":"ciao"}' % wb_fpath
@@ -501,69 +500,69 @@ class TestVsXlwings(unittest.TestCase):
             # minimum delimited column in the sheet [D7:D.(D)]
             st = xr.CellPos(xr.Cell(6, 3), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'D')
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             self.assertEqual(xr.read_range_values(*args), res[0])
 
             # minimum delimited column in the sheet [E6:E.(D)]
             st = xr.CellPos(xr.Cell(5, 4), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'D')
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             self.assertEqual(xr.read_range_values(*args), res[1])
 
             # minimum delimited row in the sheet [E6:.6(R)]
             st = xr.CellPos(xr.Cell(5, 4), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'R')
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             self.assertEqual(xr.read_range_values(*args), res[2])
 
             # minimum delimited matrix in the sheet [E6:..(RD)]
             st = xr.CellPos(xr.Cell(5, 4), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'RD')
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             self.assertEqual(xr.read_range_values(*args), res[3])
 
             st = xr.CellPos(xr.Cell(5, 4), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'DR')
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             self.assertEqual(xr.read_range_values(*args), res[3])
 
             # delimited matrix in the sheet [D6:F8]
             st = xr.CellPos(xr.Cell(7, 5), None)
             nd = xr.CellPos(xr.Cell(5, 3), None)
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             self.assertEqual(xr.read_range_values(*args), res[4])
 
             # delimited matrix in the sheet [A1:F8]
             st = xr.CellPos(xr.Cell(7, 5), None)
             nd = xr.CellPos(xr.Cell(0, 0), None)
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             self.assertEqual(xr.read_range_values(*args), res[5])
 
             # delimited row in the sheet [A7:D7]
             st = xr.CellPos(xr.Cell(6, 0), None)
             nd = xr.CellPos(xr.Cell(6, 3), None)
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             self.assertEqual(xr.read_range_values(*args), res[6])
 
             # delimited column in the sheet [D3:D9]
             st = xr.CellPos(xr.Cell(8, 3), None)
             nd = xr.CellPos(xr.Cell(2, 3), None)
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             self.assertEqual(xr.read_range_values(*args), res[7])
 
             # minimum delimited matrix in the sheet [F7:..(UL)]
             st = xr.CellPos(xr.Cell(6, 5), None)
             nd = xr.CellPos(xr.Cell('.', '.'), 'UL')
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             res = [[None, 0, 1],
                    [0, 1, 2]]
@@ -573,8 +572,8 @@ class TestVsXlwings(unittest.TestCase):
             st = xr.CellPos(xr.Cell(6, 5), None)
             nd = xr.CellPos(xr.Cell(6, 5), None)
             rng_exp = xr._parse_range_expansions('LURD')
-            rng = xr._resolve_capture_range(
-                full_cells, up, dn, xl_ma, st, nd, rng_exp)
+            rng = xr.resolve_capture_range(
+                full_cells, xl_ma, st, nd, rng_exp)
             args = (sheet, rng, ind, datemode)
             res = [[None, 0, 1, 2],
                    [0, 1, 2, None],
@@ -584,7 +583,7 @@ class TestVsXlwings(unittest.TestCase):
             # minimum delimited matrix in the sheet [F7:A1(RD)]
             st = xr.CellPos(xr.Cell(6, 5), None)
             nd = xr.CellPos(xr.Cell(0, 0), 'RD')
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             res = [[0, 1],
                    [1, 2]]
@@ -593,7 +592,7 @@ class TestVsXlwings(unittest.TestCase):
             # minimum delimited row in the sheet [_8:G8]
             st = xr.CellPos(xr.Cell(7, 6), None)
             nd = xr.CellPos(xr.Cell(7, '.'), 'L')
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             res = [6.1, 7.1]
             self.assertEqual(xr.read_range_values(*args), res)
@@ -601,7 +600,7 @@ class TestVsXlwings(unittest.TestCase):
             # minimum delimited column in the sheet [D_:D8]
             st = xr.CellPos(xr.Cell(7, 3), None)
             nd = xr.CellPos(xr.Cell('.', 3), 'U')
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             res = [0, 1]
             self.assertEqual(xr.read_range_values(*args), res)
@@ -609,7 +608,7 @@ class TestVsXlwings(unittest.TestCase):
             # single value [D8]
             st = xr.CellPos(xr.Cell(7, 3), None)
             nd = None
-            rng = xr._resolve_capture_range(full_cells, up, dn, xl_ma, st, nd)
+            rng = xr.resolve_capture_range(full_cells, xl_ma, st, nd)
             args = (sheet, rng, ind, datemode)
             res = [1]
             self.assertEqual(xr.read_range_values(*args), res)

@@ -6,7 +6,7 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-A mini-language to capture rectangular-ranges from Excel-sheets by checking cell-emptiness.
+A mini-language to capture rectangular areas with non-empty cells from Excel-sheets.
 
 .. default-role:: term
 
@@ -15,12 +15,17 @@ Introduction
 ============
 
 The purpose of this module is to use simple traversal operations to
-extract a rectangular `range` from excel-sheets when its exact position
+`capture` a rectangular area from excel-sheets when its exact position
 is not known beforehand.
 
 The `capturing` depends only on the full/empty `state` of the cells,
 and not on their values . Use another library (i.e. "pandas") to examine
-the values of the `capture-range` afterwards.
+the values of the `capture-range` afterwards.  Nevertheless, the `xl-ref` syntax 
+provides for specifying `filter` transformations at the end, for setting
+the dimensionality and the final type of the captured values.
+
+It is based on **xlrd** library but is also checked for compatibility with 
+**xlwings** *COM-client* library.
 
 
 Excel-ref Syntax
@@ -31,8 +36,8 @@ Excel-ref Syntax
     :
 
 
-Annotated example
------------------
+Annotated syntax-example
+------------------------
 ::
 
     target-moves────────┐
@@ -45,15 +50,13 @@ Annotated example
     range-expansions───────────────┘                   │
     filters────────────────────────────────────────────┘
 
-which means:
+Which means:
 
     Capture any rectangular range from the 1st `full-cell` beyond ``A1``
     while *moving* Right and Down, till the 1st `exterior` `empty-cell`;
     then try to `expand` the `capture-range` once to the Left,
-    and then Down and Right until a full-empty line/row is met, respectively.
-
-
-.. seealso:: Example spreadsheet: :download:`xls_ref.xlsx`
+    and then Down and Right until a full-empty line/row is met, respectively;
+    Finally `filter` captured cells to wrap them up in a pandas DataFrame.
 
 
 Examples
@@ -66,13 +69,15 @@ the exact `coordinates`::
 
       A B C D E      Β2:E4          ## Exact referencing.
     1  ┌───────┐     ^^.__          ## From top-left full-cell to bottom-right.
-    2  │  X X X│     A1(DR):__:U1   ## Start from A1 and move right by columns
+    2  │  X X X│     A1(DR):__:U1   ## Start from A1 and move down then right
     3  │X X X X│                    #    until B3; capture till bottom-left;
     3  │X X X X│                    #    expand once upwards (to header row).
     4  │X X X X│     A1(RD):__:L1   ## Start from A1 and move down by row
        └───────┘                    #    until C4; capture till bottom-left;
                                     #    expand once left (to index column).
 
+Note that if ``B1`` were full, the results would still be the same, because  
+``?`` expands only if any full-cell found in row/column.
 
 In case the bottom-left cell of the sheet does not coincide with table-end,
 only the later 2 `xl-ref` would work.
@@ -118,6 +123,8 @@ the `1st-cell`, the capturing becomes more intricate::
        └───┘
 
 
+.. seealso:: Example spreadsheet: :download:`xls_ref.xlsx`
+
 
 Definitions
 ===========
@@ -147,7 +154,7 @@ Definitions
 
     coords
     coordinates
-        The column/row pair of a `start-cell`.
+        The column/row pair of a `start-cell`, usually in ``A1`` format.
 
     absolute-coordinate
     absolute
@@ -190,8 +197,8 @@ Definitions
     exterior
     exterior-column
     exterior-row
-        The column and the row of the `start-cell`; Any `state-change` on
-        them, triggers the `termination-rule`.
+        The column and the row of the `1st-start-cell`; the `termination-rule`
+        gets to be triggered only by `state-change` on them.
 
 
     start-cell
@@ -206,7 +213,7 @@ Definitions
     1st-cell
     1st-start-cell
     1st-target-cell
-        The`capturing` STARTS from the `target` of *this* `cell-pos`.
+        The `capturing` STARTS from the `target` of *this* `cell-pos`.
         It supports `absolute` coordinates only.
 
     2nd-cell
@@ -216,17 +223,20 @@ Definitions
         It supports both `absolute` coordinates, and `dependent` ones from the
         `1st-target-cell`.
 
-    capture-range
-    range
-        The sheet's rectangular area bounded by the `1st-target-cell` and
-        the `2nd-target-cell`.
-
-        TODO: rename to capture-rect
-
     capturing
-    capture-moves
-        The reading of the `capture-range` by traversing from
-        the `1st-target-cell` to the `2nd-target-cell`.
+    capture
+        The *capturing* procedure involves `targeting` the `1st-cell`, then 
+        the `2nd-cell`, and finally traversing the *rectangular area* 
+        in between.
+        
+        Note that the result-values would always be the same, irrespective of 
+        row-by row or column-by-column traversal order.
+
+    range
+    capture-range
+        the result values from the `capturing`
+        
+        TODO: rename to capture-rect
 
     state
     full-cell
@@ -240,7 +250,7 @@ Definitions
 
     termination-rule
         The condition to stop `targeting` while traversing an `exterior`
-        column/row and detecting a `state-change`.
+        row/column and detecting a `state-change`.
         The are 2 rules: `search-same` and `search-opposite`.
 
         .. seealso::
@@ -376,7 +386,7 @@ In the above example-sheet, here are some ways to specify ranges::
    should have been also non-empty.
 
 .. Note::
-    The `capture-moves` from `1st-cell` to `2nd-target-cell` are independent from
+    The `capturing` moves from `1st-cell` to `2nd-target-cell` are independent from
     the implied `target-moves` in the case of `dependent` coords.
 
     More specifically, the `capturing` will always fetch the same values
@@ -419,7 +429,7 @@ Captured-ranges ("values") may be limited due to empty-cells in the 1st
 row/column traversed.  To overcome this, the xl-ref may specify `expansions`
 directions using a 3rd ``:``-section like that::
 
-    _5(L):1_(UR):RDL?U?
+    _5(L):1_(UR):RDL1U1
 
 This particular case means:
 
@@ -441,9 +451,9 @@ Example-refs are given below for capturing the 2 marked tables::
     4  ││X X X 2 X││
        ││         ││
     5  ││X   X X X││
-       └┼─────────┼┴──► A1(RD):..(RD):DRL?
+       └┼─────────┼┴──► A1(RD):..(RD):DRL1
     6   │X        │
-        └─────────┴───► A1(RD):..(RD):L?DR       A_(UR):^^(RD)
+        └─────────┴───► A1(RD):..(RD):L1DR       A_(UR):^^(RD)
     7               X
 
     - The 'X' signify non-empty cells.
@@ -505,8 +515,10 @@ _re_xl_ref_parser = re.compile(
         )?
     )?
     \s*
-    (?P<json>\{.*\})?                                    # any json object [opt]
-    \s*$""", re.IGNORECASE | re.X)
+    (?::?                                                 # second cell [opt]
+        (?P<json>\{.*\})?                                # any json object [opt]
+    )\s*$""",
+    re.IGNORECASE | re.X)
 
 _re_rng_exp_splitter = re.compile('([LURD]\d+)', re.IGNORECASE)
 
@@ -666,7 +678,7 @@ def make_CellPos(cell_col, cell_row, cell_mov):
 
         >>> make_CellPos('A', '1', 12)
         Traceback (most recent call last):
-        ValueError: Invalid cell(col='A', row='1') due to: 
+        ValueError: Invalid cell(col='A', row='1') due to:
             'int' object has no attribute 'upper'
     """
 
@@ -733,7 +745,7 @@ def _parse_range_expansions(rng_exp):
 
         >>> _parse_range_expansions('1LURD')
         Traceback (most recent call last):
-        ValueError: Invalid range-expansion(1LURD) due to: 
+        ValueError: Invalid range-expansion(1LURD) due to:
                 'NoneType' object has no attribute 'groupdict'
 
     """
@@ -875,7 +887,7 @@ def parse_xl_url(url):
 
 
 def get_sheet_margins(full_cells):
-    """ 
+    """
     Returns upper and lower absolute positions.
 
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
@@ -897,7 +909,7 @@ def get_sheet_margins(full_cells):
         [('^', 1), ('_', 3)]
 
         >>> sorted(col.items())
-        [('^', 1), ('_', 2)] 
+        [('^', 1), ('_', 2)]
 
         >>> indices
          [[1, 1], [2, 1], [2, 2], [3, 2]]
@@ -969,15 +981,13 @@ def resolve_cell(cell, sheet_margins, pcell=None):
         Cell(row=3, col=1)
 
     """
-    row = _get_abs_coord(
-        cell.row, sheet_margins[0], pcell and pcell.row)
-    col = _get_abs_coord(
-        cell.col, sheet_margins[1], pcell and pcell.col)
+    row = _get_abs_coord(cell.row, sheet_margins[0], pcell and pcell.row)
+    col = _get_abs_coord(cell.col, sheet_margins[1], pcell and pcell.col)
 
     return Cell(row=row, col=col)
 
 
-def _search_opposite_state(state, cell, full_cells, up, dn, moves, last=False):
+def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
     """
 
     :param bool state:      the starting-state
@@ -985,7 +995,7 @@ def _search_opposite_state(state, cell, full_cells, up, dn, moves, last=False):
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
                                 blank or empty. Use :func:`get_full_cells()`.
     :param sheet:
-    :param directions:
+    :param moves:
     :return:
 
 
@@ -1000,43 +1010,43 @@ def _search_opposite_state(state, cell, full_cells, up, dn, moves, last=False):
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (False, Cell(1, 1), full_cells, (0, 0), (7, 6))
-        >>> _search_opposite_state(*(args + ('DR', )))
+        >>> args = (False, Cell(1, 1), full_cells, (7, 6))
+        >>> _target_opposite_state(*(args + ('DR', )))
         Cell(row=6, col=3)
 
-        >>> _search_opposite_state(*(args + ('RD', )))
+        >>> _target_opposite_state(*(args + ('RD', )))
         Cell(row=5, col=4)
 
-        >>> _search_opposite_state(*(args + ('D', )))
+        >>> _target_opposite_state(*(args + ('D', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=1, col=1) with movement(D)
 
-        >>> _search_opposite_state(*(args + ('U', )))
+        >>> _target_opposite_state(*(args + ('U', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=1, col=1) with movement(U)
 
-        >>> _search_opposite_state(*(args + ('R', )))
+        >>> _target_opposite_state(*(args + ('R', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=1, col=1) with movement(R)
 
-        >>> _search_opposite_state(*(args + ('L', )))
+        >>> _target_opposite_state(*(args + ('L', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=1, col=1) with movement(L)
 
-        >>> _search_opposite_state(*(args + ('LU', )))
+        >>> _target_opposite_state(*(args + ('LU', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=1, col=1) with movement(LU)
 
-        >>> args = (True, Cell(6, 3), full_cells, (0, 0), (7, 6))
-        >>> _search_opposite_state(*(args + ('D', )))
+        >>> args = (True, Cell(6, 3), full_cells, (7, 6))
+        >>> _target_opposite_state(*(args + ('D', )))
         Cell(row=8, col=3)
 
-        >>> args = (True, Cell(10, 3), full_cells, (0, 0), (7, 6))
-        >>> _search_opposite_state(*(args + ('U', )))
+        >>> args = (True, Cell(10, 3), full_cells, (7, 6))
+        >>> _target_opposite_state(*(args + ('U', )))
         Cell(row=10, col=3)
 
-        >>> args = (False, Cell(10, 10), full_cells, (0, 0), (7, 6))
-        >>> _search_opposite_state(*(args + ('UL', )))
+        >>> args = (False, Cell(10, 10), full_cells, (7, 6))
+        >>> _target_opposite_state(*(args + ('UL', )))
         Cell(row=7, col=6)
 
         >>> full_cells = np.array([
@@ -1044,15 +1054,13 @@ def _search_opposite_state(state, cell, full_cells, up, dn, moves, last=False):
         ...     [1, 1, 1],
         ...     [1, 1, 1],
         ... ])
-        >>> args = (True, Cell(0, 2), full_cells, (0, 0), (2, 2))
-        >>> _search_opposite_state(*(args + ('LD', )))
+        >>> args = (True, Cell(0, 2), full_cells, (2, 2))
+        >>> _target_opposite_state(*(args + ('LD', )))
         Cell(row=3, col=2)
     """
+    up = (0, 0)
     mv = _primitive_dir[moves[0]]  # first move
-
     c0 = np.array(cell)
-
-    flag = False
 
     if not state:
         if not c0[0] <= dn[0] and 'U' in moves:
@@ -1060,6 +1068,7 @@ def _search_opposite_state(state, cell, full_cells, up, dn, moves, last=False):
         if not c0[1] <= dn[1] and 'L' in moves:
             c0[1] = dn[1]
 
+    flag = False
     while True:
         c1 = c0
         while (up <= c1).all():
@@ -1092,7 +1101,7 @@ def _search_opposite_state(state, cell, full_cells, up, dn, moves, last=False):
     raise ValueError('Invalid {} with movement({})'.format(cell, moves))
 
 
-def _search_same_state(state, cell, full_cells, up, dn, moves):
+def _target_same_state(state, cell, full_cells, dn, moves):
     """
 
     :param bool state:      the starting-state
@@ -1100,7 +1109,7 @@ def _search_same_state(state, cell, full_cells, up, dn, moves):
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
                                 blank or empty. Use :func:`get_full_cells()`.
     :param sheet:
-    :param directions:
+    :param moves:
     :return:
 
 
@@ -1115,38 +1124,38 @@ def _search_same_state(state, cell, full_cells, up, dn, moves):
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (True, Cell(7, 6), full_cells, (0, 0), (7, 6))
-        >>> _search_same_state(*(args + ('UL', )))
+        >>> args = (True, Cell(7, 6), full_cells, (7, 6))
+        >>> _target_same_state(*(args + ('UL', )))
         Cell(row=5, col=3)
 
-        >>> _search_same_state(*(args + ('U', )))
+        >>> _target_same_state(*(args + ('U', )))
         Cell(row=5, col=6)
 
-        >>> _search_same_state(*(args + ('L', )))
+        >>> _target_same_state(*(args + ('L', )))
         Cell(row=7, col=3)
 
-        >>> args = (True, Cell(5, 3), full_cells, (0, 0), (7, 6))
-        >>> _search_same_state(*(args + ('DR', )))
+        >>> args = (True, Cell(5, 3), full_cells, (7, 6))
+        >>> _target_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
 
-        >>> args = (False, Cell(5, 3), full_cells, (0, 0), (7, 6))
-        >>> _search_same_state(*(args + ('DR', )))
+        >>> args = (False, Cell(5, 3), full_cells, (7, 6))
+        >>> _target_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
 
-        >>> _search_same_state(*(args + ('UL', )))
+        >>> _target_same_state(*(args + ('UL', )))
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=5, col=3) with movement(U)
 
-        >>> args = (True, Cell(5, 6), full_cells, (0, 0), (7, 6))
-        >>> _search_same_state(*(args + ('DL', )))
+        >>> args = (True, Cell(5, 6), full_cells, (7, 6))
+        >>> _target_same_state(*(args + ('DL', )))
         Cell(row=7, col=4)
 
     """
-
+    up = (0, 0)
     c1 = list(cell)
 
     for mv in moves:
-        c = _search_opposite_state(state, cell, full_cells, up, dn, mv, True)
+        c = _target_opposite_state(state, cell, full_cells, dn, mv, True)
         dis = _primitive_dir[mv]
         c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
     return Cell(*c1)
@@ -1156,8 +1165,6 @@ def _expand_range(state, xl_range, full_cells, rng_exp):
     """
 
     :param state:
-    :param up:
-    :param dn:
     :param rng:
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
                                 blank or empty. Use :func:`get_full_cells()`.
@@ -1229,11 +1236,11 @@ def _expand_range(state, xl_range, full_cells, rng_exp):
     return [Cell(*v) for v in xl_range]
 
 
-def _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell,
-                           nd_cell=None, rng_exp=None):
+def resolve_capture_range(full_cells, sheet_margins, st_cell,
+                          nd_cell=None, rng_exp=None):
     """
 
-    :param ndarray full_cells:  
+    :param ndarray full_cells:
             A boolean ndarray with `False` wherever cell are
             blank or empty. Use :func:`get_full_cells()`.
     :param CellPos st_cell:
@@ -1255,19 +1262,19 @@ def _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell,
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
-        >>> up, dn = ((0, 0), (7, 6))
         >>> sheet_margins, _ = get_sheet_margins(full_cells)
         >>> st_cell = CellPos(Cell(0, 0), 'DR')
         >>> nd_cell = CellPos(Cell('.', '.'), 'DR')
-        >>> _resolve_capture_range(full_cells, up, dn, sheet_margins, 
+        >>> resolve_capture_range(full_cells, sheet_margins,
         ...         st_cell, nd_cell)
         (Cell(row=6, col=3), Cell(row=7, col=3))
 
         >>> nd_cell = CellPos(Cell(7, 6), 'UL')
-        >>> _resolve_capture_range(full_cells, up, dn, sheet_margins, 
+        >>> resolve_capture_range(full_cells, sheet_margins,
         ...         st_cell, nd_cell)
         (Cell(row=5, col=3), Cell(row=6, col=3))
     """
+    dn = (sheet_margins[0]['_'], sheet_margins[1]['_'])
 
     st = resolve_cell(st_cell.cell, sheet_margins)
     try:
@@ -1276,7 +1283,7 @@ def _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell,
         state = False
 
     if st_cell.mov is not None:
-        st = _search_opposite_state(state, st, full_cells, up, dn, st_cell.mov)
+        st = _target_opposite_state(state, st, full_cells, dn, st_cell.mov)
         state = not state
 
     if nd_cell is None:
@@ -1287,10 +1294,10 @@ def _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell,
         if nd_cell.mov is not None:
             mov = nd_cell.mov
             if state == full_cells[nd]:
-                nd = _search_same_state(state, nd, full_cells, up, dn, mov)
+                nd = _target_same_state(state, nd, full_cells, dn, mov)
             else:
-                nd = _search_opposite_state(
-                    not state, nd, full_cells, up, dn, mov)
+                nd = _target_opposite_state(
+                    not state, nd, full_cells, dn, mov)
 
         c = np.array([st, nd])
 
@@ -1469,17 +1476,17 @@ def process_captured_values(value, type=None, args=(), kws=None, filters=None,
     :param value: matrix or vector or a scalar-value
     :type value: list of lists, list, value
 
-    :param str, None type:  
-            The 1st-filter to apply, if missing, applies the mapping found in 
+    :param str, None type:
+            The 1st-filter to apply, if missing, applies the mapping found in
             the ``None --> <filter`` entry of the `available_filters` dict.
     :param dict, None kws:  keyword arguments for the filter function
-    :param sequence, None args: 
+    :param sequence, None args:
             arguments for the type-function
-    :param list filters:  
+    :param list filters:
             A list of 3-tuples ``(filter_callable, *args, **kws)``
             to further process range-values.
     :param dict available_filters:
-            Entries of ``<fun_names> --> <callables>`` for pre-configured 
+            Entries of ``<fun_names> --> <callables>`` for pre-configured
             filters available to post-process range-values.
             The callable for `None` key will be always called
             to the original values to ensure correct dimensionality
@@ -1497,7 +1504,7 @@ def process_captured_values(value, type=None, args=(), kws=None, filters=None,
          (5, 6)]
 
         >>> value = [[1, 9], [8, 10], [5, 11]]
-        >>> process_captured_values(value, 
+        >>> process_captured_values(value,
         ...     filters=[{'type':'sorted', 'kws':{'reverse': True}}])
         [[8, 10],
          [5, 11],
