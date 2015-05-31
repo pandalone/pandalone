@@ -175,3 +175,21 @@ def chdir(dirname=None):
         yield
     finally:
         os.chdir(curdir)
+
+
+def xw_close_workbook(wb):
+    try:
+        wb.close()
+    except Exception:
+        log.warning('Minor failure while closing Workbook!', exc_info=True)
+
+
+@contextmanager
+def xw_Workbook(*args, **kws):
+    import xlwings
+
+    wb = xlwings.Workbook(*args, **kws)
+    #app = wb.application TODO: Upgrade xlwings
+    yield wb
+    xw_close_workbook(wb)
+    #app.quit()
