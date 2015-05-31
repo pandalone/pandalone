@@ -6,7 +6,7 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-A mini-language to capture rectangular-ranges from Excel-sheets by scanning empty/full cells.
+A mini-language to capture rectangular-ranges from Excel-sheets by checking cell-emptiness.
 
 .. default-role:: term
 
@@ -14,13 +14,13 @@ A mini-language to capture rectangular-ranges from Excel-sheets by scanning empt
 Introduction
 ============
 
-The purpose of this library is to use of simple traversal operations 
-to extract rectangular `regions` from excel-sheets when their exact positions 
+The purpose of this module is to use simple traversal operations to
+extract a rectangular `range` from excel-sheets when its exact position
 is not known beforehand.
 
-The `capturing` depends only on the full/empty `state` of the cells, 
-and not on their values . Use another library (i.e. "pandas") to examine 
-the values of the `capture-region' afterwards.
+The `capturing` depends only on the full/empty `state` of the cells,
+and not on their values . Use another library (i.e. "pandas") to examine
+the values of the `capture-range` afterwards.
 
 
 Excel-ref Syntax
@@ -35,64 +35,88 @@ Annotated example
 -----------------
 ::
 
-    target-moves───┐
-    cell-coords──────┐ │
-                    ┌┤┌┴─┐
+    target-moves────────┐
+    cell-coords──────┐  │
+                    ┌┤ ┌┤
                     A1(RD):..(RD):L1DR{"type": "df", "kws": {"header": false}}
-                    └─┬──┘ └─┬──┘ └┬─┘└───────────────┬─────────────────────┘
-    1st-cell-pos──────┘      │     │                  │
-    2nd-cell-pos─────────────┘     │                  │
-    range-expansions───────────────┘                  │
-    filters───────────────────────────────────────────┘
+                    └─┬──┘ └─┬──┘ └┬─┘└────────────────┬─────────────────────┘
+    1st-cell──────────┘      │     │                   │
+    2nd-cell─────────────────┘     │                   │
+    range-expansions───────────────┘                   │
+    filters────────────────────────────────────────────┘
 
 which means:
 
-    Capture any rectangular range from the 1st `full-cell` beyond ``A1`` 
+    Capture any rectangular range from the 1st `full-cell` beyond ``A1``
     while *moving* Right and Down, till the 1st `exterior` `empty-cell`;
     then try to `expand` the `capture-range` once to the Left,
-    and then Down and Right untill a full-empty line/row is met, repectively.
+    and then Down and Right until a full-empty line/row is met, respectively.
 
 
 .. seealso:: Example spreadsheet: :download:`xls_ref.xlsx`
 
-Example
--------
-::
+
+Examples
+--------
+A typical example is `capturing` a table with a "header" row and
+an "index" column.
+Below there are (at least) 3 ways to do it, beyond specifying
+the exact `coordinates`::
+
+
+      A B C D E      Β2:E4          ## Exact referencing.
+    1  ┌───────┐     ^^.__          ## From top-left full-cell to bottom-right.
+    2  │  X X X│     A1(DR):__:U1   ## Start from A1 and move right by columns
+    3  │X X X X│                    #    until B3; capture till bottom-left;
+    3  │X X X X│                    #    expand once upwards (to header row).
+    4  │X X X X│     A1(RD):__:L1   ## Start from A1 and move down by row
+       └───────┘                    #    until C4; capture till bottom-left;
+                                    #    expand once left (to index column).
+
+
+In case the bottom-left cell of the sheet does not coincide with table-end,
+only the later 2 `xl-ref` would work.
+But we can use `dependent` referencing for the `2nd-cell` and start
+from the end of the table::
+
+      A B C D E   _^:..(LD):L1      ## Start from top-right full-cell (D2) and
+    1  ┌─────┐                      #    move left-down till 1st empty-cell met
+    2  │  X X│                      #    at exterior row/col (C3, regardless of
+    3  │X X X│                      #    of col/row order); expand once left.
+    3  │X X X│    ^_(U):..(UR):U1   ## Target 1st cell starting from B4 and
+       └─────┘                      #    moving up; capture till D3;
+    4         Χ                     #    expand up once.
+
+
+In the presence of `empty-cell` breaking the `exterior` row/column of 
+the `1st-cell`, the capturing becomes more intricate::
 
       A B C D E
-    1  ┌───────┐   
-    2  │  X X  │ 
-    3  │X X    │ 
-    3  │X      │ 
-    4  │  X   X│
-       └───────┴─► Β2:E4   ^^.__    A1(RD):__:L1   ^^(DR)..(DR):U1DR
-
-
-      A B C D E
-    1  ┌─────┐   
-    2  │  X X│ 
-    3  │X X  │ 
-    3  │X    │ 
+    1  ┌─────┐      Β2:D_
+    2  │  X X│      A1(RD):..(RD):L1D
+    3  │X X  │      C_:^^
+    3  │X    │      A^(DR):C_:U
     4  │  X  │X
-       └─────┴───► Β2:D_   A1(RD):..(RD):L1D   C_:^^   A^(DR):C_:U
+       └─────┘
 
 
       A B C D E
-    1    ┌───┐   
-    2    │X X│ 
+    1    ┌───┐      ^^(RD):..(RD)
+    2    │X X│      _^(R):^.(DR)
     3   X│X  │
-         └───┴───► ^^(RD):..(RD)   _^(R):^.(DR) 
-    3   X      
+         └───┘
+    3   X
     4     X   X
 
 
       A B C D E
-    1  ┌───┐   
-    2  │  X│X  
-    3  │X X│   
-    3  │X  │   
-    4  │  X│  X
-       └───┴─────► Β2:C4   A1(RD):^_   C_:^^   A^(DR):C_:U   ^^(RD):..(D):D
+    1  ┌───┐        Β2:C4
+    2  │  X│X       A1(RD):^_
+    3  │X X│        C_:^^
+    3  │X  │        A^(DR):C_:U
+    4  │  X│  X     ^^(RD):..(D):D
+       └───┘
+
 
 
 Definitions
@@ -103,16 +127,16 @@ Definitions
     excel-url
     xl-url
         Any url with its fragment abiding to the `excel-ref` syntax.
-        Its file-part should resolve to an excel-file. 
+        Its file-part should resolve to an excel-file.
 
     excel-ref
     xl-ref
-        The syntax for `capturing` ranges from excel-sheets, 
+        The syntax for `capturing` ranges from excel-sheets,
         specified within the fragment-part of a `xl-url`.
 
     cell-pos
     cell-position
-        A pair of row/col cell `coordinates` optionally followed by 
+        A pair of row/col cell `coordinates` optionally followed by
         a parenthesized `target-moves`.
         It actually specifies 2 cells, `start-cell` and `target-cell`.
 
@@ -140,7 +164,7 @@ Definitions
 
             *"2nd-start-cell coordinate = 1st target-cell coordinate"*
 
-        The `2nd-cell` might contain a "mix" of `absolute` and *dependent* 
+        The `2nd-cell` might contain a "mix" of `absolute` and *dependent*
         coordinates.
 
     directions
@@ -149,24 +173,24 @@ Definitions
         ``LURD``.
 
     target-moves
-        Specify the traversing order while `targeting` from `start-cell`, 
-        based on `primitive-directions` pairs; so ``DR`` means:  
-        
-            *"Start going right, column-by-column, travesring columns 
+        Specify the traversing order while `targeting` from `start-cell`,
+        based on `primitive-directions` pairs; so ``DR`` means:
+
+            *"Start going right, column-by-column, travesring columns
             from top to bottom."*
-        
+
         The pairs ``UD`` and ``LR`` (and their inverse) are invalid.
 
     targeting
         The search for the `target-cell` starts from the `start-cell`,
-        follows the specified `target-moves`, and ends when a `state-change` 
+        follows the specified `target-moves`, and ends when a `state-change`
         is detected on an `exterior` column or row.
         column or row, according to the enacted `termination-rule`.
 
     exterior
     exterior-column
     exterior-row
-        The column and the row of the `start-cell`; Any `state-change` on 
+        The column and the row of the `start-cell`; Any `state-change` on
         them, triggers the `termination-rule`.
 
 
@@ -189,23 +213,25 @@ Definitions
     2nd-start-cell
     2nd-target-cell
         The `capturing` STOPS at the `target` of this `cell-pos`.
-        It supports both `absolute` coordinates, and `dependent` ones from the 
+        It supports both `absolute` coordinates, and `dependent` ones from the
         `1st-target-cell`.
 
     capture-range
     range
-        The sheet's rectangular area bounded by the `1st-target-cell` and 
+        The sheet's rectangular area bounded by the `1st-target-cell` and
         the `2nd-target-cell`.
+
+        TODO: rename to capture-rect
 
     capturing
     capture-moves
-        The reading of the `capture-range` by traversing from 
+        The reading of the `capture-range` by traversing from
         the `1st-target-cell` to the `2nd-target-cell`.
 
     state
     full-cell
     empty-cell
-        A cell is *full* when it is not *empty* or *blank* 
+        A cell is *full* when it is not *empty* or *blank*
         (in Excel's parlance).
 
     state-change
@@ -213,12 +239,12 @@ Definitions
         vice-versa, while `targeting`.
 
     termination-rule
-        The condition to stop `targeting` while traversing an `exterior` 
+        The condition to stop `targeting` while traversing an `exterior`
         column/row and detecting a `state-change`.
         The are 2 rules: `search-same` and `search-opposite`.
-        
-        .. seealso:: 
-            Check `Target-termination rules`_ for when each rule 
+
+        .. seealso::
+            Check `Target-termination rules`_ for when each rule
             applies.
 
     search-same
@@ -226,25 +252,27 @@ Definitions
         the `start-cell`, while `targeting` from it.
 
     search-opposite
-        The `target-cell` is the FIRST cell with OPPOSITE `state` from 
+        The `target-cell` is the FIRST cell with OPPOSITE `state` from
         the `start-cell`, while `targeting` from it.
 
     expand
     expansions
     range-expansions
-        Due to `state-change` on the 'exterior' cells the `capture-range` 
+        Due to `state-change` on the 'exterior' cells the `capture-range`
         might be smaller that a wider contigious but "convex" rectangular area.
-        
-        The * expansions* attempt to remedy this by providing for expanding on 
+
+        The * expansions* attempt to remedy this by providing for expanding on
         arbitrary `directions` accompanied by a multiplicity for each one.
-        If multiplicity is unspecified, infinite assumed, so it exampndas 
+        If multiplicity is unspecified, infinite assumed, so it exampndas
         until an empty/full row/column is met.
+
+        TODO: rename to rect-expansions
 
     filter
     filters
     filter-function
         Predefined functions to apply for transforming the `capture-range`
-        specified as nested *json* dictionaries.
+        specified as nested **json** objects.
 
 
 Details
@@ -273,17 +301,17 @@ letters denoting the 4 primitive directions, ``LURD``::
     - The 'X' at the center points the starting cell.
 
 
-So a ``RD`` move means *"traverse cells first by rows then by columns"*, 
+So a ``RD`` move means *"traverse cells first by rows then by columns"*,
 or more lengthy description would be:
 
-    *"Start moving *right* till 1st state change, and then 
+    *"Start moving *right* till 1st state change, and then
     move *down* to the next row, and start traversing right again."*
 
 
 Target-cells
 ------------
 
-Using these moves we can identify a `target-cell` in relation to 
+Using these moves we can identify a `target-cell` in relation to
 the `start-cell`. For instance, given this xl-sheet below, there are
 multiple ways to identify (or target) the non-empty values ``X``, below::
 
@@ -344,21 +372,21 @@ In the above example-sheet, here are some ways to specify ranges::
    will stop immediately due to ``X`` values being surrounded by empty-cells.
 
    But the above diagram was to just convey the general idea.
-   To make it work, all the in-between cells of the peripheral row and columns 
+   To make it work, all the in-between cells of the peripheral row and columns
    should have been also non-empty.
 
 .. Note::
-    The `capture-moves` from `1st-cell` to `2nd-target-cell` are independent from 
+    The `capture-moves` from `1st-cell` to `2nd-target-cell` are independent from
     the implied `target-moves` in the case of `dependent` coords.
 
-    More specifically, the `capturing` will always fetch the same values 
-    regardless of "row-first" or "column-first" order; this is not the case 
+    More specifically, the `capturing` will always fetch the same values
+    regardless of "row-first" or "column-first" order; this is not the case
     with `targeting` (``LURD``) moves.
 
-    For instance, to capture ``B4:E5`` in the above sheet we may use 
+    For instance, to capture ``B4:E5`` in the above sheet we may use
     ``_5(L):E.(U)``.
     In that case the target cells are ``B5`` and ``E4`` and the `target-moves`
-    to reach the 2nd one are ``UR`` which are different from the ``U`` 
+    to reach the 2nd one are ``UR`` which are different from the ``U``
     specified on the 2nd cell.
 
 
@@ -371,7 +399,7 @@ Target-termination rules
 - For the 1st target-cell:
   Target-cell is identified using `search-opposite` rule.
 
-  .. Note:: It might be useful to allow the user to reverse this behavior 
+  .. Note:: It might be useful to allow the user to reverse this behavior
       (ie by the use of the ``-`` char).
 
 - For the 2nd target cell:
@@ -387,8 +415,8 @@ Target-termination rules
 Expansions
 ----------
 
-Captured-ranges ("values") may be limited due to empty-cells in the 1st 
-row/column traversed.  To overcome this, the xl-ref may specify `expansions` 
+Captured-ranges ("values") may be limited due to empty-cells in the 1st
+row/column traversed.  To overcome this, the xl-ref may specify `expansions`
 directions using a 3rd ``:``-section like that::
 
     _5(L):1_(UR):RDL?U?
@@ -397,7 +425,7 @@ This particular case means:
 
      *"Try expanding Right and Down repeatedly and then try once Left and Up."*
 
-Expansion happens on a row-by-row or column-by-column basis, and terminates 
+Expansion happens on a row-by-row or column-by-column basis, and terminates
 when a full empty(or non-empty) line is met.
 
 Example-refs are given below for capturing the 2 marked tables::
