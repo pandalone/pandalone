@@ -14,7 +14,7 @@ import os
 from pathlib import posixpath
 import sys
 from tests import _tutils
-from tests._tutils import check_xl_installed
+from tests._tutils import check_xl_installed, xw_Workbook
 import unittest
 
 import pandalone.xlsreader as xr
@@ -37,7 +37,7 @@ def _make_xl_margins(sheet):
     return full_cells, up, dn
 
 
-def _make_sample_workbook(path, matrix, sheet_name, startrow=0, startcol=0):
+def _make_sample_sheet(path, matrix, sheet_name, startrow=0, startcol=0):
     df = pd.DataFrame(matrix)
     with pd.ExcelWriter(path) as writer:
         df.to_excel(writer, sheet_name, startrow=startrow, startcol=startcol)
@@ -46,6 +46,16 @@ def _make_sample_workbook(path, matrix, sheet_name, startrow=0, startcol=0):
 def _make_local_url(fname, fragment=''):
     fpath = os.path.abspath(fname)
     return r'file:///{}#{}'.format(fpath, fragment)
+
+
+def _read_rect_range(sheet, st_cell, nd_cell=None):
+    full_cells = xr.get_full_cells(sheet)
+    sheet_margins, indices = xr.get_sheet_margins(full_cells)
+#     st_cell = xr.resolve_cell(st_cell.cell, sheet_margins)
+#     nd_cell = xr.resolve_cell(nd_cell.cell, sheet_margins)
+    xl_range = xr._resolve_capture_range(full_cells, st_cell, nd_cell, 
+            sheet_margins)
+    return xr.read_range_values(sheet, xl_range, indices)
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
@@ -64,7 +74,7 @@ class TestXlsReader(unittest.TestCase):
     def test_single_value_get_rect_range(self):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             wb_fname = 'sample.xlsx'
-            _make_sample_workbook(wb_fname,
+            _make_sample_sheet(wb_fname,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
                                   'Sheet1',
                                   startrow=5, startcol=3)
@@ -79,21 +89,21 @@ class TestXlsReader(unittest.TestCase):
 
             # get single value [D7]
             args = (sheet, xr.CellPos(3, 6))
-            self.assertEqual(xr.get_rect_range(*args), 0)
+            self.assertEqual(_read_rect_range(*args), 0)
 
             # get single value [A1]
             args = (sheet, xr.CellPos(0, 0))
-            self.assertEqual(xr.get_rect_range(*args), None)
+            self.assertEqual(_read_rect_range(*args), None)
 
             # get single value [H9]
             args = (sheet, xr.CellPos(7, 8))
-            self.assertEqual(xr.get_rect_range(*args), None)
+            self.assertEqual(_read_rect_range(*args), None)
 
     @unittest.skip('Needs conversion to new logic.')
     def test_vector_get_rect_range(self):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             wb_fname = 'sample.xlsx'
-            _make_sample_workbook(wb_fname,
+            _make_sample_sheet(wb_fname,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
                                   'Sheet1',
                                   startrow=5, startcol=3)
@@ -108,63 +118,63 @@ class TestXlsReader(unittest.TestCase):
 
             # single value in the sheet [D7:D7]
             args = (sheet, xr.CellPos(3, 6), xr.CellPos(3, 6))
-            self.assertEqual(xr.get_rect_range(*args), [0])
+            self.assertEqual(_read_rect_range(*args), [0])
 
             # get whole column [D_]
             args = (sheet, xr.CellPos(3, None))
             res = [None, None, None, None, None, None, 0, 1]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # get whole row [_6]
             args = (sheet, xr.CellPos(None, 5))
             res = [None, None, None, None, 0, 1, 2]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # minimum delimited row in the sheet [C6:_6]
             args = (sheet, xr.CellPos(2, 5), xr.CellPos(None, 5))
             res = [None, None, 0, 1, 2]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # minimum delimited row in the sheet [_7:_7]
             args = (sheet, xr.CellPos(None, 6), xr.CellPos(None, 6))
             res = [0]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # minimum delimited row in the sheet [A7:_7]
             args = (sheet, xr.CellPos(0, 6), xr.CellPos(None, 6))
             res = [None, None, None, 0]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # delimited row in the sheet [A7:D7]
             args = (sheet, xr.CellPos(0, 6), xr.CellPos(3, 6))
             res = [None, None, None, 0]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # minimum delimited column in the sheet [D_:D_]
             args = (sheet, xr.CellPos(3, None), xr.CellPos(3, None))
             res = [0, 1]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # minimum delimited column in the sheet [D5:D_]
             args = (sheet, xr.CellPos(3, 4), xr.CellPos(3, None))
             res = [None, None, 0, 1]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # minimum delimited column in the sheet [D_:D9]
             args = (sheet, xr.CellPos(3, None), xr.CellPos(3, 8))
             res = [0, 1, None]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # delimited column in the sheet [D3:D9]
             args = (sheet, xr.CellPos(3, 2), xr.CellPos(3, 8))
             res = [None, None, None, None, 0, 1, None]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
     @unittest.skip('Needs conversion to new logic.')
     def test_matrix_get_rect_range(self):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             wb_fname = 'sample.xlsx'
-            _make_sample_workbook(wb_fname,
+            _make_sample_sheet(wb_fname,
                                   [[None, None, None], [5.1, 6.1, 7.1]],
                                   'Sheet1',
                                   startrow=5, startcol=3)
@@ -184,7 +194,7 @@ class TestXlsReader(unittest.TestCase):
                 [0, None, None, None],
                 [1, 5.1, 6.1, 7.1]
             ]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [E_:__]
             args = (sheet, xr.CellPos(4, None), xr.CellPos(None, None))
@@ -193,7 +203,7 @@ class TestXlsReader(unittest.TestCase):
                 [None, None, None],
                 [5.1, 6.1, 7.1]
             ]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [E7:__]
             args = (sheet, xr.CellPos(4, 6), xr.CellPos(None, None))
@@ -201,7 +211,7 @@ class TestXlsReader(unittest.TestCase):
                 [None, None, None],
                 [5.1, 6.1, 7.1]
             ]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # delimited matrix in the sheet [D6:F8]
             args = (sheet, xr.CellPos(3, 5), xr.CellPos(5, 7))
@@ -210,7 +220,7 @@ class TestXlsReader(unittest.TestCase):
                 [0, None, None],
                 [1, 5.1, 6.1]
             ]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [:F8]
             args = (sheet, xr.CellPos(None, None), xr.CellPos(5, 7))
@@ -219,7 +229,7 @@ class TestXlsReader(unittest.TestCase):
                 [0, None, None],
                 [1, 5.1, 6.1]
             ]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [7:F8]
             args = (sheet, xr.CellPos(None, 6), xr.CellPos(5, 7))
@@ -227,7 +237,7 @@ class TestXlsReader(unittest.TestCase):
                 [0, None, None],
                 [1, 5.1, 6.1]
             ]
-            self.assertEqual(xr.re_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # minimum delimited matrix in the sheet [E:F8]
             args = (sheet, xr.CellPos(None, 6), xr.CellPos(5, 7))
@@ -235,7 +245,7 @@ class TestXlsReader(unittest.TestCase):
                 [0, None, None],
                 [1, 5.1, 6.1]
             ]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # delimited matrix in the sheet [A1:F8]
             args = (sheet, xr.CellPos(0, 0), xr.CellPos(5, 7))
@@ -249,17 +259,17 @@ class TestXlsReader(unittest.TestCase):
                 [None, None, None, 0, None, None],
                 [None, None, None, 1, 5.1, 6.1]
             ]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # delimited matrix in the sheet [G9:__]
             args = (sheet, xr.CellPos(6, 8), xr.CellPos(None, None))
             res = [[None]]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
             # delimited matrix in the sheet [F9:__]
             args = (sheet, xr.CellPos(5, 8), xr.CellPos(None, None))
             res = [[None]]
-            self.assertEqual(xr.get_rect_range(*args), res)
+            self.assertEqual(_read_rect_range(*args), res)
 
     def test_basic_parse_xl_ref(self):
         xl_ref = 'Sheet1!A1(L):C2(UL)'
@@ -338,7 +348,7 @@ class TestXlsReader(unittest.TestCase):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             wb_fname = 'sample.xlsx'
             xl = [datetime(1900, 8, 2), True, None, u'', 'hi', 1.4, 5.0]
-            _make_sample_workbook(wb_fname, xl, 'Sheet1')
+            _make_sample_sheet(wb_fname, xl, 'Sheet1')
 
             # load sheet for --> get_rect_range
             fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
@@ -360,7 +370,7 @@ class TestXlsReader(unittest.TestCase):
             wb_fname = 'sample.xlsx'
             wb_fpath = os.path.abspath(wb_fname)
             xl = [datetime(1900, 8, 2), True, None, u'', 'hi', 1.4, 5.0]
-            _make_sample_workbook(wb_fname,
+            _make_sample_sheet(wb_fname,
                                   xl,
                                   'Sheet1')
 
@@ -458,7 +468,7 @@ class TestVsXlwings(unittest.TestCase):
         with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
             wb_fname = 'sample.xlsx'
             wb_fpath = os.path.abspath(wb_fname)
-            _make_sample_workbook(wb_fname, [
+            _make_sample_sheet(wb_fname, [
                 [1, 2, None],
                 [None, 6.1, 7.1]
             ],
@@ -474,17 +484,16 @@ class TestVsXlwings(unittest.TestCase):
             datemode = wb.datemode
 
             # load Workbook for --> xlwings
-            wb = xw.Workbook(wb_fpath)
-            res = {}
-            res[0] = xw.Range("Sheet1", "D7").vertical.value
-            res[1] = xw.Range("Sheet1", "E6").vertical.value
-            res[2] = xw.Range("Sheet1", "E6").horizontal.value
-            res[3] = xw.Range("Sheet1", "E6").table.value
-            res[4] = xw.Range("Sheet1", "D6:F8").value
-            res[5] = xw.Range("Sheet1", "A1:F8").value
-            res[6] = xw.Range("Sheet1", "A7:D7").value
-            res[7] = xw.Range("Sheet1", "D3:D9").value
-            wb.close()
+            with xw_Workbook(wb_fpath) as wb:
+                res = {}
+                res[0] = xw.Range("Sheet1", "D7").vertical.value
+                res[1] = xw.Range("Sheet1", "E6").vertical.value
+                res[2] = xw.Range("Sheet1", "E6").horizontal.value
+                res[3] = xw.Range("Sheet1", "E6").table.value
+                res[4] = xw.Range("Sheet1", "D6:F8").value
+                res[5] = xw.Range("Sheet1", "A1:F8").value
+                res[6] = xw.Range("Sheet1", "A7:D7").value
+                res[7] = xw.Range("Sheet1", "D3:D9").value
 
             full_cells, up, dn = _make_xl_margins(sheet)
             xl_ma, ind = xr.get_sheet_margins(full_cells)

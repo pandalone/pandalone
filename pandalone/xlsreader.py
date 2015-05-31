@@ -852,7 +852,7 @@ def get_sheet_margins(full_cells):
 
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
                                 blank or empty. Use :func:`get_full_cells()`.
-    :return:  a 2-tuple with margins and indixes for full-cells
+    :return:  a 2-tuple with zero-based margins and indixes for full-cells
 
 
     Examples::
@@ -864,10 +864,12 @@ def get_sheet_margins(full_cells):
         ...    [0, 0, 1],
         ... ]
         >>> sheet_margins, indices = get_sheet_margins(full_cells)
+        >>> row, col = sheet_margins
+        >>> sorted(row.items())
+        [('^', 1), ('_', 3)]
 
-        #>>> sorted(sheet_margins.items()) ## FIXME: Nested DICT??
-        [('col', {'^': 1, '_': 2}), 
-         ('row', {'^': 1, '_': 3})]
+        >>> sorted(col.items())
+        [('^', 1), ('_', 2)] 
 
         >>> indices
          [[1, 1], [2, 1], [2, 2], [3, 2]]
@@ -887,16 +889,10 @@ def get_sheet_margins(full_cells):
     indices = np.array(np.where(full_cells)).T  # XXX: Loads all sheet here?!?
     up_r, up_c = indices.min(0)
     dn_r, dn_c = indices.max(0)
-    sheet_margins = {
-        'col': {
-            '^': up_c,
-            '_': dn_c
-        },
-        'row': {
-            '^': up_r,
-            '_': dn_r
-        }
-    }
+    sheet_margins = (
+        {'^': up_r, '_': dn_r},
+        {'^': up_c, '_': dn_c},
+    )
     return sheet_margins, indices.tolist()
 
 
@@ -941,14 +937,14 @@ def resolve_cell(cell, sheet_margins, pcell=None):
 
     Examples::
 
-        >>> resolve_cell(Cell(3, 1), {'row':{}, 'col':{}})
+        >>> resolve_cell(Cell(3, 1), [{},{}])
         Cell(row=3, col=1)
 
     """
     row = _get_abs_coord(
-        cell.row, sheet_margins['row'], pcell and pcell.row)
+        cell.row, sheet_margins[0], pcell and pcell.row)
     col = _get_abs_coord(
-        cell.col, sheet_margins['col'], pcell and pcell.col)
+        cell.col, sheet_margins[1], pcell and pcell.col)
 
     return Cell(row=row, col=col)
 
@@ -1235,11 +1231,13 @@ def _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell,
         >>> sheet_margins, _ = get_sheet_margins(full_cells)
         >>> st_cell = CellPos(Cell(0, 0), 'DR')
         >>> nd_cell = CellPos(Cell('.', '.'), 'DR')
-        >>> _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell, nd_cell)
+        >>> _resolve_capture_range(full_cells, up, dn, sheet_margins, 
+        ...         st_cell, nd_cell)
         (Cell(row=6, col=3), Cell(row=7, col=3))
 
         >>> nd_cell = CellPos(Cell(7, 6), 'UL')
-        >>> _resolve_capture_range(full_cells, up, dn, sheet_margins, st_cell, nd_cell)
+        >>> _resolve_capture_range(full_cells, up, dn, sheet_margins, 
+        ...         st_cell, nd_cell)
         (Cell(row=5, col=3), Cell(row=6, col=3))
     """
 
