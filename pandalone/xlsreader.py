@@ -453,6 +453,7 @@ Example-refs are given below for capturing the 2 marked tables::
 .. default-role:: obj
 
 """
+
 from collections import namedtuple
 import datetime
 from distutils.version import LooseVersion
@@ -559,15 +560,15 @@ def _row2num(coord):
         >>> _row2num(None)
         Traceback (most recent call last):
         ValueError: Invalid row(None)!
-
     """
+
     if coord in _special_coords:
         return coord
 
     try:
         row = int(coord) - 1
         if row < 0:
-            raise
+            raise ValueError
         return row
     except Exception:
         raise ValueError('Invalid row({!r})!'.format(coord))
@@ -609,7 +610,6 @@ def _col2num(coord):
         >>> _col2num(4)
         Traceback (most recent call last):
         ValueError: Invalid column(4)!
-
     """
 
     if coord in _special_coords:
@@ -681,6 +681,7 @@ def _make_TargetRef(cell_col, cell_row, cell_mov):
             mov = cell_mov.upper() if cell_mov else None
 
             return TargetRef(cell=Cell(col=col, row=row), mov=mov)
+
     except Exception as ex:
         msg = 'Invalid cell(col={!r}, row={!r}) due to: {}'
         raise ValueError(msg.format(cell_col, cell_row, ex))
@@ -688,18 +689,28 @@ def _make_TargetRef(cell_col, cell_row, cell_mov):
 
 def _repeat_moves(moves, times=None):
     """
+    Returns an iterator that repeats the primitive-directions for a N times.
+
+    :param str moves: string with a sequence of primitive directions
+
+    :param str times: N of repetitions. If None it means infinite repetitions.
+
+    :return:
+        An iterator.
+    :rtype: iterator
+
     Examples::
 
-         >>> list(_repeat_moves('ABC', '3'))
-         ['ABC', 'ABC', 'ABC']
+         >>> list(_repeat_moves('LUR', '3'))
+         ['LUR', 'LUR', 'LUR']
 
-         >>> list(_repeat_moves('ABC', '0'))
+         >>> list(_repeat_moves('LUR', '0'))
          []
 
-         >>> _repeat_moves('ABC')  ## infinite repetitions
-         repeat('ABC')
-
+         >>> _repeat_moves('LUR')  # infinite repetitions
+         repeat('LUR')
      """
+
     args = (moves,)
     if times is not None:
         args += (int(times), )
@@ -708,17 +719,16 @@ def _repeat_moves(moves, times=None):
 
 def _parse_rect_expansions(rect_exp):
     """
-    Parse rect-expansion into a list of dir-letters iterables.
+    Parse rect-expansion into a list of dir-letters iterable.
 
     :param rect_exp:
         A string with a sequence of primitive moves:
         es. L1U1R1D1
-    :type xl_ref: str
+    :type rect_exp: str
 
     :return:
         A list of primitive-dir chains.
     :rtype: list
-
 
     Examples::
 
@@ -737,8 +747,8 @@ def _parse_rect_expansions(rect_exp):
         Traceback (most recent call last):
         ValueError: Invalid rect-expansion(1LURD) due to:
                 'NoneType' object has no attribute 'groupdict'
-
     """
+
     try:
         res = _re_rect_exp_splitter.split(rect_exp.replace('?', '1'))
 
@@ -831,7 +841,7 @@ def parse_xl_url(url):
 
             <url_file>#<sheet>!<1st_ref>:<2nd_ref>:<expand><json>
 
-        Exxample::
+        Example::
 
             file:///path/to/file.xls#sheet_name!UP10:DN20:LDL1{"dim":2}
 
@@ -921,7 +931,8 @@ def get_sheet_margins(full_cells):
         True
 
     """
-    indices = np.array(np.where(full_cells)).T  # XXX: Loads all sheet here?!?
+
+    indices = np.array(np.where(full_cells)).T
     up_r, up_c = indices.min(0)
     dn_r, dn_c = indices.max(0)
     sheet_margins = Cell(
@@ -935,6 +946,7 @@ def _get_abs_coord(coord, coord_margins, pcoord=None):
     Translates any special or dependent coord to absolute ones.
 
     :param int, str coord:    the coord to translate
+    :param int, str coord_margins:    the coord to translate
     :param int, None pcoord:  the basis for dependent coord, if any
 
 
@@ -968,7 +980,6 @@ def _resolve_cell(cell, sheet_margins, pcell=None):
     :param Cell pcell:   The cell to base any dependent coords (``.``).
     :rtype: Cell
 
-
     Examples::
 
         >>> margins = Cell(
@@ -982,8 +993,8 @@ def _resolve_cell(cell, sheet_margins, pcell=None):
 
         >>> _resolve_cell(Cell('_', '_'), margins)
         Cell(row=10, col=6)
-
     """
+
     row = _get_abs_coord(cell.row, sheet_margins.row, pcell and pcell.row)
     col = _get_abs_coord(cell.col, sheet_margins.col, pcell and pcell.col)
 
@@ -992,15 +1003,17 @@ def _resolve_cell(cell, sheet_margins, pcell=None):
 
 def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
     """
+    Returns the FIRST `cell` with OPPOSITE `state` of the starting-state.
 
-    :param bool state:      the starting-state
-    :param cell:
+    :param bool state: the starting-state
+    :param Cell cell: landing-cell
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
                                 blank or empty. Use :func:`get_full_cells()`.
-    :param sheet:
-    :param moves:
-    :return:
-
+    :param tuple dn: bottom sheet limits
+    :param str moves: string with a sequence of primitive directions
+    :param bool last: If True `_target_opposite_state` returns the last cell
+    that has the same state of the `starting-state`.
+    :rtype: Cell
 
     Examples::
         >>> full_cells = np.array([
@@ -1061,6 +1074,7 @@ def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
         >>> _target_opposite_state(*(args + ('LD', )))
         Cell(row=3, col=2)
     """
+
     up = (0, 0)
     mv = _primitive_dir[moves[0]]  # first move
     c0 = np.array(cell)
@@ -1106,15 +1120,15 @@ def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
 
 def _target_same_state(state, cell, full_cells, dn, moves):
     """
+    Returns the LAST `cell` with SAME `state` of the starting-state.
 
-    :param bool state:      the starting-state
-    :param cell:
+    :param bool state: the starting-state
+    :param Cell cell: landing-cell
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
                                 blank or empty. Use :func:`get_full_cells()`.
-    :param sheet:
-    :param moves:
-    :return:
-
+    :param tuple dn: bottom sheet limits
+    :param str moves: string with a sequence of primitive directions
+    :rtype: Cell
 
     Examples::
         >>> full_cells = np.array([
@@ -1167,12 +1181,13 @@ def _target_same_state(state, cell, full_cells, dn, moves):
 def _expand_rect(state, xl_rect, full_cells, rect_exp):
     """
 
-    :param state:
-    :param xl_rect:
+    :param bool state: The starting-state.
+    :param tuple xl_rect: A ``(Cell, Cell)`` with the 1st and 2nd bouding-cells
+    of the rect.
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
                                 blank or empty. Use :func:`get_full_cells()`.
-    :param rect_exp:
-    :return:
+    :param list rect_exp: A list of primitive-dir chains.
+    :rtype: tuple
 
 
     Examples::
@@ -1208,6 +1223,7 @@ def _expand_rect(state, xl_rect, full_cells, rect_exp):
         [Cell(row=5, col=3), Cell(row=7, col=6)]
 
     """
+
     _m = {
         'L': (0, 1),
         'U': (0, 1),
@@ -1242,16 +1258,17 @@ def _expand_rect(state, xl_rect, full_cells, rect_exp):
 def resolve_capture_rect(full_cells, sheet_margins, st_ref,
                          nd_ref=None, rect_exp=None):
     """
+    Captures the bouding-cells of the rect.
 
     :param ndarray full_cells:
             A boolean ndarray with `False` wherever cell are
             blank or empty. Use :func:`get_full_cells()`.
-    :param TargetRef st_ref:
-    :param TargetRef nd_ref:
-    :param rect_exp:
-    :return: a ``(Cell, Cell)`` with the 1st and 2nd bouding-cells of the rect
-    :rtype: tuple
+    :param TargetRef st_ref: `1st-target-ref`.
+    :param TargetRef nd_ref: `2nd-target-ref`.
+    :param rect_exp: A list of primitive-dir chains.
 
+    :return: A ``(Cell, Cell)`` with the 1st and 2nd bouding-cells of the rect.
+    :rtype: tuple
 
     Examples::
 
@@ -1307,20 +1324,28 @@ def resolve_capture_rect(full_cells, sheet_margins, st_ref,
         st, nd = (Cell(*list(c.min(0))), Cell(*list(c.max(0))))
 
     if rect_exp is None:
-        return (st, nd)
+        return st, nd
     else:
         return _expand_rect(state, (st, nd), full_cells, rect_exp)
 
 
 def read_rect_values(sheet, xl_rect, indices, epoch1904=False):
     """
+    Reads and parses excel sheet values of the `rect`.
 
-    :param sheet:
-    :param xl_rect:
-    :param indices:
+    :param sheet: xlrd sheet.
+    :type sheet: xlrd.sheet.Sheet
+    :param tuple xl_rect: A ``(Cell, Cell)`` with the 1st and 2nd bouding-cells
+    of the rect.
+    :param indices: Indices for full-cells.
     :param epoch1904:
-    :return:
+        Which date system was in force when this file was last saved.
+        False => 1900 system (the Excel for Windows default).
+        True => 1904 system (the Excel for Macintosh default).
+    :type epoch1904: bool
 
+    :return: A table with excel sheet values of `xl_rect`.
+    :rtype: list
 
     Examples::
 
@@ -1368,6 +1393,7 @@ def read_rect_values(sheet, xl_rect, indices, epoch1904=False):
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
     """
+
     tbl = []
     st_target = xl_rect[0]
     nd_target = xl_rect[1]
@@ -1393,69 +1419,86 @@ def read_rect_values(sheet, xl_rect, indices, epoch1904=False):
         return [tbl]
 
 
-def _get_value_dim(value):
-    """ FIXME: _get_value_dim() UNUSED? """
+def _get_table_dim(table):
+    """
+    Returns the table dimension.
+
+    :param table: Matrix or vector or value.
+    :type table: list of lists, list, value
+
+    :rtype: int
+    """
     try:
-        if isinstance(value, list):
-            return 1 + _get_value_dim(value[0])
+        if isinstance(table, list):
+            return 1 + _get_table_dim(table[0])
     except IndexError:
         return 1
     return 0
 
 
-def _redim_value(value, n):
-    if n > 0:
-        return [_redim_value(value, n - 1)]
-    elif n < 0:
-        if len(value) > 1:
-            raise Exception
-        return _redim_value(value[0], n + 1)
-    return value
-
-
-def redim_captured_values(value, dim_min, dim_max=None):
+def _redim_table(table, n):
     """
-    Reshapes the output value of :func:`read_rect_values()`.
+    Returns the reshaped table.
 
-    :param value: matrix or vector or value
-    :type value: list of lists, list, value
+    :param table: Matrix or vector or value.
+    :type table: list of lists, list, value
 
-    :param dim_min: minimum dimension
+    :param n: Delta re-dimension.
+
+    :rtype: list of lists, list, value
+    """
+
+    if n > 0:
+        return [_redim_table(table, n - 1)]
+    elif n < 0:
+        if len(table) > 1:
+            raise Exception
+        return _redim_table(table[0], n + 1)
+    return table
+
+
+def redim_captured_table(table, dim_min, dim_max=None):
+    """
+    Reshapes the output table of :func:`read_rect_values()`.
+
+    :param table: Matrix or vector or value.
+    :type table: list of lists, list, value
+
+    :param dim_min: Minimum dimension.
     :type dim_min: int, None
 
-    :param dim_max: maximum dimension
+    :param dim_max: Maximum dimension.
     :type dim_max: int, None
 
-    :return: reshaped value
+    :return: Reshaped table.
     :rtype: list of lists, list, value
-
 
     Examples::
 
-        >>> redim_captured_values([1, 2], 2)
+        >>> redim_captured_table([1, 2], 2)
         [[1, 2]]
 
-        >>> redim_captured_values([[1, 2]], 1)
+        >>> redim_captured_table([[1, 2]], 1)
         [[1, 2]]
 
-        >>> redim_captured_values([[1, 2]], 1, 1)
+        >>> redim_captured_table([[1, 2]], 1, 1)
         [1, 2]
 
-        >>> redim_captured_values([], 2)
+        >>> redim_captured_table([], 2)
         [[]]
 
-        >>> redim_captured_values([[1, 2]], 0, 0)
+        >>> redim_captured_table([[1, 2]], 0, 0)
         Traceback (most recent call last):
         ValueError: Cannot reduce Captured-values dimension(2) to (0, 0)!
-
     """
-    val_dim = _get_value_dim(value)
+
+    val_dim = _get_table_dim(table)
     try:
         if val_dim < dim_min:
-            return _redim_value(value, dim_min - val_dim)
+            return _redim_table(table, dim_min - val_dim)
         elif dim_max is not None and val_dim > dim_max:
-            return _redim_value(value, dim_max - val_dim)
-        return value
+            return _redim_table(table, dim_max - val_dim)
+        return table
     except:
         # TODO: Make redimming use np-arrays.
         msg = 'Cannot reduce Captured-values dimension({}) to ({}, {})!'
