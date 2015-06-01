@@ -8,10 +8,27 @@
 
 ## Checks that site's Sphinx docs do not produce WARNINGS!
 
-set +x
+## From http://stackoverflow.com/a/25515370/548792
+yell() { echo "$0: $*" >&2; }
+die() { yell "$*"; exit 111; }
+
+set +x ## Enable for debug
 
 my_dir=`dirname "$0"`
 cd $my_dir/..
 
-python setup.py build_sphinx 2>&1 | grep -v 'image' | grep WARNING && exit -1
+## Build-site and capture output.
+#
+out="$( python setup.py build_sphinx 2>&1 )"
+if [ $? -ne 0 ]; then
+    die "$out SPHINX failed!"
+fi
+
+## Check for warnings.
+#
+warns="$( echo "$out" | grep -v 'image' | grep 'WARNING' )" 
+if [ -n "$warns" ]; then
+    die "$warns"
+fi
+
 echo OK
