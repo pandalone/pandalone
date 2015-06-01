@@ -2,7 +2,7 @@
 API reference
 #############
 
-These modules that are considered more complete:
+These are the modules in maturity order:
 
 .. currentmodule:: pandalone
 .. autosummary::

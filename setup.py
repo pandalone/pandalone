@@ -136,7 +136,7 @@ install_requires = [
     'jsonschema >= 2.4',
     'numpy >= 1.7',
     'pandas >= 0.15.0',
-    'xlrd', 
+    'xlrd',
     'openpyxl==1.8.6', ## TODO: openpyxl-444 & pandas-10125
     'Pillow',          ## For UI About boxes
     'doit >= 0.28',
@@ -196,8 +196,7 @@ setup(
     setup_requires=[
         'setuptools',
         'setuptools-git >= 0.3',  # Gather package-data from all files in git.
-        'sphinx',  # >=1.3
-        'sphinx_rtd_theme',
+        'sphinx>=1.3',
         'coveralls',
         'wheel',
     ],
@@ -209,8 +208,8 @@ setup(
     extras_require={
         ':python_version == "2.7"': [  # See PEP-426
                 'mock',
-                'pathlib',  ## TODO: Remove pathlib when use `python-future`. 
-                ], 
+                'pathlib',  ## TODO: Remove pathlib when use `python-future`.
+                ],
     },
     entry_points={
         'console_scripts': [

@@ -225,14 +225,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-if not on_rtd:
-    import sphinx_rtd_theme  # @UnresolvedImport
-    html_theme = "sphinx_rtd_theme"
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-
-    html_theme_options = {
-        'sticky_navigation': True,
-    }
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -324,10 +317,12 @@ latex_elements = {
     #'pointsize': '10pt',
 
     # Additional stuff for the LaTeX preamble.
-    #'preamble': '',
-    'preamble': '''
-    \\usepackage{amsmath}
-''',
+    #'preamble': '', ## From http://tex.stackexchange.com/questions/29459/declareunicodecharacter-doesnt-work-for-all-characters
+    'preamble': r'''
+    \usepackage[utf8]{inputenc}
+    \usepackage{amssymb}
+    \usepackage{amsmath}
+    ''',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
