@@ -21,17 +21,17 @@ before_install:
     ## Print python-version and architecture for debugging .
     #
     - |
-        python --version 
+        python --version
         conda info -a
 
 
 install:
     - |
-        deps="`grep -v \# requirements/miniconda.txt`"
+        deps="`grep -v \# requirements/miniconda.conda`"
         conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION $deps
 
     - source activate test-environment
-    - pip install -r requirements/development.txt
+    - pip install -r requirements/development.pip
 
     ## TODO: Check if FIXED ``python setup.py nosetests`` failing with conda:
     #   https://github.com/ContinuumIO/anaconda-issues/issues/280

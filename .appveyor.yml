@@ -7,34 +7,34 @@ environment:
       - PYTHON: "C:\\Python27-conda32"
         PYTHON_VERSION: "2.7"
         PYTHON_ARCH: "32"
-    
+
       - PYTHON: "C:\\Python34-conda64"
         PYTHON_VERSION: "3.4"
         PYTHON_ARCH: "64"
 
 install:
     - ps: ./bin/install_python.ps1
-    
+
     # Prepend newly installed Python to the PATH of this build (this cannot be
     #   done from inside the powershell script as it would require to restart
     #   the parent CMD process).
     - SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
-    
+
     ## Print python-version and architecture for debugging .
     #
     - |
-        python --version 
+        python --version
         python -c "import struct; print(struct.calcsize('P') * 8)"
         conda info -a
 
     - ps: |
-        $condadeps = type "requirements/miniconda.txt" | select-string -Not -Pattern '#'
+        $condadeps = type "requirements/miniconda.conda" | select-string -Not -Pattern '#'
         conda install --yes --quiet $condadeps
 
     ## `win32` dep not includeed in miniconda for it will fail in linux.
     - conda install --yes --quiet pywin32
 
-    - pip install -r requirements\\development.txt
+    - pip install -r requirements\\development.pip
 
     ## TODO: Check if FIXED ``python setup.py nosetests`` failing with conda:
     #   https://github.com/ContinuumIO/anaconda-issues/issues/280

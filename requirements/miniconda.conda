@@ -1,11 +1,11 @@
 ## Dependencies for the *conda* package-manager.
 ## Use this command to install them::
 ##
-##      conda install `cat requirements/minconda.txt`
+##      conda install `cat requirements/minconda.conda`
 ##
 ## To install the rest deps of the project use the "standard"::
 ##
-##      pip install -r requirements/execution.txt
+##      pip install -r requirements/execution.pip
 ##
 
 pip
