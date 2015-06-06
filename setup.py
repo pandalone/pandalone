@@ -133,12 +133,12 @@ download_url = 'https://github.com/%s/%s/tarball/v%s' % (
 
 install_requires = [
     'six',
-    'jsonschema >= 2.4',
+    'jsonschema == 2.4',  # TODO: Upgrade jsonschema to +>= 2.5.
     'numpy >= 1.7',
     'pandas >= 0.15.0',
     'xlrd',
-    'openpyxl==1.8.6', ## TODO: openpyxl-444 & pandas-10125
-    'Pillow',          ## For UI About boxes
+    'openpyxl==1.8.6',  # TODO: openpyxl-444 & pandas-10125
+    'Pillow',  # For UI About boxes
     'doit >= 0.28',
     'networkx',
 ]
@@ -207,9 +207,9 @@ setup(
     test_suite='nose.collector',
     extras_require={
         ':python_version == "2.7"': [  # See PEP-426
-                'mock',
-                'pathlib',  ## TODO: Remove pathlib when use `python-future`.
-                ],
+            'mock',
+            'pathlib',  # TODO: Remove pathlib when use `python-future`.
+        ],
     },
     entry_points={
         'console_scripts': [
