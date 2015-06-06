@@ -287,10 +287,10 @@ class TestXlsReader(unittest.TestCase):
         res = xr.parse_xl_ref(xl_ref)
         st_ref = res['st_ref']
         nd_ref = res['nd_ref']
-        self.assertTrue(str.isalnum(st_ref.cell.row))
-        self.assertTrue(str.isalpha(st_ref.cell.col))
-        self.assertTrue(str.isalnum(nd_ref.cell.row))
-        self.assertTrue(str.isalpha(nd_ref.cell.col))
+        self.assertTrue(st_ref.cell.row.isalnum())
+        self.assertTrue(st_ref.cell.col.isalpha())
+        self.assertTrue(nd_ref.cell.row.isalnum())
+        self.assertTrue(nd_ref.cell.col.isalpha())
 
     def test_parse_xl_ref_all_upper(self):
         xl_ref = 'b1(uL):C2(Dr):Lur2D'
@@ -304,8 +304,8 @@ class TestXlsReader(unittest.TestCase):
         for i in items:
             if i:
                 for c in i:
-                    if str.isalpha(c):
-                        self.assertTrue(str.isupper(c), '%s in %r' % (c, i))
+                    if c.isalpha():
+                        self.assertTrue(c.isupper(), '%s in %r' % (c, i))
 
     def test_basic_parse_xl_ref(self):
         xl_ref = 'Sheet1!a1(L):C2(UL)'
