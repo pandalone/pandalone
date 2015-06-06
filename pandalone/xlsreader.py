@@ -6,33 +6,33 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-A mini-language to capture rectangular areas with non-empty cells from Excel-sheets.
-
-.. default-role:: term
-
+A mini-language to capture non-empty rectangular areas from Excel-sheets.
 
 Introduction
 ============
 
-The purpose of this module is to use simple traversal operations to
-`capture` a rectangular area from excel-sheets when its exact position
-is not known beforehand.
+This is a notation for url-fragments accompanied by operations that can
+`capture` a rectangular area from excel-sheets using simple traversal operations
+when the exact position of the area is not known beforehand.
+The goal of this module is to make reading data from excel-workbooks
+as practical as when reading from CSVs.
 
 The `capturing` depends only on the full/empty `state` of the cells,
-and not on their values . Use another library (i.e. "pandas") to examine
+and not on their values . Use some other library (i.e. "pandas") to examine
 the values of the `capture-rect` afterwards.  Nevertheless, the `xl-ref` syntax
 provides for specifying `filter` transformations at the end, for setting
 the dimensionality and the final type of the captured values.
 
-It is based on **xlrd** library but is also checked for compatibility with
-**xlwings** *COM-client* library.
+It is based on `xlrd <http://www.python-excel.org/>`_ library but also
+checked for compatibility with `xlwings <http://xlwings.org/quickstart/>`_
+*COM-client* library.
 
 
 Excel-ref Syntax
 ----------------
 ::
 
-    <1st-ref>[:[<2nd-ref>][:<expansions>]][<filters>]
+    <1st-edge>[:[<2nd-edge>][:<expansions>]][<filters>]
     :
 
 
@@ -40,63 +40,96 @@ Annotated Syntax
 ----------------
 ::
 
-    target-moves────────┐
-    landing-cell─────┐  │
-                    ┌┤ ┌┤
-                    A1(RD):..(RD):L1DR:{"type": "df", "kws": {"header": false}}
-                    └─┬──┘ └─┬──┘ └┬─┘ └───────────────┬─────────────────────┘
-    1st-target-ref────┘      │     │                   │
-    2nd-target-ref───────────┘     │                   │
-    rect-expansions────────────────┘                   │
-    filters────────────────────────────────────────────┘
+    target-moves──────┐
+    landing-cell───┐  │
+                  ┌┤ ┌┤
+                  A1(RD):..(RD):L1DR:{"type": "df_num", "kws": {"header": false}}
+                  └─┬──┘ └─┬──┘ └┬─┘ └───────────────────┬──────────────────────┘
+    1st-edge────────┘      │     │                       │
+    2nd-edge───────────────┘     │                       │
+    expansions───────────────────┘                       │
+    filters──────────────────────────────────────────────┘
 
 Which means:
 
-    1. Identify the first `full-cell` beyond ``A1`` as `target`, by traversing
-       right and down;
-    2. continue from this point right-down `targeting` the `2nd-ref`;
+    1. `Target` the `1st` `edge` by identifying the first `full-cell`
+       beyond ``A1`` as traversing right and down;
+    2. continue from this point right-down `targeting` the `2nd` `edge`;
     3. `capture` the cells between the targets.
-    4. try `expansions` on the `capture-rect`, once to the left column
+    4. try `expansions` on the `target-rect`, once to the left column
        and then down and right until a full-empty line/row is met, respectively;
-    5. finally `filter` captured cells to wrap them up in a pandas DataFrame.
+    5. finally `filter` the values of the `capture-rect` to wrap them up
+       in a pandas DataFrame with *numeric-conversion*.
+
+
+API
+---
+- User-facing functionality:
+
+  .. autosummary::
+
+          num2a1_Cell
+      parse_xl_ref
+      parse_xl_url
+      get_sheet_margins
+      resolve_capture_rect
+      read_capture_rect_values
+
+- **xlrd** back-end functionality:
+
+  .. autosummary::
+      open_workbook
+      open_sheet
+      read_states_matrix
+      read_cell
+
+.. default-role:: term
 
 
 Examples
 --------
-A typical example is `capturing` a table with a "header" row and
-an "index" column.
-Below there are (at least) 3 ways to do it, beyond specifying
+.. TODO::
+    Provide example python-code for reading a `xl-ref`/`xl-url`.
+    Till then, read the sources: :file:`tests/test_xlsreader.py`.
+
+A typical case is when a sheet contains a single table with a "header"-row and
+a "index"-column.
+There are (at least) 3 ways to do it, beyond specifying
 the exact `coordinates`::
 
 
-      A B C D E      Β2:E4          ## Exact referencing.
-    1  ┌───────┐     ^^.__          ## From top-left full-cell to bottom-right.
-    2  │  X X X│     A1(DR):__:U1   ## Start from A1 and move down then right
+      A B C D E
+    1  ┌───────┐     Β2:E4          ## Exact referencing.
+    2  │  X X X│     ^^.__          ## From top-left full-cell to bottom-right.
+    3  │X X X X│     A1(DR):__:U1   ## Start from A1 and move down and right
     3  │X X X X│                    #    until B3; capture till bottom-left;
-    3  │X X X X│                    #    expand once upwards (to header row).
-    4  │X X X X│     A1(RD):__:L1   ## Start from A1 and move down by row
-       └───────┘                    #    until C4; capture till bottom-left;
+    4  │X X X X│                    #    expand once upwards (to header row).
+       └───────┘     A1(RD):__:L1   ## Start from A1 and move down by row
+                                    #    until C4; capture till bottom-left;
                                     #    expand once left (to index column).
+
 
 Note that if ``B1`` were full, the results would still be the same, because
 ``?`` expands only if any full-cell found in row/column.
 
-In case the bottom-left cell of the sheet does not coincide with table-end,
-only the later 2 `xl-ref` would work.
-But we can use `dependent` referencing for the `2nd-ref` and start
-from the end of the table::
+In case where the sheet contains more than one *disjoint* tables, the
+bottom-left cell of the sheet would not coincide with table-end, so the handy
+last two `xl-ref` above would not work.
 
-      A B C D E   _^:..(LD):L1      ## Start from top-right full-cell (D2) and
-    1  ┌─────┐                      #    move left-down till 1st empty-cell met
-    2  │  X X│                      #    at exterior row/col (C3, regardless of
-    3  │X X X│                      #    of col/row order); expand once left.
-    3  │X X X│    ^_(U):..(UR):U1   ## Target 1st cell starting from B4 and
-       └─────┘                      #    moving up; capture till D3;
-    4         Χ                     #    expand up once.
+For that we may resort to `dependent` referencing for the `2nd` `edge`, and
+define its position in relation to the `1st` `target`::
+
+      A B C D E
+    1  ┌─────┐    _^:..(LD):L1      ## Start from top-right(E2) and target left
+    2  │  X X│                      #    left(D2); from there capture left-down
+    3  │X X X│                      #    till 1st empty-cell(C4, regardless of
+    4  │X X X│                      #    col/row order); expand left once.
+       └─────┘    ^_(U):..(UR):U1   ## Start from B5 and target 1st cell up;
+    5         Χ                     #    capture from there till D3; expand up.
 
 
 In the presence of `empty-cell` breaking the `exterior` row/column of
-the `1st-landing-cell`, the capturing becomes more intricate::
+the `1st` `landing-cell`, the capturing becomes more intricate::
 
       A B C D E
     1  ┌─────┐      Β2:D_
@@ -138,49 +171,132 @@ Definitions
         Its file-part should resolve to an excel-file.
 
     xl-ref
-        The syntax for `capturing` rects from excel-sheets,
-        specified within the fragment-part of a `xl-url`.
+        A string describing how to `capture` rects from excel-sheets.
 
-        It is composed of 2 `target-ref` followed by `expansions` and `filters`.
+        It is composed of 2 `edge` references followed by `expansions` and
+        `filters`.
+        It is the fragment-part of a `xl-url`.
 
-    target-ref
-        A pair of row/col cell `coordinates` optionally followed by
-        a parenthesized `target-moves`.
-        It actually specifies 2 cells, `landing-cell` and `target-cell`.
+    edge
+        An *edge* might signify:
+
+        - the syntactic construct of the `xl-ref`, composed of a pair
+          of row/column `coordinates`, optionally followed by parenthesized
+          `target-moves`, like ``A1(LU)``;
+        - the bounding cells of the `target-rect`;
+        - the bounding cells of the `capture-rect`.
+
+        In all cases above there are 2 instances, the `1st` and `2nd`.
+
+    1st
+    2nd
+        It may refer to the *1st*/*2nd*:
+
+        - `edge` of some `xl-ref`;
+        - `landing-cell` of an `edge`;
+        - `target-cell` of an `edge`;
+        - `capture-cell` of a `capture-rect`.
+
+        The *1st-edge` supports `absolute` `coordinates` only, while the
+        *2nd-edge* supports also `dependent` ones from the *1st* `target-cell`.
 
     landing-cell
-        The cell identified by the `coordinates` of the `target-ref` alone.
+        The cell identified by the `coordinates` of the `edge` alone.
+
+    target-cell
+    target-rect
+        The bounding *cell* identified after applying `target-moves` on the
+        `landing-cell`.
+
 
     target
-    target-cell
-        The cell identified after applying `target-moves` on the `landing-cell`.
-        Failure to identify a target-cell raises an error.
-
     targeting
-        The search for the `target-cell` starts from the `landing-cell`,
-        follows the specified `target-moves`, and ends when a `state-change`
-        is detected on an `exterior` column or row, according to the enacted
-        `termination-rule`.
+        The process of identifying any `target-cell` bounding the
+        `target-rect`.
 
-    target-moves
-        Specify the traversing order while `targeting` from `landing-cell`,
-        based on `primitive-directions` pairs; so ``DR`` means:
+        - The search for the `target-cell` starts from the `landing-cell`,
+          follows the specified `target-moves`, and ends when a `state-change`
+          is detected on an `exterior` column or row, according to the enacted
+          `termination-rule`.
+        - Failure to identify a target-cell raises an error.
+        - The process is followed by `expansions` to identify the
+          `capture-rect`.
 
-            *"Start going right, column-by-column, traversing each column
-            from top to bottom."*
+        Note that in the case of a `dependent` `2nd` `edge`, the `target-rect`
+        would always be the same, irrespective of whether `target-moves`
+        denoted a row-by-row or column-by-column traversal.
 
-        The pairs ``UD`` and ``LR`` (and their inverse) are invalid.
+    capture
+    capturing
+        It is the overall procedure of:
+
+            1. `targeting` both `edge` refs to come up with the `target-rect`;
+            2. performing `expansions` to identify the `capture-rect`;
+            3. extracting the values and feed them to `filters`.
+
+    capture-rect
+    capture-cell
+        The *rectangular-area* of the sheet denoted by the two *capture-cells*
+        identified by `capturing`, that is, after applying `expansions` on
+        `target-rect`.
 
     directions
     primitive-directions
         The 4 *primitive-directions* that are denoted with one of the letters
         ``LURD``.
+        Thee are used to express both `target-moves` and `expansions`.
+
+    coordinate
+    coordinates
+        It might refer to:
+
+            - the first part of the `edge` syntax;
+            - any pair of a cell/column *coordinates* specifying cell positions,
+              i.e. `landing-cell`, `target-cell`, bounds of the `capture-rect`.
+
+        They can be expressed in ``A1`` format or as a zero-based
+        ``(row, col)`` tuple (*num*).
+        Each *coordinate* might be `absolute` or `dependent`, independently.
+
+    target-moves
+        Specify the cell traversing order while `targeting` using
+        `primitive-directions` pairs.
+        The pairs ``UD`` and ``LR`` (and their inverse) are invalid.
+        I.e. ``DR`` means:
+
+            *"Start going right, column-by-column, traversing each column
+            from top to bottom."*
+
+    expansions
+    expansion-moves
+        Due to `state-change` on the 'exterior' cells the `capture-rect`
+        might be smaller that a wider contigious but "convex" rectangular area.
+
+        The *expansions* attempt to remedy this by providing for expanding on
+        arbitrary `directions` accompanied by a multiplicity for each one.
+        If multiplicity is unspecified, infinite assumed, so it expands
+        until an empty/full row/column is met.
+
+    absolute
+        Any cell row/col identified with column-characters, row-numbers, or
+        the following special-characters:
+
+        - ``^``          The top/Left full-cell `coordinate`.
+        - ``_``          The bottom/right full-cell `coordinate`.
+
+    dependent
+        Any `2nd` `edge` `coordinate` identified with a dot(``.``),
+        which means that:
+
+            ``2nd-landing-cell coordinate := 1st target-cell coordinate``
+
+        The `2nd` `edge` might contain a "mix" of `absolute` and *dependent*
+        coordinates.
 
     state
     full-cell
     empty-cell
-        A cell is *full* when it is not *empty* or *blank*
-        (in Excel's parlance).
+        A cell is *full* when it is not *empty* / *blank* (in Excel's parlance).
 
     state-change
         Whether we are traversing from an `empty-cell` to a `full-cell`, and
@@ -203,68 +319,9 @@ Definitions
         the `landing-cell`, while `targeting` from it.
 
     exterior
-        The *column* and the *row* of the `1st-landing-cell`;
+        The *column* and the *row* of the `1st` `landing-cell`;
         the `termination-rule` gets to be triggered only by `state-change`
         on them.
-
-    coordinates
-        The column/row pair of a `landing-cell`, either in ``A1`` format or
-        zero-based ``(row, col)`` tuple.
-
-    coordinate
-        Either a *cell-column* (in letters) or *cell-row* (number);
-        each one might be `absolute` or `dependent`, independently.
-
-    absolute
-        Any cell row/col identified with column-characters, row-numbers, or
-        the following special-characters:
-
-        - ``^``          The top/Left full-cell `coordinate`.
-        - ``_``          The bottom/right full-cell `coordinate`.
-
-    dependent
-        Any `2nd-ref` `coordinate` identified with a dot(``.``),
-        which means that:
-
-            *"2nd-landing-cell coordinate = 1st target-cell coordinate"*
-
-        The `2nd-ref` might contain a "mix" of `absolute` and *dependent*
-        coordinates.
-
-    capture
-    capturing
-        The *capturing* procedure involves `targeting` the `1st-ref` and
-        the `2nd-ref`, and then extracting the values from the
-        *rectangular area* between the 2 `target` cells.
-
-        Note that the result-values would always be the same, irrespective of
-        row-by row or column-by-column traversal order.
-
-    capture-rect
-        The result values from the `capturing`
-
-    1st-ref
-    1st-landing-cell
-    1st-target-cell
-        The `capturing` STARTS from the `target` of *this* `target-ref`.
-        It supports `absolute` coordinates only.
-
-    2nd-ref
-    2nd-landing-cell
-    2nd-target-cell
-        The `capturing` STOPS at the `target` of this `target-ref`.
-        It supports both `absolute` coordinates, and `dependent` ones from the
-        `1st-target-cell`.
-
-    expansions
-    rect-expansions
-        Due to `state-change` on the 'exterior' cells the `capture-rect`
-        might be smaller that a wider contigious but "convex" rectangular area.
-
-        The * expansions* attempt to remedy this by providing for expanding on
-        arbitrary `directions` accompanied by a multiplicity for each one.
-        If multiplicity is unspecified, infinite assumed, so it expands
-        until an empty/full row/column is met.
 
     filter
     filters
@@ -374,7 +431,7 @@ In the above example-sheet, here are some ways to specify refs::
    should have been also non-empty.
 
 .. Note::
-    The `capturing` moves from `1st-target-cell` to `2nd-target-cell` are
+    The `capturing` moves from `1st` `target-cell` to `2nd` `target-cell` are
     independent from the implied `target-moves` in the case of `dependent`
     coords.
 
@@ -403,7 +460,7 @@ Target-termination rules
 
 - For the 2nd target cell:
 
-  - If the `state` of the `2nd-landing-cell` == `1st-target-cell`:
+  - If the `state` of the ``2nd-landing-cell == 1st-target-cell``:
     - Use `search-same` to identify target.
 
   - Otherwise:
@@ -449,6 +506,10 @@ Example-refs are given below for capturing the 2 marked tables::
     - The '1' and '2' signify the identified target-cells.
 
 
+TODOs
+=====
+* Support cubic areas.
+* Notation for specifying the "last-sheet".
 
 .. default-role:: obj
 
@@ -486,7 +547,7 @@ _re_xl_ref_parser = re.compile(
     ^\s*(?:(?P<sheet>[^!]+)?!)?                          # xl sheet name
     (?:                                                  # first cell
         (?P<st_col>[A-Z]+|_|\^)                          # first col
-        (?P<st_row>\d+|_|\^)                             # first row
+        (?P<st_row>[123456789]\d*|_|\^)                  # first row
         (?:\(
             (?P<st_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves from st cell
             \)
@@ -494,13 +555,13 @@ _re_xl_ref_parser = re.compile(
     )
     (?::                                                 # second cell [opt]
         (?P<nd_col>[A-Z]+|_|\^|\.)                       # second col
-        (?P<nd_row>\d+|_|\^|\.)                          # second row
+        (?P<nd_row>[123456789]\d*|_|\^|\.)               # second row
         (?:\(
             (?P<nd_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves from nd cell
             \)
         )?
         (?::
-            (?P<rect_exp>[LURD?\d]+)                     # rect expansion [opt]
+            (?P<rect_exp>[LURD?123456789]+)              # rect expansion [opt]
         )?
     )?
     \s*
@@ -521,184 +582,109 @@ _re_rect_expansion_parser = re.compile(
 
 
 Cell = namedtuple('Cell', ['row', 'col'])
-
+"""Its coords might be "A1" (strings, 1-based) or "num" (0-based)."""
 
 TargetRef = namedtuple('TargetRef', ['cell', 'mov'])
+"""
+It might be "cooked" or "uncooked" depending on its `Cell`.
+
+- An *uncooked* targetref contains *A1* :data:`Cell`.
+- An *cooked* targetref contains a *num* :data:`Cell`.
+"""
 
 
-def _row2num(coord):
+def num2a1_Cell(row, col):
+    """Make *A1* :data:``Cell` from *num* or special coords, with rudimentary error-checking.
+
+    Examples::
+
+        >>> num2a1_Cell(row=0, col=0)
+        Cell(row='1', col='A')
+        >>> num2a1_Cell(row=0, col=26)
+        Cell(row='1', col='AA')
+
+        >>> num2a1_Cell(row=10, col='.')
+        Cell(row='11', col='.')
+
+        >>> num2a1_Cell(row=-3, col=-2)
+        Traceback (most recent call last):
+        AssertionError: negative row!
+
+
     """
-    Converts the Excel `str` row to a zero-based `int`, reporting invalids.
+    if row not in _special_coords:
+        assert row >= 0, 'negative row!'
+        row = str(row + 1)
+    if col not in _special_coords:
+        assert col >= 0, 'negative col!'
+        col = xlrd.colname(col)
+    return Cell(row=row, col=col)
 
-    :param str, int coord:  excel-row coordinate or one of ``^_.``
 
-    :return:    excel row number, >= 0
-    :rtype:     int
+def _uncooked_TargetRef(row, col, mov):
+    """
+    Make a new `TargetRef` from any non-values supplied, as is capitalized, or nothing.
+
+    :param str, None col:    ie ``A``
+    :param str, None row:    ie ``1``
+    :param str, None mov:    ie ``RU1D?``
+
+    :return:    a `TargetRef` if any non-None
+    :rtype:     TargetRef, None
 
 
     Examples::
 
-        >>> _row2num('1')
-        0
+        >>> tr = _uncooked_TargetRef('1', 'a', 'Rul')
+        >>> tr
+        TargetRef(cell=Cell(row='1', col='A'), mov='RUL')
 
-        >>> _row2num('10') == _row2num(10)
-        True
 
-        ## "Special" cells are also valid.
-        >>> _row2num('_'), _row2num('^')
-        ('_', '^')
+    No error checking performed::
 
-        >>> _row2num('0')
+        >>> _uncooked_TargetRef('Any', 'foo', 'BaR')
+        TargetRef(cell=Cell(row='Any', col='FOO'), mov='BAR')
+
+        >>> print(_uncooked_TargetRef(None, None, None))
+        None
+
+
+    except were coincidental::
+
+        >>> _uncooked_TargetRef(row=0, col=123, mov='BAR')
         Traceback (most recent call last):
-        ValueError: Invalid row('0')!
+        AttributeError: 'int' object has no attribute 'upper'
 
-        >>> _row2num('a')
+        >>> _uncooked_TargetRef(row=0, col='A', mov=123)
         Traceback (most recent call last):
-        ValueError: Invalid row('a')!
-
-        >>> _row2num(None)
-        Traceback (most recent call last):
-        ValueError: Invalid row(None)!
-
-    """
-    if coord in _special_coords:
-        return coord
-
-    try:
-        row = int(coord) - 1
-        if row < 0:
-            raise
-        return row
-    except Exception:
-        raise ValueError('Invalid row({!r})!'.format(coord))
-
-
-def _col2num(coord):
-    """
-    Converts the Excel `str` column to a zero-based `int`, reporting invalids.
-
-    :param str coord:     excel-column coordinate or one of ``^_.``
-
-    :return:    excel column number, >= 0
-    :rtype:     int
-
-
-    Examples::
-
-        >>> _col2num('D')
-        3
-
-        >>> _col2num('d')
-        3
-
-        >>> _col2num('AaZ')
-        727
-
-        ## "Special" cells are also valid.
-        >>> _col2num('_'), _col2num('^')
-        ('_', '^')
-
-        >>> _col2num(None)
-        Traceback (most recent call last):
-        ValueError: Invalid column(None)!
-
-        >>> _col2num('4')
-        Traceback (most recent call last):
-        ValueError: Invalid column('4')!
-
-        >>> _col2num(4)
-        Traceback (most recent call last):
-        ValueError: Invalid column(4)!
-
+        AttributeError: 'int' object has no attribute 'upper'
     """
 
-    if coord in _special_coords:
-        return coord
+    if col == row == mov is None:
+        return None
 
-    try:
-        num = 0
-        for c in coord:
-            num = num * 26 + ascii_uppercase.rindex(c.upper()) + 1
-
-        return num - 1
-    except Exception:
-        raise ValueError('Invalid column({!r})!'.format(coord))
-
-
-def _make_TargetRef(cell_col, cell_row, cell_mov):
-    """
-    Fetch a cell reference string.
-
-    :param cell_col:    column reference
-    :type cell_col: str, None
-
-    :param cell_row:    row reference
-    :type cell_row: str, None
-
-    :param cell_mov:    target-moves
-    :type cell_mov: str, None
-
-    :return:
-        a cell-start
-    :rtype: TargetRef
-
-
-    Examples::
-        >>> _make_TargetRef('A', '1', 'R')
-        TargetRef(cell=Cell(row=0, col=0), mov='R')
-
-        >>> _make_TargetRef('^', '^', 'R').cell
-        Cell(row='^', col='^')
-
-        >>> _make_TargetRef('_', '_', 'L').cell
-        Cell(row='_', col='_')
-
-        >>> _make_TargetRef('.', '.', 'D').cell
-        Cell(row='.', col='.')
-
-        >>> _make_TargetRef(None, None, None)
-
-        >>> _make_TargetRef('1', '.', None)
-        Traceback (most recent call last):
-        ValueError: Invalid cell(col='1', row='.') due to: Invalid column('1')!
-
-        >>> _make_TargetRef('A', 'B', None)
-        Traceback (most recent call last):
-        ValueError: Invalid cell(col='A', row='B') due to: Invalid row('B')!
-
-        >>> _make_TargetRef('A', '1', 12)
-        Traceback (most recent call last):
-        ValueError: Invalid cell(col='A', row='1') due to:
-            'int' object has no attribute 'upper'
-    """
-
-    try:
-        if cell_col == cell_row == cell_mov is None:
-            return None
-        else:
-            row = _row2num(cell_row)
-            col = _col2num(cell_col)
-            mov = cell_mov.upper() if cell_mov else None
-
-            return TargetRef(cell=Cell(col=col, row=row), mov=mov)
-    except Exception as ex:
-        msg = 'Invalid cell(col={!r}, row={!r}) due to: {}'
-        raise ValueError(msg.format(cell_col, cell_row, ex))
+    return TargetRef(cell=Cell(col=col and col.upper(), row=row), mov=mov and mov.upper())
 
 
 def _repeat_moves(moves, times=None):
     """
+    Returns an iterator that repeats `moves` x `times`, or infinite if unspecified.
+
+    Used when parsing :term:`primitive-directions`.
+
+   :param str moves: the moves to repeat
+   :param str times: N of repetitions. If `None` it means infinite repetitions.
+   :return:    An iterator of the moves
+   :rtype:     iterator
+
     Examples::
 
-         >>> list(_repeat_moves('ABC', '3'))
-         ['ABC', 'ABC', 'ABC']
-
+         >>> list(_repeat_moves('LUR', '3'))
+         ['LUR', 'LUR', 'LUR']
          >>> list(_repeat_moves('ABC', '0'))
          []
-
          >>> _repeat_moves('ABC')  ## infinite repetitions
          repeat('ABC')
-
      """
     args = (moves,)
     if times is not None:
@@ -755,76 +741,70 @@ def parse_xl_ref(xl_ref):
     """
     Parses a :term:`xl-ref` and splits it in its "ingredients".
 
-    :param xl_ref:
+    :param str xl_ref:
         a string with the following format:
         <sheet>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):
         <rect_exp>{<json>}
-        es. sheet!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}
-    :type xl_ref: str
+        i.e.::
+
+            sheet!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}
 
     :return:
         dictionary containing the following parameters::
 
         - sheet: str
-        - st_ref: (TargetRef) the 1st-ref raw, with strings
-        - nd_ref: (TargetRef) the 2nd-ref, raw, with strings
-        - rect_exp: (list) parsed as list of iterable-letters
+        - st_ref: (TargetRef, None) the 1st-ref, uncooked, with raw cell
+        - nd_ref: (TargetRef, None) the 2nd-ref, uncooked, with raw cell
+        - rect_exp: (str) as found on the xl-ref
         - json: parsed
 
     :rtype: dict
 
 
     Examples::
-        >>> from itertools import chain
-        >>> xl_ref = 'Sheet1!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}'
-        >>> res = parse_xl_ref(xl_ref)
 
-        >>> res['sheet']
-        'Sheet1'
+        >>> res = parse_xl_ref('Sheet1!A1(DR):Z20(UL):L1U2R1D1:{"json":"..."}')
+        >>> sorted(res.items())
+        [('json', {'json': '...'}),
+         ('nd_ref', TargetRef(cell=Cell(row='20', col='Z'), mov='UL')),
+         ('rect_exp', 'L1U2R1D1'),
+         ('sheet', 'Sheet1'),
+         ('st_ref', TargetRef(cell=Cell(row='1', col='A'), mov='DR'))]
 
-        >>> res['st_ref']
-        TargetRef(cell=Cell(row=0, col=0), mov='DR')
-
-        >>> res['nd_ref']
-        TargetRef(cell=Cell(row=19, col=25), mov='UL')
-
-        >>> list(chain(*res['rect_exp']))
-        ['L', 'U', 'U', 'R', 'D']
-
-        >>> res['json'] == {'json': '...'}
-        True
+        >>> parse_xl_ref('A1(DR)Z20(UL)')
+        Traceback (most recent call last):
+        ValueError: Invalid xl-ref(A1(DR)Z20(UL)) due to: not an `xl-ref` syntax.
     """
 
     try:
         m = _re_xl_ref_parser.match(xl_ref)
         if not m:
-            raise ValueError('Syntax not matched.')
+            raise ValueError('not an `xl-ref` syntax.')
         gs = m.groupdict()
+
+        # Replace coords of 1st and 2nd cells
+        #     with "uncooked" edge.
+        #
+        p = gs.pop
+        gs['st_ref'] = _uncooked_TargetRef(
+            p('st_row'), p('st_col'), p('st_mov'))
+        gs['nd_ref'] = _uncooked_TargetRef(
+            p('nd_row'), p('nd_col'), p('nd_mov'))
 
         js = gs['json']
         gs['json'] = json.loads(js) if js else None
 
-        rect = gs['rect_exp']
-        gs['rect_exp'] = _parse_rect_expansions(rect) if rect else None
-
-        p = gs.pop
-
-        # fetch 1st cell
-        gs['st_ref'] = _make_TargetRef(p('st_col'), p('st_row'), p('st_mov'))
-
-        # fetch 2nd cell
-        gs['nd_ref'] = _make_TargetRef(p('nd_col'), p('nd_row'), p('nd_mov'))
-
         return gs
 
     except Exception as ex:
-        log.debug("Invalid xl-ref(%s) due to: %s", xl_ref, ex, exc_info=1)
-        raise ValueError("Invalid xl-ref({}) due to: ".format(xl_ref, ex))
+        msg = "Invalid xl-ref(%s) due to: %s"
+        log.debug(msg, xl_ref, ex, exc_info=1)
+        raise ValueError(msg % (xl_ref, ex))
 
 
 def parse_xl_url(url):
     """
-    Parses the contents of an excel url.
+    Parses the contents of an :term:`xl-url`.
 
     :param str url:
         a string with the following format::
@@ -858,11 +838,10 @@ def parse_xl_url(url):
         >>> sorted(res.items())
         [('json', {'2': 'ciao'}),
          ('nd_ref', TargetRef(cell=Cell(row='^', col='.'), mov='DR')),
-         ('rect_exp', [repeat('L'), repeat('U', 1)]),
+         ('rect_exp', 'LU?'),
          ('sheet', 'Sheet1'),
-         ('st_ref', TargetRef(cell=Cell(row=0, col=0), mov='UL')),
+         ('st_ref', TargetRef(cell=Cell(row='1', col='A'), mov='UL')),
          ('url_file', 'file:///sample.xlsx')]
-
     """
 
     try:
@@ -880,10 +859,12 @@ def parse_xl_url(url):
 
 def get_sheet_margins(full_cells):
     """
-    Returns upper and lower absolute positions.
+    Returns top-left and bottom-down margins and all full-incdices from a :term:`state` matrix.
+
+    Cache its return-value to use it in other functions here needing it.
 
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
-                                blank or empty. Use :func:`get_full_cells()`.
+                                blank or empty. Use :func:`read_states_matrix()`.
     :return:  a 2-tuple with:
 
               - a `Cell` with zero-based margins for rows/cols,
@@ -898,16 +879,16 @@ def get_sheet_margins(full_cells):
         ...    [0, 1, 1],
         ...    [0, 0, 1],
         ... ]
-        >>> sheet_margins, indices = get_sheet_margins(full_cells)
-        >>> row, col = sheet_margins
-        >>> sorted(row.items())
-        [('^', 1), ('_', 3)]
+        >>> margins, indices = get_sheet_margins(full_cells)
+        >>> margins                                         # doctest: +SKIP
+        Cell(row={'_': 3, '^': 1}, col={'_': 2, '^': 1})
 
-        >>> sorted(col.items())
-        [('^', 1), ('_', 2)]
 
         >>> indices
          [[1, 1], [2, 1], [2, 2], [3, 2]]
+
+
+    Note that the botom-left cell is not the same as `full_cells` matrix size::
 
         >>> full_cells = [
         ...    [0, 0, 0, 0],
@@ -916,8 +897,8 @@ def get_sheet_margins(full_cells):
         ...    [0, 0, 1, 0],
         ...    [0, 0, 0, 0],
         ... ]
-        >>> sheet_margins_2, _ = get_sheet_margins(full_cells)
-        >>> sheet_margins_2 == sheet_margins
+        >>> margins_2, _ = get_sheet_margins(full_cells)
+        >>> margins_2 == margins
         True
 
     """
@@ -930,42 +911,188 @@ def get_sheet_margins(full_cells):
     return sheet_margins, indices.tolist()
 
 
-def _get_abs_coord(coord, coord_margins, pcoord=None):
+def _build_special_dict(cord_bounds, base_coord):
+    """Makes a stacked dict of margins and base-coord for resolving all specials coords. """
+    try:
+        from collections import ChainMap
+        return ChainMap(cord_bounds, {'.': base_coord})
+    except ImportError:
+        # TODO: FIX hack when ChainMap backported to py2.
+        c = {'.': base_coord}
+        c.update(cord_bounds)
+
+        return c
+
+
+def _resolve_coord(cname, cfunc, coord, cbounds, bcoord=None):
     """
-    Translates any special or dependent coord to absolute ones.
+    Translates special coords or converts Excel string 1-based rows/cols to zero-based, reporting invalids.
 
-    :param int, str coord:    the coord to translate
-    :param int, None pcoord:  the basis for dependent coord, if any
+    :param str        cname:  the coord-name, one of 'row', 'column'
+    :param str        cfunc:  the function to convert coord ``str --> int``
+    :param int, str   coord:  the coord to translate
+    :param dict     cbounds:  the coord part of :func:`get_sheet_margins()`
+    :param int, None bcoord:  the basis for dependent coord, if any
+
+    :return: the resolved coord or `None` if it were not a special coord.
 
 
-    No other checks performed::
+    Row examples::
 
-        >>> margins = {}
-        >>> _get_abs_coord('_', margins)
-        '_'
+        >>> cbounds = {'_': 10, '^':1}
+        >>> cname = 'row'
 
-        >>> _get_abs_coord('$', margins)
-        '$'
+        >>> r0 = _resolve_coord(cname, _row2num, '1', cbounds)
+        >>> r0
+        0
+        >>> r0 == _resolve_coord(cname, _row2num, 1, cbounds)
+        True
+        >>> _resolve_coord(cname, _row2num, '_', cbounds)
+        10
+        >>> _resolve_coord(cname, _row2num, '^', cbounds)
+        1
+        >>> _resolve_coord(cname, _row2num, '.', cbounds, 13)
+        13
+
+
+    But notice when base-cell missing::
+
+        >>> _resolve_coord(cname, _row2num, '.', cbounds, bcoord=None)
+        Traceback (most recent call last):
+        ValueError: invalid row('.') due to: '.'
+
+    Other ROW error-checks::
+
+        >>> _resolve_coord(cname, _row2num, '0', cbounds)
+        Traceback (most recent call last):
+        ValueError: invalid row('0') due to: resolved to negative(-1)!
+
+        >>> _resolve_coord(cname, _row2num, 'a', cbounds)
+        Traceback (most recent call last):
+        ValueError: invalid row('a') due to: invalid literal for int() with base 10: 'a'
+
+        >>> _resolve_coord(cname, _row2num, None, cbounds)
+        Traceback (most recent call last):
+        ValueError: invalid row(None) due to:
+                int() argument must be a string, a bytes-like object or a number, not 'NoneType'
+
+    Column examples::
+
+        >>> cname = 'column'
+
+        >>> _resolve_coord(cname, _col2num, 'A', cbounds)
+        0
+        >>> _resolve_coord(cname, _col2num, 'DADA', cbounds)
+        71084
+        >>> _resolve_coord(cname, _col2num, '.', cbounds, 13)
+        13
+
+    And COLUMN error-checks::
+
+        >>> _resolve_coord(cname, _col2num, None, cbounds)
+        Traceback (most recent call last):
+        ValueError: invalid column(None) due to: 'NoneType' object is not iterable
+
+        >>> _resolve_coord(cname, _col2num, '4', cbounds)
+        Traceback (most recent call last):
+        ValueError: invalid column('4') due to: substring not found
+
+        >>> _resolve_coord(cname, _col2num, 4, cbounds)
+        Traceback (most recent call last):
+        ValueError: invalid column(4) due to: 'int' object is not iterable
+
+
     """
-    if pcoord:
-        try:
-            from collections import ChainMap
-            coord_margins = ChainMap(coord_margins, {'.': pcoord})
-        except ImportError:
-            # TODO: FIX hack when ChainMap backported to py2.
-            c = {'.': pcoord}
-            c.update(coord_margins)
-            coord_margins = c
+    try:
+        if coord in _special_coords:
+            if bcoord:
+                cbounds = _build_special_dict(cbounds, bcoord)
+            rcoord = cbounds[coord]
+        else:
+            rcoord = cfunc(coord)
 
-    return coord_margins.get(coord, coord)
+        if rcoord < 0:
+            msg = 'resolved to negative(%s)!'
+            raise ValueError(msg % rcoord)
+
+        return rcoord
+    except Exception as ex:
+        msg = 'invalid {}({!r}) due to: {}'
+        raise ValueError(msg.format(cname, coord, ex))
 
 
-def _resolve_cell(cell, sheet_margins, pcell=None):
+def _row2num(coord):
+    """
+    Resolves special coords or converts Excel 1-based rows to zero-based, reporting invalids.
+
+    :param str, int coord:     excel-row coordinate or one of ``^_.``
+    :return:    excel row number, >= 0
+    :rtype:     int
+
+    Examples::
+
+        >>> row = _row2num('1')
+        >>> row
+        0
+        >>> row == _row2num(1)
+        True
+        >>> _row2num('-1')
+        -2
+
+    Fails ugly::
+
+        >>> _row2num('.')
+        Traceback (most recent call last):
+        ValueError: invalid literal for int() with base 10: '.'
+    """
+    return int(coord) - 1
+
+
+def _col2num(coord):
+    """
+    Resolves special coords or converts Excel A1 columns to a zero-based, reporting invalids.
+
+    :param str coord:          excel-column coordinate or one of ``^_.``
+    :return:    excel column number, >= 0
+    :rtype:     int
+
+    Examples::
+
+        >>> col = _col2num('D')
+        >>> col
+        3
+        >>> _col2num('d') == col
+        True
+        >>> _col2num('AaZ')
+        727
+
+    Fails ugly::
+
+        >>> _col2num('12')
+        Traceback (most recent call last):
+        ValueError: substring not found
+
+        >>> _col2num(1)
+        Traceback (most recent call last):
+        TypeError: 'int' object is not iterable
+    """
+
+    rcoord = 0
+    for c in coord:
+        rcoord = rcoord * 26 + ascii_uppercase.rindex(c.upper()) + 1
+
+    rcoord -= 1
+
+    return rcoord
+
+
+def _resolve_cell(cell, margins, bcell=None):
     """
     Translates any special coords to absolute ones.
 
-    :param Cell cell:    The cell to translate its coords.
-    :param Cell pcell:   The cell to base any dependent coords (``.``).
+    :param Cell cell:     The raw cell to translate its coords.
+    :param Cell bcell:    A resolved cell to base any dependent coords (``.``).
+    :param Cell margins:  see :func:`get_sheet_margins()`
     :rtype: Cell
 
 
@@ -974,8 +1101,8 @@ def _resolve_cell(cell, sheet_margins, pcell=None):
         >>> margins = Cell(
         ...     row={'^':1, '_':10},
         ...     col={'^':2, '_':6})
-        >>> _resolve_cell(Cell(4, 5), margins)
-        Cell(row=4, col=5)
+        >>> _resolve_cell(Cell(col='A', row=5), margins)
+        Cell(row=4, col=0)
 
         >>> _resolve_cell(Cell('^', '^'), margins)
         Cell(row=1, col=2)
@@ -983,11 +1110,32 @@ def _resolve_cell(cell, sheet_margins, pcell=None):
         >>> _resolve_cell(Cell('_', '_'), margins)
         Cell(row=10, col=6)
 
-    """
-    row = _get_abs_coord(cell.row, sheet_margins.row, pcell and pcell.row)
-    col = _get_abs_coord(cell.col, sheet_margins.col, pcell and pcell.col)
+        >>> _resolve_cell(Cell('1', '5'), margins)
+        Traceback (most recent call last):
+        ValueError: invalid cell(Cell(row='1', col='5')) due to:
+                invalid col('5') due to: substring not found
 
-    return Cell(row=row, col=col)
+        >>> _resolve_cell(Cell('A', 'B'), margins)
+        Traceback (most recent call last):
+        ValueError: invalid cell(Cell(row='A', col='B')) due to:
+                invalid row('A') due to: invalid literal for int() with base 10: 'A'
+
+        >>> _resolve_cell(Cell('1', '.'), margins)
+        Traceback (most recent call last):
+        ValueError: invalid cell(Cell(row='1', col='.')) due to: invalid col('.') due to: '.'
+
+    """
+    try:
+        row = _resolve_coord('row', _row2num, cell.row, margins.row,
+                             bcell and bcell.row)
+        col = _resolve_coord('col', _col2num, cell.col, margins.col,
+                             bcell and bcell.col)
+
+        return Cell(row=row, col=col)
+    except Exception as ex:
+        msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  bcell(%s)"
+        log.debug(msg, cell, ex, margins, bcell)
+        raise ValueError("invalid cell(%s) due to: %s" % (cell, ex))
 
 
 def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
@@ -996,13 +1144,14 @@ def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
     :param bool state:      the starting-state
     :param cell:
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
-                                blank or empty. Use :func:`get_full_cells()`.
+                                blank or empty. Use :func:`read_states_matrix()`.
     :param sheet:
     :param moves:
     :return:
 
 
     Examples::
+
         >>> full_cells = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -1110,13 +1259,14 @@ def _target_same_state(state, cell, full_cells, dn, moves):
     :param bool state:      the starting-state
     :param cell:
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
-                                blank or empty. Use :func:`get_full_cells()`.
+                                blank or empty. Use :func:`read_states_matrix()`.
     :param sheet:
     :param moves:
     :return:
 
 
     Examples::
+
         >>> full_cells = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -1170,7 +1320,7 @@ def _expand_rect(state, xl_rect, full_cells, rect_exp):
     :param state:
     :param xl_rect:
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
-                                blank or empty. Use :func:`get_full_cells()`.
+                                blank or empty. Use :func:`read_states_matrix()`.
     :param rect_exp:
     :return:
 
@@ -1242,14 +1392,17 @@ def _expand_rect(state, xl_rect, full_cells, rect_exp):
 def resolve_capture_rect(full_cells, sheet_margins, st_ref,
                          nd_ref=None, rect_exp=None):
     """
+    Performs :term:`targeting` and applies :term:`expansions` but does not extract values.
+
+    Feed the results into :func:`read_capture_values()`.
 
     :param ndarray full_cells:
             A boolean ndarray with `False` wherever cell are
-            blank or empty. Use :func:`get_full_cells()`.
-    :param TargetRef st_ref:
-    :param TargetRef nd_ref:
+            blank or empty. Use :func:`read_states_matrix()`.
+    :param TargetRef st_ref:  "uncooked" as matched by regex
+    :param TargetRef nd_ref:  "uncooked" as matched by regex
     :param rect_exp:
-    :return: a ``(Cell, Cell)`` with the 1st and 2nd bouding-cells of the rect
+    :return: a ``(Cell, Cell)`` with the 1st and 2nd :term:`capture-cell`
     :rtype: tuple
 
 
@@ -1266,13 +1419,13 @@ def resolve_capture_rect(full_cells, sheet_margins, st_ref,
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
         >>> sheet_margins, _ = get_sheet_margins(full_cells)
-        >>> st_ref = TargetRef(Cell(0, 0), 'DR')
+        >>> st_ref = TargetRef(num2a1_Cell(0, 0), 'DR')
         >>> nd_ref = TargetRef(Cell('.', '.'), 'DR')
         >>> resolve_capture_rect(full_cells, sheet_margins,
         ...         st_ref, nd_ref)
         (Cell(row=6, col=3), Cell(row=7, col=3))
 
-        >>> nd_ref = TargetRef(Cell(7, 6), 'UL')
+        >>> nd_ref = TargetRef(num2a1_Cell(7, 6), 'UL')
         >>> resolve_capture_rect(full_cells, sheet_margins,
         ...         st_ref, nd_ref)
         (Cell(row=5, col=3), Cell(row=6, col=3))
@@ -1309,14 +1462,17 @@ def resolve_capture_rect(full_cells, sheet_margins, st_ref,
     if rect_exp is None:
         return (st, nd)
     else:
+        rect_exp = _parse_rect_expansions(rect_exp)
         return _expand_rect(state, (st, nd), full_cells, rect_exp)
 
 
-def read_rect_values(sheet, xl_rect, indices, epoch1904=False):
+def read_capture_rect_values(sheet, xl_rect, indices, epoch1904=False):
     """
+    Extracts :term:`capture-rect` values from excel-sheet and apply :term:`filters`.
 
     :param sheet:
-    :param xl_rect:
+    :param tuple xl_rect:  tuple (num_cell, num_cell) with the edge targets of
+                           the capture-rect
     :param indices:
     :param epoch1904:
     :return:
@@ -1327,7 +1483,11 @@ def read_rect_values(sheet, xl_rect, indices, epoch1904=False):
         >>> import os, tempfile, xlrd, pandas as pd
 
         >>> os.chdir(tempfile.mkdtemp())
-        >>> df = pd.DataFrame([[None, None, None], [5.1, 6.1, 7.1]])
+        >>> df = pd.DataFrame([
+        ... # Cols: 0       1    2
+        ...        [None, None, None],
+        ...        [5.1,  6.1,  7.1]
+        ... ])
         >>> tmp = 'sample.xlsx'
         >>> writer = pd.ExcelWriter(tmp)
         >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
@@ -1335,36 +1495,36 @@ def read_rect_values(sheet, xl_rect, indices, epoch1904=False):
 
         >>> sheet = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
 
-        >>> sheet_margins, indices = get_sheet_margins(get_full_cells(sheet))
+        >>> sheet_margins, indices = get_sheet_margins(read_states_matrix(sheet))
 
         # minimum matrix in the sheet
         >>> st = _resolve_cell(Cell('^', '^'), sheet_margins)
         >>> nd = _resolve_cell(Cell('_', '_'), sheet_margins)
-        >>> read_rect_values(sheet, (st, nd), indices)
-        [[None, 0, 1, 2],
-         [0, None, None, None],
-         [1, 5.1, 6.1, 7.1]]
+        >>> read_capture_rect_values(sheet, (st, nd), indices)
+        [[None,  0,    1,    2],
+         [0,    None, None, None],
+         [1,     5.1,  6.1,  7.1]]
 
         # get single value
-        >>> read_rect_values(sheet, (Cell(6, 3), Cell(6, 3)), indices)
+        >>> read_capture_rect_values(sheet, (Cell(6, 3), Cell(6, 3)), indices)
         [0]
 
         # get column vector
-        >>> st = _resolve_cell(Cell(0, 3), sheet_margins)
-        >>> nd = _resolve_cell(Cell('_', 3), sheet_margins)
-        >>> read_rect_values(sheet, (st, nd), indices)
+        >>> st = _resolve_cell(Cell('1', 'D'), sheet_margins)
+        >>> nd = _resolve_cell(Cell('_', 'd'), sheet_margins)
+        >>> read_capture_rect_values(sheet, (st, nd), indices)
         [None, None, None, None, None, None, 0, 1]
 
         # get row vector
-        >>> st = _resolve_cell(Cell(5, 0), sheet_margins)
-        >>> nd = _resolve_cell(Cell(5, '_'), sheet_margins)
-        >>> read_rect_values(sheet, (st, nd), indices)
+        >>> st = _resolve_cell(Cell('6', 'A'), sheet_margins)
+        >>> nd = _resolve_cell(Cell('6', '_'), sheet_margins)
+        >>> read_capture_rect_values(sheet, (st, nd), indices)
         [None, None, None, None, 0, 1, 2]
 
         # get row vector
-        >>> st = _resolve_cell(Cell(5, 0), sheet_margins)
-        >>> nd = _resolve_cell(Cell(5, 10), sheet_margins)
-        >>> read_rect_values(sheet, (st, nd), indices)
+        >>> st = _resolve_cell(Cell('6', 'A'), sheet_margins)
+        >>> nd = _resolve_cell(Cell('6', 'K'), sheet_margins)
+        >>> read_capture_rect_values(sheet, (st, nd), indices)
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
     """
@@ -1376,7 +1536,7 @@ def read_rect_values(sheet, xl_rect, indices, epoch1904=False):
         tbl.append(row)
         for c in range(st_target.col, nd_target.col + 1):
             if [r, c] in indices:
-                row.append(_read_cell(sheet.cell(r, c), epoch1904))
+                row.append(read_cell(sheet.cell(r, c), epoch1904))
             else:
                 row.append(None)
     # vector
@@ -1413,9 +1573,9 @@ def _redim_value(value, n):
     return value
 
 
-def redim_captured_values(value, dim_min, dim_max=None):
+def _redim_captured_values(value, dim_min, dim_max=None):
     """
-    Reshapes the output value of :func:`read_rect_values()`.
+    Reshapes the output value of :func:`read_capture_rect_values()`.
 
     :param value: matrix or vector or value
     :type value: list of lists, list, value
@@ -1432,19 +1592,19 @@ def redim_captured_values(value, dim_min, dim_max=None):
 
     Examples::
 
-        >>> redim_captured_values([1, 2], 2)
+        >>> _redim_captured_values([1, 2], 2)
         [[1, 2]]
 
-        >>> redim_captured_values([[1, 2]], 1)
+        >>> _redim_captured_values([[1, 2]], 1)
         [[1, 2]]
 
-        >>> redim_captured_values([[1, 2]], 1, 1)
+        >>> _redim_captured_values([[1, 2]], 1, 1)
         [1, 2]
 
-        >>> redim_captured_values([], 2)
+        >>> _redim_captured_values([], 2)
         [[]]
 
-        >>> redim_captured_values([[1, 2]], 0, 0)
+        >>> _redim_captured_values([[1, 2]], 0, 0)
         Traceback (most recent call last):
         ValueError: Cannot reduce Captured-values dimension(2) to (0, 0)!
 
@@ -1462,21 +1622,26 @@ def redim_captured_values(value, dim_min, dim_max=None):
         raise ValueError(msg.format(val_dim, dim_min, dim_max))
 
 
+def _type_df_with_numeric_conversion(df, args, kws):
+    df = pd.DataFrame(args, kws)
+    return df.convert_objects(convert_numeric=True)
+
 default_filters = {
-    None: {'fun': lambda x: x},  # TODO: Actually redim_captured_values().
+    None: {'fun': lambda x: x},  # TODO: Actually _redim_captured_values().
     'df': {'fun': pd.DataFrame},
+    'df_num': {'fun': _type_df_with_numeric_conversion},
     'nparray': {'fun': np.array},
     'dict': {'fun': dict},
     'sorted': {'fun': sorted}
 }
 
 
-def process_captured_values(value, type=None, args=(), kws=None, filters=None,
-                            available_filters=default_filters):
+def _process_captured_values(value, type=None, args=(), kws=None, filters=None,
+                             available_filters=default_filters):
     """
-    Processes the output value of :func:`read_rect_values()` function.
+    Processes the output value of :func:`read_capture_rect_values()` function.
 
-    FIXME: Actually use process_captured_values()!
+    FIXME: Actually use _process_captured_values()!
 
     :param value: matrix or vector or a scalar-value
     :type value: list of lists, list, value
@@ -1502,14 +1667,14 @@ def process_captured_values(value, type=None, args=(), kws=None, filters=None,
     Examples::
 
         >>> value = [[1, 2], [3, 4], [5, 6]]
-        >>> res = process_captured_values(value, type='dict')
+        >>> res = _process_captured_values(value, type='dict')
         >>> sorted(res.items())
         [(1, 2),
          (3, 4),
          (5, 6)]
 
         >>> value = [[1, 9], [8, 10], [5, 11]]
-        >>> process_captured_values(value,
+        >>> _process_captured_values(value,
         ...     filters=[{'type':'sorted', 'kws':{'reverse': True}}])
         [[8, 10],
          [5, 11],
@@ -1520,7 +1685,7 @@ def process_captured_values(value, type=None, args=(), kws=None, filters=None,
     val = available_filters[type]['fun'](value, *args, **kws)
     if filters:
         for v in filters:
-            val = process_captured_values(val, **v)
+            val = _process_captured_values(val, **v)
     return val
 
 
@@ -1528,8 +1693,7 @@ def process_captured_values(value, type=None, args=(), kws=None, filters=None,
 
 import xlrd
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
-                  XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER,
-                  open_workbook)
+                  XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER)
 
 # noinspection PyUnresolvedReferences
 # noinspection PyUnresolvedReferences
@@ -1539,7 +1703,7 @@ else:
     xlrd_0_9_3 = False
 
 
-def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
+def open_workbook(xl_ref_child, xl_ref_parent=None):
     """
     Opens the excel workbook of an excel ref.
 
@@ -1552,7 +1716,7 @@ def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
     url_fl = xl_ref_child['url_file']
     try:
         if url_fl:
-            wb = open_workbook(file_contents=urlopen(url_fl).read())
+            wb = xlrd.open_workbook(file_contents=urlopen(url_fl).read())
         else:
             wb = xl_ref_parent['xl_workbook']
         xl_ref_child['xl_workbook'] = wb
@@ -1561,7 +1725,7 @@ def open_xl_workbook(xl_ref_child, xl_ref_parent=None):
         raise ValueError("Invalid excel-file({}) due to:{}".format(url_fl, ex))
 
 
-def open_xl_sheet(xl_ref_child, xl_ref_parent=None):
+def open_sheet(xl_ref_child, xl_ref_parent=None):
     """
     Opens the excel sheet of an excel ref.
 
@@ -1584,7 +1748,7 @@ def open_xl_sheet(xl_ref_child, xl_ref_parent=None):
         raise ValueError("Invalid excel-sheet({}) due to:{}".format(sh, ex))
 
 
-def _read_cell(cell, epoch1904=False):
+def read_cell(cell, epoch1904=False):
     """
     Parse a xl-cell.
 
@@ -1607,13 +1771,13 @@ def _read_cell(cell, epoch1904=False):
 
         >>> import xlrd
         >>> from xlrd.sheet import Cell
-        >>> _read_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
+        >>> read_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
         1.2
 
-        >>> _read_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
+        >>> read_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
         datetime.datetime(1900, 1, 1, 4, 48)
 
-        >>> _read_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
+        >>> read_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
         'hi'
     """
 
@@ -1658,7 +1822,7 @@ def _read_cell(cell, epoch1904=False):
 
 
 # noinspection PyProtectedMember
-def get_full_cells(sheet):
+def read_states_matrix(sheet):
     """
     Returns a boolean ndarray with `False` wherever cell are blank or empty.
     """
