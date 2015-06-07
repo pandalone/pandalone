@@ -11,8 +11,7 @@ from __future__ import division, print_function, unicode_literals
 from datetime import datetime
 import doctest
 import os
-from pandalone.xlsreader import TargetRef
-from pathlib import posixpath
+from pandalone.xlref import TargetRef
 import sys
 from tests import _tutils
 from tests._tutils import check_xl_installed, xw_Workbook
@@ -20,7 +19,9 @@ import unittest
 
 import six
 
-import pandalone.xlsreader as xr
+import pandalone.xlref as xr
+from pandalone.xlref._xlref import (_uncooked_TargetRef, _col2num)
+from pandalone import xlref
 import pandas as pd
 from six.moves.urllib.request import urlopen  # @UnresolvedImport
 import xlrd as xd
@@ -62,14 +63,20 @@ def _read_rect_values(sheet, st_ref, nd_ref=None):
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
 class TestDoctest(unittest.TestCase):
 
-    def runTest(self):
+    def test_xlref(self):
         failure_count, test_count = doctest.testmod(
-            xr, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+            xlref._xlref, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+        self.assertGreater(test_count, 0, (failure_count, test_count))
+        self.assertEquals(failure_count, 0, (failure_count, test_count))
+
+    def test_xlrd(self):
+        failure_count, test_count = doctest.testmod(
+            xlref._xlrd, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
 
-class TestXlsReader(unittest.TestCase):
+class TestXlRef(unittest.TestCase):
 
     @unittest.skip('Needs conversion to new logic.')
     def test_read_rect_values_Scalar(self):
@@ -340,40 +347,40 @@ class TestXlsReader(unittest.TestCase):
         self.assertRaises(ValueError, xr.parse_xl_ref, 's!A0:B1')
 
     def test_uncooked_TargetRef_good(self):
-        self.assertIsNone(xr._uncooked_TargetRef(None, None, None))
+        self.assertIsNone(_uncooked_TargetRef(None, None, None))
 
-        self.assertEquals(xr._uncooked_TargetRef('1', 'A', 'LUR'),
+        self.assertEquals(_uncooked_TargetRef('1', 'A', 'LUR'),
                           xr.TargetRef(xr.Cell(row='1', col='A'), 'LUR'))
-        self.assertEquals(xr._uncooked_TargetRef('_', '^', 'duL'),
+        self.assertEquals(_uncooked_TargetRef('_', '^', 'duL'),
                           xr.TargetRef(xr.Cell('_', '^'), 'DUL'))
-        self.assertEquals(xr._uncooked_TargetRef('1', '_', None),
+        self.assertEquals(_uncooked_TargetRef('1', '_', None),
                           xr.TargetRef(xr.Cell('1', '_'), None))
-        self.assertEquals(xr._uncooked_TargetRef('^', '^', None),
+        self.assertEquals(_uncooked_TargetRef('^', '^', None),
                           xr.TargetRef(xr.Cell('^', '^'), None))
 
     def test_uncooked_TargetRef_bad(self):
-        self.assertEquals(xr._uncooked_TargetRef(1, 'A', 'U1'),
+        self.assertEquals(_uncooked_TargetRef(1, 'A', 'U1'),
                           xr.TargetRef(xr.Cell(1, 'A'), 'U1'))
-        self.assertEquals(xr._uncooked_TargetRef('1', '%', 'U1'),
+        self.assertEquals(_uncooked_TargetRef('1', '%', 'U1'),
                           xr.TargetRef(xr.Cell('1', '%'), 'U1'))
-        self.assertEquals(xr._uncooked_TargetRef('1', 'A', 'D0L'),
+        self.assertEquals(_uncooked_TargetRef('1', 'A', 'D0L'),
                           xr.TargetRef(xr.Cell('1', 'A'), 'D0L'))
-        self.assertEquals(xr._uncooked_TargetRef('1', 'A', '@#'),
+        self.assertEquals(_uncooked_TargetRef('1', 'A', '@#'),
                           xr.TargetRef(xr.Cell('1', 'A'), '@#'))
 
     def test_uncooked_TargetRef_fail(self):
         self.assertRaises(
-            AttributeError, xr._uncooked_TargetRef, *('1', 1, '0'))
+            AttributeError, _uncooked_TargetRef, *('1', 1, '0'))
         self.assertRaises(
-            AttributeError, xr._uncooked_TargetRef, *('1', 'A', 23))
+            AttributeError, _uncooked_TargetRef, *('1', 'A', 23))
 #         self.assertRaises(
-#             ValueError, xr._uncooked_TargetRef, *('_0', '_', '0'))
+#             ValueError, _uncooked_TargetRef, *('_0', '_', '0'))
 #         self.assertRaises(
-#             ValueError, xr._uncooked_TargetRef, *('@@', '@', '@'))
+#             ValueError, _uncooked_TargetRef, *('@@', '@', '@'))
 
     def test_col2num(self):
-        self.assertEqual(xr._col2num('D'), 3)
-        self.assertEqual(xr._col2num('aAa'), 702)
+        self.assertEqual(_col2num('D'), 3)
+        self.assertEqual(_col2num('aAa'), 702)
 
     def test_parse_xl_url_Ok(self):
         url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D){"json":"..."}'

@@ -7,14 +7,14 @@ These are the modules in maturity order:
 .. currentmodule:: pandalone
 .. autosummary::
 
+    xlref
     mappings
-    xlsreader
     pandata
     components
 
-Module: :mod:`pandalone.xlsreader`
-==================================
-.. automodule:: pandalone.xlsreader
+Module: :mod:`pandalone.xlref`
+==============================
+.. automodule:: pandalone.xlref
     :members:
 
 Module: :mod:`pandalone.mappings`
@@ -33,4 +33,4 @@ Module: :mod:`pandalone.pandata`
 ================================
 .. automodule:: pandalone.pandata
     :members:
-    
+
