@@ -15,6 +15,15 @@ These are the modules in maturity order:
 Module: :mod:`pandalone.xlref`
 ==============================
 .. automodule:: pandalone.xlref
+
+Submodule: :mod:`pandalone.xlref._xlref`
+----------------------------------------
+.. automodule:: pandalone.xlref._xlref
+    :members:
+
+Submodule: :mod:`pandalone.xlref._xlrd`
+---------------------------------------
+.. automodule:: pandalone.xlref._xlrd
     :members:
 
 Module: :mod:`pandalone.mappings`

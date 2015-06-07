@@ -19,9 +19,9 @@ import unittest
 
 import six
 
-import pandalone.xlref as xr
+from pandalone.xlref import _xlrefs xr
+from pandalone.xlref import _xlrefs xl
 from pandalone.xlref._xlref import (_uncooked_TargetRef, _col2num)
-from pandalone import xlref
 import pandas as pd
 from six.moves.urllib.request import urlopen  # @UnresolvedImport
 import xlrd as xd
@@ -347,36 +347,36 @@ class TestXlRef(unittest.TestCase):
         self.assertRaises(ValueError, xr.parse_xl_ref, 's!A0:B1')
 
     def test_uncooked_TargetRef_good(self):
-        self.assertIsNone(_uncooked_TargetRef(None, None, None))
+        self.assertIsNone(xr._uncooked_TargetRef(None, None, None))
 
-        self.assertEquals(_uncooked_TargetRef('1', 'A', 'LUR'),
+        self.assertEquals(xr._uncooked_TargetRef('1', 'A', 'LUR'),
                           xr.TargetRef(xr.Cell(row='1', col='A'), 'LUR'))
-        self.assertEquals(_uncooked_TargetRef('_', '^', 'duL'),
+        self.assertEquals(xr._uncooked_TargetRef('_', '^', 'duL'),
                           xr.TargetRef(xr.Cell('_', '^'), 'DUL'))
-        self.assertEquals(_uncooked_TargetRef('1', '_', None),
+        self.assertEquals(xr._uncooked_TargetRef('1', '_', None),
                           xr.TargetRef(xr.Cell('1', '_'), None))
-        self.assertEquals(_uncooked_TargetRef('^', '^', None),
+        self.assertEquals(xr._uncooked_TargetRef('^', '^', None),
                           xr.TargetRef(xr.Cell('^', '^'), None))
 
     def test_uncooked_TargetRef_bad(self):
-        self.assertEquals(_uncooked_TargetRef(1, 'A', 'U1'),
+        self.assertEquals(xr._uncooked_TargetRef(1, 'A', 'U1'),
                           xr.TargetRef(xr.Cell(1, 'A'), 'U1'))
-        self.assertEquals(_uncooked_TargetRef('1', '%', 'U1'),
+        self.assertEquals(xr._uncooked_TargetRef('1', '%', 'U1'),
                           xr.TargetRef(xr.Cell('1', '%'), 'U1'))
-        self.assertEquals(_uncooked_TargetRef('1', 'A', 'D0L'),
+        self.assertEquals(xr._uncooked_TargetRef('1', 'A', 'D0L'),
                           xr.TargetRef(xr.Cell('1', 'A'), 'D0L'))
-        self.assertEquals(_uncooked_TargetRef('1', 'A', '@#'),
+        self.assertEquals(xr._uncooked_TargetRef('1', 'A', '@#'),
                           xr.TargetRef(xr.Cell('1', 'A'), '@#'))
 
     def test_uncooked_TargetRef_fail(self):
         self.assertRaises(
-            AttributeError, _uncooked_TargetRef, *('1', 1, '0'))
+            AttributeError, xr._uncooked_TargetRef, *('1', 1, '0'))
         self.assertRaises(
-            AttributeError, _uncooked_TargetRef, *('1', 'A', 23))
+            AttributeError, xr._uncooked_TargetRef, *('1', 'A', 23))
 #         self.assertRaises(
-#             ValueError, _uncooked_TargetRef, *('_0', '_', '0'))
+#             ValueError, xr._uncooked_TargetRef, *('_0', '_', '0'))
 #         self.assertRaises(
-#             ValueError, _uncooked_TargetRef, *('@@', '@', '@'))
+#             ValueError, xr._uncooked_TargetRef, *('@@', '@', '@'))
 
     def test_col2num(self):
         self.assertEqual(_col2num('D'), 3)

@@ -8,6 +8,8 @@
 """
 A mini-language to capture non-empty rectangular areas from Excel-sheets.
 
+.. default-role:: term
+
 Introduction
 ============
 
@@ -64,8 +66,11 @@ Which means:
 
 API
 ---
+.. default-role:: obj
+
 - User-facing functionality:
 
+  .. currentmodule:: pandalone.xlref._xlref
   .. autosummary::
 
       num2a1_Cell
@@ -77,6 +82,7 @@ API
 
 - **xlrd** back-end functionality:
 
+  .. currentmodule:: pandalone.xlref._xlrd
   .. autosummary::
       open_workbook
       open_sheet
@@ -506,13 +512,15 @@ Example-refs are given below for capturing the 2 marked tables::
     - The '1' and '2' signify the identified target-cells.
 
 
+.. default-role:: obj
+"""
+
+"""
+
 TODOs
 =====
 * Support cubic areas.
 * Notation for specifying the "last-sheet".
-
-.. default-role:: obj
-
 """
 
 

@@ -7,6 +7,8 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
 The user-facing implementation of *xlref*.
+
+Prefer accessing the public members from the parent module.
 """
 from collections import namedtuple
 import json
@@ -79,13 +81,13 @@ TargetRef = namedtuple('TargetRef', ['cell', 'mov'])
 """
 It might be "cooked" or "uncooked" depending on its `Cell`.
 
-- An *uncooked* targetref contains *A1* :data:`Cell`.
-- An *cooked* targetref contains a *num* :data:`Cell`.
+- An *uncooked* targetref contains *A1* :class:`Cell`.
+- An *cooked* targetref contains a *num* :class:`Cell`.
 """
 
 
 def num2a1_Cell(row, col):
-    """Make *A1* :data:``Cell` from *num* or special coords, with rudimentary error-checking.
+    """Make *A1* :class:``Cell`` from *num* or special coords, with rudimentary error-checking.
 
     Examples::
 
@@ -352,16 +354,11 @@ def get_sheet_margins(full_cells):
     """
     Returns top-left and bottom-down margins and all full-incdices from a :term:`state` matrix.
 
-    TODO: Return just margins
-
     Cache its return-value to use it in other functions here needing it.
 
     :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
                                 blank or empty. Use :func:`read_states_matrix()`.
-    :return:  a 2-tuple with:
-
-              - a `Cell` with zero-based margins for rows/cols,
-              - indices for full-cells
+    :return:  a `Cell` with zero-based top-left/bottom-right margins for rows/cols,
     :rtype: tuple
 
     Examples::
@@ -372,13 +369,9 @@ def get_sheet_margins(full_cells):
         ...    [0, 1, 1],
         ...    [0, 0, 1],
         ... ]
-        >>> margins, indices = get_sheet_margins(full_cells)
+        >>> margins = get_sheet_margins(full_cells)
         >>> margins                                         # doctest: +SKIP
         Cell(row={'_': 3, '^': 1}, col={'_': 2, '^': 1})
-
-
-        >>> indices
-         [[1, 1], [2, 1], [2, 2], [3, 2]]
 
 
     Note that the botom-left cell is not the same as `full_cells` matrix size::
@@ -390,12 +383,12 @@ def get_sheet_margins(full_cells):
         ...    [0, 0, 1, 0],
         ...    [0, 0, 0, 0],
         ... ]
-        >>> margins_2, _ = get_sheet_margins(full_cells)
+        >>> margins_2 = get_sheet_margins(full_cells)
         >>> margins_2 == margins
         True
 
     """
-    indices = np.array(np.where(full_cells)).T  # XXX: Loads all sheet here?!?
+    indices = np.array(np.where(full_cells)).T
     up_r, up_c = indices.min(0)
     dn_r, dn_c = indices.max(0)
     sheet_margins = Cell(
@@ -404,8 +397,8 @@ def get_sheet_margins(full_cells):
     return sheet_margins, indices.tolist()
 
 
-def _build_special_dict(cord_bounds, base_coord):
-    """Makes a stacked dict of margins and base-coord for resolving all specials coords. """
+def _build_special_coords(cord_bounds, base_coord):
+    """Make a stacked dict of margins and base-coord, used for resolving all specials coords. """
     try:
         from collections import ChainMap
         return ChainMap(cord_bounds, {'.': base_coord})
@@ -499,7 +492,7 @@ def _resolve_coord(cname, cfunc, coord, cbounds, bcoord=None):
     try:
         if coord in _special_coords:
             if bcoord:
-                cbounds = _build_special_dict(cbounds, bcoord)
+                cbounds = _build_special_coords(cbounds, bcoord)
             rcoord = cbounds[coord]
         else:
             rcoord = cfunc(coord)
@@ -911,7 +904,7 @@ def resolve_capture_rect(full_cells, sheet_margins, st_ref,
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
-        >>> sheet_margins, _ = get_sheet_margins(full_cells)
+        >>> sheet_margins = get_sheet_margins(full_cells)
         >>> st_ref = TargetRef(num2a1_Cell(0, 0), 'DR')
         >>> nd_ref = TargetRef(Cell('.', '.'), 'DR')
         >>> resolve_capture_rect(full_cells, sheet_margins,
@@ -989,7 +982,7 @@ def read_capture_rect_values(sheet, xl_rect, indices, epoch1904=False):
 
         >>> sheet = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
         >>> full_cells = xlref.read_states_matrix(sheet)
-        >>> sheet_margins, indices = xlref.get_sheet_margins(full_cells)
+        >>> sheet_margins = xlref.get_sheet_margins(full_cells)
 
         # minimum matrix in the sheet
         >>> st = _resolve_cell(Cell('^', '^'), sheet_margins)
@@ -1120,7 +1113,7 @@ def _type_df_with_numeric_conversion(df, args, kws):
     df = pd.DataFrame(args, kws)
     return df.convert_objects(convert_numeric=True)
 
-default_filters = {
+_default_filters = {
     None: {'fun': lambda x: x},  # TODO: Actually _redim_captured_values().
     'df': {'fun': pd.DataFrame},
     'df_num': {'fun': _type_df_with_numeric_conversion},
@@ -1131,7 +1124,7 @@ default_filters = {
 
 
 def _process_captured_values(value, type=None, args=(), kws=None, filters=None,
-                             available_filters=default_filters):
+                             available_filters=_default_filters):
     """
     Processes the output value of :func:`read_capture_rect_values()` function.
 

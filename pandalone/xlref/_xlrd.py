@@ -7,6 +7,8 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
 Implements the *xlrd* backend of :term:`xl-ref` that reads in-file Excel-spreadsheets.
+
+Prefer accessing the public members from the parent module.
 """
 import datetime
 from distutils.version import LooseVersion
