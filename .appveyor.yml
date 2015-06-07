@@ -71,5 +71,6 @@ test_script:
         echo "+++ Checking install...."
         python setup.py install
 
-on_success:
-    - IF "%PYTHON_VERSION%"=="3.4" (coveralls)
+## Needs repo-token and this would be different per user.
+#on_success:
+#    - IF "%PYTHON_VERSION%"=="3.4" (coveralls)

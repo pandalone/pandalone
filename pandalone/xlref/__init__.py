@@ -73,6 +73,8 @@ API
   .. currentmodule:: pandalone.xlref._xlref
   .. autosummary::
 
+      Cell
+      Edge
       num2a1_Cell
       parse_xl_ref
       parse_xl_url
@@ -84,7 +86,7 @@ API
 
   .. currentmodule:: pandalone.xlref._xlrd
   .. autosummary::
-      open_workbook
+      open_xlref_workbook
       open_sheet
       read_states_matrix
       read_cell
@@ -525,11 +527,11 @@ TODOs
 
 
 from ._xlref import (
-    Cell, num2a1_Cell, TargetRef,
+    Cell, num2a1_Cell, Edge,
     parse_xl_url, parse_xl_ref, resolve_capture_rect,
     read_capture_rect_values,
     get_sheet_margins,
 )
 from ._xlrd import (
-    open_workbook, open_sheet, read_cell, read_states_matrix
+    open_xlref_workbook, open_sheet, read_cell, read_states_matrix
 )

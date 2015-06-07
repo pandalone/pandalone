@@ -30,7 +30,7 @@ else:
     _xlrd_0_9_3 = False
 
 
-def open_workbook(xl_ref_child, xl_ref_parent=None):
+def open_xlref_workbook(xl_ref_child, xl_ref_parent=None):
     """
     Opens the excel workbook of an excel ref.
 

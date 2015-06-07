@@ -77,12 +77,12 @@ _re_rect_expansion_parser = re.compile(
 Cell = namedtuple('Cell', ['row', 'col'])
 """Its coords might be "A1" (strings, 1-based) or "num" (0-based)."""
 
-TargetRef = namedtuple('TargetRef', ['cell', 'mov'])
+Edge = namedtuple('Edge', ['cell', 'mov'])
 """
-It might be "cooked" or "uncooked" depending on its `Cell`.
+An :term:`Edge` might be "cooked" or "uncooked" depending on its `Cell`.
 
-- An *uncooked* targetref contains *A1* :class:`Cell`.
-- An *cooked* targetref contains a *num* :class:`Cell`.
+- An *uncooked* edge contains *A1* :class:`Cell`.
+- An *cooked* edge contains a *num* :class:`Cell`.
 """
 
 
@@ -114,41 +114,41 @@ def num2a1_Cell(row, col):
     return Cell(row=row, col=col)
 
 
-def _uncooked_TargetRef(row, col, mov):
+def _uncooked_Edge(row, col, mov):
     """
-    Make a new `TargetRef` from any non-values supplied, as is capitalized, or nothing.
+    Make a new `Edge` from any non-values supplied, as is capitalized, or nothing.
 
     :param str, None col:    ie ``A``
     :param str, None row:    ie ``1``
     :param str, None mov:    ie ``RU1D?``
 
-    :return:    a `TargetRef` if any non-None
-    :rtype:     TargetRef, None
+    :return:    a `Edge` if any non-None
+    :rtype:     Edge, None
 
 
     Examples::
 
-        >>> tr = _uncooked_TargetRef('1', 'a', 'Rul')
+        >>> tr = _uncooked_Edge('1', 'a', 'Rul')
         >>> tr
-        TargetRef(cell=Cell(row='1', col='A'), mov='RUL')
+        Edge(cell=Cell(row='1', col='A'), mov='RUL')
 
 
     No error checking performed::
 
-        >>> _uncooked_TargetRef('Any', 'foo', 'BaR')
-        TargetRef(cell=Cell(row='Any', col='FOO'), mov='BAR')
+        >>> _uncooked_Edge('Any', 'foo', 'BaR')
+        Edge(cell=Cell(row='Any', col='FOO'), mov='BAR')
 
-        >>> print(_uncooked_TargetRef(None, None, None))
+        >>> print(_uncooked_Edge(None, None, None))
         None
 
 
     except were coincidental::
 
-        >>> _uncooked_TargetRef(row=0, col=123, mov='BAR')
+        >>> _uncooked_Edge(row=0, col=123, mov='BAR')
         Traceback (most recent call last):
         AttributeError: 'int' object has no attribute 'upper'
 
-        >>> _uncooked_TargetRef(row=0, col='A', mov=123)
+        >>> _uncooked_Edge(row=0, col='A', mov=123)
         Traceback (most recent call last):
         AttributeError: 'int' object has no attribute 'upper'
     """
@@ -156,7 +156,7 @@ def _uncooked_TargetRef(row, col, mov):
     if col == row == mov is None:
         return None
 
-    return TargetRef(cell=Cell(col=col and col.upper(), row=row), mov=mov and mov.upper())
+    return Edge(cell=Cell(col=col and col.upper(), row=row), mov=mov and mov.upper())
 
 
 def _repeat_moves(moves, times=None):
@@ -246,8 +246,8 @@ def parse_xl_ref(xl_ref):
         dictionary containing the following parameters::
 
         - sheet: str
-        - st_ref: (TargetRef, None) the 1st-ref, uncooked, with raw cell
-        - nd_ref: (TargetRef, None) the 2nd-ref, uncooked, with raw cell
+        - st_ref: (Edge, None) the 1st-ref, uncooked, with raw cell
+        - nd_ref: (Edge, None) the 2nd-ref, uncooked, with raw cell
         - rect_exp: (str) as found on the xl-ref
         - json: parsed
 
@@ -259,10 +259,10 @@ def parse_xl_ref(xl_ref):
         >>> res = parse_xl_ref('Sheet1!A1(DR):Z20(UL):L1U2R1D1:{"json":"..."}')
         >>> sorted(res.items())
         [('json', {'json': '...'}),
-         ('nd_ref', TargetRef(cell=Cell(row='20', col='Z'), mov='UL')),
+         ('nd_ref', Edge(cell=Cell(row='20', col='Z'), mov='UL')),
          ('rect_exp', 'L1U2R1D1'),
          ('sheet', 'Sheet1'),
-         ('st_ref', TargetRef(cell=Cell(row='1', col='A'), mov='DR'))]
+         ('st_ref', Edge(cell=Cell(row='1', col='A'), mov='DR'))]
 
         >>> parse_xl_ref('A1(DR)Z20(UL)')
         Traceback (most recent call last):
@@ -279,9 +279,9 @@ def parse_xl_ref(xl_ref):
         #     with "uncooked" edge.
         #
         p = gs.pop
-        gs['st_ref'] = _uncooked_TargetRef(
+        gs['st_ref'] = _uncooked_Edge(
             p('st_row'), p('st_col'), p('st_mov'))
-        gs['nd_ref'] = _uncooked_TargetRef(
+        gs['nd_ref'] = _uncooked_Edge(
             p('nd_row'), p('nd_col'), p('nd_mov'))
 
         js = gs['json']
@@ -330,10 +330,10 @@ def parse_xl_url(url):
         >>> res = parse_xl_url(url)
         >>> sorted(res.items())
         [('json', {'2': 'ciao'}),
-         ('nd_ref', TargetRef(cell=Cell(row='^', col='.'), mov='DR')),
+         ('nd_ref', Edge(cell=Cell(row='^', col='.'), mov='DR')),
          ('rect_exp', 'LU?'),
          ('sheet', 'Sheet1'),
-         ('st_ref', TargetRef(cell=Cell(row='1', col='A'), mov='UL')),
+         ('st_ref', Edge(cell=Cell(row='1', col='A'), mov='UL')),
          ('url_file', 'file:///sample.xlsx')]
     """
 
@@ -889,8 +889,8 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
     :param ndarray states_matrix:
             An array with `False` wherever cell are blank or empty.
             Use :func:`read_states_matrix()` to derrive it.
-    :param TargetRef st_ref:  "uncooked" as matched by regex
-    :param TargetRef nd_ref:  "uncooked" as matched by regex
+    :param Edge st_ref:  "uncooked" as matched by regex
+    :param Edge nd_ref:  "uncooked" as matched by regex
     :param rect_exp:
     :return: a ``(Cell, Cell)`` with the 1st and 2nd :term:`capture-cell`
     :rtype: tuple
@@ -909,13 +909,13 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
         >>> sheet_margins = get_sheet_margins(states_matrix)
-        >>> st_ref = TargetRef(num2a1_Cell(0, 0), 'DR')
-        >>> nd_ref = TargetRef(Cell('.', '.'), 'DR')
+        >>> st_ref = Edge(num2a1_Cell(0, 0), 'DR')
+        >>> nd_ref = Edge(Cell('.', '.'), 'DR')
         >>> resolve_capture_rect(states_matrix, sheet_margins,
         ...         st_ref, nd_ref)
         (Cell(row=6, col=3), Cell(row=7, col=3))
 
-        >>> nd_ref = TargetRef(num2a1_Cell(7, 6), 'UL')
+        >>> nd_ref = Edge(num2a1_Cell(7, 6), 'UL')
         >>> resolve_capture_rect(states_matrix, sheet_margins,
         ...         st_ref, nd_ref)
         (Cell(row=5, col=3), Cell(row=6, col=3))
