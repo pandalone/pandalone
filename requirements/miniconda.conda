@@ -16,4 +16,5 @@ scipy
 pandas>=0.15
 #pywin32 # NO, it fails on linux.
 matplotlib
+Pillow
 

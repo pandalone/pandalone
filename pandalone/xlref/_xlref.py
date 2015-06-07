@@ -350,51 +350,52 @@ def parse_xl_url(url):
         raise ValueError("Invalid xl-url({}) due to: {}".format(url, ex))
 
 
-def get_sheet_margins(full_cells):
+def get_sheet_margins(states_matrix):
     """
     Returns top-left and bottom-down margins and all full-incdices from a :term:`state` matrix.
 
     Cache its return-value to use it in other functions here needing it.
 
-    :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
-                                blank or empty. Use :func:`read_states_matrix()`.
+    :param ndarray states_matrix:
+            An array with `False` wherever cell are blank or empty.
+            Use :func:`read_states_matrix()` to derrive it.
     :return:  a `Cell` with zero-based top-left/bottom-right margins for rows/cols,
     :rtype: tuple
 
     Examples::
 
-        >>> full_cells = [
+        >>> states_matrix = [
         ...    [0, 0, 0],
         ...    [0, 1, 0],
         ...    [0, 1, 1],
         ...    [0, 0, 1],
         ... ]
-        >>> margins = get_sheet_margins(full_cells)
+        >>> margins = get_sheet_margins(states_matrix)
         >>> margins                                         # doctest: +SKIP
         Cell(row={'_': 3, '^': 1}, col={'_': 2, '^': 1})
 
 
-    Note that the botom-left cell is not the same as `full_cells` matrix size::
+    Note that the botom-left cell is not the same as `states_matrix` matrix size::
 
-        >>> full_cells = [
+        >>> states_matrix = [
         ...    [0, 0, 0, 0],
         ...    [0, 1, 0, 0],
         ...    [0, 1, 1, 0],
         ...    [0, 0, 1, 0],
         ...    [0, 0, 0, 0],
         ... ]
-        >>> margins_2 = get_sheet_margins(full_cells)
+        >>> margins_2 = get_sheet_margins(states_matrix)
         >>> margins_2 == margins
         True
 
     """
-    indices = np.array(np.where(full_cells)).T
+    indices = np.asarray(np.where(states_matrix)).T
     up_r, up_c = indices.min(0)
     dn_r, dn_c = indices.max(0)
     sheet_margins = Cell(
         row={'^': up_r, '_': dn_r},
         col={'^': up_c, '_': dn_c})
-    return sheet_margins, indices.tolist()
+    return sheet_margins
 
 
 def _build_special_coords(cord_bounds, base_coord):
@@ -624,13 +625,14 @@ def _resolve_cell(cell, margins, bcell=None):
         raise ValueError("invalid cell(%s) due to: %s" % (cell, ex))
 
 
-def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
+def _target_opposite_state(state, cell, states_matrix, dn, moves, last=False):
     """
 
     :param bool state:      the starting-state
     :param cell:
-    :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
-                                blank or empty. Use :func:`read_states_matrix()`.
+    :param ndarray states_matrix:
+            An array with `False` wherever cell are blank or empty.
+            Use :func:`read_states_matrix()` to derrive it.
     :param sheet:
     :param moves:
     :return:
@@ -638,7 +640,7 @@ def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
 
     Examples::
 
-        >>> full_cells = np.array([
+        >>> states_matrix = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -648,7 +650,7 @@ def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (False, Cell(1, 1), full_cells, (7, 6))
+        >>> args = (False, Cell(1, 1), states_matrix, (7, 6))
         >>> _target_opposite_state(*(args + ('DR', )))
         Cell(row=6, col=3)
 
@@ -675,24 +677,24 @@ def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=1, col=1) with movement(LU)
 
-        >>> args = (True, Cell(6, 3), full_cells, (7, 6))
+        >>> args = (True, Cell(6, 3), states_matrix, (7, 6))
         >>> _target_opposite_state(*(args + ('D', )))
         Cell(row=8, col=3)
 
-        >>> args = (True, Cell(10, 3), full_cells, (7, 6))
+        >>> args = (True, Cell(10, 3), states_matrix, (7, 6))
         >>> _target_opposite_state(*(args + ('U', )))
         Cell(row=10, col=3)
 
-        >>> args = (False, Cell(10, 10), full_cells, (7, 6))
+        >>> args = (False, Cell(10, 10), states_matrix, (7, 6))
         >>> _target_opposite_state(*(args + ('UL', )))
         Cell(row=7, col=6)
 
-        >>> full_cells = np.array([
+        >>> states_matrix = np.array([
         ...     [1, 1, 1],
         ...     [1, 1, 1],
         ...     [1, 1, 1],
         ... ])
-        >>> args = (True, Cell(0, 2), full_cells, (2, 2))
+        >>> args = (True, Cell(0, 2), states_matrix, (2, 2))
         >>> _target_opposite_state(*(args + ('LD', )))
         Cell(row=3, col=2)
     """
@@ -711,7 +713,7 @@ def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
         c1 = c0
         while (up <= c1).all():
             try:
-                if full_cells[c1[0], c1[1]] != state:
+                if states_matrix[c1[0], c1[1]] != state:
                     if last and flag:
                         c1 = c1 - mv
                     return Cell(*(c1[0], c1[1]))
@@ -739,13 +741,14 @@ def _target_opposite_state(state, cell, full_cells, dn, moves, last=False):
     raise ValueError('Invalid {} with movement({})'.format(cell, moves))
 
 
-def _target_same_state(state, cell, full_cells, dn, moves):
+def _target_same_state(state, cell, states_matrix, dn, moves):
     """
 
     :param bool state:      the starting-state
     :param cell:
-    :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
-                                blank or empty. Use :func:`read_states_matrix()`.
+    :param ndarray states_matrix:
+            An array with `False` wherever cell are blank or empty.
+            Use :func:`read_states_matrix()` to derrive it.
     :param sheet:
     :param moves:
     :return:
@@ -753,7 +756,7 @@ def _target_same_state(state, cell, full_cells, dn, moves):
 
     Examples::
 
-        >>> full_cells = np.array([
+        >>> states_matrix = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -763,7 +766,7 @@ def _target_same_state(state, cell, full_cells, dn, moves):
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (True, Cell(7, 6), full_cells, (7, 6))
+        >>> args = (True, Cell(7, 6), states_matrix, (7, 6))
         >>> _target_same_state(*(args + ('UL', )))
         Cell(row=5, col=3)
 
@@ -773,11 +776,11 @@ def _target_same_state(state, cell, full_cells, dn, moves):
         >>> _target_same_state(*(args + ('L', )))
         Cell(row=7, col=3)
 
-        >>> args = (True, Cell(5, 3), full_cells, (7, 6))
+        >>> args = (True, Cell(5, 3), states_matrix, (7, 6))
         >>> _target_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
 
-        >>> args = (False, Cell(5, 3), full_cells, (7, 6))
+        >>> args = (False, Cell(5, 3), states_matrix, (7, 6))
         >>> _target_same_state(*(args + ('DR', )))
         Cell(row=5, col=3)
 
@@ -785,7 +788,7 @@ def _target_same_state(state, cell, full_cells, dn, moves):
         Traceback (most recent call last):
         ValueError: Invalid Cell(row=5, col=3) with movement(U)
 
-        >>> args = (True, Cell(5, 6), full_cells, (7, 6))
+        >>> args = (True, Cell(5, 6), states_matrix, (7, 6))
         >>> _target_same_state(*(args + ('DL', )))
         Cell(row=7, col=4)
 
@@ -794,26 +797,27 @@ def _target_same_state(state, cell, full_cells, dn, moves):
     c1 = list(cell)
 
     for mv in moves:
-        c = _target_opposite_state(state, cell, full_cells, dn, mv, True)
+        c = _target_opposite_state(state, cell, states_matrix, dn, mv, True)
         dis = _primitive_dir[mv]
         c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
     return Cell(*c1)
 
 
-def _expand_rect(state, xl_rect, full_cells, rect_exp):
+def _expand_rect(state, xl_rect, states_matrix, rect_exp):
     """
 
     :param state:
     :param xl_rect:
-    :param ndarray full_cells:  A boolean ndarray with `False` wherever cell are
-                                blank or empty. Use :func:`read_states_matrix()`.
+    :param ndarray states_matrix:
+            An array with `False` wherever cell are blank or empty.
+            Use :func:`read_states_matrix()` to derrive it.
     :param rect_exp:
     :return:
 
 
     Examples::
 
-        >>> full_cells = np.array([
+        >>> states_matrix = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -825,22 +829,22 @@ def _expand_rect(state, xl_rect, full_cells, rect_exp):
         ... ])
         >>> rng = (Cell(row=6, col=3), Cell(row=6, col=3))
         >>> rect_exp = [_repeat_moves('U', times=10)]
-        >>> _expand_rect(True, rng, full_cells, rect_exp)
+        >>> _expand_rect(True, rng, states_matrix, rect_exp)
         [Cell(row=6, col=3), Cell(row=6, col=3)]
 
         >>> rng = (Cell(row=6, col=3), Cell(row=7, col=3))
         >>> rect_exp = [_repeat_moves('R', times=10)]
-        >>> _expand_rect(True, rng, full_cells, rect_exp)
+        >>> _expand_rect(True, rng, states_matrix, rect_exp)
         [Cell(row=6, col=3), Cell(row=7, col=6)]
 
         >>> rng = (Cell(row=6, col=3), Cell(row=10, col=3))
         >>> rect_exp = [_repeat_moves('R', times=10)]
-        >>> _expand_rect(True, rng, full_cells, rect_exp)
+        >>> _expand_rect(True, rng, states_matrix, rect_exp)
         [Cell(row=6, col=3), Cell(row=10, col=6)]
 
         >>> rng = (Cell(row=6, col=5), Cell(row=6, col=5))
         >>> rect_exp = [_repeat_moves('LURD')]
-        >>> _expand_rect(True, rng, full_cells, rect_exp)
+        >>> _expand_rect(True, rng, states_matrix, rect_exp)
         [Cell(row=5, col=3), Cell(row=7, col=6)]
 
     """
@@ -861,9 +865,9 @@ def _expand_rect(state, xl_rect, full_cells, rect_exp):
                 st = st + mv
                 nd = [p2 if k == 0 else p1 for p1, p2, k in zip(st, nd, mv)]
                 if i == 1:
-                    v = full_cells[nd[0]:st[0] + 1, nd[1]:st[1] + 1]
+                    v = states_matrix[nd[0]:st[0] + 1, nd[1]:st[1] + 1]
                 else:
-                    v = full_cells[st[0]:nd[0] + 1, st[1]:nd[1] + 1]
+                    v = states_matrix[st[0]:nd[0] + 1, st[1]:nd[1] + 1]
                 if (not v.size and state) or (v != state).all():
                     continue
                 xl_rect[i] = st
@@ -875,16 +879,16 @@ def _expand_rect(state, xl_rect, full_cells, rect_exp):
     return [Cell(*v) for v in xl_rect]
 
 
-def resolve_capture_rect(full_cells, sheet_margins, st_ref,
+def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
                          nd_ref=None, rect_exp=None):
     """
     Performs :term:`targeting` and applies :term:`expansions` but does not extract values.
 
     Feed the results into :func:`read_capture_values()`.
 
-    :param ndarray full_cells:
-            A boolean ndarray with `False` wherever cell are
-            blank or empty. Use :func:`read_states_matrix()`.
+    :param ndarray states_matrix:
+            An array with `False` wherever cell are blank or empty.
+            Use :func:`read_states_matrix()` to derrive it.
     :param TargetRef st_ref:  "uncooked" as matched by regex
     :param TargetRef nd_ref:  "uncooked" as matched by regex
     :param rect_exp:
@@ -894,7 +898,7 @@ def resolve_capture_rect(full_cells, sheet_margins, st_ref,
 
     Examples::
 
-        >>> full_cells = np.array([
+        >>> states_matrix = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -904,15 +908,15 @@ def resolve_capture_rect(full_cells, sheet_margins, st_ref,
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
-        >>> sheet_margins = get_sheet_margins(full_cells)
+        >>> sheet_margins = get_sheet_margins(states_matrix)
         >>> st_ref = TargetRef(num2a1_Cell(0, 0), 'DR')
         >>> nd_ref = TargetRef(Cell('.', '.'), 'DR')
-        >>> resolve_capture_rect(full_cells, sheet_margins,
+        >>> resolve_capture_rect(states_matrix, sheet_margins,
         ...         st_ref, nd_ref)
         (Cell(row=6, col=3), Cell(row=7, col=3))
 
         >>> nd_ref = TargetRef(num2a1_Cell(7, 6), 'UL')
-        >>> resolve_capture_rect(full_cells, sheet_margins,
+        >>> resolve_capture_rect(states_matrix, sheet_margins,
         ...         st_ref, nd_ref)
         (Cell(row=5, col=3), Cell(row=6, col=3))
     """
@@ -920,12 +924,12 @@ def resolve_capture_rect(full_cells, sheet_margins, st_ref,
 
     st = _resolve_cell(st_ref.cell, sheet_margins)
     try:
-        state = full_cells[st]
+        state = states_matrix[st]
     except IndexError:
         state = False
 
     if st_ref.mov is not None:
-        st = _target_opposite_state(state, st, full_cells, dn, st_ref.mov)
+        st = _target_opposite_state(state, st, states_matrix, dn, st_ref.mov)
         state = not state
 
     if nd_ref is None:
@@ -935,11 +939,11 @@ def resolve_capture_rect(full_cells, sheet_margins, st_ref,
 
         if nd_ref.mov is not None:
             mov = nd_ref.mov
-            if state == full_cells[nd]:
-                nd = _target_same_state(state, nd, full_cells, dn, mov)
+            if state == states_matrix[nd]:
+                nd = _target_same_state(state, nd, states_matrix, dn, mov)
             else:
                 nd = _target_opposite_state(
-                    not state, nd, full_cells, dn, mov)
+                    not state, nd, states_matrix, dn, mov)
 
         c = np.array([st, nd])
 
@@ -949,18 +953,19 @@ def resolve_capture_rect(full_cells, sheet_margins, st_ref,
         return (st, nd)
     else:
         rect_exp = _parse_rect_expansions(rect_exp)
-        return _expand_rect(state, (st, nd), full_cells, rect_exp)
+        return _expand_rect(state, (st, nd), states_matrix, rect_exp)
 
 
-def read_capture_rect_values(sheet, xl_rect, indices, epoch1904=False):
+def read_capture_rect_values(sheet, xl_rect, states_matrix):
     """
     Extracts :term:`capture-rect` values from excel-sheet and apply :term:`filters`.
 
     :param sheet:
     :param tuple xl_rect:  tuple (num_cell, num_cell) with the edge targets of
                            the capture-rect
-    :param indices:
-    :param epoch1904:
+    :param ndarray states_matrix:
+            An array with `False` wherever cell are blank or empty.
+            Use :func:`read_states_matrix()` to derrive it.
     :return:
 
 
@@ -981,49 +986,51 @@ def read_capture_rect_values(sheet, xl_rect, indices, epoch1904=False):
         >>> writer.save()
 
         >>> sheet = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
-        >>> full_cells = xlref.read_states_matrix(sheet)
-        >>> sheet_margins = xlref.get_sheet_margins(full_cells)
+        >>> states_matrix = xlref.read_states_matrix(sheet)
+        >>> sheet_margins = xlref.get_sheet_margins(states_matrix)
 
         # minimum matrix in the sheet
         >>> st = _resolve_cell(Cell('^', '^'), sheet_margins)
         >>> nd = _resolve_cell(Cell('_', '_'), sheet_margins)
-        >>> read_capture_rect_values(sheet, (st, nd), indices)
+        >>> read_capture_rect_values(sheet, (st, nd), states_matrix)
         [[None,  0,    1,    2],
          [0,    None, None, None],
          [1,     5.1,  6.1,  7.1]]
 
         # get single value
-        >>> read_capture_rect_values(sheet, (Cell(6, 3), Cell(6, 3)), indices)
+        >>> read_capture_rect_values(sheet, (Cell(6, 3), Cell(6, 3)), states_matrix)
         [0]
 
         # get column vector
         >>> st = _resolve_cell(Cell('1', 'D'), sheet_margins)
         >>> nd = _resolve_cell(Cell('_', 'd'), sheet_margins)
-        >>> read_capture_rect_values(sheet, (st, nd), indices)
+        >>> read_capture_rect_values(sheet, (st, nd), states_matrix)
         [None, None, None, None, None, None, 0, 1]
 
         # get row vector
         >>> st = _resolve_cell(Cell('6', 'A'), sheet_margins)
         >>> nd = _resolve_cell(Cell('6', '_'), sheet_margins)
-        >>> read_capture_rect_values(sheet, (st, nd), indices)
+        >>> read_capture_rect_values(sheet, (st, nd), states_matrix)
         [None, None, None, None, 0, 1, 2]
 
         # get row vector
         >>> st = _resolve_cell(Cell('6', 'A'), sheet_margins)
         >>> nd = _resolve_cell(Cell('6', 'K'), sheet_margins)
-        >>> read_capture_rect_values(sheet, (st, nd), indices)
+        >>> read_capture_rect_values(sheet, (st, nd), states_matrix)
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
     """
     tbl = []
     st_target = xl_rect[0]
     nd_target = xl_rect[1]
+    indices = np.asarray(np.where(states_matrix)).T.tolist()
+
     for r in range(st_target.row, nd_target.row + 1):
         row = []
         tbl.append(row)
         for c in range(st_target.col, nd_target.col + 1):
             if [r, c] in indices:
-                row.append(_xlrd.read_cell(sheet.cell(r, c), epoch1904))
+                row.append(_xlrd.read_cell(sheet.cell(r, c)))
             else:
                 row.append(None)
     # vector

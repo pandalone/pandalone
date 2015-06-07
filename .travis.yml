@@ -68,6 +68,7 @@ script:
     -   echo "+++ Checking install...."
         python setup.py install
 
-after_success:
-    - if [[ $TRAVIS_PYTHON_VERSION == '3.4' ]]; then coveralls; fi
+#after_success:
+##  Moved to AppVeyor for it runs also win code
+#    - if [[ $TRAVIS_PYTHON_VERSION == '3.4' ]]; then coveralls; fi
 
