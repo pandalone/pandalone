@@ -74,8 +74,42 @@ def open_sheet(xl_ref_child, xl_ref_parent=None):
         sh = xl_ref_child['sheet']
         raise ValueError("Invalid excel-sheet({}) due to:{}".format(sh, ex))
 
+# noinspection PyProtectedMember
 
-def read_cell(cell, epoch1904=False):
+
+def read_states_matrix(sheet):
+    """
+    Return a boolean ndarray with `False` wherever cell are blank or empty.
+    """
+    types = np.array(sheet._cell_types)
+    return (types != XL_CELL_EMPTY) & (types != XL_CELL_BLANK)
+
+
+def read_rect(sheet, states_matrix, st_cell, nd_cell):
+    """
+    Extract the values enclaved between the 2 edge-cells as a 2D-table.
+
+    :param sheet: a xlrd-sheet to read from
+    :param xlref.Cell st_cell: the starting-cell of the rect
+    :param xlref.Cell nd_cell: the finishing-cell of the rect
+    """
+    table = []
+    for r in range(st_cell.row, nd_cell.row + 1):
+        row = []
+        table.append(row)
+        for c in range(st_cell.col, nd_cell.col + 1):
+            try:
+                if states_matrix[r, c]:
+                    row.append(_parse_cell(sheet.cell(r, c)))
+                    continue
+            except IndexError:
+                pass
+            row.append(None)
+
+    return table
+
+
+def _parse_cell(cell, epoch1904=False):
     """
     Parse a xl-cell.
 
@@ -98,13 +132,13 @@ def read_cell(cell, epoch1904=False):
 
         >>> import xlrd
         >>> from xlrd.sheet import Cell
-        >>> read_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
+        >>> _parse_cell(Cell(xlrd.XL_CELL_NUMBER, 1.2))
         1.2
 
-        >>> read_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
+        >>> _parse_cell(Cell(xlrd.XL_CELL_DATE, 1.2))
         datetime.datetime(1900, 1, 1, 4, 48)
 
-        >>> read_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
+        >>> _parse_cell(Cell(xlrd.XL_CELL_TEXT, 'hi'))
         'hi'
     """
 
@@ -146,12 +180,3 @@ def read_cell(cell, epoch1904=False):
         return float('nan')
 
     raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
-
-
-# noinspection PyProtectedMember
-def read_states_matrix(sheet):
-    """
-    Returns a boolean ndarray with `False` wherever cell are blank or empty.
-    """
-    types = np.array(sheet._cell_types)
-    return (types != XL_CELL_EMPTY) & (types != XL_CELL_BLANK)

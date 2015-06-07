@@ -1020,31 +1020,22 @@ def read_capture_rect_values(sheet, xl_rect, states_matrix):
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
     """
-    tbl = []
     st_target = xl_rect[0]
     nd_target = xl_rect[1]
-    indices = np.asarray(np.where(states_matrix)).T.tolist()
 
-    for r in range(st_target.row, nd_target.row + 1):
-        row = []
-        tbl.append(row)
-        for c in range(st_target.col, nd_target.col + 1):
-            if [r, c] in indices:
-                row.append(_xlrd.read_cell(sheet.cell(r, c)))
-            else:
-                row.append(None)
+    table = _xlrd.read_rect(sheet, states_matrix, st_target, nd_target)
     # vector
     if nd_target.col == st_target.col:
-        tbl = [v[0] for v in tbl]
+        table = [v[0] for v in table]
 
     # vector
     if nd_target.row == st_target.row:
-        tbl = tbl[0]
+        table = table[0]
 
-    if isinstance(tbl, list):
-        return tbl
+    if isinstance(table, list):
+        return table
     else:
-        return [tbl]
+        return [table]
 
 
 def _get_value_dim(value):

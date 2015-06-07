@@ -89,7 +89,7 @@ API
       open_xlref_workbook
       open_sheet
       read_states_matrix
-      read_cell
+      read_rect
 
 .. default-role:: term
 
@@ -533,5 +533,5 @@ from ._xlref import (
     get_sheet_margins,
 )
 from ._xlrd import (
-    open_xlref_workbook, open_sheet, read_cell, read_states_matrix
+    open_xlref_workbook, open_sheet, read_states_matrix, read_rect
 )
