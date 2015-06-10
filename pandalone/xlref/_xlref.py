@@ -901,9 +901,8 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
     :return: a ``(Cell, Cell)`` with the 1st and 2nd :term:`capture-cell`
     :rtype: tuple
 
+    Examples::
 
-
-    .. testsetup::
         >>> states_matrix = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -914,23 +913,18 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
+        >>> sheet_margins = Cell(row={'_': 7, '^': 5}, col={'_': 6, '^': 3})
 
-        >>> sheet_margins = get_sheet_margins(states_matrix)
-    Examples:
-
-    .. doctest::
-
-        >>> st_ref = Edge(num2a1_Cell(0, 0), 'DR')
+        >>> st_ref = Edge(Cell('1', 'A'), 'DR')
         >>> nd_ref = Edge(Cell('.', '.'), 'DR')
-        >>> resolve_capture_rect(states_matrix, sheet_margins,
-        ...         st_ref, nd_ref)
+        >>> resolve_capture_rect(states_matrix, sheet_margins, st_ref, nd_ref)
         (Cell(row=6, col=3), Cell(row=7, col=3))
 
-        >>> nd_ref = Edge(num2a1_Cell(7, 6), 'UL')
-        >>> resolve_capture_rect(states_matrix, sheet_margins,
-        ...         st_ref, nd_ref)
+        >>> nd_ref = Edge(Cell('8', 'G'), 'UL')
+        >>> resolve_capture_rect(states_matrix, sheet_margins, st_ref, nd_ref)
         (Cell(row=5, col=3), Cell(row=6, col=3))
     """
+
     dn = (sheet_margins[0]['_'], sheet_margins[1]['_'])
 
     st = _resolve_cell(st_ref.cell, sheet_margins)
@@ -979,58 +973,58 @@ def read_capture_rect_values(sheet, xl_rect, states_matrix):
             Use :func:`read_states_matrix()` to derrive it.
     :return:
 
-
-    Examples::
-
-        >>> from pandalone import xlref
+    .. testsetup::
         >>> import os, tempfile, xlrd, pandas as pd
 
-        >>> os.chdir(tempfile.mkdtemp())
         >>> df = pd.DataFrame([
         ... # Cols: 0       1    2
         ...        [None, None, None],
         ...        [5.1,  6.1,  7.1]
         ... ])
-        >>> tmp = 'sample.xlsx'
+        >>> tmp = ''.join([tempfile.mkstemp()[1], '.xlsx'])
         >>> writer = pd.ExcelWriter(tmp)
         >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
         >>> writer.save()
-
         >>> sheet = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
-        >>> states_matrix = xlref.read_states_matrix(sheet)
-        >>> sheet_margins = xlref.get_sheet_margins(states_matrix)
+
+    Examples::
+
+        >>> stm = np.array([
+        ...     [False, False, False, False, False, False, False],
+        ...     [False, False, False, False, False, False, False],
+        ...     [False, False, False, False, False, False, False],
+        ...     [False, False, False, False, False, False, False],
+        ...     [False, False, False, False, False, False, False],
+        ...     [False, False, False, False,  True,  True,  True],
+        ...     [False, False, False,  True, False, False, False],
+        ...     [False, False, False,  True,  True,  True,  True]], dtype=bool)
 
         # minimum matrix in the sheet
-        >>> st = _resolve_cell(Cell('^', '^'), sheet_margins)
-        >>> nd = _resolve_cell(Cell('_', '_'), sheet_margins)
-        >>> read_capture_rect_values(sheet, (st, nd), states_matrix)
+        >>> read_capture_rect_values(sheet, (Cell(5, 3), Cell(7, 6)), stm)
         [[None,  0,    1,    2],
          [0,    None, None, None],
          [1,     5.1,  6.1,  7.1]]
 
         # get single value
-        >>> read_capture_rect_values(sheet, (Cell(6, 3), Cell(6, 3)), states_matrix)
+        >>> read_capture_rect_values(sheet, (Cell(6, 3), Cell(6, 3)), stm)
         [0]
 
         # get column vector
-        >>> st = _resolve_cell(Cell('1', 'D'), sheet_margins)
-        >>> nd = _resolve_cell(Cell('_', 'd'), sheet_margins)
-        >>> read_capture_rect_values(sheet, (st, nd), states_matrix)
+        >>> read_capture_rect_values(sheet, (Cell(0, 3), Cell(7, 3)), stm)
         [None, None, None, None, None, None, 0, 1]
 
         # get row vector
-        >>> st = _resolve_cell(Cell('6', 'A'), sheet_margins)
-        >>> nd = _resolve_cell(Cell('6', '_'), sheet_margins)
-        >>> read_capture_rect_values(sheet, (st, nd), states_matrix)
+        >>> read_capture_rect_values(sheet, (Cell(5, 0), Cell(5, 6)), stm)
         [None, None, None, None, 0, 1, 2]
 
         # get row vector
-        >>> st = _resolve_cell(Cell('6', 'A'), sheet_margins)
-        >>> nd = _resolve_cell(Cell('6', 'K'), sheet_margins)
-        >>> read_capture_rect_values(sheet, (st, nd), states_matrix)
+        >>> read_capture_rect_values(sheet, (Cell(5, 0), Cell(5, 10)), stm)
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
+    .. testcleanup::
+        >>> os.remove(tmp)
     """
+
     st_target = xl_rect[0]
     nd_target = xl_rect[1]
 
