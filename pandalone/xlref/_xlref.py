@@ -172,14 +172,14 @@ def _repeat_moves(moves, times=None):
 
     Examples::
 
-         >>> list(_repeat_moves('LUR', '3'))
+         >>> list(_repeat_moves('LuR', '3'))
          ['LUR', 'LUR', 'LUR']
          >>> list(_repeat_moves('ABC', '0'))
          []
          >>> _repeat_moves('ABC')  ## infinite repetitions
          repeat('ABC')
      """
-    args = (moves,)
+    args = (moves.upper(),)
     if times is not None:
         args += (int(times), )
     return itt.repeat(*args)
@@ -416,7 +416,7 @@ def _resolve_coord(cname, cfunc, coord, cbounds, bcoord=None):
     Translates special coords or converts Excel string 1-based rows/cols to zero-based, reporting invalids.
 
     :param str        cname:  the coord-name, one of 'row', 'column'
-    :param str        cfunc:  the function to convert coord ``str --> int``
+    :param function   cfunc:  the function to convert coord ``str --> int``
     :param int, str   coord:  the coord to translate
     :param dict     cbounds:  the coord part of :func:`get_sheet_margins()`
     :param int, None bcoord:  the basis for dependent coord, if any
@@ -461,7 +461,8 @@ def _resolve_coord(cname, cfunc, coord, cbounds, bcoord=None):
         >>> _resolve_coord(cname, _row2num, None, cbounds)
         Traceback (most recent call last):
         ValueError: invalid row(None) due to:
-                int() argument must be a string, a bytes-like object or a number, not 'NoneType'
+        int() argument must be a string or a number, not 'NoneType'
+
 
     Column examples::
 
@@ -588,6 +589,7 @@ def _resolve_cell(cell, margins, bcell=None):
         >>> margins = Cell(
         ...     row={'^':1, '_':10},
         ...     col={'^':2, '_':6})
+
         >>> _resolve_cell(Cell(col='A', row=5), margins)
         Cell(row=4, col=0)
 
@@ -650,6 +652,7 @@ def _target_opposite_state(state, cell, states_matrix, dn, moves, last=False):
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
+
         >>> args = (False, Cell(1, 1), states_matrix, (7, 6))
         >>> _target_opposite_state(*(args + ('DR', )))
         Cell(row=6, col=3)
@@ -679,7 +682,7 @@ def _target_opposite_state(state, cell, states_matrix, dn, moves, last=False):
 
         >>> args = (True, Cell(6, 3), states_matrix, (7, 6))
         >>> _target_opposite_state(*(args + ('D', )))
-        Cell(row=8, col=3)
+        Cell(row=7, col=3)
 
         >>> args = (True, Cell(10, 3), states_matrix, (7, 6))
         >>> _target_opposite_state(*(args + ('U', )))
@@ -696,7 +699,7 @@ def _target_opposite_state(state, cell, states_matrix, dn, moves, last=False):
         ... ])
         >>> args = (True, Cell(0, 2), states_matrix, (2, 2))
         >>> _target_opposite_state(*(args + ('LD', )))
-        Cell(row=3, col=2)
+        Cell(row=2, col=2)
     """
     up = (0, 0)
     mv = _primitive_dir[moves[0]]  # first move
@@ -707,6 +710,8 @@ def _target_opposite_state(state, cell, states_matrix, dn, moves, last=False):
             c0[0] = dn[0]
         if not c0[1] <= dn[1] and 'L' in moves:
             c0[1] = dn[1]
+    else:
+        last = True
 
     flag = False
     while True:
@@ -793,7 +798,7 @@ def _target_same_state(state, cell, states_matrix, dn, moves):
         Cell(row=7, col=4)
 
     """
-    up = (0, 0)
+
     c1 = list(cell)
 
     for mv in moves:
@@ -827,18 +832,19 @@ def _expand_rect(state, xl_rect, states_matrix, rect_exp):
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
+
         >>> rng = (Cell(row=6, col=3), Cell(row=6, col=3))
-        >>> rect_exp = [_repeat_moves('U', times=10)]
+        >>> rect_exp = [_repeat_moves('U')]
         >>> _expand_rect(True, rng, states_matrix, rect_exp)
         [Cell(row=6, col=3), Cell(row=6, col=3)]
 
         >>> rng = (Cell(row=6, col=3), Cell(row=7, col=3))
-        >>> rect_exp = [_repeat_moves('R', times=10)]
+        >>> rect_exp = [_repeat_moves('R')]
         >>> _expand_rect(True, rng, states_matrix, rect_exp)
         [Cell(row=6, col=3), Cell(row=7, col=6)]
 
         >>> rng = (Cell(row=6, col=3), Cell(row=10, col=3))
-        >>> rect_exp = [_repeat_moves('R', times=10)]
+        >>> rect_exp = [_repeat_moves('R')]
         >>> _expand_rect(True, rng, states_matrix, rect_exp)
         [Cell(row=6, col=3), Cell(row=10, col=6)]
 
@@ -896,8 +902,8 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
     :rtype: tuple
 
 
-    Examples::
 
+    .. testsetup::
         >>> states_matrix = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -908,7 +914,12 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
         ...     [0, 0, 0, 1, 0, 0, 1],
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
+
         >>> sheet_margins = get_sheet_margins(states_matrix)
+    Examples:
+
+    .. doctest::
+
         >>> st_ref = Edge(num2a1_Cell(0, 0), 'DR')
         >>> nd_ref = Edge(Cell('.', '.'), 'DR')
         >>> resolve_capture_rect(states_matrix, sheet_margins,
