@@ -493,7 +493,7 @@ def _resolve_coord(cname, cfunc, coord, cbounds, bcoord=None):
     """
     try:
         if coord in _special_coords:
-            if bcoord:
+            if bcoord is not None:
                 cbounds = _build_special_coords(cbounds, bcoord)
             rcoord = cbounds[coord]
         else:
@@ -923,6 +923,11 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
         >>> nd_ref = Edge(Cell('8', 'G'), 'UL')
         >>> resolve_capture_rect(states_matrix, sheet_margins, st_ref, nd_ref)
         (Cell(row=5, col=3), Cell(row=6, col=3))
+
+        >>> st_ref = Edge(Cell('1', 'A'), 'RD')
+        >>> nd_ref = Edge(Cell('.', '.'), 'R')
+        >>> resolve_capture_rect(states_matrix, sheet_margins, st_ref, nd_ref)
+        (Cell(row=5, col=4), Cell(row=5, col=6))
     """
 
     dn = (sheet_margins[0]['_'], sheet_margins[1]['_'])
@@ -944,7 +949,13 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
 
         if nd_ref.mov is not None:
             mov = nd_ref.mov
-            if state == states_matrix[nd]:
+
+            try:
+                nd_state = states_matrix[nd]
+            except IndexError:
+                nd_state = False
+
+            if state == nd_state:
                 nd = _target_same_state(state, nd, states_matrix, dn, mov)
             else:
                 nd = _target_opposite_state(

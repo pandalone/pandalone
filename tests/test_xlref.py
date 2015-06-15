@@ -82,206 +82,6 @@ class TestDoctest(unittest.TestCase):
 
 class TestXlRef(unittest.TestCase):
 
-    @unittest.skip('Needs conversion to new logic.')
-    def test_read_rect_values_Scalar(self):
-        with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
-            wb_fname = 'sample.xlsx'
-            _make_sample_sheet(wb_fname,
-                               [[None, None, None], [5.1, 6.1, 7.1]],
-                               'Sheet1',
-                               startrow=5, startcol=3)
-
-            # load sheet for --> read_capture_rect_values
-            fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
-            url = _make_local_url(wb_fname, fragment)
-            res = xr.parse_xl_url(url)
-            wb = xlrd.open_workbook(
-                file_contents=urlopen(res['url_file']).read())
-            sheet = wb.sheet_by_name(res['sheet'])
-
-            # get single value [D7]
-            args = (sheet, xr.Edge(3, 6))
-            self.assertEqual(_read_rect_values(*args), 0)
-
-            # get single value [A1]
-            args = (sheet, xr.Edge(0, 0))
-            self.assertEqual(_read_rect_values(*args), None)
-
-            # get single value [H9]
-            args = (sheet, xr.Edge(7, 8))
-            self.assertEqual(_read_rect_values(*args), None)
-
-    @unittest.skip('Needs conversion to new logic.')
-    def test_read_rect_values_Vector(self):
-        with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
-            wb_fname = 'sample.xlsx'
-            _make_sample_sheet(wb_fname,
-                               [[None, None, None], [5.1, 6.1, 7.1]],
-                               'Sheet1',
-                               startrow=5, startcol=3)
-
-            # load sheet for --> read_capture_rect_values
-            fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
-            url = _make_local_url(wb_fname, fragment)
-            res = xr.parse_xl_url(url)
-            wb = xlrd.open_workbook(
-                file_contents=urlopen(res['url_file']).read())
-            sheet = wb.sheet_by_name(res['sheet'])
-
-            # single value in the sheet [D7:D7]
-            args = (sheet, xr.Edge(3, 6), xr.Edge(3, 6))
-            self.assertEqual(_read_rect_values(*args), Edge)
-
-            # get whole column [D_]
-            args = (sheet, xr.Edge(3, None))
-            res = [None, None, None, None, None, None, 0, 1]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # get whole row [_6]
-            args = (sheet, xr.Edge(None, 5))
-            res = [None, None, None, None, 0, 1, 2]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # minimum delimited row in the sheet [C6:_6]
-            args = (sheet, xr.Edge(2, 5), xr.Edge(None, 5))
-            res = [None, None, 0, 1, 2]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # minimum delimited row in the sheet [_7:_7]
-            args = (sheet, xr.Edge(None, 6), xr.Edge(None, 6))
-            res = Edge
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # minimum delimited row in the sheet [A7:_7]
-            args = (sheet, xr.Edge(0, 6), xr.Edge(None, 6))
-            res = [None, None, None, 0]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # delimited row in the sheet [A7:D7]
-            args = (sheet, xr.Edge(0, 6), xr.Edge(3, 6))
-            res = [None, None, None, 0]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # minimum delimited column in the sheet [D_:D_]
-            args = (sheet, xr.Edge(3, None), xr.Edge(3, None))
-            res = [0, 1]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # minimum delimited column in the sheet [D5:D_]
-            args = (sheet, xr.Edge(3, 4), xr.Edge(3, None))
-            res = [None, None, 0, 1]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # minimum delimited column in the sheet [D_:D9]
-            args = (sheet, xr.Edge(3, None), xr.Edge(3, 8))
-            res = [0, 1, None]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # delimited column in the sheet [D3:D9]
-            args = (sheet, xr.Edge(3, 2), xr.Edge(3, 8))
-            res = [None, None, None, None, 0, 1, None]
-            self.assertEqual(_read_rect_values(*args), res)
-
-    @unittest.skip('Needs conversion to new logic.')
-    def test_read_rect_values(self):
-        with _tutils.TemporaryDirectory() as tmpdir, _tutils.chdir(tmpdir):
-            wb_fname = 'sample.xlsx'
-            _make_sample_sheet(wb_fname,
-                               [[None, None, None], [5.1, 6.1, 7.1]],
-                               'Sheet1',
-                               startrow=5, startcol=3)
-
-            # load sheet for --> read_capture_rect_values
-            fragment = 'Sheet1!A1:C2{"1":4,"2":"ciao"}'
-            url = _make_local_url(wb_fname, fragment)
-            res = xr.parse_xl_url(url)
-            wb = xlrd.open_workbook(
-                file_contents=urlopen(res['url_file']).read())
-            sheet = wb.sheet_by_name(res['sheet'])
-
-            # minimum matrix in the sheet [:]
-            args = (sheet, xr.Edge(None, None), xr.Edge(None, None))
-            res = [
-                [None, 0, 1, 2],
-                [0, None, None, None],
-                [1, 5.1, 6.1, 7.1]
-            ]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # minimum delimited matrix in the sheet [E_:__]
-            args = (sheet, xr.Edge(4, None), xr.Edge(None, None))
-            res = [
-                [0, 1, 2],
-                [None, None, None],
-                [5.1, 6.1, 7.1]
-            ]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # minimum delimited matrix in the sheet [E7:__]
-            args = (sheet, xr.Edge(4, 6), xr.Edge(None, None))
-            res = [
-                [None, None, None],
-                [5.1, 6.1, 7.1]
-            ]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # delimited matrix in the sheet [D6:F8]
-            args = (sheet, xr.Edge(3, 5), xr.Edge(5, 7))
-            res = [
-                [None, 0, 1],
-                [0, None, None],
-                [1, 5.1, 6.1]
-            ]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # minimum delimited matrix in the sheet [:F8]
-            args = (sheet, xr.Edge(None, None), xr.Edge(5, 7))
-            res = [
-                [None, 0, 1],
-                [0, None, None],
-                [1, 5.1, 6.1]
-            ]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # minimum delimited matrix in the sheet [7:F8]
-            args = (sheet, xr.Edge(None, 6), xr.Edge(5, 7))
-            res = [
-                [0, None, None],
-                [1, 5.1, 6.1]
-            ]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # minimum delimited matrix in the sheet [E:F8]
-            args = (sheet, xr.Edge(None, 6), xr.Edge(5, 7))
-            res = [
-                [0, None, None],
-                [1, 5.1, 6.1]
-            ]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # delimited matrix in the sheet [A1:F8]
-            args = (sheet, xr.Edge(0, 0), xr.Edge(5, 7))
-            res = [
-                [None, None, None, None, None, None],
-                [None, None, None, None, None, None],
-                [None, None, None, None, None, None],
-                [None, None, None, None, None, None],
-                [None, None, None, None, None, None],
-                [None, None, None, None, 0, 1],
-                [None, None, None, 0, None, None],
-                [None, None, None, 1, 5.1, 6.1]
-            ]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # delimited matrix in the sheet [G9:__]
-            args = (sheet, xr.Edge(6, 8), xr.Edge(None, None))
-            res = [[None]]
-            self.assertEqual(_read_rect_values(*args), res)
-
-            # delimited matrix in the sheet [F9:__]
-            args = (sheet, xr.Edge(5, 8), xr.Edge(None, None))
-            res = [[None]]
-            self.assertEqual(_read_rect_values(*args), res)
 
     def test_parse_xl_ref_Cells_types(self):
         xl_ref = 'b1:C2'
@@ -495,6 +295,222 @@ class TestXlRead(unittest.TestCase):
                           xl_ref_parent['xl_workbook'])
         self.assertNotEquals(xl_ref_child['xl_sheet'],
                              xl_ref_parent['xl_sheet'])
+
+class TestXlRead_rect(unittest.TestCase):
+    def setUp(self):
+        from tempfile import mkstemp
+        self.tmp = '%s.xlsx' % mkstemp()[1]
+        xl = [
+                 [None, None, None],
+                 [5.1, 6.1, 7.1]
+             ]
+
+        _make_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
+
+        self.sheet = xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1')
+
+    def tearDown(self):
+        del self.sheet
+        os.remove(self.tmp)
+
+    def test_read_rect_values_Scalar(self):
+        sheet = self.sheet
+
+        # get single value [D7]
+        args = (sheet, xr.Edge(xr.Cell('7', 'D'), None))
+        self.assertEqual(_read_rect_values(*args), [0])
+
+        # get single value [A1]
+        args = (sheet, xr.Edge(xr.Cell('1', 'A'), None))
+        self.assertEqual(_read_rect_values(*args), [None])
+
+        # get single value [H9]
+        args = (sheet, xr.Edge(xr.Cell('9', 'H'), None))
+        self.assertEqual(_read_rect_values(*args), [None])
+
+    def test_read_rect_values_Vector(self):
+        sheet = self.sheet
+
+        # single value in the sheet [D7:D7]
+        args = (sheet,
+                xr.Edge(xr.Cell('7', 'D'), None),
+                xr.Edge(xr.Cell('7', 'D'), None))
+        self.assertEqual(_read_rect_values(*args), [0])
+
+        # get whole column [D_]
+        args = (sheet,
+                xr.Edge(xr.Cell('1', 'D'), None),
+                xr.Edge(xr.Cell('_', 'D'), None))
+        res = [None, None, None, None, None, None, 0, 1]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # get whole row [_6]
+        args = (sheet,
+                xr.Edge(xr.Cell('6', 'A'), None),
+                xr.Edge(xr.Cell('6', '_'), None))
+        res = [None, None, None, None, 0, 1, 2]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # minimum delimited row in the sheet [C6:_6]
+        args = (sheet,
+                xr.Edge(xr.Cell('6', 'C'), None),
+                xr.Edge(xr.Cell('6', '_'), None))
+        res = [None, None, 0, 1, 2]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # minimum delimited row in the sheet [_7:_7]
+        args = (sheet,
+                xr.Edge(xr.Cell('7', 'A'), None),
+                xr.Edge(xr.Cell('7', '_'), None))
+        res = [None, None, None, 0, None, None, None]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # minimum delimited row in the sheet [E6:_6]
+        args = (sheet,
+                xr.Edge(xr.Cell('1', 'A'), 'RD'),
+                xr.Edge(xr.Cell('.', '.'), 'R'))
+        res = [0, 1, 2]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # delimited row in the sheet [A7:D7]
+        args = (sheet,
+                xr.Edge(xr.Cell('7', 'A'), None),
+                xr.Edge(xr.Cell('7', 'D'), None))
+        res = [None, None, None, 0]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # minimum delimited column in the sheet [D_:D_]
+        args = (sheet,
+                xr.Edge(xr.Cell('^', 'D'), None),
+                xr.Edge(xr.Cell('_', 'D'), None))
+        res = [None, 0, 1]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # minimum delimited column in the sheet [D5:D_]
+        args = (sheet,
+                xr.Edge(xr.Cell('5', 'D'), None),
+                xr.Edge(xr.Cell('_', 'D'), None))
+        res = [None, None, 0, 1]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # minimum delimited column in the sheet [D_:D9]
+        args = (sheet,
+                xr.Edge(xr.Cell('^', 'D'), None),
+                xr.Edge(xr.Cell('9', 'D'), None))
+        res = [None, 0, 1, None]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # delimited column in the sheet [D3:D9]
+        args = (sheet,
+                xr.Edge(xr.Cell('3', 'D'), None),
+                xr.Edge(xr.Cell('9', 'D'), None))
+        res = [None, None, None, None, 0, 1, None]
+        self.assertEqual(_read_rect_values(*args), res)
+
+    def test_read_rect_values(self):
+        sheet = self.sheet
+
+        # minimum matrix in the sheet [:]
+        args = (sheet,
+                xr.Edge(xr.Cell('^', '^'), None),
+                xr.Edge(xr.Cell('_', '_'), None))
+        res = [
+            [None, 0, 1, 2],
+            [0, None, None, None],
+            [1, 5.1, 6.1, 7.1]
+        ]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # minimum delimited matrix in the sheet [E_:__]
+        args = (sheet,
+                xr.Edge(xr.Cell('^', 'E'), None),
+                xr.Edge(xr.Cell('_', '_'), None))
+        res = [
+            [0, 1, 2],
+            [None, None, None],
+            [5.1, 6.1, 7.1]
+        ]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # minimum delimited matrix in the sheet [E7:__]
+        args = (sheet,
+                xr.Edge(xr.Cell('7', 'E'), None),
+                xr.Edge(xr.Cell('_', '_'), None))
+        res = [
+            [None, None, None],
+            [5.1, 6.1, 7.1]
+        ]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # delimited matrix in the sheet [D6:F8]
+        args = (sheet,
+                xr.Edge(xr.Cell('6', 'D'), None),
+                xr.Edge(xr.Cell('8', 'F'), None))
+        res = [
+            [None, 0, 1],
+            [0, None, None],
+            [1, 5.1, 6.1]
+        ]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # minimum delimited matrix in the sheet [:F8]
+        args = (sheet,
+                xr.Edge(xr.Cell('8', 'F'), None),
+                xr.Edge(xr.Cell('^', '^'), None))
+        res = [
+            [None, 0, 1],
+            [0, None, None],
+            [1, 5.1, 6.1]
+        ]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # minimum delimited matrix in the sheet [7:F8]
+        args = (sheet,
+                xr.Edge(xr.Cell('8', 'F'), None),
+                xr.Edge(xr.Cell('7', '^'), None))
+        res = [
+            [0, None, None],
+            [1, 5.1, 6.1]
+        ]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # minimum delimited matrix in the sheet [D:F8]
+        args = (sheet,
+                xr.Edge(xr.Cell('8', 'F'), None),
+                xr.Edge(xr.Cell('8', 'D'), 'U'))
+        res = [
+            [0, None, None],
+            [1, 5.1, 6.1]
+        ]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # delimited matrix in the sheet [A1:F8]
+        args = (sheet,
+                xr.Edge(xr.Cell('1', 'A'), None),
+                xr.Edge(xr.Cell('8', 'F'), None))
+        res = [
+            [None, None, None, None, None, None],
+            [None, None, None, None, None, None],
+            [None, None, None, None, None, None],
+            [None, None, None, None, None, None],
+            [None, None, None, None, None, None],
+            [None, None, None, None, 0, 1],
+            [None, None, None, 0, None, None],
+            [None, None, None, 1, 5.1, 6.1]
+        ]
+        self.assertEqual(_read_rect_values(*args), res)
+
+        # delimited matrix in the sheet [G9:__]
+        args = (sheet,
+                xr.Edge(xr.Cell('9', 'G'), None),
+                xr.Edge(xr.Cell('.', '.'), 'D'))
+        self.assertRaises(ValueError, _read_rect_values, *args)
+
+        # delimited matrix in the sheet [F9:__]
+        args = (sheet,
+                xr.Edge(xr.Cell('9', 'F'), None),
+                xr.Edge(xr.Cell('.', '.'), 'R'))
+        self.assertRaises(ValueError, _read_rect_values, *args)
 
 
 @unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
