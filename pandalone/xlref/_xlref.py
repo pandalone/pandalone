@@ -460,8 +460,8 @@ def _resolve_coord(cname, cfunc, coord, cbounds, bcoord=None):
 
         >>> _resolve_coord(cname, _row2num, None, cbounds)
         Traceback (most recent call last):
-        ValueError: invalid row(None) due to:
-        int() argument must be a string or a number, not 'NoneType'
+        ValueError: invalid row(None) due to: int() argument must be a string,
+        a bytes-like object or a number, not 'NoneType'
 
 
     Column examples::
@@ -990,14 +990,14 @@ def read_capture_rect_values(sheet, xl_rect, states_matrix):
     Examples::
 
         >>> stm = np.array([
-        ...     [False, False, False, False, False, False, False],
-        ...     [False, False, False, False, False, False, False],
-        ...     [False, False, False, False, False, False, False],
-        ...     [False, False, False, False, False, False, False],
-        ...     [False, False, False, False, False, False, False],
-        ...     [False, False, False, False,  True,  True,  True],
-        ...     [False, False, False,  True, False, False, False],
-        ...     [False, False, False,  True,  True,  True,  True]], dtype=bool)
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 1, 1, 1],
+        ...     [0, 0, 0, 1, 0, 0, 0],
+        ...     [0, 0, 0, 1, 1, 1, 1]], dtype=bool)
 
         # minimum matrix in the sheet
         >>> read_capture_rect_values(sheet, (Cell(5, 3), Cell(7, 6)), stm)
