@@ -15,12 +15,13 @@ import json
 import logging
 import re
 from string import ascii_uppercase
-from . import _xlrd
 
 import itertools as itt
 import numpy as np
 import pandas as pd
 from six.moves.urllib.parse import urldefrag  # @UnresolvedImport
+
+from . import _xlrd
 
 
 log = logging.getLogger(__name__)
@@ -172,14 +173,14 @@ def _repeat_moves(moves, times=None):
 
     Examples::
 
-         >>> list(_repeat_moves('LuR', '3'))
+         >>> list(_repeat_moves('LUR', '3'))
          ['LUR', 'LUR', 'LUR']
          >>> list(_repeat_moves('ABC', '0'))
          []
          >>> _repeat_moves('ABC')  ## infinite repetitions
          repeat('ABC')
      """
-    args = (moves.upper(),)
+    args = (moves,)
     if times is not None:
         args += (int(times), )
     return itt.repeat(*args)
@@ -460,8 +461,9 @@ def _resolve_coord(cname, cfunc, coord, cbounds, bcoord=None):
 
         >>> _resolve_coord(cname, _row2num, None, cbounds)
         Traceback (most recent call last):
-        ValueError: invalid row(None) due to: int() argument must be a string,
-        a bytes-like object or a number, not 'NoneType'
+        ValueError: invalid row(None) due to:
+                int() argument must be a string,
+                a bytes-like object or a number, not 'NoneType'
 
 
     Column examples::

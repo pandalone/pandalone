@@ -189,7 +189,7 @@ def xw_Workbook(*args, **kws):
     import xlwings
 
     wb = xlwings.Workbook(*args, **kws)
-    #app = wb.application TODO: Upgrade xlwings
+    # app = wb.application TODO: Upgrade xlwings
     yield wb
     xw_close_workbook(wb)
-    #app.quit()
+    # app.quit()

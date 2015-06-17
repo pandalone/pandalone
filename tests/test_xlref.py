@@ -11,7 +11,6 @@ from __future__ import division, print_function, unicode_literals
 from datetime import datetime
 import doctest
 import os
-from pandalone.xlref import Edge
 import sys
 from tests import _tutils
 from tests._tutils import check_xl_installed, xw_Workbook
@@ -23,7 +22,6 @@ from pandalone.xlref import _xlref as xr
 from pandalone.xlref import _xlrd as xd
 import pandas as pd
 import numpy as np
-from six.moves.urllib.request import urlopen  # @UnresolvedImport
 import xlrd
 
 
@@ -53,7 +51,7 @@ def _make_sample_sheet(path, matrix, sheet_name, startrow=0, startcol=0):
 
 def _make_local_url(fname, fragment=''):
     fpath = os.path.abspath(fname)
-    return r'file://{}#{}'.format(fpath, fragment)
+    return 'file:///{}#{}'.format(fpath, fragment)
 
 
 def _read_rect_values(sheet, st_ref, nd_ref=None):
@@ -81,7 +79,6 @@ class TestDoctest(unittest.TestCase):
 
 
 class TestXlRef(unittest.TestCase):
-
 
     def test_parse_xl_ref_Cells_types(self):
         xl_ref = 'b1:C2'
@@ -206,6 +203,7 @@ class TestXlRef(unittest.TestCase):
 
 
 class TestXlRead(unittest.TestCase):
+
     def setUp(self):
         from tempfile import mkstemp
         self.tmp = '%s.xlsx' % mkstemp()[1]
@@ -296,14 +294,16 @@ class TestXlRead(unittest.TestCase):
         self.assertNotEquals(xl_ref_child['xl_sheet'],
                              xl_ref_parent['xl_sheet'])
 
+
 class TestXlRead_rect(unittest.TestCase):
+
     def setUp(self):
         from tempfile import mkstemp
         self.tmp = '%s.xlsx' % mkstemp()[1]
         xl = [
-                 [None, None, None],
-                 [5.1, 6.1, 7.1]
-             ]
+            [None, None, None],
+            [5.1, 6.1, 7.1]
+        ]
 
         _make_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
 
@@ -515,6 +515,7 @@ class TestXlRead_rect(unittest.TestCase):
 
 @unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
 class TestVsXlwings(unittest.TestCase):
+
     def setUp(self):
         from tempfile import mkstemp
         self.tmp = '%s.xlsx' % mkstemp()[1]
@@ -523,8 +524,6 @@ class TestVsXlwings(unittest.TestCase):
             [None, 6.1, 7.1]
         ]
         _make_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
-
-
 
         self.states_matrix = np.array(
             [[0, 0, 0, 0, 0, 0, 0],

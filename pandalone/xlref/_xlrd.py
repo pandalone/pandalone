@@ -10,8 +10,10 @@ Implements the *xlrd* backend of :term:`xl-ref` that reads in-file Excel-spreads
 
 Prefer accessing the public members from the parent module.
 """
+
 import datetime
 from distutils.version import LooseVersion
+import logging
 
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
                   XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER)
@@ -21,6 +23,8 @@ import xlrd
 import numpy as np
 from six.moves.urllib.request import urlopen  # @UnresolvedImport
 
+
+log = logging.getLogger(__name__)
 
 # noinspection PyUnresolvedReferences
 # noinspection PyUnresolvedReferences
@@ -43,6 +47,7 @@ def open_xlref_workbook(xl_ref_child, xl_ref_parent=None):
     url_fl = xl_ref_child['url_file']
     try:
         if url_fl:
+            log.debug("Opening URL(%s)...", url_fl)
             wb = xlrd.open_workbook(file_contents=urlopen(url_fl).read())
         else:
             wb = xl_ref_parent['xl_workbook']
