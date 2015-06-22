@@ -8,7 +8,7 @@
 
 """
 A :dfn:`pandas-model` is a tree of strings, numbers, sequences, dicts, pandas instances and resolvable
-URI-references, implemented by :class:`Pandel`. 
+URI-references, implemented by :class:`Pandel`.
 """
 
 from __future__ import division, unicode_literals
@@ -67,10 +67,10 @@ _U = namedtuple('United', ('name', 'units'))
 
 def parse_value_with_units(arg):
     """
-    Parses *name-units* pairs (i.e. used as a table-column header). 
+    Parses *name-units* pairs (i.e. used as a table-column header).
 
     :return:    a United(name, units) named-tuple, or `None` if bad syntax;
-                note that ``name=''`` but ``units=None`` when missing. 
+                note that ``name=''`` but ``units=None`` when missing.
 
     Examples::
 
@@ -326,11 +326,8 @@ class PandelVisitor(ValidatorBase):
             _schema = self.schema
 
         scope = _schema.get("id")
-        has_scope = scope
-        if has_scope:
-            old_scope = self.resolver.resolution_scope
-            self.old_scopes.append(old_scope)
-            self.resolver.resolution_scope = urljoin(old_scope, scope)
+        if scope:
+            self.resolver.push_scope(scope)
 
         ref = _schema.get("$ref")
         if ref is not None:
@@ -356,8 +353,8 @@ class PandelVisitor(ValidatorBase):
                     error.schema_path.appendleft(k)
                 yield error
 
-        if has_scope:
-            self.resolver.resolution_scope = self.old_scopes.pop()
+        if scope:
+            self.resolver.pop_scope()
 
     ##################################
     ############# Rules ##############
@@ -1047,7 +1044,7 @@ def iter_jsonpointer_parts(jsonpath):
     Generates the ``jsonpath`` parts according to jsonpointer spec.
 
     :param str jsonpath:  a jsonpath to resolve within document
-    :return:              The parts of the path as generator), without 
+    :return:              The parts of the path as generator), without
                           converting any step to int, and None if None.
 
     :author: Julian Berman, ankostis
@@ -1055,16 +1052,16 @@ def iter_jsonpointer_parts(jsonpath):
     Examples::
 
         >>> list(iter_jsonpointer_parts('/a/b'))
-        ['a', 'b']     
+        ['a', 'b']
 
         >>> list(iter_jsonpointer_parts('/a//b'))
-        ['a', '', 'b']     
+        ['a', '', 'b']
 
         >>> list(iter_jsonpointer_parts('/'))
-        ['']     
+        ['']
 
         >>> list(iter_jsonpointer_parts(''))
-        []     
+        []
 
 
     But paths are strings begining (NOT_MPL: but not ending) with slash('/')::
@@ -1136,7 +1133,7 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
 
     :param doc: the referrant document
     :param str jsonpointer: a jsonpointer to resolve within document
-    :return: the resolved doc-item or raises :class:`RefResolutionError` 
+    :return: the resolved doc-item or raises :class:`RefResolutionError`
     :raises: RefResolutionError (if cannot resolve jsonpointer path)
 
     Examples:
@@ -1185,7 +1182,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=OrderedDict):
     Resolve a ``jsonpointer`` within the referenced ``doc``.
 
     :param doc: the referrant document
-    :param str jsonpointer: a jsonpointer to the node to modify 
+    :param str jsonpointer: a jsonpointer to the node to modify
     :raises: RefResolutionError (if jsonpointer empty, missing, invalid-contet)
     """
 

@@ -8,17 +8,15 @@
 
 from __future__ import division, print_function, unicode_literals
 
-from contextlib import contextmanager
 import doctest
-from doit.reporter import JsonReporter
 import os
+from pandalone import __main__, pndlcmd
 import sys
+from tests._tutils import (CustomAssertions, TemporaryDirectory, chdir)
 import unittest
 
+from doit.reporter import JsonReporter
 import six
-
-from pandalone import __main__, pndlcmd
-from ._tutils import (CustomAssertions, TemporaryDirectory)
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
@@ -30,31 +28,6 @@ class TestDoctest(unittest.TestCase):
             pndlcmd, optionflags=doctest.NORMALIZE_WHITESPACE)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
-
-
-@contextmanager
-def capture(command, *args, **kwargs):
-    # Unused
-    out, sys.stdout = sys.stdout, six.StringIO()
-    err, sys.stderr = sys.stderr, six.StringIO()
-    try:
-        command(*args, **kwargs)
-        sys.stdout.seek(0)
-        yield (sys.stdout.getvalue(), sys.stderr.getvalue())
-    finally:
-        sys.stdout = out
-        sys.stderr = err
-
-
-@contextmanager
-def chdir(dirname=None):
-    curdir = os.getcwd()
-    try:
-        if dirname is not None:
-            os.chdir(dirname)
-        yield
-    finally:
-        os.chdir(curdir)
 
 mydir = os.path.dirname(__file__)  # @UnusedVariable
 

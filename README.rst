@@ -12,31 +12,31 @@ pandalone: process data-trees with reconfigurable-paths
 :Documentation: https://pandalone.readthedocs.org/
 :Source:        https://github.com/pandalone/pandalone
 :PyPI repo:     https://pypi.python.org/pypi/pandalone
-:Keywords:      calculation, data, dependencies, engineering, excel, library,  
-                numpy, pandas, processing, python, resolution, scientific,  
+:Keywords:      calculation, data, dependencies, engineering, excel, library,
+                numpy, pandas, processing, python, resolution, scientific,
                 simulink, tree, utility
-:Copyright:     2015 European Commission (`JRC-IET 
+:Copyright:     2015 European Commission (`JRC-IET
                 <https://ec.europa.eu/jrc/en/institutes/iet>`_)
 :License:       `EUPL 1.1+ <https://joinup.ec.europa.eu/software/page/eupl>`_
 
 
 **pandalone** is an open source Python 2/3 library for building
-*component-functions* to process *hierarchical-data* using 
+*component-functions* to process *hierarchical-data* using
 *reconfigurable-paths*.
 
 
-Our goal is to facilitate the composition of *engineering-models* from 
-loosely-coupled *components*.  
+Our goal is to facilitate the composition of *engineering-models* from
+loosely-coupled *components*.
 Initially envisioned as an *indirection-framework* around *pandas* coupled
-with a *dependency-resolver*, every such model should auto-adapt and process 
+with a *dependency-resolver*, every such model should auto-adapt and process
 only values available, and allow *remapping* of the paths accessing them,
 to run on renamed/relocated *value-trees* without component-code modifications.
 
-It is written for *python-3.4* but tested under both *python-2.7* and 
+It is written for *python-3.4* but tested under both *python-2.7* and
 *python-3.3+*, for *Windows* and *Linux*.
 
 .. Note::
-    The project, as of May-2015, is considered at an alpha-stage, 
+    The project, as of May-2015, is considered at an alpha-stage,
     without any released version in *pypi* yet.
 
 
@@ -51,7 +51,7 @@ Introduction
 Overview
 --------
 
-At the most fundamental level, an "execution" or a "run" of a processing 
+At the most fundamental level, an "execution" or a "run" of a processing
 can be thought like that ::
 
            .--------------.     _____________        .-------------.
@@ -63,29 +63,29 @@ can be thought like that ::
      '--------------'                         '--------------.
 
 
-- The *data-tree* might come from *json*, *hdf5*, *excel-workbooks*, or 
+- The *data-tree* might come from *json*, *hdf5*, *excel-workbooks*, or
   plain dictionaries and lists.
-  Its values are strings and numbers, *numpy-lists*, *pandas* or 
+  Its values are strings and numbers, *numpy-lists*, *pandas* or
   *xray-datasets*, etc.
-      
+
 - The *component-functions* must abide to the following simple signature::
 
     cfunc_do_something(pandelone, datatree)
 
   and must not return any value, just read and write into the data-tree.
-  
+
 - Here is a simple component-function:
 
   .. code-block:: python
-  
+
     def cfunc_standardize(pandelone, datatree):
-        pin, pon = pandelone.paths(), 
+        pin, pon = pandelone.paths(),
         df = datatree.get(pin.A)
         df[pon.A.B_std] = df[pin.A.B] / df[pin.A.B].std()
-        
+
 - Notice the use of the *reconfigurable-paths* marked specifically as input or
   output.
-        
+
 - TODO: continue rough example in tutorial...
 
 
@@ -94,18 +94,18 @@ Quick-start
 -----------
 
 .. Note::
-    The program runs on **Python-2.7+** and **Python-3.3+** (preferred) and requires 
+    The program runs on **Python-2.7+** and **Python-3.3+** (preferred) and requires
     **numpy/scipy**, **pandas** and **win32** libraries along with their *native backends* to be installed.
     If you do not have such an environment already installed, please read :doc:`install` section below for
     suitable distributions such as |winpython|_ or |anaconda|_.
 
-Assuming that you have a working python-environment, open a *command-shell*, 
-(in *Windows* use :program:`cmd.exe` BUT ensure :program:`python.exe` is in its :envvar:`PATH`), 
-you can try the following commands: 
+Assuming that you have a working python-environment, open a *command-shell*,
+(in *Windows* use :program:`cmd.exe` BUT ensure :program:`python.exe` is in its :envvar:`PATH`),
+you can try the following commands:
 
 .. Tip::
     The commands beginning with ``$``, below, imply a *Unix* like operating system with a *POSIX* shell
-    (*Linux*, *OS X*). Although the commands are simple and easy to translate in its *Windows* ``cmd.exe`` counterpart, 
+    (*Linux*, *OS X*). Although the commands are simple and easy to translate in its *Windows* ``cmd.exe`` counterpart,
     it would be worthwile to install `Cygwin <https://www.cygwin.com/>`_ to get the same environment on *Windows*.
     If you choose to do that, include also the following packages in the *Cygwin*'s installation wizard::
 
@@ -139,10 +139,10 @@ you can try the following commands:
 
 Install
 =======
-Current version(|version|) runs on **Python-2.7+** and **Python-3.3+** and requires 
+Current version(|version|) runs on **Python-2.7+** and **Python-3.3+** and requires
 **numpy/scipy**, **pandas** and **win32** libraries along with their *native backends* to be installed.
 
-It has been tested under *Windows* and *Linux* and *Python-3.3+* is the preferred interpreter, 
+It has been tested under *Windows* and *Linux* and *Python-3.3+* is the preferred interpreter,
 i.e, the *Excel* interface and desktop-UI runs only with it.
 
 It is distributed on `Wheels <https://pypi.python.org/pypi/wheel>`_.
@@ -151,25 +151,25 @@ It is distributed on `Wheels <https://pypi.python.org/pypi/wheel>`_.
 Python installation
 -------------------
 
-.. Warning:: 
+.. Warning::
     On *Windows* it is strongly suggested **NOT to install the standard CPython distribution**,
     unless:
 
-    a) you have *administrative priviledges*, 
-    b) you are an experienced python programmer, so that 
-    c) you know how to hunt dependencies from *PyPi* repository and/or 
+    a) you have *administrative priviledges*,
+    b) you are an experienced python programmer, so that
+    c) you know how to hunt dependencies from *PyPi* repository and/or
        the `Unofficial Windows Binaries for Python Extension Packages <http://www.lfd.uci.edu/~gohlke/pythonlibs/>`_.
 
-As explained above, this project depends on packages with *native-backends* that require the use 
-of *C* and *Fortran* compilers to build from sources.  
+As explained above, this project depends on packages with *native-backends* that require the use
+of *C* and *Fortran* compilers to build from sources.
 To avoid this hassle, you should choose one of the user-friendly distributions suggested below.
 
 Below is a matrix of the two suggested self-wrapped python distributions for running this program
 (we excluded here default *python* included in *linux*). Both distributions:
 
-- are free (as of freedom), 
-- do not require *admin-rights* for installation in *Windows*, and 
-- have been tested to run successfully this program (also tested on default *linux* distros). 
+- are free (as of freedom),
+- do not require *admin-rights* for installation in *Windows*, and
+- have been tested to run successfully this program (also tested on default *linux* distros).
 
 +-----------------+-------------------------------------------+-------------------------------------------+
 | *Distributions* | |winpython|_                              | |anaconda|_                               |
@@ -207,7 +207,7 @@ Below is a matrix of the two suggested self-wrapped python distributions for run
 |                 |   :envvar:`PATH`                          |                                           |
 |                 |                                           |   with :command:`conda` see files:        |
 |                 |                                           |                                           |
-|                 |                                           |   - :file:`requirements/miniconda.txt`    |
+|                 |                                           |   - :file:`requirements/miniconda.conda`  |
 |                 |                                           |   - :file:`.travis.yaml`                  |
 |                 |                                           |                                           |
 +-----------------+-------------------------------------------+-------------------------------------------+
@@ -221,8 +221,8 @@ Below is a matrix of the two suggested self-wrapped python distributions for run
 Package installation
 --------------------
 
-Before installing it, make sure that there are no older versions left over 
-on the python installation you are using.  
+Before installing it, make sure that there are no older versions left over
+on the python installation you are using.
 To cleanly uninstall it, run this command until you cannot find any project installed:
 
 .. code-block:: bash
@@ -230,14 +230,14 @@ To cleanly uninstall it, run this command until you cannot find any project inst
     $ pip uninstall pandalone                   ## Use `pip3` if both python-2 & 3 are in PATH.
 
 
-You can install the project directly from the |pypi|_ the "standard" way, 
+You can install the project directly from the |pypi|_ the "standard" way,
 by typing the :command:`pip` in the console:
 
   .. code-block:: bash
 
       $ pip install pandalone
 
-- If you want to install a *pre-release* version (the version-string is not plain numbers, but 
+- If you want to install a *pre-release* version (the version-string is not plain numbers, but
   ends with ``alpha``, ``beta.2`` or something else), use additionally :option:`--pre`.
 
 .. code-block:: bash
@@ -250,17 +250,17 @@ by typing the :command:`pip` in the console:
 
       $ pip install git+git://github.com/pandalone/pandalone.git  --pre
 
-- If you want to upgrade an existing instalation along with all its dependencies, 
-  add also :option:`--upgrade` (or :option:`-U` equivalently), but then the build might take some 
-  considerable time to finish.  Also there is the possibility the upgraded libraries might break 
-  existing programs(!) so use it with caution, or from within a |virtualenv|_. 
+- If you want to upgrade an existing instalation along with all its dependencies,
+  add also :option:`--upgrade` (or :option:`-U` equivalently), but then the build might take some
+  considerable time to finish.  Also there is the possibility the upgraded libraries might break
+  existing programs(!) so use it with caution, or from within a |virtualenv|_.
 
-- To install it for different Python environments, repeat the procedure using 
+- To install it for different Python environments, repeat the procedure using
   the appropriate :program:`python.exe` interpreter for each environment.
 
 - .. Tip::
-    To debug installation problems, you can export a non-empty :envvar:`DISTUTILS_DEBUG` 
-    and *distutils* will print detailed information about what it is doing and/or 
+    To debug installation problems, you can export a non-empty :envvar:`DISTUTILS_DEBUG`
+    and *distutils* will print detailed information about what it is doing and/or
     print the whole command line when an external program (like a C compiler) fails.
 
 
@@ -290,17 +290,17 @@ or alternatively straight from the sources:
 
       $ pip install git+https://github.com/pandalone/pandalone.git@v0.0.9-alpha.3.1  --pre
 
-Of course you can substitute `v0.0.9-alpha.3.1` with any slug from "commits", "branches" or "releases" 
+Of course you can substitute `v0.0.9-alpha.3.1` with any slug from "commits", "branches" or "releases"
 that you will find on project's `github-repo <https://github.com/pandalone/pandalone>`_).
 
 .. Note::
     If you have another version already installed, you have to use :option:`--ignore-installed` (or :option:`-I`).
     For using the specific version, check this (untested)
-    `stackoverflow question 
+    `stackoverflow question
     <http://stackoverflow.com/questions/6445167/force-python-to-use-an-older-version-of-module-than-what-i-have-installed-now>`_.
 
     You can install each version in a separate |virtualenv|_ and shy away from all this.
-    Check 
+    Check
 
 
 Installing sources
@@ -322,15 +322,15 @@ There are various methods to get hold of them:
       $ python setup.py install                                 ## Use `python3` if both python-2 & 3 installed.
 
 
-When working with sources, you need to have installed all libraries that the project depends on: 
+When working with sources, you need to have installed all libraries that the project depends on:
 
 .. code-block:: bash
 
-    $ pip install -r requirements/execution.txt .
+    $ pip install -r requirements/execution.pip .
 
 
 The previous command installs a "snapshot" of the project as it is found in the sources.
-If you wish to link the project's sources with your python environment, install the project 
+If you wish to link the project's sources with your python environment, install the project
 in `development mode <http://pythonhosted.org/setuptools/setuptools.html#development-mode>`_:
 
 .. code-block:: bash
@@ -369,7 +369,7 @@ Cmd-line usage
 
 The command-line usage below requires the Python environment to be installed, and provides for
 executing an experiment directly from the OS's shell (i.e. :program:`cmd` in windows or :program:`bash` in POSIX),
-and in a *single* command.  
+and in a *single* command.
 
 [TBD]
 
@@ -393,7 +393,7 @@ Excel usage
 -----------
 .. Attention:: Excel-integration requires Python-3 and *Windows* or *OS X*!
 
-In *Windows* and *OS X* you may utilize the excellent `xlwings <http://xlwings.org/quickstart/>`_ library 
+In *Windows* and *OS X* you may utilize the excellent `xlwings <http://xlwings.org/quickstart/>`_ library
 to use Excel files for providing input and output to the experiment.
 
 To create the necessary template-files in your current-directory you should enter:
@@ -413,7 +413,7 @@ You could type instead :samp:`pandalone excel {file_path}` to specify a differen
 
 Python usage
 ------------
-Example python :abbr:`REPL (Read-Eval-Print Loop)` example-commands  are given below 
+Example python :abbr:`REPL (Read-Eval-Print Loop)` example-commands  are given below
 that setup and run an *experiment*.
 
 First run :command:`python` or :command:`ipython` and try to import the project to check its version:
@@ -430,15 +430,15 @@ First run :command:`python` or :command:`ipython` and try to import the project 
 
 
 .. Tip:
-    The use :command:`ipython` is preffered over :command:`python` since it offers various user-friendly 
-    facilities, such as pressing :kbd:`Tab` for completions, or allowing you to suffix commands with `?` or `??` 
+    The use :command:`ipython` is preffered over :command:`python` since it offers various user-friendly
+    facilities, such as pressing :kbd:`Tab` for completions, or allowing you to suffix commands with `?` or `??`
     to get help and read their source-code.
 
     Additionally you can <b>copy any python commands starting with ``>>>`` and ``...``</b> and copy paste them directly
-    into the ipython interpreter; it will remove these prefixes.  
+    into the ipython interpreter; it will remove these prefixes.
     But in :command:`python` you have to remove it youself.
 
-If everything works, create the :term:`data-tree` to hold the input-data (strings and numbers).  
+If everything works, create the :term:`data-tree` to hold the input-data (strings and numbers).
 You assemble data-tree by the use of:
 
 * sequences,
@@ -456,7 +456,7 @@ You assemble data-tree by the use of:
 
 Getting Involved
 ================
-This project is hosted in **github**. 
+This project is hosted in **github**.
 To provide feedback about bugs and errors or questions and requests for enhancements,
 use `github's Issue-tracker <https://github.com/pandalone/pandalone/issues>`_.
 
@@ -465,7 +465,7 @@ use `github's Issue-tracker <https://github.com/pandalone/pandalone/issues>`_.
 Sources & Dependencies
 ----------------------
 To get involved with development, you need a POSIX environment to fully build it
-(*Linux*, *OSX* or *Cygwin* on *Windows*). 
+(*Linux*, *OSX* or *Cygwin* on *Windows*).
 
 First you need to download the latest sources:
 
@@ -495,16 +495,16 @@ First you need to download the latest sources:
     Within the sources there are two sample files for the comprehensive
     `LiClipse IDE <http://www.liclipse.com/>`_:
 
-    * :file:`eclipse.project` 
-    * :file:`eclipse.pydevproject` 
+    * :file:`eclipse.project`
+    * :file:`eclipse.pydevproject`
 
-    Remove the `eclipse` prefix, (but leave the dot(`.`)) and import it as "existing project" from 
+    Remove the `eclipse` prefix, (but leave the dot(`.`)) and import it as "existing project" from
     Eclipse's `File` menu.
 
     Another issue is caused due to the fact that LiClipse contains its own implementation of *Git*, *EGit*,
     which badly interacts with unix *symbolic-links*, such as the :file:`docs/docs`, and it detects
     working-directory changes even after a fresh checkout.  To workaround this, Right-click on the above file
-    :menuselection:`Properties --> Team --> Advanced --> Assume Unchanged` 
+    :menuselection:`Properties --> Team --> Advanced --> Assume Unchanged`
 
 
 Then you can install all project's dependencies in *`development mode* using the :file:`setup.py` script:
@@ -556,12 +556,6 @@ that the sources are in good shape:
 
 
 
-Development procedure
----------------------
-.. include:: CONTRIBUTING.rst
-    :start-after: contents::
-
-
 Authors
 -------
 .. include:: AUTHORS.rst
@@ -569,7 +563,7 @@ Authors
 
 Design
 ------
-See `architecture live-document 
+See `architecture live-document
 <https://docs.google.com/document/d/1P73jgcAEzR_Vw491DQR0zogdunJOj3qh0h_lvphdaHk>`_.
 
 
@@ -581,34 +575,34 @@ FAQ
 
 Why another XXX?  What about YYY?
 ---------------------------------
-These are the knowingly related python projects: 
+These are the knowingly related python projects:
 
-- `OpenMDAO <http://openmdao.org/>`_: 
-  It has influenced pandalone's design. 
+- `OpenMDAO <http://openmdao.org/>`_:
+  It has influenced pandalone's design.
   It is planned to interoperate by converting to and from it's data-types.
-  But it works on python-2 only and its architecture needs attending from 
-  programmers (no `setup.py`, no official test-cases).  
+  But it works on python-2 only and its architecture needs attending from
+  programmers (no `setup.py`, no official test-cases).
 
 - `PyDSTool <http://www2.gsu.edu/~matrhc/PyDSTool.htm>`_:
-  It does not overlap, since it does not cover IO and dependencies of data.  
-  Also planned to interoperate with it (as soon as we have 
+  It does not overlap, since it does not cover IO and dependencies of data.
+  Also planned to interoperate with it (as soon as we have
   a better grasp of it :-).
   It has some issues with the documentation, but they are working on it.
 
 - `xray <http://xray.readthedocs.org/en/stable/faq.html>`_:
-  Pandas for higher dimensions; data-trees should in principle work 
+  Pandas for higher dimensions; data-trees should in principle work
   with "xray".
 
 - `Blaze <http://blaze.pydata.org>`_:
-  NumPy and Pandas interface to Big Data; data-trees should in principle work 
+  NumPy and Pandas interface to Big Data; data-trees should in principle work
   with "blaze".
-  
+
 - `netCDF4 <http://unidata.github.io/netcdf4-python/>`_:
-  Hierarchical file-data-format similar to `hdf5`; a data-tree may derive 
+  Hierarchical file-data-format similar to `hdf5`; a data-tree may derive
   in principle from "netCDF4 ".
 
 - `hdf5 <http://www.h5py.org/>`_:
-  Hierarchical file-data-format, `supported natively by pandas 
+  Hierarchical file-data-format, `supported natively by pandas
   <http://pandas.pydata.org/pandas-docs/version/0.15.2/io.html#io-hdf5>`_;
   a data-tree may derive in principle from "netCDF4 ".
 
@@ -619,21 +613,21 @@ Which other projects/ideas have you reviewed when building this library?
 
 - `Data-protocols <http://dataprotocols.org/>`_:
 
-  - `JTSKit <https://github.com/okfn/jtskit-py>`_, A utility library for 
-    working with `JSON Table Schema <http://dataprotocols.org/json-table-schema/>`_ 
+  - `JTSKit <https://github.com/okfn/jtskit-py>`_, A utility library for
+    working with `JSON Table Schema <http://dataprotocols.org/json-table-schema/>`_
     in Python.
   - `Data Packages <http://dataprotocols.org/data-packages/>`_
 
 - `Celery <http://www.celeryproject.org/>`_:
-  Execute distributed asynchronous tasks using message passing on a single or 
-  more worker servers using multiprocessing, Eventlet, or gevent. 
+  Execute distributed asynchronous tasks using message passing on a single or
+  more worker servers using multiprocessing, Eventlet, or gevent.
 
-- `Fuzzywuzzy <https://github.com/seatgeek/fuzzywuzzy>`_ and 
+- `Fuzzywuzzy <https://github.com/seatgeek/fuzzywuzzy>`_ and
   `Jellyfish <https://github.com/sunlightlabs/jellyfish>`_:
-  Fuzzy string matching in python.  Use it for writting code that can read 
+  Fuzzy string matching in python.  Use it for writting code that can read
   coarsely-known column-names.
-    
-- `"Other's people's messy data (and how not to hate it)" 
+
+- `"Other's people's messy data (and how not to hate it)"
   <https://youtu.be/_eQ_8U5kruQ>`_,
   PyCon 2015(Canada) presentation by Mali Akmanalp.
 
@@ -648,43 +642,46 @@ Glossary
         The *container* of data consumed and produced by a :term`model`, which
         may contain also the model.
         Its values are accessed using :term:`path` s.
-        It is implemented by :class:`pandalone.pandata.Pandel` as 
-        a mergeable stack of :term:`JSON-schema` abiding trees of strings and 
+        It is implemented by :class:`pandalone.pandata.Pandel` as
+        a mergeable stack of :term:`JSON-schema` abiding trees of strings and
         numbers, formed with:
-        
-            - sequences, 
-            - dictionaries, 
-            - :mod:`pandas` instances, and 
+
+            - sequences,
+            - dictionaries,
+            - :mod:`pandas` instances, and
             - URI-references.
 
     value-tree
-        That part of the :term:`data-tree`  that relates only to the I/O data 
+        That part of the :term:`data-tree`  that relates only to the I/O data
         processed.
 
     model
         A collection of :term:`component` s and accompanying :term:`mappings`.
-    
+
     component
-        Encapsulates a data-transformation function, using :term:`path` 
+        Encapsulates a data-transformation function, using :term:`path`
         to refer to its inputs/outputs within the :term:`value-tree`.
- 
+
     path
-        A `/file/like` string functioning as the *id* of data-values 
+        A `/file/like` string functioning as the *id* of data-values
         in the :term:`data-tree`.
         It is composed of :term:`step`, and it follows the syntax of
         the :term:`JSON-pointer`.
-    
+
     step
-        The parts between between two conjecutive slashes(`/`) within 
-        a :term:`path`.
-        
-    mappings
-        A list of :term:`mapping` s.
-        
+    pstep
+    path-step
+        The parts between between two conjecutive slashes(`/`) within
+        a :term:`path`.  The :class:`Pstep` facilitates their manipulation.
+
+    pmod
+    pmods
+    pmods-hierarchy
     mapping
-        Specifies a transformation of an "origin" path to 
+    mappings
+        Specifies a transformation of an "origin" path to
         a "destination" one (also called as "from" and "to" paths).
-        The mapping always transforms the *final* path-step, and it can 
+        The mapping always transforms the *final* path-step, and it can
         either *rename* or *relocate* that step, like that::
 
             ORIGIN          DESTINATION   RESULT_PATH
@@ -693,24 +690,23 @@ Glossary
             /relocate/path  foo/bar   --> /relocate/foo/bar  ## relocation
             /root           a/b/c     --> /a/b/c             ## Relocates all /root sub-paths.
 
-    pmods
-        Denotes the hierarchy formed by :class:`Pmod` instances, 
-        which is build when parsing the :term:`mappings` list.
-        
+        The hierarchy is formed by :class:`Pmod` instances,
+        which are build when parsing the :term:`mappings` list, above.
+
     JSON-schema
-        The `JSON schema <http://json-schema.org/>`_ is an `IETF draft 
+        The `JSON schema <http://json-schema.org/>`_ is an `IETF draft
         <http://tools.ietf.org/html/draft-zyp-json-schema-03>`_
-        that provides a *contract* for what JSON-data is required for 
-        a given application and how to interact with it.  
-        JSON Schema is intended to define validation, documentation, 
+        that provides a *contract* for what JSON-data is required for
+        a given application and how to interact with it.
+        JSON Schema is intended to define validation, documentation,
         hyperlink navigation, and interaction control of JSON data.
-        You can learn more about it from this `excellent guide 
+        You can learn more about it from this `excellent guide
         <http://spacetelescope.github.io/understanding-json-schema/>`_,
         and experiment with this `on-line validator <http://www.jsonschema.net/>`_.
 
     JSON-pointer
-        JSON Pointer(:rfc:`6901`) defines a string syntax for identifying 
-        a specific value within a JavaScript Object Notation (JSON) document. 
+        JSON Pointer(:rfc:`6901`) defines a string syntax for identifying
+        a specific value within a JavaScript Object Notation (JSON) document.
         It aims to serve the same purpose as *XPath* from the XML world,
         but it is much simpler.
 
@@ -767,7 +763,7 @@ Glossary
 .. |github-issues| image:: https://img.shields.io/github/issues/pandalone/pandalone.svg
     :target: https://github.com/pandalone/pandalone/issues
     :alt: Issues count
-    
+
 .. |proj-license| image:: https://img.shields.io/badge/license-EUPL%201.1%2B-blue.svg
     :target: https://raw.githubusercontent.com/pandalone/pandalone/master/LICENSE.txt
     :alt: Project License

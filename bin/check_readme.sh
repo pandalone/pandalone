@@ -12,7 +12,7 @@
 # PyPi would fail parsing them, ending up with an ugly landing page,
 # when uploaded.
 
-set +x
+set +x ## Enable for debug
 
 my_dir=`dirname "$0"`
 cd $my_dir/..

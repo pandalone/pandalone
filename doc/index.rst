@@ -20,6 +20,7 @@ Process data-trees with reconfigurable-paths in Python
     install
     usage
     contribute
+    reference
     CHANGES
     indices
 

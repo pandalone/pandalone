@@ -1,9 +1,10 @@
--r execution.txt
+## Pip-dependencies for developing the project.
+
+-r execution.pip
 
 setuptools
 setuptools-git>=0.3
 sphinx>=1.3
-sphinx_rtd_theme
 wheel
 nose
 coverage

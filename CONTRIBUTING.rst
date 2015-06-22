@@ -1,8 +1,7 @@
 ###################
 Contributing
 ###################
-
-.. contents::
+.. _start:
 
 For submitting code, use ``UTF-8`` everywhere, unix-eol(``LF``) and 
 set ``git --config core.autocrlf = input``.
@@ -50,10 +49,10 @@ The typical development procedure is like this:
 
 .. Hint:: 
     Skim through these small guides:
-    
+
     - `IPython developer's documentantion: The perfect pull request 
       <https://github.com/ipython/ipython/wiki/Dev:-The-perfect-pull-request>`_
-    
+
     - `Effective pull requests and other good practices for teams using github 
       <http://codeinthehole.com/writing/pull-requests-and-other-good-practices-for-teams-using-github/>`_
 

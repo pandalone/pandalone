@@ -57,10 +57,13 @@ coverage.xml
 # PyBuilder
 target/
 
+## IDEs
 # Eclipse/Liclipse
 .pydevproject
 .project
 .settings
+# PyCharm
+.idea/
 
 # doit task-runner
 .doit*

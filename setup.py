@@ -133,11 +133,12 @@ download_url = 'https://github.com/%s/%s/tarball/v%s' % (
 
 install_requires = [
     'six',
-    'jsonschema >= 2.4',
+    'jsonschema > 2.4',  # TODO: Upgrade jsonschema to +>= 2.5.
     'numpy >= 1.7',
     'pandas >= 0.15.0',
-    #'openpyxl', 'xlrd',
-    'Pillow',   # For UI About boxes
+    'xlrd',
+    'openpyxl==1.8.6',  # TODO: openpyxl-444 & pandas-10125
+    'Pillow',  # For UI About boxes
     'doit >= 0.28',
     'networkx',
 ]
@@ -160,7 +161,7 @@ setup(
     keywords=[
         "python", "utility", "library", "data", "tree", "processing",
         "calculation", "dependencies", "resolution", "scientific",
-        "engineering", "pandas", "simulink", 
+        "engineering", "pandas", "simulink",
     ],
     classifiers=[
         "Programming Language :: Python",
@@ -195,8 +196,7 @@ setup(
     setup_requires=[
         'setuptools',
         'setuptools-git >= 0.3',  # Gather package-data from all files in git.
-        'sphinx',  # >=1.3
-        'sphinx_rtd_theme',
+        'sphinx>=1.3',
         'coveralls',
         'wheel',
     ],
@@ -206,7 +206,10 @@ setup(
     ],
     test_suite='nose.collector',
     extras_require={
-        ':python_version == "2.7"': ['mock'], # See PEP-426
+        ':python_version == "2.7"': [  # See PEP-426
+            'mock',
+            'pathlib',  # TODO: Remove pathlib when use `python-future`.
+        ],
     },
     entry_points={
         'console_scripts': [

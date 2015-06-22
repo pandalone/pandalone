@@ -1,6 +1,10 @@
 
 .. include:: ../README.rst
     :start-after: _contribute:
+    :end-before: .. _faq:
+
+.. include:: ../CONTRIBUTING.rst
+    :start-after: .. _start:
 
 Discussion
 ----------

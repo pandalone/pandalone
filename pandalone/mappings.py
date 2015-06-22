@@ -6,13 +6,13 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-Functionality for mapping (*renaming* or *relocating*) paths.
+Programmatically build paths and later *rename* or *relocate* them.
 
-See:
+.. autosummary::
 
-- :class:`Pmod`,
-- :func:`pmods_from_tuples` & :func:`df_as_pmods_tuples()`, and
-- :class:`Pstep`.
+    Pstep
+    pmods_from_tuples
+    Pmod
 
 - TODO: Can joining psteps work again?
 - TODO: Implements "anywhere" pmods(`//`).
@@ -424,7 +424,7 @@ class Pmod(object):
 
         :param str path: a rooted path to transform
         :return:         the rooted mapped path or '/' if path was '/'
-        :rtype           str or None
+        :rtype:          str or None
 
         Examples::
 
@@ -567,11 +567,11 @@ def pmods_from_tuples(pmods_tuples):
 
 
     - The "from" path may be:
-      - relative, 
-      - absolute(starting with `/`), or 
-      - TODO: "anywhere"(starting with `//`).  
+      - relative,
+      - absolute(starting with `/`), or
+      - TODO: "anywhere"(starting with `//`).
 
-    - In case a "step" in the "from" path starts with tilda(`~`), 
+    - In case a "step" in the "from" path starts with tilda(`~`),
       it is assumed to be a regular-expression, and it is removed from it.
       The "to" path can make use of any "from" capture-groups::
 
@@ -581,7 +581,7 @@ def pmods_from_tuples(pmods_tuples):
 
 
 
-    :param list(tuple(str, str) pmods_tuples: 
+    :param list(tuple(str, str) pmods_tuples:
     :return: a root pmod
     :rtype:  Pmod
 
@@ -654,9 +654,9 @@ def _append_step(steps, step):
     """
     Joins `step` at the right of `steps`, respecting '/', '..', '.', ''.
 
-    :param tuple steps:  where to append into 
+    :param tuple steps:  where to append into
                          ("absolute" when 1st-element is '')
-    :param str step:     what to append 
+    :param str step:     what to append
                          (may be: ``'foo', '.', '..', ''``)
     :rtype:  tuple
 
@@ -762,7 +762,7 @@ def _join_paths(*steps):
 
     .. Note::
         If you use :func:`iter_jsonpointer_parts_relaxed()` to generate
-        path-steps, the "root" is signified by the empty(`''`) step; 
+        path-steps, the "root" is signified by the empty(`''`) step;
         not the slash(`/`)!
 
         Hence a lone slash(`/`) gets splitted to an empty step after "root"
@@ -859,12 +859,11 @@ class Pstep(str):
     :ivar set _tags:     A set of strings (default `()`)
     :ivar dict _schema:  json-schema data.
 
-
-    Usage:
+    **Usage:**
 
     - Just referencing (non_private) attributes, creates them.
 
-    - Private attributes and functions (starting with '_') exist for
+    - Private attributes and functions (starting with ``_``) exist for
       specific operations (ie for specifying json-schema, or
       for collection all paths).
 
@@ -1090,7 +1089,7 @@ class Pstep(str):
         Return all children-paths (str-list) constructed so far, in a list.
 
         :param bool with_orig: wheter to include also orig-path, for debug.
-        :param str tag:        If not 'None', fetches all paths with `tag` 
+        :param str tag:        If not 'None', fetches all paths with `tag`
                                in their last step.
         :rtype: [str]
 
@@ -1131,7 +1130,7 @@ class Pstep(str):
 
         :param list paths:             Where to append subtree-paths built.
         :param tuple prefix_steps:     branch currently visiting
-        :param str, True, None tag:    If not 'None', fetches all paths  
+        :param str, True, None tag:    If not 'None', fetches all paths
                                        with `tag` in their last step.
         :rtype: [str]
         """

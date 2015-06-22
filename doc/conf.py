@@ -10,10 +10,12 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 import re
-import sys, os, io
+import sys
+import os
+import io
 
-print("python exec: %s"% sys.executable)
-print("sys.path: %s"%sys.path)
+print("python exec: %s" % sys.executable)
+print("sys.path: %s" % sys.path)
 try:
     import numpy
     print("numpy: %s, %s" % (numpy.__version__, numpy.__file__))
@@ -44,10 +46,11 @@ try:
     print("mock: %s, %s" % (mock.__version__, mock.__file__))
 except ImportError:
     print("no mock")
-    
-    
+
+
 projname = 'pandalone'
 mydir = os.path.dirname(__file__)
+
 
 def read_project_version():
     fglobals = {}
@@ -64,46 +67,47 @@ on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('../'))
-#sys.path.insert(0, os.path.abspath('../devtools')) # Does not work for scripts :-(
+# sys.path.insert(0, os.path.abspath('../devtools')) # Does not work for
+# scripts :-(
 
 
-## Mock C-libraries (numpy/pandas, etc) so that `autodoc` sphinx-extension
+# Mock C-libraries (numpy/pandas, etc) so that `autodoc` sphinx-extension
 #    can import sources.
 #     From http://read-the-docs.readthedocs.org/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
 #     Also tried but fails: http://blog.rtwilson.com/how-to-make-your-sphinx-documentation-compile-with-readthedocs-when-youre-using-numpy-and-scipy/
 #
 if on_rtd:
     try:
-        from unittest.mock import MagicMock
+        from unittest.mock import MagicMock as Mock
     except ImportError:
-        from mock import Mock as MagicMock
+        from mock import Mock
 
-    class Mock(MagicMock):
-        @classmethod
-        def __getattr__(cls, name):
-            return Mock()
-
-    MOCK_MODULES =  [
-        'xlwings' ## Mock-out because it depends on win32.
+    MOCK_MODULES = [
+        'numpy',
+        'pandas',
+        'xlwings',  # Mock-out because it depends on win32.
+        'jsonschema', 'jsonschema.exceptions',
     ]
     for mod_name in MOCK_MODULES:
         sys.modules[mod_name] = Mock()
 
-## Trick from https://github.com/rtfd/readthedocs.org/issues/283
+# Trick from https://github.com/rtfd/readthedocs.org/issues/283
 # On read the docs we need to use a different CDN URL for MathJax which loads
 # over HTTPS.
 if on_rtd:
     mathjax_path = 'https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
 
-## Make autodoc always includes constructors.
+# Make autodoc always includes constructors.
 #    From http://stackoverflow.com/a/5599712/548792
 #    and http://stackoverflow.com/questions/3757500/how-do-i-connect-sphinxs-autodoc-skip-member-to-my-function
 #
 autodoc_default_flags = ['members', 'private-members',
-                    'special-members',
-                    #'undoc-members',
-                    'show-inheritance']
+                         'special-members',
+                         #'undoc-members',
+                         'show-inheritance']
 # autoclass_content = 'both' ## Join class+ __init__() docstrings
+
+
 def autodoc_skip_member(app, what, name, obj, skip, options):
     exclusions = ('__weakref__',  # special-members
                   '__doc__', '__module__', '__dict__',  # undoc-members
@@ -116,6 +120,7 @@ def autodoc_skip_member(app, what, name, obj, skip, options):
 #     if (name == "__init__" or re.match(r'^_[A-Za-z]', name)):
 #         return False
 #     return skip
+
 
 def setup(app):
     app.connect("autodoc-skip-member", autodoc_skip_member)
@@ -131,6 +136,7 @@ def setup(app):
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
@@ -140,7 +146,7 @@ extensions = [
     #'matplotlib.sphinxext.plot_directive',
 ]
 
-## Prevent Sphinx from doctesting python-modules doctests,
+# Prevent Sphinx from doctesting python-modules doctests,
 # they will be checked separately with `nose` plugin.
 doctest_test_doctest_blocks = False
 
@@ -170,7 +176,7 @@ version = proj_ver
 release = proj_ver
 
 extlinks = {
-    'issue': ('https://github.com/pandalone/pandalone/issues/%s','issue')
+    'issue': ('https://github.com/pandalone/pandalone/issues/%s', 'issue')
 }
 todo_include_todos = True
 
@@ -219,14 +225,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-if not on_rtd:
-    import sphinx_rtd_theme  # @UnresolvedImport
-    html_theme = "sphinx_rtd_theme"
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-
-    html_theme_options = {
-        'sticky_navigation':True,
-    }
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -245,7 +244,7 @@ if not on_rtd:
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-#html_logo = None
+html_logo = '_static/pandalone_logo-200x86.png'
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
@@ -310,31 +309,38 @@ htmlhelp_basename = 'pandalonedoc'
 # -- Options for LaTeX output ---------------------------------------------
 
 latex_elements = {
-# The paper size ('letterpaper' or 'a4paper').
-#'papersize': 'letterpaper',
-'papersize': 'a4paper',
+    # The paper size ('letterpaper' or 'a4paper').
+    #'papersize': 'letterpaper',
+    'papersize': 'a4paper',
 
-# The font size ('10pt', '11pt' or '12pt').
-#'pointsize': '10pt',
+    # The font size ('10pt', '11pt' or '12pt').
+    #'pointsize': '10pt',
 
-# Additional stuff for the LaTeX preamble.
-#'preamble': '',
-'preamble': '''
-    \\usepackage{amsmath}
-''',
+    # Additional stuff for the LaTeX preamble.
+    #'preamble': '',
+    ## For UTF8 and other smbols
+    ## From http://tex.stackexchange.com/questions/20182/how-to-use-unicode-characters-with-sphinx-rst-documents-and-properly-generate-pd
+    'inputenc': '',
+    'utf8extra': '',
+    'preamble': r'''
+    \usepackage{amssymb}
+    \usepackage{amsmath}
+    \usepackage{textcomp}
+    \usepackage{dejavu}
+    ''',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'pandalone.tex', 'pandalone Documentation',
-   "Authors: see AUTHORS.rst", 'manual'),
+    ('index', 'pandalone.tex', 'pandalone Documentation',
+     "Authors: see AUTHORS.rst", 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
-#latex_logo = None
+latex_logo = '_static/pandalone_logo.png'
 
 # For "manual" documents, if this is true, then toplevel headings are parts,
 # not chapters.
@@ -372,9 +378,9 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'pandalone', 'pandalone Documentation',
-   'Kostis Anagnostopoulos', 'pandalone', 'One line description of project.',
-   'Miscellaneous'),
+    ('index', 'pandalone', 'pandalone Documentation',
+     'Kostis Anagnostopoulos', 'pandalone', 'One line description of project.',
+     'Miscellaneous'),
 ]
 
 # Documents to append as an appendix to all manuals.
@@ -398,4 +404,3 @@ intersphinx_mapping = {
     'doit': ('http://pydoit.org/', None),
     'xlwings': ('http://docs.xlwings.org/', None),
 }
-

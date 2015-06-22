@@ -5,12 +5,11 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
-'''Check xlwings excel functionality.
-'''
-
 import os
 import sys
-import tempfile
+from tests._tutils import (
+    _init_logging, TemporaryDirectory, check_xl_installed, xw_Workbook,
+    xw_close_workbook)
 import unittest
 
 from numpy import testing as npt
@@ -18,40 +17,25 @@ from pandas.core.generic import NDFrame
 
 import numpy as np
 import pandas as pd
-from ._tutils import (_init_logging, TemporaryDirectory)
 
 
 log = _init_logging(__name__)
-
-try:
-    from win32com.client import dynamic
-    dynamic.Dispatch('Excel.Application')
-    no_xl = False
-except Exception:  # pragma: no cover
-    no_xl = True
+xl_installed = check_xl_installed()
 
 
 def from_my_path(*parts):
     return os.path.join(os.path.dirname(__file__), *parts)
 
 
-def _make_sample_workbook(sheetname, addr, value):
+def _make_sample_sheet(wb, sheetname, addr, value):
     import xlwings as xw
-    wb = xw.Workbook()
+
     xw.Sheet(1).name = sheetname
     xw.Range(addr).value = value
 
-    return wb
 
 
-def close_workbook(wb):
-    try:
-        wb.close()
-    except Exception:
-        log.warning('Minor failure while closing Workbook!', exc_info=True)
-
-
-@unittest.skipIf(no_xl, "Cannot test xlwings in Linux or without MS Excel.")
+@unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
 class TestExcel(unittest.TestCase):
 
     def test_build_excel(self):
@@ -66,19 +50,16 @@ class TestExcel(unittest.TestCase):
                     vba_wildcard, wb_inp_fname, wb_out_fname)
             finally:
                 if 'wb' in locals():
-                    close_workbook(wb)
+                    xw_close_workbook(wb)
 
     def test_xlwings_smoketest(self):
         import xlwings as xw
         sheetname = 'shitt'
         addr = 'f6'
         table = pd.DataFrame([[1, 2], [True, 'off']], columns=list('ab'))
-        wb = xw.Workbook()
-        try:
+        with xw_Workbook() as wb: ## FIXME: Ugrade xlwings, Leaves exel open.
             xw.Sheet(1).name = sheetname
             xw.Range(addr).value = table
-        finally:
-            close_workbook(wb)
 
     @unittest.skip("Will use xlreader instead.")
     def test_excel_refs(self):
@@ -107,8 +88,8 @@ class TestExcel(unittest.TestCase):
         ]
 
         errors = []
-        wb = _make_sample_workbook(sheetname, addr, table)
-        try:
+        with xw_Workbook() as wb:
+            _make_sample_sheet(wb, sheetname, addr, table)
             for i, (inp, exp) in enumerate(cases):
                 out = None
                 try:
@@ -130,8 +111,6 @@ class TestExcel(unittest.TestCase):
                     log.exception(
                         '%i: INP(%s), OUT(%s), EXP(%s), FAIL: %s' % (i, inp, out, exp, ex))
                     errors.append(ex)
-        finally:
-            close_workbook(wb)
 
         if errors:
             raise Exception('There are %i out of %i errors!' %

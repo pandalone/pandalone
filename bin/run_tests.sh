@@ -19,7 +19,7 @@ echo "+++ Checking README for PyPy...."
 ./bin/check_readme.sh || fails['README']=$?
 
 echo "+++ Checking site...."
-python setup.py build_sphinx || fails['site']=$?
+./bin/check_site.sh || fails['site']=$?
 
 echo "+++  Checking archives for PyPI repo..."
 python setup.py sdist bdist_wheel || fails['archives']=$?
