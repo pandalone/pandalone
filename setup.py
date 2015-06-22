@@ -142,12 +142,6 @@ install_requires = [
     'doit >= 0.28',
     'networkx',
 ]
-if sys.platform in ('darwin', 'win32'):
-    install_requires.extend([
-        'pywin32',
-        'xlwings',
-        'easygui',
-    ])  # For Excel integration
 
 setup(
     name=proj_name,
@@ -211,6 +205,16 @@ setup(
             'pathlib',  # TODO: Remove pathlib when use `python-future`.
         ],
     },
+    run_requires=[
+        {
+            "requires": ["pywin32 > 1.0", "xlwings", "easygui"],
+            "environment": "sys_platform == 'win32'"
+        },
+        {
+            "requires": ["pywin32 > 1.0", "xlwings", "easygui"],
+            "environment": "sys_platform == 'darwin'"
+        },
+    ],
     entry_points={
         'console_scripts': [
             'pndl = %s.__main__:main' % proj_name,

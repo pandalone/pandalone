@@ -6,6 +6,9 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 
+## From http://stackoverflow.com/a/25515370/548792
+yell() { echo "$0: $*" >&2; }
+die() { yell "$*"; exit 111; }
 
 ## Always invokes  code-tests, but skip doctests and coverage on Python-2.
 
@@ -15,21 +18,40 @@ cd $my_dir/..
 
 declare -A fails
 
-echo "+++ Checking README for PyPy...."
+echo "+++ Checking README for PyPI repo...."
 ./bin/check_readme.sh || fails['README']=$?
 
-echo "+++ Checking site...."
+echo "+++ Checking SITE...."
 ./bin/check_site.sh || fails['site']=$?
 
-echo "+++  Checking archives for PyPI repo..."
-python setup.py sdist bdist_wheel || fails['archives']=$?
+echo "+++  Checking ARCHIVES..."
+out="$( python setup.py sdist bdist_wheel  2>&1 )"
+if [ $? -ne 0 ]; then
+	fails['archives']=1
+    yell "$out ARCHIVES failed!"
+else
+	echo "OK"
+fi
 
 if  python -c 'import sys; print(sys.version_info[0])'| grep -q '3'; then
     echo "+++ Checking all TCs, DTs & Coverage....";
-    python setup.py test_all || fails['all']=$?
+	out="$( python setup.py test_all  2>&1 )"
+	if [ $? -ne 0 ]; then
+		fails['all']=1
+	    yell "$out ALL_TCs failed!"
+	else
+		echo "OK"
+	fi
 else
     echo "+++ Checking only TCs....";
-    python setup.py test_code || fails['code']=$?   
+	    python setup.py test_code || fails['code']=$?
+	out="$( python setup.py test_code 2>&1 )"
+	if [ $? -ne 0 ]; then
+	    yell "$out CODE_TCs failed!"
+	    fails['code']=1
+	else
+		echo "OK"
+	fi
 fi
 
 ## Raise any errors.
