@@ -472,6 +472,106 @@ class TestValidationErrorDetails(unittest.TestCase):
         self.assertEqual(e5.validator, "minItems")
         self.assertEqual(e6.validator, "enum")
 
+    def test_recursive(self):
+        schema = {
+            "definitions": {
+                "node": {
+                    "anyOf": [{
+                        "type": "object",
+                        "required": ["name", "children"],
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                            },
+                            "children": {
+                                "type": "object",
+                                "patternProperties": {
+                                    "^.*$": {
+                                        "$ref": "#/definitions/node",
+                                    },
+                                },
+                            },
+                        },
+                    }],
+                },
+            },
+            "type": "object",
+            "required": ["root"],
+            "properties": {
+                "root": {"$ref": "#/definitions/node"},
+            }
+        }
+
+        instance = {
+            "root": {
+                "name": "root",
+                "children": {
+                    "a": {
+                        "name": "a",
+                        "children": {
+                            "ab": {
+                                "name": "ab",
+                                # missing "children"
+                            }
+                        }
+                    },
+                },
+            },
+        }
+        validator = PandelVisitor(schema)
+
+        e, = validator.iter_errors(instance)
+        self.assertEqual(e.absolute_path, deque(["root"]))
+        self.assertEqual(
+            e.absolute_schema_path, deque(["properties", "root", "anyOf"]),
+        )
+
+        e1, = e.context
+        self.assertEqual(e1.absolute_path, deque(["root", "children", "a"]))
+        self.assertEqual(
+            e1.absolute_schema_path, deque(
+                [
+                    "properties",
+                    "root",
+                    "anyOf",
+                    0,
+                    "properties",
+                    "children",
+                    "patternProperties",
+                    "^.*$",
+                    "anyOf",
+                ],
+            ),
+        )
+
+        e2, = e1.context
+        self.assertEqual(
+            e2.absolute_path, deque(
+                ["root", "children", "a", "children", "ab"],
+            ),
+        )
+        self.assertEqual(
+            e2.absolute_schema_path, deque(
+                [
+                    "properties",
+                    "root",
+                    "anyOf",
+                    0,
+                    "properties",
+                    "children",
+                    "patternProperties",
+                    "^.*$",
+                    "anyOf",
+                    0,
+                    "properties",
+                    "children",
+                    "patternProperties",
+                    "^.*$",
+                    "anyOf"
+                ],
+            ),
+        )
+
     def test_additionalProperties(self):
         data = {"bar": "bar", "foo": 2}
         schema = {
@@ -604,8 +704,8 @@ class ValidatorTestMixin(object):
         def resolving():
             yield {"type": "integer"}
 
-        with mock.patch.object(resolver, "resolving") as resolve:
-            resolve.return_value = resolving()
+        with mock.patch.object(resolver, "resolve") as resolve:
+            resolve.return_value = "url", {"type": "integer"}
             with self.assertRaises(ValidationError):
                 self.validator_class(schema, resolver=resolver).validate(None)
 
@@ -699,126 +799,6 @@ class TestSchemaIsChecked(unittest.TestCase):  # Was: class TestValidate
         with mock.patch.object(pv, "iter_errors", return_value=()) as chk_schema:
             pv.validate({}, {})
             chk_schema.assert_called_once_with({}, {})
-
-
-class TestRefResolver(unittest.TestCase):
-
-    base_uri = ""
-    stored_uri = "foo://stored"
-    stored_schema = {"stored": "schema"}
-
-    def setUp(self):
-        self.referrer = {}
-        self.store = {self.stored_uri: self.stored_schema}
-        self.resolver = RefResolver(self.base_uri, self.referrer, self.store)
-
-    def test_it_resolves_local_refs(self):
-        ref = "#/properties/foo"
-        self.referrer["properties"] = {"foo": object()}
-        with self.resolver.resolving(ref) as resolved:
-            self.assertEqual(resolved, self.referrer["properties"]["foo"])
-
-    def test_it_resolves_local_refs_with_id(self):
-        schema = {"id": "foo://bar/schema#", "a": {"foo": "bar"}}
-        resolver = RefResolver.from_schema(schema)
-        with resolver.resolving("#/a") as resolved:
-            self.assertEqual(resolved, schema["a"])
-        with resolver.resolving("foo://bar/schema#/a") as resolved:
-            self.assertEqual(resolved, schema["a"])
-
-    def test_it_retrieves_stored_refs(self):
-        with self.resolver.resolving(self.stored_uri) as resolved:
-            self.assertIs(resolved, self.stored_schema)
-
-        self.resolver.store["cached_ref"] = {"foo": 12}
-        with self.resolver.resolving("cached_ref#/foo") as resolved:
-            self.assertEqual(resolved, 12)
-
-    def test_it_retrieves_unstored_refs_via_requests(self):
-        ref = "http://bar#baz"
-        schema = {"baz": 12}
-
-        with mock.patch("jsonschema.validators.requests") as requests:
-            requests.get.return_value.json.return_value = schema
-            with self.resolver.resolving(ref) as resolved:
-                self.assertEqual(resolved, 12)
-        requests.get.assert_called_once_with("http://bar")
-
-    def test_it_retrieves_unstored_refs_via_urlopen(self):
-        ref = "http://bar#baz"
-        schema = {"baz": 12}
-
-        with mock.patch("jsonschema.validators.requests", None):
-            with mock.patch("jsonschema.validators.urlopen") as urlopen:
-                urlopen.return_value.read.return_value = (
-                    json.dumps(schema).encode("utf8"))
-                with self.resolver.resolving(ref) as resolved:
-                    self.assertEqual(resolved, 12)
-        urlopen.assert_called_once_with("http://bar")
-
-    def test_it_can_construct_a_base_uri_from_a_schema(self):
-        schema = {"id": "foo"}
-        resolver = RefResolver.from_schema(schema)
-        self.assertEqual(resolver.base_uri, "foo")
-        with resolver.resolving("") as resolved:
-            self.assertEqual(resolved, schema)
-        with resolver.resolving("#") as resolved:
-            self.assertEqual(resolved, schema)
-        with resolver.resolving("foo") as resolved:
-            self.assertEqual(resolved, schema)
-        with resolver.resolving("foo#") as resolved:
-            self.assertEqual(resolved, schema)
-
-    def test_it_can_construct_a_base_uri_from_a_schema_without_id(self):
-        schema = {}
-        resolver = RefResolver.from_schema(schema)
-        self.assertEqual(resolver.base_uri, "")
-        with resolver.resolving("") as resolved:
-            self.assertEqual(resolved, schema)
-        with resolver.resolving("#") as resolved:
-            self.assertEqual(resolved, schema)
-
-    def test_custom_uri_scheme_handlers(self):
-        schema = {"foo": "bar"}
-        ref = "foo://bar"
-        foo_handler = mock.Mock(return_value=schema)
-        resolver = RefResolver("", {}, handlers={"foo": foo_handler})
-        with resolver.resolving(ref) as resolved:
-            self.assertEqual(resolved, schema)
-        foo_handler.assert_called_once_with(ref)
-
-    def test_cache_remote_on(self):
-        ref = "foo://bar"
-        foo_handler = mock.Mock()
-        resolver = RefResolver(
-            "", {}, cache_remote=True, handlers={"foo": foo_handler},
-        )
-        with resolver.resolving(ref):
-            pass
-        with resolver.resolving(ref):
-            pass
-        foo_handler.assert_called_once_with(ref)
-
-    def test_cache_remote_off(self):
-        ref = "foo://bar"
-        foo_handler = mock.Mock()
-        resolver = RefResolver(
-            "", {}, cache_remote=False, handlers={"foo": foo_handler},
-        )
-        with resolver.resolving(ref):
-            pass
-        with resolver.resolving(ref):
-            pass
-        self.assertEqual(foo_handler.call_count, 2)
-
-    def test_if_you_give_it_junk_you_get_a_resolution_error(self):
-        ref = "foo://bar"
-        foo_handler = mock.Mock(side_effect=ValueError("Oh no! What's this?"))
-        resolver = RefResolver("", {}, handlers={"foo": foo_handler})
-        with self.assertRaises(RefResolutionError) as err:
-            with resolver.resolving(ref):
-                pass
-        self.assertEqual(str(err.exception), "Oh no! What's this?")
 
 
 def sorted_errors(errors):
