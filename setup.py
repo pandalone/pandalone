@@ -133,7 +133,7 @@ download_url = 'https://github.com/%s/%s/tarball/v%s' % (
 
 install_requires = [
     'six',
-    'jsonschema == 2.4',  # TODO: Upgrade jsonschema to +>= 2.5.
+    'jsonschema > 2.4',  # TODO: Upgrade jsonschema to +>= 2.5.
     'numpy >= 1.7',
     'pandas >= 0.15.0',
     'xlrd',
