@@ -84,6 +84,8 @@ An :term:`Edge` might be "cooked" or "uncooked" depending on its `Cell`.
 
 - An *uncooked* edge contains *A1* :class:`Cell`.
 - An *cooked* edge contains a *num* :class:`Cell`.
+
+Use None for missing moves.
 """
 
 
@@ -261,7 +263,7 @@ def parse_xl_ref(xl_ref):
         >>> sorted(res.items())
         [('json', {'json': '...'}),
          ('nd_ref', Edge(cell=Cell(row='20', col='Z'), mov='UL')),
-         ('rect_exp', 'L1U2R1D1'),
+         ('rect_exp', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
          ('sheet', 'Sheet1'),
          ('st_ref', Edge(cell=Cell(row='1', col='A'), mov='DR'))]
 
@@ -280,13 +282,14 @@ def parse_xl_ref(xl_ref):
         #     with "uncooked" edge.
         #
         p = gs.pop
-        gs['st_ref'] = _uncooked_Edge(
-            p('st_row'), p('st_col'), p('st_mov'))
-        gs['nd_ref'] = _uncooked_Edge(
-            p('nd_row'), p('nd_col'), p('nd_mov'))
+        gs['st_ref'] = _uncooked_Edge(p('st_row'), p('st_col'), p('st_mov'))
+        gs['nd_ref'] = _uncooked_Edge(p('nd_row'), p('nd_col'), p('nd_mov'))
 
         js = gs['json']
         gs['json'] = json.loads(js) if js else None
+
+        rect_exp = gs['rect_exp']
+        gs['rect_exp'] = _parse_rect_expansions(rect_exp) if rect_exp else None
 
         return gs
 
@@ -308,7 +311,6 @@ def parse_xl_url(url):
         Exxample::
 
             file:///path/to/file.xls#sheet_name!UP10:DN20:LDL1{"dim":2}
-
     :return:
         dictionary containing the following parameters::
 
@@ -332,18 +334,16 @@ def parse_xl_url(url):
         >>> sorted(res.items())
         [('json', {'2': 'ciao'}),
          ('nd_ref', Edge(cell=Cell(row='^', col='.'), mov='DR')),
-         ('rect_exp', 'LU?'),
+         ('rect_exp', [repeat('L'), repeat('U', 1)]),
          ('sheet', 'Sheet1'),
          ('st_ref', Edge(cell=Cell(row='1', col='A'), mov='UL')),
          ('url_file', 'file:///sample.xlsx')]
     """
 
     try:
-        res = {}
-
-        res['url_file'], frag = urldefrag(url)  # parse excel url
-
-        res.update(parse_xl_ref(frag))  # resolve excel reference
+        url_file, frag = urldefrag(url)
+        res = parse_xl_ref(frag)
+        res['url_file'] = url_file
 
         return res
 
@@ -360,7 +360,7 @@ def get_sheet_margins(states_matrix):
     :param ndarray states_matrix:
             An array with `False` wherever cell are blank or empty.
             Use :func:`read_states_matrix()` to derrive it.
-    :return:  a `Cell` with zero-based top-left/bottom-right margins for rows/cols,
+    :return:  a `Cell` with zero-based top-left/bottom-right special margins for rows/cols,
     :rtype: tuple
 
     Examples::
@@ -393,9 +393,8 @@ def get_sheet_margins(states_matrix):
     indices = np.asarray(np.where(states_matrix)).T
     up_r, up_c = indices.min(0)
     dn_r, dn_c = indices.max(0)
-    sheet_margins = Cell(
-        row={'^': up_r, '_': dn_r},
-        col={'^': up_c, '_': dn_c})
+    sheet_margins = Cell(row={'^': up_r, '_': dn_r},
+                         col={'^': up_c, '_': dn_c})
     return sheet_margins
 
 
@@ -576,12 +575,12 @@ def _col2num(coord):
     return rcoord
 
 
-def _resolve_cell(cell, margins, bcell=None):
+def _resolve_cell(cell, margins, base_cell=None):
     """
     Translates any special coords to absolute ones.
 
     :param Cell cell:     The raw cell to translate its coords.
-    :param Cell bcell:    A resolved cell to base any dependent coords (``.``).
+    :param Cell base_cell: A resolved cell to base dependent coords (``.``).
     :param Cell margins:  see :func:`get_sheet_margins()`
     :rtype: Cell
 
@@ -618,14 +617,14 @@ def _resolve_cell(cell, margins, bcell=None):
     """
     try:
         row = _resolve_coord('row', _row2num, cell.row, margins.row,
-                             bcell and bcell.row)
+                             base_cell and base_cell.row)
         col = _resolve_coord('col', _col2num, cell.col, margins.col,
-                             bcell and bcell.col)
+                             base_cell and base_cell.col)
 
         return Cell(row=row, col=col)
     except Exception as ex:
-        msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  bcell(%s)"
-        log.debug(msg, cell, ex, margins, bcell)
+        msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  base_cell(%s)"
+        log.debug(msg, cell, ex, margins, base_cell)
         raise ValueError("invalid cell(%s) due to: %s" % (cell, ex))
 
 
@@ -812,6 +811,7 @@ def _target_same_state(state, cell, states_matrix, dn, moves):
 
 def _expand_rect(state, xl_rect, states_matrix, rect_exp):
     """
+    Applies the :term:`expansion-moves` based on the `states_matrix`.
 
     :param state:
     :param xl_rect:
@@ -887,8 +887,8 @@ def _expand_rect(state, xl_rect, states_matrix, rect_exp):
     return [Cell(*v) for v in xl_rect]
 
 
-def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
-                         nd_ref=None, rect_exp=None):
+def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
+                         nd_edge=None, rect_exp=None):
     """
     Performs :term:`targeting` and applies :term:`expansions` but does not extract values.
 
@@ -897,60 +897,66 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
     :param ndarray states_matrix:
             An array with `False` wherever cell are blank or empty.
             Use :func:`read_states_matrix()` to derrive it.
-    :param Edge st_ref:  "uncooked" as matched by regex
-    :param Edge nd_ref:  "uncooked" as matched by regex
-    :param rect_exp:
-    :return: a ``(Cell, Cell)`` with the 1st and 2nd :term:`capture-cell`
+    :param Cell margins:  see :func:`get_sheet_margins()`
+    :param Edge st_edge: "uncooked" as matched by regex
+    :param Edge nd_edge: "uncooked" as matched by regex
+    :param list or none rect_exp:
+            the result of :func:`_parse_rect_expansions()`
+
+    :return:    a ``(Cell, Cell)`` with the 1st and 2nd :term:`capture-cell`
+                ordered from top-left --> bottom-right.
     :rtype: tuple
 
     Examples::
 
         >>> states_matrix = np.array([
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 1, 1, 1],
-        ...     [0, 0, 0, 1, 0, 0, 1],
-        ...     [0, 0, 0, 1, 1, 1, 1]
+        ...     [0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 1, 1, 1],
+        ...     [0, 0, 1, 0, 0, 1],
+        ...     [0, 0, 1, 1, 1, 1]
         ... ])
-        >>> sheet_margins = Cell(row={'_': 7, '^': 5}, col={'_': 6, '^': 3})
+        >>> sheet_margins = get_sheet_margins(states_matrix)
 
-        >>> st_ref = Edge(Cell('1', 'A'), 'DR')
-        >>> nd_ref = Edge(Cell('.', '.'), 'DR')
-        >>> resolve_capture_rect(states_matrix, sheet_margins, st_ref, nd_ref)
-        (Cell(row=6, col=3), Cell(row=7, col=3))
+        >>> st_edge = Edge(Cell('1', 'A'), 'DR')
+        >>> nd_edge = Edge(Cell('.', '.'), 'DR')
+        >>> resolve_capture_rect(states_matrix, sheet_margins, st_edge, nd_edge)
+        (Cell(row=3, col=2), Cell(row=4, col=2))
 
-        >>> nd_ref = Edge(Cell('8', 'G'), 'UL')
-        >>> resolve_capture_rect(states_matrix, sheet_margins, st_ref, nd_ref)
-        (Cell(row=5, col=3), Cell(row=6, col=3))
+    Walking backwards::
 
-        >>> st_ref = Edge(Cell('1', 'A'), 'RD')
-        >>> nd_ref = Edge(Cell('.', '.'), 'R')
-        >>> resolve_capture_rect(states_matrix, sheet_margins, st_ref, nd_ref)
-        (Cell(row=5, col=4), Cell(row=5, col=6))
+        >>> st_edge = Edge(Cell('_', '_'), None)
+        >>> nd_edge = Edge(Cell('.', '.'), 'UL')
+        >>> rect = resolve_capture_rect(states_matrix, sheet_margins, st_edge, nd_edge)
+        >>> rect
+        (Cell(row=2, col=2), Cell(row=4, col=5))
+
+        >>> st_edge = Edge(Cell('^', '_'), None)
+        >>> nd_edge = Edge(Cell('_', '^'), None)
+        >>> rect == resolve_capture_rect(states_matrix, sheet_margins, st_edge, nd_edge)
+        True
+
     """
 
     dn = (sheet_margins[0]['_'], sheet_margins[1]['_'])
 
-    st = _resolve_cell(st_ref.cell, sheet_margins)
+    st = _resolve_cell(st_edge.cell, sheet_margins)
     try:
         state = states_matrix[st]
     except IndexError:
         state = False
 
-    if st_ref.mov is not None:
-        st = _target_opposite_state(state, st, states_matrix, dn, st_ref.mov)
+    if st_edge.mov is not None:
+        st = _target_opposite_state(state, st, states_matrix, dn, st_edge.mov)
         state = not state
 
-    if nd_ref is None:
-        nd = Cell(*st)
+    if nd_edge is None:
+        capt_rect = (st, st)
     else:
-        nd = _resolve_cell(nd_ref.cell, sheet_margins, st)
+        nd = _resolve_cell(nd_edge.cell, sheet_margins, st)
 
-        if nd_ref.mov is not None:
-            mov = nd_ref.mov
+        if nd_edge.mov is not None:
+            mov = nd_edge.mov
 
             try:
                 nd_state = states_matrix[nd]
@@ -963,18 +969,18 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_ref,
                 nd = _target_opposite_state(
                     not state, nd, states_matrix, dn, mov)
 
+        # Order rect-cells.
+        #
         c = np.array([st, nd])
+        capt_rect = (Cell(*c.min(0).tolist()), Cell(*c.max(0).tolist()))
 
-        st, nd = (Cell(*list(c.min(0))), Cell(*list(c.max(0))))
+    if rect_exp:
+        capt_rect = _expand_rect(state, capt_rect, states_matrix, rect_exp)
 
-    if rect_exp is None:
-        return (st, nd)
-    else:
-        rect_exp = _parse_rect_expansions(rect_exp)
-        return _expand_rect(state, (st, nd), states_matrix, rect_exp)
+    return capt_rect
 
 
-def read_capture_rect_values(sheet, xl_rect, states_matrix):
+def read_capture_rect(sheet, states_matrix, xl_rect):
     """
     Extracts :term:`capture-rect` values from excel-sheet and apply :term:`filters`.
 
@@ -1013,40 +1019,40 @@ def read_capture_rect_values(sheet, xl_rect, states_matrix):
         ...     [0, 0, 0, 1, 1, 1, 1]], dtype=bool)
 
         # minimum matrix in the sheet
-        >>> read_capture_rect_values(sheet, (Cell(5, 3), Cell(7, 6)), stm)
+        >>> read_capture_rect(sheet, stm, (Cell(5, 3), Cell(7, 6)))
         [[None,  0,    1,    2],
          [0,    None, None, None],
          [1,     5.1,  6.1,  7.1]]
 
-        # get single value
-        >>> read_capture_rect_values(sheet, (Cell(6, 3), Cell(6, 3)), stm)
+        # single-value
+        >>> read_capture_rect(sheet, stm, (Cell(6, 3), Cell(6, 3)))
         [0]
 
-        # get column vector
-        >>> read_capture_rect_values(sheet, (Cell(0, 3), Cell(7, 3)), stm)
+        # column
+        >>> read_capture_rect(sheet, stm, (Cell(0, 3), Cell(7, 3)))
         [None, None, None, None, None, None, 0, 1]
 
-        # get row vector
-        >>> read_capture_rect_values(sheet, (Cell(5, 0), Cell(5, 6)), stm)
+        # row
+        >>> read_capture_rect(sheet, stm, (Cell(5, 0), Cell(5, 6)))
         [None, None, None, None, 0, 1, 2]
 
-        # get row vector
-        >>> read_capture_rect_values(sheet, (Cell(5, 0), Cell(5, 10)), stm)
+        # row beyond sheet-limits
+        >>> read_capture_rect(sheet, stm, (Cell(5, 0), Cell(5, 10)))
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
     .. testcleanup::
         >>> os.remove(tmp)
     """
 
-    st_target = xl_rect[0]
-    nd_target = xl_rect[1]
+    st_target, nd_target = xl_rect
 
-    table = _xlrd.read_rect(sheet, states_matrix, st_target, nd_target)
-    # vector
+    table = _xlrd.read_rect(sheet, states_matrix, xl_rect)
+
+    # column
     if nd_target.col == st_target.col:
         table = [v[0] for v in table]
 
-    # vector
+    # row
     if nd_target.row == st_target.row:
         table = table[0]
 
@@ -1057,7 +1063,6 @@ def read_capture_rect_values(sheet, xl_rect, states_matrix):
 
 
 def _get_value_dim(value):
-    """ FIXME: _get_value_dim() UNUSED? """
     try:
         if isinstance(value, list):
             return 1 + _get_value_dim(value[0])
@@ -1078,12 +1083,12 @@ def _redim_value(value, n):
 
 def _redim_captured_values(value, dim_min, dim_max=None):
     """
-    Reshapes the output value of :func:`read_capture_rect_values()`.
+    Reshapes the output value of :func:`read_capture_rect()`.
 
     :param value: matrix or vector or value
     :type value: list of lists, list, value
 
-    :param dim_min: minimum dimension
+    :param dim_min: minimum dimension or 'auto'
     :type dim_min: int, None
 
     :param dim_max: maximum dimension
@@ -1142,7 +1147,7 @@ _default_filters = {
 def _process_captured_values(value, type=None, args=(), kws=None, filters=None,
                              available_filters=_default_filters):
     """
-    Processes the output value of :func:`read_capture_rect_values()` function.
+    Processes the output value of :func:`read_capture_rect()` function.
 
     FIXME: Actually use _process_captured_values()!
 

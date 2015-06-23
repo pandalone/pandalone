@@ -59,7 +59,7 @@ def _read_rect_values(sheet, st_ref, nd_ref=None):
     sheet_margins = xr.get_sheet_margins(states_matrix)
     xl_rect = xr.resolve_capture_rect(states_matrix, sheet_margins,
                                       st_ref, nd_ref)  # or Edge(None, None))
-    return xr.read_capture_rect_values(sheet, xl_rect, states_matrix)
+    return xr.read_capture_rect(sheet, states_matrix, xl_rect)
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
@@ -202,6 +202,105 @@ class TestXlRef(unittest.TestCase):
         self.assertEquals(res['url_file'], '')
 
 
+class TestResolve(unittest.TestCase):
+
+    def make_states_matrix(self):
+        states_matrix = np.array([
+            # A  B  C  D  E  F
+            [0, 0, 0, 0, 0, 0],  # '1'
+            [0, 0, 0, 0, 0, 0],  # '2'
+            [0, 0, 0, 1, 1, 1],  # '3'
+            [0, 0, 1, 0, 0, 1],  # '4'
+            [0, 0, 1, 1, 1, 1],  # '5'
+        ])
+        sheet_margins = xr.get_sheet_margins(states_matrix)
+        args = (states_matrix, sheet_margins)
+
+        return args
+
+    def check_resolve_capture_rect(self, *args):
+        #     st_row, st_col, st_mov,
+        #     nd_row, nd_col, nd_mov,
+        #     res_st_row, res_st_col, res_nd_row, res_nd_col
+        argshead = self.make_states_matrix()
+
+        st_edge = xr.Edge(xr.Cell(*args[0:2]), args[2])
+        nd_edge = xr.Edge(xr.Cell(*args[3:5]), args[5])
+        res = (xr.Cell(*args[6:8]),
+               xr.Cell(*args[8:10]))
+        args = argshead + (st_edge, nd_edge)
+        self.assertEqual(xr.resolve_capture_rect(*args), res)
+
+    def test_resolve_capture_rect_St_inverseTargetDirs(self):
+        self.check_resolve_capture_rect('1', 'A', 'DR', '.', '.', 'DR',
+                                        3, 2, 4, 2)
+        self.check_resolve_capture_rect('^', '^', 'RD', '.', '.', 'RD',
+                                        2, 3, 2, 5)
+
+    def test_resolve_capture_rect_Tartet_fromEmpty_st(self):
+        self.check_resolve_capture_rect('^', '^', 'D', '_', '_', None,
+                                        3, 2, 4, 5)
+        self.check_resolve_capture_rect('^', '^', 'DR', '_', '_', None,
+                                        3, 2, 4, 5)
+
+        self.check_resolve_capture_rect('^', '^', 'R', '_', '_', None,
+                                        2, 3, 4, 5)
+        self.check_resolve_capture_rect('^', '^', 'RD', '_', '_', None,
+                                        2, 3, 4, 5)
+
+        self.check_resolve_capture_rect('4', 'D', 'U', '4', 'E', 'R',
+                                        2, 3, 3, 5)
+        self.check_resolve_capture_rect('4', 'D', 'UL', '4', 'F', 'RD',
+                                        2, 3, 4, 5)
+        self.check_resolve_capture_rect('4', 'D', 'L', '4', 'F', 'RD',
+                                        3, 2, 4, 5)
+        self.check_resolve_capture_rect('4', 'D', 'LU', '4', 'F', 'RD',
+                                        3, 2, 4, 5)
+
+    def test_resolve_capture_rect_Tartet_fromEmpty_nd(self):
+        self.check_resolve_capture_rect('3', 'D', None, '4', 'E', 'R',
+                                        2, 3, 3, 5)
+
+        self.check_resolve_capture_rect('3', 'D', None, '4', 'E', 'RD',
+                                        2, 3, 3, 5)  # ???
+        self.check_resolve_capture_rect('3', 'D', None, '4', 'E', 'RU',
+                                        2, 3, 3, 5)  # ???
+
+        self.check_resolve_capture_rect('3', 'D', None, '4', 'E', 'L',
+                                        2, 2, 3, 3)  # ??
+
+        self.check_resolve_capture_rect('3', 'D', None, '4', 'E', 'LD',
+                                        2, 2, 3, 3)  # ??
+        self.check_resolve_capture_rect('3', 'D', None, '4', 'E', 'LU',
+                                        2, 2, 3, 3)  # ??
+
+    def test_resolve_capture_rect_BackwardRelative_singleDir(self):
+        self.check_resolve_capture_rect('^', '_', None, '.', '.', 'L',
+                                        2, 3, 2, 5)
+        self.check_resolve_capture_rect('_', '^', None, '.', '.', 'U',
+                                        3, 2, 4, 2)
+
+    def test_resolve_capture_rect_BackwardRelative_multipleDirs(self):
+        self.check_resolve_capture_rect('_', '_', None, '.', '.', 'UL',
+                                        2, 2, 4, 5)
+        self.check_resolve_capture_rect('_', '_', None, '.', '.', 'LU',
+                                        2, 2, 4, 5)
+
+        self.check_resolve_capture_rect('^', '_', None, '.', '.', 'LD',
+                                        2, 3, 4, 5)
+        self.check_resolve_capture_rect('^', '_', None, '.', '.', 'DL',
+                                        2, 3, 4, 5)
+
+        self.check_resolve_capture_rect('_', '^', None, '.', '.', 'UR',
+                                        3, 2, 4, 5)
+        self.check_resolve_capture_rect('_', '^', None, '.', '.', 'RU',
+                                        3, 2, 4, 5)
+
+    def test_resolve_capture_rect_BackwardMoves_nonRelative(self):
+        self.check_resolve_capture_rect('^', '_', None, '_', '^', None,
+                                        2, 2, 4, 5)
+
+
 class TestXlRead(unittest.TestCase):
 
     def setUp(self):
@@ -226,20 +325,16 @@ class TestXlRead(unittest.TestCase):
 
     def test_parse_rect_values(self):
         # row vector in the sheet [B2:B_]
-        args = (
-            self.sheet, (xr.Cell(1, 1), xr.Cell(7, 1)), self.states_matrix
-        )
+        args = (self.sheet, self.states_matrix, (xr.Cell(1, 1), xr.Cell(7, 1)))
         res = [datetime(1900, 8, 2), True, None, None, 'hi', 1.4, 5]
-        self.assertEqual(xr.read_capture_rect_values(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res)
 
     def test_comparison_vs_pandas_parse_cell(self):
 
         # row vector in the sheet [B2:B_]
-        args = (
-            self.sheet, (xr.Cell(1, 1), xr.Cell(7, 1)), self.states_matrix
-        )
+        args = (self.sheet, self.states_matrix, (xr.Cell(1, 1), xr.Cell(7, 1)))
 
-        res = xr.read_capture_rect_values(*args)
+        res = xr.read_capture_rect(*args)
 
         df = pd.read_excel(self.tmp, 'Sheet1')[0]
 
@@ -565,114 +660,113 @@ class TestVsXlwings(unittest.TestCase):
         st = xr.Edge(xr.num2a1_Cell(6, 3), None)
         nd = xr.Edge(xr.num2a1_Cell('.', '.'), 'D')
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
-        self.assertEqual(xr.read_capture_rect_values(*args), resTarget)
+        args = (sheet, states_matrix, rng)
+        self.assertEqual(xr.read_capture_rect(*args), resTarget)
 
         # minimum delimited column in the sheet [E6:E.(D)]
         st = xr.Edge(xr.num2a1_Cell(5, 4), None)
         nd = xr.Edge(xr.num2a1_Cell('.', '.'), 'D')
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
-        self.assertEqual(xr.read_capture_rect_values(*args), res[1])
+        args = (sheet, states_matrix, rng)
+        self.assertEqual(xr.read_capture_rect(*args), res[1])
 
         # minimum delimited row in the sheet [E6:.6(R)]
         st = xr.Edge(xr.num2a1_Cell(5, 4), None)
         nd = xr.Edge(xr.num2a1_Cell('.', '.'), 'R')
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
-        self.assertEqual(xr.read_capture_rect_values(*args), res[2])
+        args = (sheet, states_matrix, rng)
+        self.assertEqual(xr.read_capture_rect(*args), res[2])
 
         # minimum delimited matrix in the sheet [E6:..(RD)]
         st = xr.Edge(xr.num2a1_Cell(5, 4), None)
         nd = xr.Edge(xr.num2a1_Cell('.', '.'), 'RD')
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
-        self.assertEqual(xr.read_capture_rect_values(*args), res[3])
+        args = (sheet, states_matrix, rng)
+        self.assertEqual(xr.read_capture_rect(*args), res[3])
 
         st = xr.Edge(xr.num2a1_Cell(5, 4), None)
         nd = xr.Edge(xr.num2a1_Cell('.', '.'), 'DR')
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
-        self.assertEqual(xr.read_capture_rect_values(*args), res[3])
+        args = (sheet, states_matrix, rng)
+        self.assertEqual(xr.read_capture_rect(*args), res[3])
 
         # delimited matrix in the sheet [D6:F8]
         st = xr.Edge(xr.num2a1_Cell(7, 5), None)
         nd = xr.Edge(xr.num2a1_Cell(5, 3), None)
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
-        self.assertEqual(xr.read_capture_rect_values(*args), res[4])
+        args = (sheet, states_matrix, rng)
+        self.assertEqual(xr.read_capture_rect(*args), res[4])
 
         # delimited matrix in the sheet [A1:F8]
         st = xr.Edge(xr.num2a1_Cell(7, 5), None)
         nd = xr.Edge(xr.num2a1_Cell(0, 0), None)
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
-        self.assertEqual(xr.read_capture_rect_values(*args), res[5])
+        args = (sheet, states_matrix, rng)
+        self.assertEqual(xr.read_capture_rect(*args), res[5])
 
         # delimited row in the sheet [A7:D7]
         st = xr.Edge(xr.num2a1_Cell(6, 0), None)
         nd = xr.Edge(xr.num2a1_Cell(6, 3), None)
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
-        self.assertEqual(xr.read_capture_rect_values(*args), res[6])
+        args = (sheet, states_matrix, rng)
+        self.assertEqual(xr.read_capture_rect(*args), res[6])
 
         # delimited column in the sheet [D3:D9]
         st = xr.Edge(xr.num2a1_Cell(8, 3), None)
         nd = xr.Edge(xr.num2a1_Cell(2, 3), None)
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
-        self.assertEqual(xr.read_capture_rect_values(*args), res[7])
+        args = (sheet, states_matrix, rng)
+        self.assertEqual(xr.read_capture_rect(*args), res[7])
 
         # minimum delimited matrix in the sheet [F7:..(UL)]
         st = xr.Edge(xr.num2a1_Cell(6, 5), None)
         nd = xr.Edge(xr.num2a1_Cell('.', '.'), 'UL')
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
+        args = (sheet, states_matrix, rng)
         res = [[None, 0, 1],
                [0, 1, 2]]
-        self.assertEqual(xr.read_capture_rect_values(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res)
 
         # minimum delimited matrix in the sheet [F7:F7:LURD]
         st = xr.Edge(xr.num2a1_Cell(6, 5), None)
         nd = xr.Edge(xr.num2a1_Cell(6, 5), None)
-        rect_exp = 'LURD'
-        rng = xr.resolve_capture_rect(
-            states_matrix, xl_ma, st, nd, rect_exp)
-        args = (sheet, rng, states_matrix)
+        rect_exp = xr._parse_rect_expansions('LURD')
+        rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd, rect_exp)
+        args = (sheet, states_matrix, rng)
         res = [[None, 0, 1, 2],
                [0, 1, 2, None],
                [1, None, 6.1, 7.1]]
-        self.assertEqual(xr.read_capture_rect_values(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res)
 
         # minimum delimited matrix in the sheet [F7:A1(RD)]
         st = xr.Edge(xr.num2a1_Cell(6, 5), None)
         nd = xr.Edge(xr.num2a1_Cell(0, 0), 'RD')
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
+        args = (sheet, states_matrix, rng)
         res = [[0, 1],
                [1, 2]]
-        self.assertEqual(xr.read_capture_rect_values(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res)
 
         # minimum delimited row in the sheet [_8:G8]
         st = xr.Edge(xr.num2a1_Cell(7, 6), None)
         nd = xr.Edge(xr.num2a1_Cell(7, '.'), 'L')
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
+        args = (sheet, states_matrix, rng)
         res = [6.1, 7.1]
-        self.assertEqual(xr.read_capture_rect_values(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res)
 
         # minimum delimited column in the sheet [D_:D8]
         st = xr.Edge(xr.num2a1_Cell(7, 3), None)
         nd = xr.Edge(xr.num2a1_Cell('.', 3), 'U')
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
+        args = (sheet, states_matrix, rng)
         res = [0, 1]
-        self.assertEqual(xr.read_capture_rect_values(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res)
 
         # single value [D8]
         st = xr.Edge(xr.num2a1_Cell(7, 3), None)
         nd = None
         rng = xr.resolve_capture_rect(states_matrix, xl_ma, st, nd)
-        args = (sheet, rng, states_matrix)
+        args = (sheet, states_matrix, rng)
         res = [1]
-        self.assertEqual(xr.read_capture_rect_values(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res)

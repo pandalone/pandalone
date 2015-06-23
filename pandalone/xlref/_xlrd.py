@@ -90,14 +90,14 @@ def read_states_matrix(sheet):
     return (types != XL_CELL_EMPTY) & (types != XL_CELL_BLANK)
 
 
-def read_rect(sheet, states_matrix, st_cell, nd_cell):
+def read_rect(sheet, states_matrix, xl_rect):
     """
     Extract the values enclaved between the 2 edge-cells as a 2D-table.
 
     :param sheet: a xlrd-sheet to read from
-    :param xlref.Cell st_cell: the starting-cell of the rect
-    :param xlref.Cell nd_cell: the finishing-cell of the rect
+    :param (Cell, Cell) xl_rect: the starting & finishing cells of the rect
     """
+    st_cell, nd_cell = xl_rect
     table = []
     for r in range(st_cell.row, nd_cell.row + 1):
         row = []

@@ -80,7 +80,7 @@ API
       parse_xl_url
       get_sheet_margins
       resolve_capture_rect
-      read_capture_rect_values
+      read_capture_rect
 
 - **xlrd** back-end functionality:
 
@@ -529,7 +529,7 @@ TODOs
 from ._xlref import (
     Cell, num2a1_Cell, Edge,
     parse_xl_url, parse_xl_ref, resolve_capture_rect,
-    read_capture_rect_values,
+    read_capture_rect,
     get_sheet_margins,
 )
 from ._xlrd import (
