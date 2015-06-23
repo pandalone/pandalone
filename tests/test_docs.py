@@ -21,7 +21,7 @@ tutorial_path = os.path.join(mydir, '..', 'doc', 'tutorial.rst')
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
-class TestDoctest(unittest.TestCase):
+class Doctest(unittest.TestCase):
 
     def test_doctest_README(self):
         failure_count, test_count = doctest.testfile(

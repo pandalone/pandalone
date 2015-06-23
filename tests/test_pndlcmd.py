@@ -20,7 +20,7 @@ import six
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
-class TestDoctest(unittest.TestCase):
+class Doctest(unittest.TestCase):
 
     @unittest.skip('No doctests in `pndl` cmd.')
     def runTest(self):

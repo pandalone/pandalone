@@ -76,21 +76,21 @@ _re_rect_expansion_parser = re.compile(
 
 
 Cell = namedtuple('Cell', ['row', 'col'])
-"""Its coords might be "A1" (strings, 1-based) or "num" (0-based)."""
+"""Its coords might be "A1" (strings, 1-based) or "resolved" (0-based)."""
 
 Edge = namedtuple('Edge', ['cell', 'mov'])
 """
 An :term:`Edge` might be "cooked" or "uncooked" depending on its `Cell`.
 
 - An *uncooked* edge contains *A1* :class:`Cell`.
-- An *cooked* edge contains a *num* :class:`Cell`.
+- An *cooked* edge contains a *resolved* :class:`Cell`.
 
 Use None for missing moves.
 """
 
 
 def num2a1_Cell(row, col):
-    """Make *A1* :class:``Cell`` from *num* or special coords, with rudimentary error-checking.
+    """Make *A1* :class:``Cell`` from *resolved* or special coords, with rudimentary error-checking.
 
     Examples::
 
@@ -311,6 +311,7 @@ def parse_xl_url(url):
         Exxample::
 
             file:///path/to/file.xls#sheet_name!UP10:DN20:LDL1{"dim":2}
+
     :return:
         dictionary containing the following parameters::
 
@@ -628,79 +629,54 @@ def _resolve_cell(cell, margins, base_cell=None):
         raise ValueError("invalid cell(%s) due to: %s" % (cell, ex))
 
 
-def _target_opposite_state(state, cell, states_matrix, dn, moves, last=False):
+def _target_opposite_state(states_matrix, dn, state, cell, moves, last=False):
     """
 
-    :param bool state:      the starting-state
-    :param cell:
     :param ndarray states_matrix:
             An array with `False` wherever cell are blank or empty.
             Use :func:`read_states_matrix()` to derrive it.
-    :param sheet:
+    :param Cell dn:         the bottom/right in resolved-coords
+    :param bool state:      the state of the landing-cell, or `False`
+                            if beyond limits
+    :param cell:            the landing-cell
     :param moves:
-    :return:
+    :return: the identified resolved-Cell
 
 
     Examples::
 
         >>> states_matrix = np.array([
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 1, 1, 1],
-        ...     [0, 0, 0, 1, 0, 0, 1],
-        ...     [0, 0, 0, 1, 1, 1, 1]
+        ...     [0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 1, 1, 1],
+        ...     [0, 0, 1, 0, 0, 1],
+        ...     [0, 0, 1, 1, 1, 1]
         ... ])
+        >>> args = (states_matrix, (4, 5))
 
-        >>> args = (False, Cell(1, 1), states_matrix, (7, 6))
-        >>> _target_opposite_state(*(args + ('DR', )))
-        Cell(row=6, col=3)
+        >>> _target_opposite_state(*(args + (False, Cell(0, 0), 'DR')))
+        Cell(row=3, col=2)
 
-        >>> _target_opposite_state(*(args + ('RD', )))
-        Cell(row=5, col=4)
+        >>> _target_opposite_state(*(args + (False, Cell(0, 0), 'RD')))
+        Cell(row=2, col=3)
 
-        >>> _target_opposite_state(*(args + ('D', )))
+    It fails if a non-empty target-cell cannot be found, or
+    it ends-up beyond bounds::
+
+        >>> _target_opposite_state(*(args + (False, Cell(0, 0), 'D')))
         Traceback (most recent call last):
-        ValueError: Invalid Cell(row=1, col=1) with movement(D)
+        ValueError: No target for landing-Cell(row=0, col=0) with movement(D)!
 
-        >>> _target_opposite_state(*(args + ('U', )))
+        >>> _target_opposite_state(*(args + (False, Cell(0, 0), 'UR')))
         Traceback (most recent call last):
-        ValueError: Invalid Cell(row=1, col=1) with movement(U)
+        ValueError: No target for landing-Cell(row=0, col=0) with movement(UR)!
 
-        >>> _target_opposite_state(*(args + ('R', )))
-        Traceback (most recent call last):
-        ValueError: Invalid Cell(row=1, col=1) with movement(R)
 
-        >>> _target_opposite_state(*(args + ('L', )))
-        Traceback (most recent call last):
-        ValueError: Invalid Cell(row=1, col=1) with movement(L)
+    But notice that the landing-cell maybe outside of bounds::
 
-        >>> _target_opposite_state(*(args + ('LU', )))
-        Traceback (most recent call last):
-        ValueError: Invalid Cell(row=1, col=1) with movement(LU)
+        >>> _target_opposite_state(*(args + (False, Cell(3, 10), 'L')))
+        Cell(row=3, col=5)
 
-        >>> args = (True, Cell(6, 3), states_matrix, (7, 6))
-        >>> _target_opposite_state(*(args + ('D', )))
-        Cell(row=7, col=3)
-
-        >>> args = (True, Cell(10, 3), states_matrix, (7, 6))
-        >>> _target_opposite_state(*(args + ('U', )))
-        Cell(row=10, col=3)
-
-        >>> args = (False, Cell(10, 10), states_matrix, (7, 6))
-        >>> _target_opposite_state(*(args + ('UL', )))
-        Cell(row=7, col=6)
-
-        >>> states_matrix = np.array([
-        ...     [1, 1, 1],
-        ...     [1, 1, 1],
-        ...     [1, 1, 1],
-        ... ])
-        >>> args = (True, Cell(0, 2), states_matrix, (2, 2))
-        >>> _target_opposite_state(*(args + ('LD', )))
-        Cell(row=2, col=2)
     """
     up = (0, 0)
     mv = _primitive_dir[moves[0]]  # first move
@@ -744,66 +720,76 @@ def _target_opposite_state(state, cell, states_matrix, dn, moves, last=False):
                 return Cell(*(c0[0], c0[1]))
             break
 
-    raise ValueError('Invalid {} with movement({})'.format(cell, moves))
+    raise ValueError(
+        'No target for landing-{} with movement({})!'.format(cell, moves))
 
 
-def _target_same_state(state, cell, states_matrix, dn, moves):
+def _target_same_state(states_matrix, dn, state, cell, moves):
     """
 
-    :param bool state:      the starting-state
-    :param cell:
     :param ndarray states_matrix:
             An array with `False` wherever cell are blank or empty.
             Use :func:`read_states_matrix()` to derrive it.
-    :param sheet:
+    :param Cell dn:         the bottom/right coords
+    :param bool state:      the state of the landing-cell, or `False`
+                            if beyond limits
+    :param cell:            the landing-cell
     :param moves:
-    :return:
+    :return: the identified Cell
 
 
     Examples::
 
         >>> states_matrix = np.array([
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 1, 1, 1],
-        ...     [0, 0, 0, 1, 0, 0, 1],
-        ...     [0, 0, 0, 1, 1, 1, 1]
+        ...     [0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 0, 0, 0],
+        ...     [0, 0, 0, 1, 1, 1],
+        ...     [0, 0, 1, 0, 0, 1],
+        ...     [0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (True, Cell(7, 6), states_matrix, (7, 6))
-        >>> _target_same_state(*(args + ('UL', )))
-        Cell(row=5, col=3)
+        >>> args = (states_matrix, (4, 5))
 
-        >>> _target_same_state(*(args + ('U', )))
-        Cell(row=5, col=6)
+        >>> _target_same_state(*(args + (True, Cell(4, 5), 'UL', )))
+        Cell(row=2, col=2)
 
-        >>> _target_same_state(*(args + ('L', )))
-        Cell(row=7, col=3)
+        >>> _target_same_state(*(args + (True, Cell(4, 5), 'U')))
+        Cell(row=2, col=5)
 
-        >>> args = (True, Cell(5, 3), states_matrix, (7, 6))
-        >>> _target_same_state(*(args + ('DR', )))
-        Cell(row=5, col=3)
+        >>> _target_same_state(*(args + (True, Cell(4, 5), 'L')))
+        Cell(row=4, col=2)
 
-        >>> args = (False, Cell(5, 3), states_matrix, (7, 6))
-        >>> _target_same_state(*(args + ('DR', )))
-        Cell(row=5, col=3)
+        >>> args = (states_matrix, (7, 6))
+        >>> _target_same_state(*(args + (True, Cell(2, 2), 'DR')))
+        Cell(row=2, col=2)
 
-        >>> _target_same_state(*(args + ('UL', )))
+        >>> args = (states_matrix, (7, 6))
+        >>> _target_same_state(*(args + (False, Cell(2, 2), 'DR')))
+        Cell(row=2, col=2)
+
+    It fails if a non-empty target-cell cannot be found, or
+    it ends-up beyond bounds::
+
+        >>> _target_same_state(*(args + (False, Cell(2, 2), 'UL')))
         Traceback (most recent call last):
-        ValueError: Invalid Cell(row=5, col=3) with movement(U)
+        ValueError: No target for landing-Cell(row=2, col=2) with movement(U)!
 
-        >>> args = (True, Cell(5, 6), states_matrix, (7, 6))
-        >>> _target_same_state(*(args + ('DL', )))
-        Cell(row=7, col=4)
+
+    But notice that the landing-cell maybe outside of bounds::
+
+        >>> _target_same_state(*(args + (False, Cell(10, 3), 'U')))
+        Cell(row=4, col=3)
+
+    And this is the *negative*(??)::
+
+        >>> _target_same_state(*(args + (True, Cell(2, 5), 'DL')))
+        Cell(row=4, col=3)
 
     """
 
     c1 = list(cell)
 
     for mv in moves:
-        c = _target_opposite_state(state, cell, states_matrix, dn, mv, True)
+        c = _target_opposite_state(states_matrix, dn, state, cell, mv, True)
         dis = _primitive_dir[mv]
         c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
     return Cell(*c1)
@@ -947,7 +933,7 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
         state = False
 
     if st_edge.mov is not None:
-        st = _target_opposite_state(state, st, states_matrix, dn, st_edge.mov)
+        st = _target_opposite_state(states_matrix, dn, state, st, st_edge.mov)
         state = not state
 
     if nd_edge is None:
@@ -964,10 +950,10 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
                 nd_state = False
 
             if state == nd_state:
-                nd = _target_same_state(state, nd, states_matrix, dn, mov)
+                nd = _target_same_state(states_matrix, dn, state, nd, mov)
             else:
-                nd = _target_opposite_state(
-                    not state, nd, states_matrix, dn, mov)
+                nd = _target_opposite_state(states_matrix, dn,
+                                            not state, nd, mov)
 
         # Order rect-cells.
         #

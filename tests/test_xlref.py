@@ -63,7 +63,7 @@ def _read_rect_values(sheet, st_ref, nd_ref=None):
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
-class TestDoctest(unittest.TestCase):
+class Doctest(unittest.TestCase):
 
     def test_xlref(self):
         failure_count, test_count = doctest.testmod(
@@ -78,7 +78,7 @@ class TestDoctest(unittest.TestCase):
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
 
-class TestXlRef(unittest.TestCase):
+class Parse(unittest.TestCase):
 
     def test_parse_xl_ref_Cells_types(self):
         xl_ref = 'b1:C2'
@@ -202,7 +202,7 @@ class TestXlRef(unittest.TestCase):
         self.assertEquals(res['url_file'], '')
 
 
-class TestResolve(unittest.TestCase):
+class Resolve(unittest.TestCase):
 
     def make_states_matrix(self):
         states_matrix = np.array([
@@ -217,6 +217,81 @@ class TestResolve(unittest.TestCase):
         args = (states_matrix, sheet_margins)
 
         return args
+
+    def check_target_opposite_state(self, land_state, land_row, land_col,
+                                    moves, last, exp_row, exp_col):
+        states_matrix, margins = self.make_states_matrix()
+        argshead = (states_matrix, xr.Cell(margins.row['_'], margins.col['_']))
+
+        land_cell = xr.Cell(land_row, land_col)
+        args = argshead + (land_state, land_cell, moves, last)
+        res = xr._target_opposite_state(*args)
+        self.assertEqual(res, xr.Cell(exp_row, exp_col))
+
+    def check_target_opposite_state_RaisesTargetMissed(self,
+                                                       land_state, land_row, land_col, moves):
+        self.assertRaisesRegex(ValueError, "No target for landing",
+                               self.check_target_opposite_state,
+                               land_state, land_row, land_col, moves, None, None, None)
+
+    def test_target_opposite_state(self):
+        self.check_target_opposite_state(False, 0, 0, 'DR', None, 3, 2)
+        self.check_target_opposite_state(False, 0, 0, 'RD', None, 2, 3)
+
+        self.check_target_opposite_state(True, 3, 2, 'D', None, 4, 2)
+
+        self.check_target_opposite_state(True, 7, 2, 'U', None, 7, 2)
+        self.check_target_opposite_state(False, 7, 9, 'UL', None, 4, 5)
+
+    def test_target_opposite_state_BeyondBounds(self):
+        self.check_target_opposite_state(False, 3, 10, 'L', None, 3, 5)
+        self.check_target_opposite_state(False, 3, 10, 'LD', None, 3, 5)
+        self.check_target_opposite_state(False, 3, 10, 'LU', None, 3, 5)
+
+        self.check_target_opposite_state(False, 10, 2, 'U', None, 4, 2)
+        self.check_target_opposite_state(False, 10, 2, 'UL', None, 4, 2)
+        self.check_target_opposite_state(False, 10, 2, 'UR', None, 4, 2)
+
+        self.check_target_opposite_state(False, 10, 5, 'U', None, 4, 5)
+        self.check_target_opposite_state(False, 10, 5, 'UR', None, 4, 5)
+        self.check_target_opposite_state(False, 10, 5, 'UL', None, 4, 5)
+
+    def test_target_opposite_state_BeyondBounds_FAILING(self):
+        self.check_target_opposite_state(False, 2, 10, 'UL', None, 2, 5)
+        self.check_target_opposite_state(False, 2, 10, 'DL', None, 4, 5)
+
+        self.check_target_opposite_state(False, 3, 10, 'UL', None, 2, 5)
+        self.check_target_opposite_state(False, 3, 10, 'DL', None, 4, 5)
+
+        self.check_target_opposite_state(False, 4, 10, 'UL', None, 2, 5)
+        self.check_target_opposite_state(False, 4, 10, 'DL', None, 4, 5)
+
+        self.check_target_opposite_state(False, 10, 2, 'LU', None, 4, 2)
+        self.check_target_opposite_state(False, 10, 2, 'RU', None, 4, 5)
+
+        self.check_target_opposite_state(False, 10, 4, 'LU', None, 4, 2)
+        self.check_target_opposite_state(False, 10, 4, 'RU', None, 4, 5)
+
+        self.check_target_opposite_state(False, 10, 5, 'LU', None, 4, 2)
+        self.check_target_opposite_state(False, 10, 5, 'RU', None, 4, 5)
+
+    def test_target_opposite_state_InvalidMoves(self):
+        bad_dirs = list('UDLR') + ['UR', 'RU', 'UL', 'LU', 'DL', 'LD']
+        for d in bad_dirs:
+            self.check_target_opposite_state_RaisesTargetMissed(
+                False, 0, 0, d)
+
+    def TODO_Check_StateFalse(self):
+        pass
+#                 >>> states_matrix = np.array([
+#         ...     [1, 1, 1],
+#         ...     [1, 1, 1],
+#         ...     [1, 1, 1],
+#         ... ])
+#         >>> args = (states_matrix, (2, 2))
+#
+#         >>> _target_opposite_state(*(args + (True, Cell(0, 2), 'LD')))
+#         Cell(row=2, col=2)
 
     def check_resolve_capture_rect(self, *args):
         #     st_row, st_col, st_mov,
@@ -237,7 +312,7 @@ class TestResolve(unittest.TestCase):
         self.check_resolve_capture_rect('^', '^', 'RD', '.', '.', 'RD',
                                         2, 3, 2, 5)
 
-    def test_resolve_capture_rect_Tartet_fromEmpty_st(self):
+    def test_resolve_capture_rect_Target_fromEmpty_st(self):
         self.check_resolve_capture_rect('^', '^', 'D', '_', '_', None,
                                         3, 2, 4, 5)
         self.check_resolve_capture_rect('^', '^', 'DR', '_', '_', None,
@@ -257,7 +332,7 @@ class TestResolve(unittest.TestCase):
         self.check_resolve_capture_rect('4', 'D', 'LU', '4', 'F', 'RD',
                                         3, 2, 4, 5)
 
-    def test_resolve_capture_rect_Tartet_fromEmpty_nd(self):
+    def test_resolve_capture_rect_Target_fromEmpty_nd(self):
         self.check_resolve_capture_rect('3', 'D', None, '4', 'E', 'R',
                                         2, 3, 3, 5)
 
@@ -301,7 +376,7 @@ class TestResolve(unittest.TestCase):
                                         2, 2, 4, 5)
 
 
-class TestXlRead(unittest.TestCase):
+class Read1(unittest.TestCase):
 
     def setUp(self):
         from tempfile import mkstemp
@@ -390,7 +465,7 @@ class TestXlRead(unittest.TestCase):
                              xl_ref_parent['xl_sheet'])
 
 
-class TestXlRead_rect(unittest.TestCase):
+class Read2(unittest.TestCase):  # FIXME: Why another class
 
     def setUp(self):
         from tempfile import mkstemp
