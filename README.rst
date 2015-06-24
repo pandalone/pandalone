@@ -250,7 +250,7 @@ by typing the :command:`pip` in the console:
 
       $ pip install git+git://github.com/pandalone/pandalone.git  --pre
 
-- If you want to upgrade an existing instalation along with all its dependencies,
+- If you want to upgrade an existing installation along with all its dependencies,
   add also :option:`--upgrade` (or :option:`-U` equivalently), but then the build might take some
   considerable time to finish.  Also there is the possibility the upgraded libraries might break
   existing programs(!) so use it with caution, or from within a |virtualenv|_.
@@ -350,7 +350,7 @@ The files and folders of the project are listed below::
     +--tests/           ## (package) Test-cases
     +--docs/            ## Documentation folder
     +--setup.py         ## (script) The entry point for `setuptools`, installing, testing, etc
-    +--requirements/    ## (txt-files) Various pip-dependencies for tools.
+    +--requirements/    ## (txt-files) Various pip and conda dependencies.
     +--README.rst
     +--CHANGES.rst
     +--LICENSE.txt
