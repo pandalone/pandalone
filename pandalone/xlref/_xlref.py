@@ -680,15 +680,22 @@ def _target_opposite_state(states_matrix, dn, state, land, moves):
         Coords(row=3, col=5)
 
     """
-    c = _target_opposite_state_impl(
+    target, last_move = _target_opposite_state_impl(
         states_matrix, dn, state, land, moves)
-    return Coords(c[0], c[1])
+
+    if state and (land != target).any():
+        target -= last_move
+
+    return Coords(target[0], target[1])
 
 
 def _target_opposite_state_impl(states_matrix, dn, state, land, moves):
     up = Coords(0, 0)
     mv1 = _primitive_dir[moves[0]]
-    mv2 = _primitive_dir[moves[1]] if len(moves) > 1 else None
+    try:
+        mv2 = _primitive_dir[moves[1]]
+    except IndexError:
+        mv2 = None
     c0 = np.array(land)
 
     if not state:
@@ -699,18 +706,14 @@ def _target_opposite_state_impl(states_matrix, dn, state, land, moves):
 
     while (up <= c0).all() and (c0 <= dn).all():
         c1 = c0.copy()
-        ## Why rescane each time?
+        # Why rescan each time when searching-same?
         while (up <= c1).all():
             try:
                 if states_matrix[c1[0], c1[1]] != state:
-                    if state and (land != c1).any():
-                        c1 -= mv1
-                    return c1
+                    return c1, mv1
             except IndexError:
                 if state:
-                    if (land != c1).any():
-                        c1 -= mv1
-                    return c1
+                    return c1, mv1
                 break
             c1 += mv1
 
@@ -720,9 +723,7 @@ def _target_opposite_state_impl(states_matrix, dn, state, land, moves):
         c0 += mv2
 
     if state:
-        if not mv2 is None and (land != c0).any():
-            c0 -= mv2
-        return c0
+        return c0, mv2
 
     raise ValueError(
         'No target for landing-{} with movement({})!'.format(land, moves))

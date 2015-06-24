@@ -220,73 +220,72 @@ class Resolve(unittest.TestCase):
         return args
 
     def check_target_opposite_state(self, land_state, land_row, land_col,
-                                    moves, last, exp_row, exp_col):
+                                    moves, exp_row, exp_col):
         target_func = xr._target_opposite_state
         self.check_target_func(target_func, land_state, land_row, land_col,
-                               moves, last, exp_row, exp_col)
+                               moves, exp_row, exp_col)
 
     def check_target_same_state(self, land_state, land_row, land_col,
                                 moves, exp_row, exp_col):
         target_func = xr._target_same_state
         self.check_target_func(target_func, land_state, land_row, land_col,
-                               moves, None, exp_row, exp_col)
+                               moves, exp_row, exp_col)
 
     def check_target_func(self, *args):
         (target_func, land_state, land_row, land_col,
-         moves, last, exp_row, exp_col) = args
+         moves, exp_row, exp_col) = args
         states_matrix, margins = self.make_states_matrix()
         argshead = (
             states_matrix, xr.Coords(margins.row['_'], margins.col['_']))
 
         land_cell = xr.Coords(land_row, land_col)
         args = argshead + (land_state, land_cell, moves)
-        if last:
-            args += args + (last, )
         res = target_func(*args)
         self.assertEqual(res, xr.Coords(exp_row, exp_col), str(args))
 
-    def check_target_opposite_state_RaisesTargetMissed(self,
-                                                       land_state, land_row, land_col, moves):
-        self.assertRaisesRegex(ValueError, "No target for landing",
-                               self.check_target_opposite_state,
-                               land_state, land_row, land_col, moves, None, None, None)
+    def check_target_opposite_state_RaisesTargetMissed(self, *args):
+        ## args =(land_state, land_row, land_col, moves)
+        with self.assertRaisesRegexp(ValueError, "No target for landing",
+                                     msg=str(args)):
+            args += (None, None)
+            self.check_target_opposite_state(*args)
 
     def test_target_opposite_state(self):
-        self.check_target_opposite_state(False, 0, 0, 'DR', None, 3, 2)
-        self.check_target_opposite_state(False, 0, 0, 'RD', None, 2, 3)
+        self.check_target_opposite_state(False, 0, 0, 'DR', 3, 2)
+        self.check_target_opposite_state(False, 0, 0, 'RD', 2, 3)
 
-        self.check_target_opposite_state(True, 3, 2, 'D', None, 4, 2)
+        self.check_target_opposite_state(True, 3, 2, 'D', 4, 2)
 
         # FIXME: Why is this working!!!
-        self.check_target_opposite_state(True, 7, 2, 'U', None, 7, 2)
-        self.check_target_opposite_state(False, 7, 9, 'UL', None, 4, 5)
+        self.check_target_opposite_state(True, 7, 2, 'U', 7, 2)
+        self.check_target_opposite_state(False, 7, 9, 'UL', 4, 5)
 
     def test_target_opposite_state_Beyond_columns(self):
         dirs = ['L', 'LU', 'LD', 'UL', 'DL']
         for d in dirs:
             for row in [2, 3, 4]:
                 self.check_target_opposite_state(
-                    False, row, 10, d, None, row, 5)
+                    False, row, 10, d, row, 5)
             if 'D' in d:
-                self.check_target_opposite_state(False, 0, 10, d, None, 2, 5)
+                self.check_target_opposite_state(False, 0, 10, d, 2, 5)
 
     def test_target_opposite_state_Beyond_rows(self):
         dirs = ['U', 'UL', 'UR', 'LU', 'RU']
         for d in dirs:
             for col in [2, 3, 5]:
                 self.check_target_opposite_state(
-                    False, 10, col, d, None, 4, col)
+                    False, 10, col, d, 4, col)
             if 'U' in d[0]:
-                self.check_target_opposite_state(False, 10, 4, d, None, 2, 4)
+                self.check_target_opposite_state(False, 10, 4, d, 2, 4)
             if 'R' in d:
-                self.check_target_opposite_state(False, 10, 0, d, None, 4, 2)
+                self.check_target_opposite_state(False, 10, 0, d, 4, 2)
 
-        self.check_target_opposite_state(False, 10, 4, 'LU', None, 4, 3)
-        self.check_target_opposite_state(False, 10, 4, 'RU', None, 4, 5)
+        self.check_target_opposite_state(False, 10, 4, 'LU', 4, 3)
+        self.check_target_opposite_state(False, 10, 4, 'RU', 4, 5)
 
     def test_target_opposite_state_Beyond_both(self):
-        self.check_target_opposite_state(False, 10, 10, 'UL', None, 4, 5)
-        self.check_target_opposite_state(False, 10, 10, 'LU', None, 4, 5)
+        self.check_target_opposite_state(False, 10, 10, 'UL', 4, 5)
+        self.check_target_opposite_state(False, 10, 10, 'LU', 4, 5)
 
     def test_target_opposite_state_InvalidMoves(self):
         bad_dirs = list('UDLR') + ['UR', 'RU', 'UL', 'LU', 'DL', 'LD']
