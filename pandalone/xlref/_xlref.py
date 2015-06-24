@@ -15,6 +15,7 @@ import json
 import logging
 import re
 from string import ascii_uppercase
+from types import ModuleType
 
 import itertools as itt
 import numpy as np
@@ -69,14 +70,14 @@ _re_rect_exp_splitter = re.compile('([LURD]\d+)', re.IGNORECASE)
 # TODO: Make rect_expansions `?` work different from numbers.
 _re_rect_expansion_parser = re.compile(
     r"""
-    ^(?P<moves>[LURD]+)                                    # primitive moves
+    ^(?P<moves>[LURD]+)                                  # primitive moves
     (?P<times>\?|\d+)?                                   # repetition times
     $""",
     re.IGNORECASE | re.X)
 
 
 Coords = namedtuple('Coords', ['row', 'col'])
-"""Its coords might be "A1" (strings, 1-based) or "resolved" (0-based)."""
+"""A "X, Y" pair of coords might be "A1" (strings, 1-based) or "resolved" (numeric, 0-based)."""
 
 Edge = namedtuple('Edge', ['land', 'mov'])
 """
@@ -299,9 +300,9 @@ def parse_xl_ref(xl_ref):
         raise ValueError(msg % (xl_ref, ex))
 
 
-def parse_xl_url(url):
+def parse_xl_url(url, base_url=None, backend=None):
     """
-    Parses the contents of an :term:`xl-url`.
+    Uses a one-shot :class:`Spreadsheet` to parse a :term:`xl-url`.
 
     :param str url:
         a string with the following format::
@@ -311,6 +312,8 @@ def parse_xl_url(url):
         Exxample::
 
             file:///path/to/file.xls#sheet_name!UP10:DN20:LDL1{"dim":2}
+    :param XlUrl base_url:
+    :param module backend: one of :mod:`_xlrd` or mod:`_xlwings`
 
     :return:
         dictionary containing the following parameters::
@@ -667,11 +670,11 @@ def _target_opposite_state(states_matrix, dn, state, land, moves):
 
         >>> _target_opposite_state(*(args + (False, Coords(0, 0), 'D')))
         Traceback (most recent call last):
-        ValueError: No target for landing-Coords(row=0, col=0) with movement(D)!
+        ValueError: No full-target for landing-Coords(row=0, col=0) with movement(D)!
 
         >>> _target_opposite_state(*(args + (False, Coords(0, 0), 'UR')))
         Traceback (most recent call last):
-        ValueError: No target for landing-Coords(row=0, col=0) with movement(UR)!
+        ValueError: No full-target for landing-Coords(row=0, col=0) with movement(UR)!
 
 
     But notice that the landing-cell maybe outside of bounds::
@@ -691,12 +694,9 @@ def _target_opposite_state(states_matrix, dn, state, land, moves):
 
 def _target_opposite_state_impl(states_matrix, dn, state, land, moves):
     up = Coords(0, 0)
-    mv1 = _primitive_dir[moves[0]]
-    try:
-        mv2 = _primitive_dir[moves[1]]
-    except IndexError:
-        mv2 = None
     c0 = np.array(land)
+    mv1 = _primitive_dir[moves[0]]
+    mv2 = _primitive_dir[moves[1]] if len(moves) > 1 else None
 
     if not state:
         if land.row > dn.row and 'U' in moves:
@@ -726,7 +726,8 @@ def _target_opposite_state_impl(states_matrix, dn, state, land, moves):
         return c0, mv2
 
     raise ValueError(
-        'No target for landing-{} with movement({})!'.format(land, moves))
+        'No {}-target for landing-{} with movement({})!'.format(
+            'empty' if state else 'full', land, moves))
 
 
 def _target_same_state(states_matrix, dn, state, cell, moves):
@@ -772,7 +773,7 @@ def _target_same_state(states_matrix, dn, state, cell, moves):
 
         >>> _target_same_state(*(args + (False, Coords(2, 2), 'UL')))
         Traceback (most recent call last):
-        ValueError: No target for landing-Coords(row=2, col=2) with movement(U)!
+        ValueError: No full-target for landing-Coords(row=2, col=2) with movement(U)!
 
 
     But notice that the landing-cell maybe outside of bounds::
@@ -972,6 +973,9 @@ def read_capture_rect(sheet, states_matrix, xl_rect):
     Extracts :term:`capture-rect` values from excel-sheet and apply :term:`filters`.
 
     :param sheet:
+            anything supporting the :func:`read_rect(states_matrix, xl_rect)`
+            such as the the :class:`Spreadsheet` which can hide-away
+            the backend-module .
     :param tuple xl_rect:  tuple (num_cell, num_cell) with the edge targets of
                            the capture-rect
     :param ndarray states_matrix:
@@ -991,10 +995,10 @@ def read_capture_rect(sheet, states_matrix, xl_rect):
         >>> writer = pd.ExcelWriter(tmp)
         >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
         >>> writer.save()
-        >>> sheet = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
 
     Examples::
 
+        >>> sheet = Spreadsheet(xlrd.open_workbook(tmp).sheet_by_name('Sheet1'))
         >>> stm = np.array([
         ...     [0, 0, 0, 0, 0, 0, 0],
         ...     [0, 0, 0, 0, 0, 0, 0],
@@ -1033,7 +1037,7 @@ def read_capture_rect(sheet, states_matrix, xl_rect):
 
     st_target, nd_target = xl_rect
 
-    table = _xlrd.read_rect(sheet, states_matrix, xl_rect)
+    table = sheet.read_rect(states_matrix, xl_rect)
 
     # column
     if nd_target.col == st_target.col:
@@ -1182,3 +1186,22 @@ def _process_captured_values(value, type=None, args=(), kws=None, filters=None,
         for v in filters:
             val = _process_captured_values(val, **v)
     return val
+
+
+class Spreadsheet(object):
+    """
+    A wrapper for excel-worksheets created by backends, delegating back to them.
+    """
+
+    def __init__(self, sheet, backend=_xlrd):
+        if not isinstance(backend, ModuleType):
+            import importlib
+            backend = importlib.import_module(backend)
+        self._backend = backend
+        self._sheet = sheet
+
+    def read_rect(self, states_matrix, xl_rect):
+        return self._backend.read_rect(self._sheet, states_matrix, xl_rect)
+
+    def read_states_matrix(self):
+        return self._backend.read_states_matrix(self._sheet)

@@ -31,7 +31,7 @@ xl_installed = check_xl_installed()
 
 
 def _make_xl_margins(sheet):
-    states_matrix = xd.read_states_matrix(sheet)
+    states_matrix = sheet.read_states_matrix()
 
     up = (0, 0)
 
@@ -56,7 +56,7 @@ def _make_local_url(fname, fragment=''):
 
 
 def _read_rect_values(sheet, st_edge, nd_edge=None):
-    states_matrix = xd.read_states_matrix(sheet)
+    states_matrix = sheet.read_states_matrix()
     sheet_margins = xr.get_sheet_margins(states_matrix)
     xl_rect = xr.resolve_capture_rect(states_matrix, sheet_margins,
                                       st_edge, nd_edge)  # or Edge(None, None))
@@ -77,6 +77,11 @@ class Doctest(unittest.TestCase):
             xd, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
+
+
+_all_dir_pairs = ['LU', 'LD', 'UL', 'DL']
+_all_dir_pairs += _all_dir_pairs[::-1]
+_all_dirs = list(['LRUD']) + _all_dir_pairs
 
 
 class Parse(unittest.TestCase):
@@ -245,20 +250,39 @@ class Resolve(unittest.TestCase):
 
     def check_target_opposite_state_RaisesTargetMissed(self, *args):
         ## args =(land_state, land_row, land_col, moves)
-        with self.assertRaisesRegexp(ValueError, "No target for landing",
+        with self.assertRaisesRegexp(ValueError, "No \w+-target for",
                                      msg=str(args)):
             args += (None, None)
             self.check_target_opposite_state(*args)
 
-    def test_target_opposite_state(self):
+    def test_target_opposite_state_Basic(self):
         self.check_target_opposite_state(False, 0, 0, 'DR', 3, 2)
         self.check_target_opposite_state(False, 0, 0, 'RD', 2, 3)
 
-        self.check_target_opposite_state(True, 3, 2, 'D', 4, 2)
+        self.check_target_opposite_state(False, 3, 0, 'UR', 3, 2)
+        self.check_target_opposite_state(False, 3, 0, 'RU', 3, 2)
+        self.check_target_opposite_state(False, 3, 0, 'DR', 3, 2)
+        self.check_target_opposite_state(False, 3, 0, 'RD', 3, 2)
 
-        # FIXME: Why is this working!!!
+        self.check_target_opposite_state(False, 0, 3, 'DL', 2, 3)
+        self.check_target_opposite_state(False, 0, 3, 'LD', 2, 3)
+        self.check_target_opposite_state(False, 0, 3, 'DR', 2, 3)
+        self.check_target_opposite_state(False, 0, 3, 'RD', 2, 3)
+
+    def test_target_opposite_state_NotMovingFromMatch(self):
+        coords = [(2, 3), (3, 2),
+                  (2, 4), (2, 5),
+                  (3, 5),
+                  (4, 2), (4, 3),   (4, 5),
+                  ]
+        for d in _all_dirs:
+            for r, c in coords:
+                self.check_target_opposite_state(False, r, c, d, r, c)
+
+    def test_target_opposite_state_NotState(self):
+        # FIXME: How is this working!!!
         self.check_target_opposite_state(True, 7, 2, 'U', 7, 2)
-        self.check_target_opposite_state(False, 7, 9, 'UL', 4, 5)
+        self.check_target_opposite_state(True, 3, 2, 'D', 4, 2)
 
     def test_target_opposite_state_Beyond_columns(self):
         dirs = ['L', 'LU', 'LD', 'UL', 'DL']
@@ -305,7 +329,7 @@ class Resolve(unittest.TestCase):
 #         >>> _target_opposite_state(*(args + (True, Coords(0, 2), 'LD')))
 #         Coords(row=2, col=2)
 
-    def test_target_same_state_inverseWalking(self):
+    def test_target_same_state_InverseWalking(self):
         self.check_target_same_state(True, 2, 5, 'LD', 4, 3)
 
         self.check_target_same_state(True, 4, 5, 'LU', 2, 5)
@@ -415,7 +439,8 @@ class Read1(unittest.TestCase):
                                        [1, 1],
                                        [1, 1],
                                        [1, 1]], dtype=bool)
-        self.sheet = xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1')
+        self.sheet = xr.Spreadsheet(
+            xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
 
     def tearDown(self):
         del self.sheet
@@ -502,7 +527,8 @@ class Read2(unittest.TestCase):  # FIXME: Why another class
 
         _make_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
 
-        self.sheet = xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1')
+        self.sheet = xr.Spreadsheet(
+            xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
 
     def tearDown(self):
         del self.sheet
@@ -730,7 +756,8 @@ class TestVsXlwings(unittest.TestCase):
              [0, 0, 0, 1, 1, 1, 0],
              [0, 0, 0, 1, 0, 1, 1]], dtype=bool)
 
-        self.sheet = xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1')
+        self.sheet = xr.Spreadsheet(
+            xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
         self.xl_ma = xr.get_sheet_margins(self.states_matrix)
 
     def tearDown(self):
@@ -870,3 +897,17 @@ class TestVsXlwings(unittest.TestCase):
         args = (sheet, states_matrix, rng)
         res = [1]
         self.assertEqual(xr.read_capture_rect(*args), res)
+
+
+class Spreadsheet(unittest.TestCase):
+
+    def test_backend_Default(self):
+        sheet = xr.Spreadsheet(sheet=None)
+        self.assertEqual(sheet._backend, xd)
+
+    def test_backend_Excplicit(self):
+        sheet = xr.Spreadsheet(sheet=None, backend='pandalone.xlref._xlref')
+        self.assertEqual(sheet._backend, xr)
+
+        sheet = xr.Spreadsheet(sheet=None, backend='pandalone.xlref._xlrd')
+        self.assertEqual(sheet._backend, xd)
