@@ -629,7 +629,7 @@ def _resolve_cell(cell, margins, base_cell=None):
         raise ValueError("invalid cell(%s) due to: %s" % (cell, ex))
 
 
-def _target_opposite_state(states_matrix, dn, state, cell, moves):
+def _target_opposite_state(states_matrix, dn, state, land, moves):
     """
 
     :param ndarray states_matrix:
@@ -639,7 +639,7 @@ def _target_opposite_state(states_matrix, dn, state, cell, moves):
             the bottom/right in resolved-coords
     :param bool state:
             the state of the landing-cell, or `False` if beyond limits
-    :param cell:
+    :param land:
             the landing-cell
     :param moves:
     :return: the identified resolved-Coords
@@ -681,53 +681,51 @@ def _target_opposite_state(states_matrix, dn, state, cell, moves):
 
     """
     c = _target_opposite_state_impl(
-        states_matrix, dn, state, cell, moves)
+        states_matrix, dn, state, land, moves)
     return Coords(c[0], c[1])
 
 
-def _target_opposite_state_impl(states_matrix, dn, state, cell, moves):
+def _target_opposite_state_impl(states_matrix, dn, state, land, moves):
     up = Coords(0, 0)
-    _mv = moves[0]
-    mv = _primitive_dir[_mv]  # first move
-    c0 = np.array(cell)
+    mv1 = _primitive_dir[moves[0]]
+    mv2 = _primitive_dir[moves[1]] if len(moves) > 1 else None
+    c0 = np.array(land)
 
     if not state:
-        if cell.row > dn.row and 'U' in moves:
+        if land.row > dn.row and 'U' in moves:
             c0[0] = dn[0]
-        if cell.col > dn.col and 'L' in moves:
+        if land.col > dn.col and 'L' in moves:
             c0[1] = dn[1]
 
-    after_1st = False
-    while True:
+    while (up <= c0).all() and (c0 <= dn).all():
         c1 = c0.copy()
+        ## Why rescane each time?
         while (up <= c1).all():
             try:
                 if states_matrix[c1[0], c1[1]] != state:
-                    if state and after_1st:
-                        c1 -= mv
+                    if state and (land != c1).any():
+                        c1 -= mv1
                     return c1
             except IndexError:
                 if state:
-                    if after_1st:
-                        c1 -= mv
+                    if (land != c1).any():
+                        c1 -= mv1
                     return c1
                 break
-            c1 += mv
-            after_1st = True
+            c1 += mv1
 
-        try:
-            c0 = c0 + _primitive_dir[moves[1]]  # second move
-        except IndexError:
+        if mv2 is None:
             break
 
-        if not ((up <= c0).all() and (c0 <= dn).all()):
-            if state:
-                c0 = c0 - _primitive_dir[moves[1]]
-                return c0
-            break
+        c0 += mv2
+
+    if state:
+        if not mv2 is None and (land != c0).any():
+            c0 -= mv2
+        return c0
 
     raise ValueError(
-        'No target for landing-{} with movement({})!'.format(cell, moves))
+        'No target for landing-{} with movement({})!'.format(land, moves))
 
 
 def _target_same_state(states_matrix, dn, state, cell, moves):
