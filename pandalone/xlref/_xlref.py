@@ -299,7 +299,7 @@ def parse_xl_ref(xl_ref):
         raise ValueError(msg % (xl_ref, ex))
 
 
-def parse_xl_url(url):
+def parse_xl_url(url,):
     """
     Parses the contents of an :term:`xl-url`.
 
@@ -629,17 +629,22 @@ def _resolve_cell(cell, margins, base_cell=None):
         raise ValueError("invalid cell(%s) due to: %s" % (cell, ex))
 
 
-def _target_opposite_state(states_matrix, dn, state, cell, moves, last=False):
+def _target_opposite_state(states_matrix, dn, state, cell, moves, penultimate=False):
     """
 
     :param ndarray states_matrix:
             An array with `False` wherever cell are blank or empty.
             Use :func:`read_states_matrix()` to derrive it.
-    :param Cell dn:         the bottom/right in resolved-coords
-    :param bool state:      the state of the landing-cell, or `False`
-                            if beyond limits
-    :param cell:            the landing-cell
+    :param Cell dn:
+            the bottom/right in resolved-coords
+    :param bool state:
+            the state of the landing-cell, or `False` if beyond limits
+    :param cell:
+            the landing-cell
     :param moves:
+    :param bool penultimate:
+            Whether to de-apply the last-move before
+            returning coords
     :return: the identified resolved-Cell
 
 
@@ -652,7 +657,7 @@ def _target_opposite_state(states_matrix, dn, state, cell, moves, last=False):
         ...     [0, 0, 1, 0, 0, 1],
         ...     [0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (states_matrix, (4, 5))
+        >>> args = (states_matrix, Cell(4, 5))
 
         >>> _target_opposite_state(*(args + (False, Cell(0, 0), 'DR')))
         Cell(row=3, col=2)
@@ -678,35 +683,43 @@ def _target_opposite_state(states_matrix, dn, state, cell, moves, last=False):
         Cell(row=3, col=5)
 
     """
-    up = (0, 0)
-    mv = _primitive_dir[moves[0]]  # first move
+    c = _target_opposite_state_impl(
+        states_matrix, dn, state, cell, moves, penultimate=False)
+    return Cell(c[0], c[1])
+
+
+def _target_opposite_state_impl(states_matrix, dn, state, cell, moves,
+                                penultimate=False):
+    up = Cell(0, 0)
+    _mv = moves[0]
+    mv = _primitive_dir[_mv]  # first move
     c0 = np.array(cell)
 
     if not state:
-        if not c0[0] <= dn[0] and 'U' in moves:
+        if cell.row > dn.row and 'U' in moves:
             c0[0] = dn[0]
-        if not c0[1] <= dn[1] and 'L' in moves:
+        if cell.col > dn.col and 'L' in moves:
             c0[1] = dn[1]
     else:
-        last = True
+        penultimate = True
 
-    flag = False
+    first_passed = False
     while True:
-        c1 = c0
+        c1 = c0.copy()
         while (up <= c1).all():
             try:
                 if states_matrix[c1[0], c1[1]] != state:
-                    if last and flag:
-                        c1 = c1 - mv
-                    return Cell(*(c1[0], c1[1]))
+                    if penultimate and first_passed:
+                        c1 -= mv
+                    return c1
             except IndexError:
                 if state:
-                    if last and flag:
-                        c1 = c1 - mv
-                    return Cell(*(c1[0], c1[1]))
+                    if penultimate and first_passed:
+                        c1 -= mv
+                    return c1
                 break
-            c1 = c1 + mv
-            flag = True
+            c1 += mv
+            first_passed = True
 
         try:
             c0 = c0 + _primitive_dir[moves[1]]  # second move
@@ -715,9 +728,9 @@ def _target_opposite_state(states_matrix, dn, state, cell, moves, last=False):
 
         if not ((up <= c0).all() and (c0 <= dn).all()):
             if state:
-                if last:
+                if penultimate:
                     c0 = c0 - _primitive_dir[moves[1]]
-                return Cell(*(c0[0], c0[1]))
+                return c0
             break
 
     raise ValueError(
@@ -747,10 +760,7 @@ def _target_same_state(states_matrix, dn, state, cell, moves):
         ...     [0, 0, 1, 0, 0, 1],
         ...     [0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (states_matrix, (4, 5))
-
-        >>> _target_same_state(*(args + (True, Cell(4, 5), 'UL', )))
-        Cell(row=2, col=2)
+        >>> args = (states_matrix, Cell(4, 5))
 
         >>> _target_same_state(*(args + (True, Cell(4, 5), 'U')))
         Cell(row=2, col=5)
@@ -758,13 +768,12 @@ def _target_same_state(states_matrix, dn, state, cell, moves):
         >>> _target_same_state(*(args + (True, Cell(4, 5), 'L')))
         Cell(row=4, col=2)
 
-        >>> args = (states_matrix, (7, 6))
+        >>> _target_same_state(*(args + (True, Cell(4, 5), 'UL', )))
+        Cell(row=2, col=2)
+
         >>> _target_same_state(*(args + (True, Cell(2, 2), 'DR')))
         Cell(row=2, col=2)
 
-        >>> args = (states_matrix, (7, 6))
-        >>> _target_same_state(*(args + (False, Cell(2, 2), 'DR')))
-        Cell(row=2, col=2)
 
     It fails if a non-empty target-cell cannot be found, or
     it ends-up beyond bounds::
@@ -779,7 +788,7 @@ def _target_same_state(states_matrix, dn, state, cell, moves):
         >>> _target_same_state(*(args + (False, Cell(10, 3), 'U')))
         Cell(row=4, col=3)
 
-    And this is the *negative*(??)::
+    And this is the *negative* (??)::
 
         >>> _target_same_state(*(args + (True, Cell(2, 5), 'DL')))
         Cell(row=4, col=3)
@@ -924,7 +933,7 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
 
     """
 
-    dn = (sheet_margins[0]['_'], sheet_margins[1]['_'])
+    dn = Cell(sheet_margins[0]['_'], sheet_margins[1]['_'])
 
     st = _resolve_cell(st_edge.cell, sheet_margins)
     try:

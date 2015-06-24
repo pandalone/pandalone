@@ -23,6 +23,7 @@ from pandalone.xlref import _xlrd as xd
 import pandas as pd
 import numpy as np
 import xlrd
+from numpy import dtype
 
 
 log = _tutils._init_logging(__name__)
@@ -211,8 +212,8 @@ class Resolve(unittest.TestCase):
             [0, 0, 0, 0, 0, 0],  # '2'
             [0, 0, 0, 1, 1, 1],  # '3'
             [0, 0, 1, 0, 0, 1],  # '4'
-            [0, 0, 1, 1, 1, 1],  # '5'
-        ])
+            [0, 0, 1, 1, 0, 1],  # '5'
+        ], dtype=bool)
         sheet_margins = xr.get_sheet_margins(states_matrix)
         args = (states_matrix, sheet_margins)
 
@@ -220,13 +221,28 @@ class Resolve(unittest.TestCase):
 
     def check_target_opposite_state(self, land_state, land_row, land_col,
                                     moves, last, exp_row, exp_col):
+        target_func = xr._target_opposite_state
+        self.check_target_func(target_func, land_state, land_row, land_col,
+                               moves, last, exp_row, exp_col)
+
+    def check_target_same_state(self, land_state, land_row, land_col,
+                                moves, exp_row, exp_col):
+        target_func = xr._target_same_state
+        self.check_target_func(target_func, land_state, land_row, land_col,
+                               moves, None, exp_row, exp_col)
+
+    def check_target_func(self, *args):
+        (target_func, land_state, land_row, land_col,
+         moves, last, exp_row, exp_col) = args
         states_matrix, margins = self.make_states_matrix()
         argshead = (states_matrix, xr.Cell(margins.row['_'], margins.col['_']))
 
         land_cell = xr.Cell(land_row, land_col)
-        args = argshead + (land_state, land_cell, moves, last)
-        res = xr._target_opposite_state(*args)
-        self.assertEqual(res, xr.Cell(exp_row, exp_col))
+        args = argshead + (land_state, land_cell, moves)
+        if last:
+            args += args + (last, )
+        res = target_func(*args)
+        self.assertEqual(res, xr.Cell(exp_row, exp_col), str(args))
 
     def check_target_opposite_state_RaisesTargetMissed(self,
                                                        land_state, land_row, land_col, moves):
@@ -240,40 +256,36 @@ class Resolve(unittest.TestCase):
 
         self.check_target_opposite_state(True, 3, 2, 'D', None, 4, 2)
 
+        # FIXME: Why is this working!!!
         self.check_target_opposite_state(True, 7, 2, 'U', None, 7, 2)
         self.check_target_opposite_state(False, 7, 9, 'UL', None, 4, 5)
 
-    def test_target_opposite_state_BeyondBounds(self):
-        self.check_target_opposite_state(False, 3, 10, 'L', None, 3, 5)
-        self.check_target_opposite_state(False, 3, 10, 'LD', None, 3, 5)
-        self.check_target_opposite_state(False, 3, 10, 'LU', None, 3, 5)
+    def test_target_opposite_state_Beyond_columns(self):
+        dirs = ['L', 'LU', 'LD', 'UL', 'DL']
+        for d in dirs:
+            for row in [2, 3, 4]:
+                self.check_target_opposite_state(
+                    False, row, 10, d, None, row, 5)
+            if 'D' in d:
+                self.check_target_opposite_state(False, 0, 10, d, None, 2, 5)
 
-        self.check_target_opposite_state(False, 10, 2, 'U', None, 4, 2)
-        self.check_target_opposite_state(False, 10, 2, 'UL', None, 4, 2)
-        self.check_target_opposite_state(False, 10, 2, 'UR', None, 4, 2)
+    def test_target_opposite_state_Beyond_rows(self):
+        dirs = ['U', 'UL', 'UR', 'LU', 'RU']
+        for d in dirs:
+            for col in [2, 3, 5]:
+                self.check_target_opposite_state(
+                    False, 10, col, d, None, 4, col)
+            if 'U' in d[0]:
+                self.check_target_opposite_state(False, 10, 4, d, None, 2, 4)
+            if 'R' in d:
+                self.check_target_opposite_state(False, 10, 0, d, None, 4, 2)
 
-        self.check_target_opposite_state(False, 10, 5, 'U', None, 4, 5)
-        self.check_target_opposite_state(False, 10, 5, 'UR', None, 4, 5)
-        self.check_target_opposite_state(False, 10, 5, 'UL', None, 4, 5)
-
-    def test_target_opposite_state_BeyondBounds_FAILING(self):
-        self.check_target_opposite_state(False, 2, 10, 'UL', None, 2, 5)
-        self.check_target_opposite_state(False, 2, 10, 'DL', None, 4, 5)
-
-        self.check_target_opposite_state(False, 3, 10, 'UL', None, 2, 5)
-        self.check_target_opposite_state(False, 3, 10, 'DL', None, 4, 5)
-
-        self.check_target_opposite_state(False, 4, 10, 'UL', None, 2, 5)
-        self.check_target_opposite_state(False, 4, 10, 'DL', None, 4, 5)
-
-        self.check_target_opposite_state(False, 10, 2, 'LU', None, 4, 2)
-        self.check_target_opposite_state(False, 10, 2, 'RU', None, 4, 5)
-
-        self.check_target_opposite_state(False, 10, 4, 'LU', None, 4, 2)
+        self.check_target_opposite_state(False, 10, 4, 'LU', None, 4, 3)
         self.check_target_opposite_state(False, 10, 4, 'RU', None, 4, 5)
 
-        self.check_target_opposite_state(False, 10, 5, 'LU', None, 4, 2)
-        self.check_target_opposite_state(False, 10, 5, 'RU', None, 4, 5)
+    def test_target_opposite_state_Beyond_both(self):
+        self.check_target_opposite_state(False, 10, 10, 'UL', None, 4, 5)
+        self.check_target_opposite_state(False, 10, 10, 'LU', None, 4, 5)
 
     def test_target_opposite_state_InvalidMoves(self):
         bad_dirs = list('UDLR') + ['UR', 'RU', 'UL', 'LU', 'DL', 'LD']
@@ -292,6 +304,11 @@ class Resolve(unittest.TestCase):
 #
 #         >>> _target_opposite_state(*(args + (True, Cell(0, 2), 'LD')))
 #         Cell(row=2, col=2)
+
+    def test_target_same_state_inverseWalking(self):
+        self.check_target_same_state(True, 2, 5, 'LD', 4, 3)
+
+        self.check_target_same_state(True, 4, 5, 'LU', 2, 5)
 
     def check_resolve_capture_rect(self, *args):
         #     st_row, st_col, st_mov,
@@ -357,9 +374,9 @@ class Resolve(unittest.TestCase):
 
     def test_resolve_capture_rect_BackwardRelative_multipleDirs(self):
         self.check_resolve_capture_rect('_', '_', None, '.', '.', 'UL',
-                                        2, 2, 4, 5)
+                                        2, 5, 4, 5)
         self.check_resolve_capture_rect('_', '_', None, '.', '.', 'LU',
-                                        2, 2, 4, 5)
+                                        2, 5, 4, 5)
 
         self.check_resolve_capture_rect('^', '_', None, '.', '.', 'LD',
                                         2, 3, 4, 5)
@@ -367,12 +384,18 @@ class Resolve(unittest.TestCase):
                                         2, 3, 4, 5)
 
         self.check_resolve_capture_rect('_', '^', None, '.', '.', 'UR',
-                                        3, 2, 4, 5)
+                                        3, 2, 4, 3)
         self.check_resolve_capture_rect('_', '^', None, '.', '.', 'RU',
-                                        3, 2, 4, 5)
+                                        3, 2, 4, 3)
 
     def test_resolve_capture_rect_BackwardMoves_nonRelative(self):
+        self.check_resolve_capture_rect('^', '^', None, '_', '_', None,
+                                        2, 2, 4, 5)
+        self.check_resolve_capture_rect('_', '_', None, '^', '^', None,
+                                        2, 2, 4, 5)
         self.check_resolve_capture_rect('^', '_', None, '_', '^', None,
+                                        2, 2, 4, 5)
+        self.check_resolve_capture_rect('_', '^', None, '^', '_', None,
                                         2, 2, 4, 5)
 
 
