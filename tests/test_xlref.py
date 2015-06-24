@@ -55,11 +55,11 @@ def _make_local_url(fname, fragment=''):
     return 'file:///{}#{}'.format(fpath, fragment)
 
 
-def _read_rect_values(sheet, st_ref, nd_ref=None):
+def _read_rect_values(sheet, st_edge, nd_edge=None):
     states_matrix = xd.read_states_matrix(sheet)
     sheet_margins = xr.get_sheet_margins(states_matrix)
     xl_rect = xr.resolve_capture_rect(states_matrix, sheet_margins,
-                                      st_ref, nd_ref)  # or Edge(None, None))
+                                      st_edge, nd_edge)  # or Edge(None, None))
     return xr.read_capture_rect(sheet, states_matrix, xl_rect)
 
 
@@ -84,31 +84,31 @@ class Parse(unittest.TestCase):
     def test_parse_xl_ref_Coordss_types(self):
         xl_ref = 'b1:C2'
         res = xr.parse_xl_ref(xl_ref)
-        st_ref = res['st_ref']
-        nd_ref = res['nd_ref']
-        self.assertIsInstance(st_ref.cell.row, six.string_types)
-        self.assertIsInstance(st_ref.cell.col, six.string_types)
-        self.assertIsInstance(nd_ref.cell.row, six.string_types)
-        self.assertIsInstance(nd_ref.cell.col, six.string_types)
+        st_edge = res['st_edge']
+        nd_edge = res['nd_edge']
+        self.assertIsInstance(st_edge.land.row, six.string_types)
+        self.assertIsInstance(st_edge.land.col, six.string_types)
+        self.assertIsInstance(nd_edge.land.row, six.string_types)
+        self.assertIsInstance(nd_edge.land.col, six.string_types)
 
     def test_parse_xl_ref_Coordss_col_row_order(self):
         xl_ref = 'b1:C2'
         res = xr.parse_xl_ref(xl_ref)
-        st_ref = res['st_ref']
-        nd_ref = res['nd_ref']
-        self.assertTrue(st_ref.cell.row.isalnum())
-        self.assertTrue(st_ref.cell.col.isalpha())
-        self.assertTrue(nd_ref.cell.row.isalnum())
-        self.assertTrue(nd_ref.cell.col.isalpha())
+        st_edge = res['st_edge']
+        nd_edge = res['nd_edge']
+        self.assertTrue(st_edge.land.row.isalnum())
+        self.assertTrue(st_edge.land.col.isalpha())
+        self.assertTrue(nd_edge.land.row.isalnum())
+        self.assertTrue(nd_edge.land.col.isalpha())
 
     def test_parse_xl_ref_all_upper(self):
         xl_ref = 'b1(uL):C2(Dr):Lur2D'
         res = xr.parse_xl_ref(xl_ref)
-        st_ref = res['st_ref']
-        nd_ref = res['nd_ref']
+        st_edge = res['st_edge']
+        nd_edge = res['nd_edge']
         items = [
-            st_ref.cell.row, st_ref.cell.col, st_ref.mov,
-            nd_ref.cell.row, nd_ref.cell.col, nd_ref.mov,
+            st_edge.land.row, st_edge.land.col, st_edge.mov,
+            nd_edge.land.row, nd_edge.land.col, nd_edge.mov,
         ]
         for i in items:
             if i:
@@ -119,26 +119,26 @@ class Parse(unittest.TestCase):
     def test_basic_parse_xl_ref(self):
         xl_ref = 'Sheet1!a1(L):C2(UL)'
         res = xr.parse_xl_ref(xl_ref)
-        st_ref = res['st_ref']
-        nd_ref = res['nd_ref']
+        st_edge = res['st_edge']
+        nd_edge = res['nd_edge']
         self.assertEquals(res['sheet'], 'Sheet1')
-        self.assertEquals(st_ref.cell, xr.Coords(col='A', row='1'))
-        self.assertEquals(nd_ref.cell, xr.Coords(col='C', row='2'))
-        self.assertEquals(st_ref.mov, 'L')
-        self.assertEquals(nd_ref.mov, 'UL')
+        self.assertEquals(st_edge.land, xr.Coords(col='A', row='1'))
+        self.assertEquals(nd_edge.land, xr.Coords(col='C', row='2'))
+        self.assertEquals(st_edge.mov, 'L')
+        self.assertEquals(nd_edge.mov, 'UL')
 
         xl_ref = 'Sheet1!A1'
         res = xr.parse_xl_ref(xl_ref)
-        self.assertEquals(res['st_ref'].cell, xr.Coords(col='A', row='1'))
-        self.assertEquals(res['nd_ref'], None)
+        self.assertEquals(res['st_edge'].land, xr.Coords(col='A', row='1'))
+        self.assertEquals(res['nd_edge'], None)
 
         xl_ref = 'Sheet1!a1(l):c2(ul){"1":4,"2":"ciao"}'
         res = xr.parse_xl_ref(xl_ref)
         self.assertEquals(res['json'], {'2': 'ciao', '1': 4})
-        self.assertEquals(res['st_ref'].cell, xr.Coords(col='A', row='1'))
-        self.assertEquals(res['nd_ref'].cell, xr.Coords(col='C', row='2'))
-        self.assertEquals(res['st_ref'].mov, 'L')
-        self.assertEquals(res['nd_ref'].mov, 'UL')
+        self.assertEquals(res['st_edge'].land, xr.Coords(col='A', row='1'))
+        self.assertEquals(res['nd_edge'].land, xr.Coords(col='C', row='2'))
+        self.assertEquals(res['st_edge'].mov, 'L')
+        self.assertEquals(res['nd_edge'].mov, 'UL')
 
     def test_errors_parse_xl_ref(self):
         self.assertRaises(ValueError, xr.parse_xl_ref, 's![[]')
@@ -191,8 +191,8 @@ class Parse(unittest.TestCase):
         self.assertEquals(res['url_file'], 'file://path/to/file.xlsx')
         self.assertEquals(res['sheet'], 'Sheet1')
         self.assertEquals(res['json'], {"json": "..."})
-        self.assertEquals(res['st_ref'], xr.Edge(xr.Coords('10', 'U'), 'L'))
-        self.assertEquals(res['nd_ref'], xr.Edge(xr.Coords('20', 'D'), 'D'))
+        self.assertEquals(res['st_edge'], xr.Edge(xr.Coords('10', 'U'), 'L'))
+        self.assertEquals(res['nd_edge'], xr.Edge(xr.Coords('20', 'D'), 'D'))
 
     def test_parse_xl_url_Bad(self):
         self.assertRaises(ValueError, xr.parse_xl_url, *('#!:{"json":"..."', ))

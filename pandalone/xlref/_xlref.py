@@ -78,7 +78,7 @@ _re_rect_expansion_parser = re.compile(
 Coords = namedtuple('Coords', ['row', 'col'])
 """Its coords might be "A1" (strings, 1-based) or "resolved" (0-based)."""
 
-Edge = namedtuple('Edge', ['cell', 'mov'])
+Edge = namedtuple('Edge', ['land', 'mov'])
 """
 An :term:`Edge` might be "cooked" or "uncooked" depending on its `Coords`.
 
@@ -133,13 +133,13 @@ def _uncooked_Edge(row, col, mov):
 
         >>> tr = _uncooked_Edge('1', 'a', 'Rul')
         >>> tr
-        Edge(cell=Coords(row='1', col='A'), mov='RUL')
+        Edge(land=Coords(row='1', col='A'), mov='RUL')
 
 
     No error checking performed::
 
         >>> _uncooked_Edge('Any', 'foo', 'BaR')
-        Edge(cell=Coords(row='Any', col='FOO'), mov='BAR')
+        Edge(land=Coords(row='Any', col='FOO'), mov='BAR')
 
         >>> print(_uncooked_Edge(None, None, None))
         None
@@ -159,7 +159,7 @@ def _uncooked_Edge(row, col, mov):
     if col == row == mov is None:
         return None
 
-    return Edge(cell=Coords(col=col and col.upper(), row=row), mov=mov and mov.upper())
+    return Edge(land=Coords(col=col and col.upper(), row=row), mov=mov and mov.upper())
 
 
 def _repeat_moves(moves, times=None):
@@ -249,8 +249,8 @@ def parse_xl_ref(xl_ref):
         dictionary containing the following parameters::
 
         - sheet: str
-        - st_ref: (Edge, None) the 1st-ref, uncooked, with raw cell
-        - nd_ref: (Edge, None) the 2nd-ref, uncooked, with raw cell
+        - st_edge: (Edge, None) the 1st-ref, uncooked, with raw cell
+        - nd_edge: (Edge, None) the 2nd-ref, uncooked, with raw cell
         - rect_exp: (str) as found on the xl-ref
         - json: parsed
 
@@ -262,10 +262,10 @@ def parse_xl_ref(xl_ref):
         >>> res = parse_xl_ref('Sheet1!A1(DR):Z20(UL):L1U2R1D1:{"json":"..."}')
         >>> sorted(res.items())
         [('json', {'json': '...'}),
-         ('nd_ref', Edge(cell=Coords(row='20', col='Z'), mov='UL')),
+         ('nd_edge', Edge(land=Coords(row='20', col='Z'), mov='UL')),
          ('rect_exp', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
          ('sheet', 'Sheet1'),
-         ('st_ref', Edge(cell=Coords(row='1', col='A'), mov='DR'))]
+         ('st_edge', Edge(land=Coords(row='1', col='A'), mov='DR'))]
 
         >>> parse_xl_ref('A1(DR)Z20(UL)')
         Traceback (most recent call last):
@@ -282,8 +282,8 @@ def parse_xl_ref(xl_ref):
         #     with "uncooked" edge.
         #
         p = gs.pop
-        gs['st_ref'] = _uncooked_Edge(p('st_row'), p('st_col'), p('st_mov'))
-        gs['nd_ref'] = _uncooked_Edge(p('nd_row'), p('nd_col'), p('nd_mov'))
+        gs['st_edge'] = _uncooked_Edge(p('st_row'), p('st_col'), p('st_mov'))
+        gs['nd_edge'] = _uncooked_Edge(p('nd_row'), p('nd_col'), p('nd_mov'))
 
         js = gs['json']
         gs['json'] = json.loads(js) if js else None
@@ -299,14 +299,14 @@ def parse_xl_ref(xl_ref):
         raise ValueError(msg % (xl_ref, ex))
 
 
-def parse_xl_url(url,):
+def parse_xl_url(url):
     """
     Parses the contents of an :term:`xl-url`.
 
     :param str url:
         a string with the following format::
 
-            <url_file>#<sheet>!<1st_ref>:<2nd_ref>:<expand><json>
+            <url_file>#<sheet>!<1st_edge>:<2nd_edge>:<expand><json>
 
         Exxample::
 
@@ -334,10 +334,10 @@ def parse_xl_url(url,):
         >>> res = parse_xl_url(url)
         >>> sorted(res.items())
         [('json', {'2': 'ciao'}),
-         ('nd_ref', Edge(cell=Coords(row='^', col='.'), mov='DR')),
+         ('nd_edge', Edge(land=Coords(row='^', col='.'), mov='DR')),
          ('rect_exp', [repeat('L'), repeat('U', 1)]),
          ('sheet', 'Sheet1'),
-         ('st_ref', Edge(cell=Coords(row='1', col='A'), mov='UL')),
+         ('st_edge', Edge(land=Coords(row='1', col='A'), mov='UL')),
          ('url_file', 'file:///sample.xlsx')]
     """
 
@@ -576,12 +576,12 @@ def _col2num(coord):
     return rcoord
 
 
-def _resolve_cell(cell, margins, base_cell=None):
+def _resolve_cell(cell, margins, base_cords=None):
     """
     Translates any special coords to absolute ones.
 
     :param Coords cell:     The raw cell to translate its coords.
-    :param Coords base_cell: A resolved cell to base dependent coords (``.``).
+    :param Coords base_cords: A resolved cell to base dependent coords (``.``).
     :param Coords margins:  see :func:`get_sheet_margins()`
     :rtype: Coords
 
@@ -618,14 +618,14 @@ def _resolve_cell(cell, margins, base_cell=None):
     """
     try:
         row = _resolve_coord('row', _row2num, cell.row, margins.row,
-                             base_cell and base_cell.row)
+                             base_cords and base_cords.row)
         col = _resolve_coord('col', _col2num, cell.col, margins.col,
-                             base_cell and base_cell.col)
+                             base_cords and base_cords.col)
 
         return Coords(row=row, col=col)
     except Exception as ex:
-        msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  base_cell(%s)"
-        log.debug(msg, cell, ex, margins, base_cell)
+        msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  base_cords(%s)"
+        log.debug(msg, cell, ex, margins, base_cords)
         raise ValueError("invalid cell(%s) due to: %s" % (cell, ex))
 
 
@@ -927,7 +927,7 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
 
     dn = Coords(sheet_margins[0]['_'], sheet_margins[1]['_'])
 
-    st = _resolve_cell(st_edge.cell, sheet_margins)
+    st = _resolve_cell(st_edge.land, sheet_margins)
     try:
         state = states_matrix[st]
     except IndexError:
@@ -940,7 +940,7 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
     if nd_edge is None:
         capt_rect = (st, st)
     else:
-        nd = _resolve_cell(nd_edge.cell, sheet_margins, st)
+        nd = _resolve_cell(nd_edge.land, sheet_margins, st)
 
         if nd_edge.mov is not None:
             mov = nd_edge.mov
