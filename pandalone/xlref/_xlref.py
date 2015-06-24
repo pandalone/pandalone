@@ -75,34 +75,34 @@ _re_rect_expansion_parser = re.compile(
     re.IGNORECASE | re.X)
 
 
-Cell = namedtuple('Cell', ['row', 'col'])
+Coords = namedtuple('Coords', ['row', 'col'])
 """Its coords might be "A1" (strings, 1-based) or "resolved" (0-based)."""
 
 Edge = namedtuple('Edge', ['cell', 'mov'])
 """
-An :term:`Edge` might be "cooked" or "uncooked" depending on its `Cell`.
+An :term:`Edge` might be "cooked" or "uncooked" depending on its `Coords`.
 
-- An *uncooked* edge contains *A1* :class:`Cell`.
-- An *cooked* edge contains a *resolved* :class:`Cell`.
+- An *uncooked* edge contains *A1* :class:`Coords`.
+- An *cooked* edge contains a *resolved* :class:`Coords`.
 
 Use None for missing moves.
 """
 
 
-def num2a1_Cell(row, col):
-    """Make *A1* :class:``Cell`` from *resolved* or special coords, with rudimentary error-checking.
+def num2a1_Coords(row, col):
+    """Make *A1* :class:`Coords` from *resolved* or special coords, with rudimentary error-checking.
 
     Examples::
 
-        >>> num2a1_Cell(row=0, col=0)
-        Cell(row='1', col='A')
-        >>> num2a1_Cell(row=0, col=26)
-        Cell(row='1', col='AA')
+        >>> num2a1_Coords(row=0, col=0)
+        Coords(row='1', col='A')
+        >>> num2a1_Coords(row=0, col=26)
+        Coords(row='1', col='AA')
 
-        >>> num2a1_Cell(row=10, col='.')
-        Cell(row='11', col='.')
+        >>> num2a1_Coords(row=10, col='.')
+        Coords(row='11', col='.')
 
-        >>> num2a1_Cell(row=-3, col=-2)
+        >>> num2a1_Coords(row=-3, col=-2)
         Traceback (most recent call last):
         AssertionError: negative row!
 
@@ -114,7 +114,7 @@ def num2a1_Cell(row, col):
     if col not in _special_coords:
         assert col >= 0, 'negative col!'
         col = _xlrd.colname(col)
-    return Cell(row=row, col=col)
+    return Coords(row=row, col=col)
 
 
 def _uncooked_Edge(row, col, mov):
@@ -133,13 +133,13 @@ def _uncooked_Edge(row, col, mov):
 
         >>> tr = _uncooked_Edge('1', 'a', 'Rul')
         >>> tr
-        Edge(cell=Cell(row='1', col='A'), mov='RUL')
+        Edge(cell=Coords(row='1', col='A'), mov='RUL')
 
 
     No error checking performed::
 
         >>> _uncooked_Edge('Any', 'foo', 'BaR')
-        Edge(cell=Cell(row='Any', col='FOO'), mov='BAR')
+        Edge(cell=Coords(row='Any', col='FOO'), mov='BAR')
 
         >>> print(_uncooked_Edge(None, None, None))
         None
@@ -159,7 +159,7 @@ def _uncooked_Edge(row, col, mov):
     if col == row == mov is None:
         return None
 
-    return Edge(cell=Cell(col=col and col.upper(), row=row), mov=mov and mov.upper())
+    return Edge(cell=Coords(col=col and col.upper(), row=row), mov=mov and mov.upper())
 
 
 def _repeat_moves(moves, times=None):
@@ -262,10 +262,10 @@ def parse_xl_ref(xl_ref):
         >>> res = parse_xl_ref('Sheet1!A1(DR):Z20(UL):L1U2R1D1:{"json":"..."}')
         >>> sorted(res.items())
         [('json', {'json': '...'}),
-         ('nd_ref', Edge(cell=Cell(row='20', col='Z'), mov='UL')),
+         ('nd_ref', Edge(cell=Coords(row='20', col='Z'), mov='UL')),
          ('rect_exp', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
          ('sheet', 'Sheet1'),
-         ('st_ref', Edge(cell=Cell(row='1', col='A'), mov='DR'))]
+         ('st_ref', Edge(cell=Coords(row='1', col='A'), mov='DR'))]
 
         >>> parse_xl_ref('A1(DR)Z20(UL)')
         Traceback (most recent call last):
@@ -334,10 +334,10 @@ def parse_xl_url(url,):
         >>> res = parse_xl_url(url)
         >>> sorted(res.items())
         [('json', {'2': 'ciao'}),
-         ('nd_ref', Edge(cell=Cell(row='^', col='.'), mov='DR')),
+         ('nd_ref', Edge(cell=Coords(row='^', col='.'), mov='DR')),
          ('rect_exp', [repeat('L'), repeat('U', 1)]),
          ('sheet', 'Sheet1'),
-         ('st_ref', Edge(cell=Cell(row='1', col='A'), mov='UL')),
+         ('st_ref', Edge(cell=Coords(row='1', col='A'), mov='UL')),
          ('url_file', 'file:///sample.xlsx')]
     """
 
@@ -361,8 +361,8 @@ def get_sheet_margins(states_matrix):
     :param ndarray states_matrix:
             An array with `False` wherever cell are blank or empty.
             Use :func:`read_states_matrix()` to derrive it.
-    :return:  a `Cell` with zero-based top-left/bottom-right special margins for rows/cols,
-    :rtype: tuple
+    :return:  a `Coords` with zero-based top-left/bottom-right special margins for rows/cols
+    :rtype: Coords
 
     Examples::
 
@@ -374,7 +374,7 @@ def get_sheet_margins(states_matrix):
         ... ]
         >>> margins = get_sheet_margins(states_matrix)
         >>> margins                                         # doctest: +SKIP
-        Cell(row={'_': 3, '^': 1}, col={'_': 2, '^': 1})
+        Coords(row={'_': 3, '^': 1}, col={'_': 2, '^': 1})
 
 
     Note that the botom-left cell is not the same as `states_matrix` matrix size::
@@ -394,8 +394,8 @@ def get_sheet_margins(states_matrix):
     indices = np.asarray(np.where(states_matrix)).T
     up_r, up_c = indices.min(0)
     dn_r, dn_c = indices.max(0)
-    sheet_margins = Cell(row={'^': up_r, '_': dn_r},
-                         col={'^': up_c, '_': dn_c})
+    sheet_margins = Coords(row={'^': up_r, '_': dn_r},
+                           col={'^': up_c, '_': dn_c})
     return sheet_margins
 
 
@@ -580,40 +580,40 @@ def _resolve_cell(cell, margins, base_cell=None):
     """
     Translates any special coords to absolute ones.
 
-    :param Cell cell:     The raw cell to translate its coords.
-    :param Cell base_cell: A resolved cell to base dependent coords (``.``).
-    :param Cell margins:  see :func:`get_sheet_margins()`
-    :rtype: Cell
+    :param Coords cell:     The raw cell to translate its coords.
+    :param Coords base_cell: A resolved cell to base dependent coords (``.``).
+    :param Coords margins:  see :func:`get_sheet_margins()`
+    :rtype: Coords
 
 
     Examples::
 
-        >>> margins = Cell(
+        >>> margins = Coords(
         ...     row={'^':1, '_':10},
         ...     col={'^':2, '_':6})
 
-        >>> _resolve_cell(Cell(col='A', row=5), margins)
-        Cell(row=4, col=0)
+        >>> _resolve_cell(Coords(col='A', row=5), margins)
+        Coords(row=4, col=0)
 
-        >>> _resolve_cell(Cell('^', '^'), margins)
-        Cell(row=1, col=2)
+        >>> _resolve_cell(Coords('^', '^'), margins)
+        Coords(row=1, col=2)
 
-        >>> _resolve_cell(Cell('_', '_'), margins)
-        Cell(row=10, col=6)
+        >>> _resolve_cell(Coords('_', '_'), margins)
+        Coords(row=10, col=6)
 
-        >>> _resolve_cell(Cell('1', '5'), margins)
+        >>> _resolve_cell(Coords('1', '5'), margins)
         Traceback (most recent call last):
-        ValueError: invalid cell(Cell(row='1', col='5')) due to:
+        ValueError: invalid cell(Coords(row='1', col='5')) due to:
                 invalid col('5') due to: substring not found
 
-        >>> _resolve_cell(Cell('A', 'B'), margins)
+        >>> _resolve_cell(Coords('A', 'B'), margins)
         Traceback (most recent call last):
-        ValueError: invalid cell(Cell(row='A', col='B')) due to:
+        ValueError: invalid cell(Coords(row='A', col='B')) due to:
                 invalid row('A') due to: invalid literal for int() with base 10: 'A'
 
-        >>> _resolve_cell(Cell('1', '.'), margins)
+        >>> _resolve_cell(Coords('1', '.'), margins)
         Traceback (most recent call last):
-        ValueError: invalid cell(Cell(row='1', col='.')) due to: invalid col('.') due to: '.'
+        ValueError: invalid cell(Coords(row='1', col='.')) due to: invalid col('.') due to: '.'
 
     """
     try:
@@ -622,30 +622,27 @@ def _resolve_cell(cell, margins, base_cell=None):
         col = _resolve_coord('col', _col2num, cell.col, margins.col,
                              base_cell and base_cell.col)
 
-        return Cell(row=row, col=col)
+        return Coords(row=row, col=col)
     except Exception as ex:
         msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  base_cell(%s)"
         log.debug(msg, cell, ex, margins, base_cell)
         raise ValueError("invalid cell(%s) due to: %s" % (cell, ex))
 
 
-def _target_opposite_state(states_matrix, dn, state, cell, moves, penultimate=False):
+def _target_opposite_state(states_matrix, dn, state, cell, moves):
     """
 
     :param ndarray states_matrix:
             An array with `False` wherever cell are blank or empty.
             Use :func:`read_states_matrix()` to derrive it.
-    :param Cell dn:
+    :param Coords dn:
             the bottom/right in resolved-coords
     :param bool state:
             the state of the landing-cell, or `False` if beyond limits
     :param cell:
             the landing-cell
     :param moves:
-    :param bool penultimate:
-            Whether to de-apply the last-move before
-            returning coords
-    :return: the identified resolved-Cell
+    :return: the identified resolved-Coords
 
 
     Examples::
@@ -657,40 +654,39 @@ def _target_opposite_state(states_matrix, dn, state, cell, moves, penultimate=Fa
         ...     [0, 0, 1, 0, 0, 1],
         ...     [0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (states_matrix, Cell(4, 5))
+        >>> args = (states_matrix, Coords(4, 5))
 
-        >>> _target_opposite_state(*(args + (False, Cell(0, 0), 'DR')))
-        Cell(row=3, col=2)
+        >>> _target_opposite_state(*(args + (False, Coords(0, 0), 'DR')))
+        Coords(row=3, col=2)
 
-        >>> _target_opposite_state(*(args + (False, Cell(0, 0), 'RD')))
-        Cell(row=2, col=3)
+        >>> _target_opposite_state(*(args + (False, Coords(0, 0), 'RD')))
+        Coords(row=2, col=3)
 
     It fails if a non-empty target-cell cannot be found, or
     it ends-up beyond bounds::
 
-        >>> _target_opposite_state(*(args + (False, Cell(0, 0), 'D')))
+        >>> _target_opposite_state(*(args + (False, Coords(0, 0), 'D')))
         Traceback (most recent call last):
-        ValueError: No target for landing-Cell(row=0, col=0) with movement(D)!
+        ValueError: No target for landing-Coords(row=0, col=0) with movement(D)!
 
-        >>> _target_opposite_state(*(args + (False, Cell(0, 0), 'UR')))
+        >>> _target_opposite_state(*(args + (False, Coords(0, 0), 'UR')))
         Traceback (most recent call last):
-        ValueError: No target for landing-Cell(row=0, col=0) with movement(UR)!
+        ValueError: No target for landing-Coords(row=0, col=0) with movement(UR)!
 
 
     But notice that the landing-cell maybe outside of bounds::
 
-        >>> _target_opposite_state(*(args + (False, Cell(3, 10), 'L')))
-        Cell(row=3, col=5)
+        >>> _target_opposite_state(*(args + (False, Coords(3, 10), 'L')))
+        Coords(row=3, col=5)
 
     """
     c = _target_opposite_state_impl(
-        states_matrix, dn, state, cell, moves, penultimate=False)
-    return Cell(c[0], c[1])
+        states_matrix, dn, state, cell, moves)
+    return Coords(c[0], c[1])
 
 
-def _target_opposite_state_impl(states_matrix, dn, state, cell, moves,
-                                penultimate=False):
-    up = Cell(0, 0)
+def _target_opposite_state_impl(states_matrix, dn, state, cell, moves):
+    up = Coords(0, 0)
     _mv = moves[0]
     mv = _primitive_dir[_mv]  # first move
     c0 = np.array(cell)
@@ -700,26 +696,24 @@ def _target_opposite_state_impl(states_matrix, dn, state, cell, moves,
             c0[0] = dn[0]
         if cell.col > dn.col and 'L' in moves:
             c0[1] = dn[1]
-    else:
-        penultimate = True
 
-    first_passed = False
+    after_1st = False
     while True:
         c1 = c0.copy()
         while (up <= c1).all():
             try:
                 if states_matrix[c1[0], c1[1]] != state:
-                    if penultimate and first_passed:
+                    if state and after_1st:
                         c1 -= mv
                     return c1
             except IndexError:
                 if state:
-                    if penultimate and first_passed:
+                    if after_1st:
                         c1 -= mv
                     return c1
                 break
             c1 += mv
-            first_passed = True
+            after_1st = True
 
         try:
             c0 = c0 + _primitive_dir[moves[1]]  # second move
@@ -728,8 +722,7 @@ def _target_opposite_state_impl(states_matrix, dn, state, cell, moves,
 
         if not ((up <= c0).all() and (c0 <= dn).all()):
             if state:
-                if penultimate:
-                    c0 = c0 - _primitive_dir[moves[1]]
+                c0 = c0 - _primitive_dir[moves[1]]
                 return c0
             break
 
@@ -743,12 +736,12 @@ def _target_same_state(states_matrix, dn, state, cell, moves):
     :param ndarray states_matrix:
             An array with `False` wherever cell are blank or empty.
             Use :func:`read_states_matrix()` to derrive it.
-    :param Cell dn:         the bottom/right coords
+    :param Coords dn:         the bottom/right coords
     :param bool state:      the state of the landing-cell, or `False`
                             if beyond limits
     :param cell:            the landing-cell
     :param moves:
-    :return: the identified Cell
+    :return: the identified Coords
 
 
     Examples::
@@ -760,48 +753,48 @@ def _target_same_state(states_matrix, dn, state, cell, moves):
         ...     [0, 0, 1, 0, 0, 1],
         ...     [0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (states_matrix, Cell(4, 5))
+        >>> args = (states_matrix, Coords(4, 5))
 
-        >>> _target_same_state(*(args + (True, Cell(4, 5), 'U')))
-        Cell(row=2, col=5)
+        >>> _target_same_state(*(args + (True, Coords(4, 5), 'U')))
+        Coords(row=2, col=5)
 
-        >>> _target_same_state(*(args + (True, Cell(4, 5), 'L')))
-        Cell(row=4, col=2)
+        >>> _target_same_state(*(args + (True, Coords(4, 5), 'L')))
+        Coords(row=4, col=2)
 
-        >>> _target_same_state(*(args + (True, Cell(4, 5), 'UL', )))
-        Cell(row=2, col=2)
+        >>> _target_same_state(*(args + (True, Coords(4, 5), 'UL', )))
+        Coords(row=2, col=2)
 
-        >>> _target_same_state(*(args + (True, Cell(2, 2), 'DR')))
-        Cell(row=2, col=2)
+        >>> _target_same_state(*(args + (True, Coords(2, 2), 'DR')))
+        Coords(row=2, col=2)
 
 
     It fails if a non-empty target-cell cannot be found, or
     it ends-up beyond bounds::
 
-        >>> _target_same_state(*(args + (False, Cell(2, 2), 'UL')))
+        >>> _target_same_state(*(args + (False, Coords(2, 2), 'UL')))
         Traceback (most recent call last):
-        ValueError: No target for landing-Cell(row=2, col=2) with movement(U)!
+        ValueError: No target for landing-Coords(row=2, col=2) with movement(U)!
 
 
     But notice that the landing-cell maybe outside of bounds::
 
-        >>> _target_same_state(*(args + (False, Cell(10, 3), 'U')))
-        Cell(row=4, col=3)
+        >>> _target_same_state(*(args + (False, Coords(10, 3), 'U')))
+        Coords(row=4, col=3)
 
     And this is the *negative* (??)::
 
-        >>> _target_same_state(*(args + (True, Cell(2, 5), 'DL')))
-        Cell(row=4, col=3)
+        >>> _target_same_state(*(args + (True, Coords(2, 5), 'DL')))
+        Coords(row=4, col=3)
 
     """
 
     c1 = list(cell)
 
     for mv in moves:
-        c = _target_opposite_state(states_matrix, dn, state, cell, mv, True)
+        c = _target_opposite_state(states_matrix, dn, state, cell, mv)
         dis = _primitive_dir[mv]
         c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
-    return Cell(*c1)
+    return Coords(*c1)
 
 
 def _expand_rect(state, xl_rect, states_matrix, rect_exp):
@@ -830,25 +823,25 @@ def _expand_rect(state, xl_rect, states_matrix, rect_exp):
         ...     [0, 0, 0, 1, 1, 1, 1]
         ... ])
 
-        >>> rng = (Cell(row=6, col=3), Cell(row=6, col=3))
+        >>> rng = (Coords(row=6, col=3), Coords(row=6, col=3))
         >>> rect_exp = [_repeat_moves('U')]
         >>> _expand_rect(True, rng, states_matrix, rect_exp)
-        [Cell(row=6, col=3), Cell(row=6, col=3)]
+        [Coords(row=6, col=3), Coords(row=6, col=3)]
 
-        >>> rng = (Cell(row=6, col=3), Cell(row=7, col=3))
+        >>> rng = (Coords(row=6, col=3), Coords(row=7, col=3))
         >>> rect_exp = [_repeat_moves('R')]
         >>> _expand_rect(True, rng, states_matrix, rect_exp)
-        [Cell(row=6, col=3), Cell(row=7, col=6)]
+        [Coords(row=6, col=3), Coords(row=7, col=6)]
 
-        >>> rng = (Cell(row=6, col=3), Cell(row=10, col=3))
+        >>> rng = (Coords(row=6, col=3), Coords(row=10, col=3))
         >>> rect_exp = [_repeat_moves('R')]
         >>> _expand_rect(True, rng, states_matrix, rect_exp)
-        [Cell(row=6, col=3), Cell(row=10, col=6)]
+        [Coords(row=6, col=3), Coords(row=10, col=6)]
 
-        >>> rng = (Cell(row=6, col=5), Cell(row=6, col=5))
+        >>> rng = (Coords(row=6, col=5), Coords(row=6, col=5))
         >>> rect_exp = [_repeat_moves('LURD')]
         >>> _expand_rect(True, rng, states_matrix, rect_exp)
-        [Cell(row=5, col=3), Cell(row=7, col=6)]
+        [Coords(row=5, col=3), Coords(row=7, col=6)]
 
     """
     _m = {
@@ -879,7 +872,7 @@ def _expand_rect(state, xl_rect, states_matrix, rect_exp):
             if flag:
                 break
 
-    return [Cell(*v) for v in xl_rect]
+    return [Coords(*v) for v in xl_rect]
 
 
 def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
@@ -892,13 +885,13 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
     :param ndarray states_matrix:
             An array with `False` wherever cell are blank or empty.
             Use :func:`read_states_matrix()` to derrive it.
-    :param Cell margins:  see :func:`get_sheet_margins()`
+    :param Coords margins:  see :func:`get_sheet_margins()`
     :param Edge st_edge: "uncooked" as matched by regex
     :param Edge nd_edge: "uncooked" as matched by regex
     :param list or none rect_exp:
             the result of :func:`_parse_rect_expansions()`
 
-    :return:    a ``(Cell, Cell)`` with the 1st and 2nd :term:`capture-cell`
+    :return:    a ``(Coords, Coords)`` with the 1st and 2nd :term:`capture-cell`
                 ordered from top-left --> bottom-right.
     :rtype: tuple
 
@@ -913,27 +906,27 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
         ... ])
         >>> sheet_margins = get_sheet_margins(states_matrix)
 
-        >>> st_edge = Edge(Cell('1', 'A'), 'DR')
-        >>> nd_edge = Edge(Cell('.', '.'), 'DR')
+        >>> st_edge = Edge(Coords('1', 'A'), 'DR')
+        >>> nd_edge = Edge(Coords('.', '.'), 'DR')
         >>> resolve_capture_rect(states_matrix, sheet_margins, st_edge, nd_edge)
-        (Cell(row=3, col=2), Cell(row=4, col=2))
+        (Coords(row=3, col=2), Coords(row=4, col=2))
 
     Walking backwards::
 
-        >>> st_edge = Edge(Cell('_', '_'), None)
-        >>> nd_edge = Edge(Cell('.', '.'), 'UL')
+        >>> st_edge = Edge(Coords('_', '_'), None)
+        >>> nd_edge = Edge(Coords('.', '.'), 'UL')
         >>> rect = resolve_capture_rect(states_matrix, sheet_margins, st_edge, nd_edge)
         >>> rect
-        (Cell(row=2, col=2), Cell(row=4, col=5))
+        (Coords(row=2, col=2), Coords(row=4, col=5))
 
-        >>> st_edge = Edge(Cell('^', '_'), None)
-        >>> nd_edge = Edge(Cell('_', '^'), None)
+        >>> st_edge = Edge(Coords('^', '_'), None)
+        >>> nd_edge = Edge(Coords('_', '^'), None)
         >>> rect == resolve_capture_rect(states_matrix, sheet_margins, st_edge, nd_edge)
         True
 
     """
 
-    dn = Cell(sheet_margins[0]['_'], sheet_margins[1]['_'])
+    dn = Coords(sheet_margins[0]['_'], sheet_margins[1]['_'])
 
     st = _resolve_cell(st_edge.cell, sheet_margins)
     try:
@@ -967,7 +960,7 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
         # Order rect-cells.
         #
         c = np.array([st, nd])
-        capt_rect = (Cell(*c.min(0).tolist()), Cell(*c.max(0).tolist()))
+        capt_rect = (Coords(*c.min(0).tolist()), Coords(*c.max(0).tolist()))
 
     if rect_exp:
         capt_rect = _expand_rect(state, capt_rect, states_matrix, rect_exp)
@@ -1014,25 +1007,25 @@ def read_capture_rect(sheet, states_matrix, xl_rect):
         ...     [0, 0, 0, 1, 1, 1, 1]], dtype=bool)
 
         # minimum matrix in the sheet
-        >>> read_capture_rect(sheet, stm, (Cell(5, 3), Cell(7, 6)))
+        >>> read_capture_rect(sheet, stm, (Coords(5, 3), Coords(7, 6)))
         [[None,  0,    1,    2],
          [0,    None, None, None],
          [1,     5.1,  6.1,  7.1]]
 
         # single-value
-        >>> read_capture_rect(sheet, stm, (Cell(6, 3), Cell(6, 3)))
+        >>> read_capture_rect(sheet, stm, (Coords(6, 3), Coords(6, 3)))
         [0]
 
         # column
-        >>> read_capture_rect(sheet, stm, (Cell(0, 3), Cell(7, 3)))
+        >>> read_capture_rect(sheet, stm, (Coords(0, 3), Coords(7, 3)))
         [None, None, None, None, None, None, 0, 1]
 
         # row
-        >>> read_capture_rect(sheet, stm, (Cell(5, 0), Cell(5, 6)))
+        >>> read_capture_rect(sheet, stm, (Coords(5, 0), Coords(5, 6)))
         [None, None, None, None, 0, 1, 2]
 
         # row beyond sheet-limits
-        >>> read_capture_rect(sheet, stm, (Cell(5, 0), Cell(5, 10)))
+        >>> read_capture_rect(sheet, stm, (Coords(5, 0), Coords(5, 10)))
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
     .. testcleanup::

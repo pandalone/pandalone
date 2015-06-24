@@ -73,9 +73,9 @@ API
   .. currentmodule:: pandalone.xlref._xlref
   .. autosummary::
 
-      Cell
+      Coords
       Edge
-      num2a1_Cell
+      num2a1_Coords
       parse_xl_ref
       parse_xl_url
       get_sheet_margins
@@ -527,7 +527,7 @@ TODOs
 
 
 from ._xlref import (
-    Cell, num2a1_Cell, Edge,
+    Coords, num2a1_Coords, Edge,
     parse_xl_url, parse_xl_ref, resolve_capture_rect,
     read_capture_rect,
     get_sheet_margins,
