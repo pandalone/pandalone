@@ -13,16 +13,19 @@ A mini-language to capture non-empty rectangular areas from Excel-sheets.
 Introduction
 ============
 
-This is a notation for url-fragments accompanied by operations that can
-`capture` a rectangular area from excel-sheets using simple traversal operations
-when the exact position of the area is not known beforehand.
-The goal of this module is to make reading data from excel-workbooks
-as practical as when reading from CSVs.
+This modules defines a url-fragment notation for `capturing` rectangular areas
+from excel-sheets when their exact position is not known beforehand.
+The notation extends the ordinary excel `coordinates`, and provides for
+conditionally `traversing` the cells based on their `state`.
 
-The `capturing` depends only on the full/empty `state` of the cells,
-and not on their values . Use some other library (i.e. "pandas") to examine
-the values of the `capture-rect` afterwards.  Nevertheless, the `xl-ref` syntax
-provides for specifying `filter` transformations at the end, for setting
+The goal is to make the extraction of data-tables from excel-workbooks
+as practical as reading CSVs, while keeping it as "cheap" as possible,
+by employing state-checks instead of parsing the complete sheet contents.
+
+Since the `capturing` depends only on the full/empty `state` of the cells,
+another library would be needed to examine the values of the `capture-rect`
+afterwards (i.e. "pandas").  Nevertheless, the `xl-ref` syntax
+provides for specifying common `filter` transformations at the end, for setting
 the dimensionality and the final type of the captured values.
 
 It is based on `xlrd <http://www.python-excel.org/>`_ library but also
@@ -78,7 +81,6 @@ API
       num2a1_Coords
       parse_xl_ref
       parse_xl_url
-      get_sheet_margins
       resolve_capture_rect
       read_capture_rect
 
@@ -96,7 +98,7 @@ API
 
 Examples
 --------
-.. TODO::
+.. ToDo::
     Provide example python-code for reading a `xl-ref`/`xl-url`.
     Till then, read the sources: :file:`tests/test_xlsreader.py`.
 
@@ -249,8 +251,7 @@ Definitions
         `target-rect`.
 
     directions
-    primitive-directions
-        The 4 *primitive-directions* that are denoted with one of the letters
+        The 4 primitive *directions* that are denoted with one of the letters
         ``LURD``.
         Thee are used to express both `target-moves` and `expansions`.
 
@@ -266,9 +267,13 @@ Definitions
         ``(row, col)`` tuple (*num*).
         Each *coordinate* might be `absolute` or `dependent`, independently.
 
+    traversing
+    traversal-operations
+        Either the `target-moves` or the `expansion-moves`.
+
     target-moves
         Specify the cell traversing order while `targeting` using
-        `primitive-directions` pairs.
+        primitive `directions` pairs.
         The pairs ``UD`` and ``LR`` (and their inverse) are invalid.
         I.e. ``DR`` means:
 
@@ -305,6 +310,10 @@ Definitions
     full-cell
     empty-cell
         A cell is *full* when it is not *empty* / *blank* (in Excel's parlance).
+
+    states-matrix
+        A boolean matrix denoting the `state` of the cells, having the same
+        size as a sheet it was derived from.
 
     state-change
         Whether we are traversing from an `empty-cell` to a `full-cell`, and
@@ -345,7 +354,7 @@ Target-moves
 ---------------
 
 There are 12 `target-moves` named with a *single* or a *pair* of
-letters denoting the 4 primitive directions, ``LURD``::
+letters denoting the 4 primitive `directions`, ``LURD``::
 
             U
      UL◄───┐▲┌───►UR
@@ -530,7 +539,6 @@ from ._xlref import (
     Coords, num2a1_Coords, Edge,
     parse_xl_url, parse_xl_ref, resolve_capture_rect,
     read_capture_rect,
-    get_sheet_margins,
 )
 from ._xlrd import (
     open_xlref_workbook, open_sheet, read_states_matrix, read_rect

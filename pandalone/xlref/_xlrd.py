@@ -38,6 +38,8 @@ def open_xlref_workbook(xl_ref_child, xl_ref_parent=None):
     """
     Opens the excel workbook of an excel ref.
 
+    TODO: Remove
+
     :param dict xl_ref_child: excel ref of the child
 
     :param xl_ref_parent: excel ref of the parent
@@ -60,6 +62,8 @@ def open_xlref_workbook(xl_ref_child, xl_ref_parent=None):
 def open_sheet(xl_ref_child, xl_ref_parent=None):
     """
     Opens the excel sheet of an excel ref.
+
+    TODO: Remove
 
     :param dict xl_ref_child: excel ref of the child
 

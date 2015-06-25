@@ -28,9 +28,9 @@ from . import _xlrd
 log = logging.getLogger(__name__)
 
 
-_special_coords = {'^', '_', '.'}
+_special_coord_symbols = {'^', '_', '.'}
 
-_primitive_dir = {
+_primitive_dir_vectors = {
     'L': np.array([0, -1]),
     'U': np.array([-1, 0]),
     'R': np.array([0, 1]),
@@ -109,10 +109,10 @@ def num2a1_Coords(row, col):
 
 
     """
-    if row not in _special_coords:
+    if row not in _special_coord_symbols:
         assert row >= 0, 'negative row!'
         row = str(row + 1)
-    if col not in _special_coords:
+    if col not in _special_coord_symbols:
         assert col >= 0, 'negative col!'
         col = _xlrd.colname(col)
     return Coords(row=row, col=col)
@@ -167,7 +167,7 @@ def _repeat_moves(moves, times=None):
     """
     Returns an iterator that repeats `moves` x `times`, or infinite if unspecified.
 
-    Used when parsing :term:`primitive-directions`.
+    Used when parsing primitive :term:`directions`.
 
    :param str moves: the moves to repeat
    :param str times: N of repetitions. If `None` it means infinite repetitions.
@@ -302,7 +302,7 @@ def parse_xl_ref(xl_ref):
 
 def parse_xl_url(url, base_url=None, backend=None):
     """
-    Uses a one-shot :class:`Spreadsheet` to parse a :term:`xl-url`.
+    Parses a :term:`xl-url`.
 
     :param str url:
         a string with the following format::
@@ -355,55 +355,85 @@ def parse_xl_url(url, base_url=None, backend=None):
         raise ValueError("Invalid xl-url({}) due to: {}".format(url, ex))
 
 
-def get_sheet_margins(states_matrix):
+def margin_coords_from_states_matrix(states_matrix):
     """
-    Returns top-left and bottom-down margins and all full-incdices from a :term:`state` matrix.
+    Returns top-left/bottom-down margins of full cells from a :term:`state` matrix.
 
-    Cache its return-value to use it in other functions here needing it.
+    May be used by :meth:`Spreadsheet.get_margin_coords()` if a backend
+    does not report the sheet-margins internally.
 
     :param ndarray states_matrix:
-            An array with `False` wherever cell are blank or empty.
-            Use :func:`read_states_matrix()` to derrive it.
-    :return:  a `Coords` with zero-based top-left/bottom-right special margins for rows/cols
-    :rtype: Coords
+            A 2D-array with `False` wherever cell are blank or empty.
+            Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
+    :return:    the 2 coords of the top-left & bottom-right full cells
+    :rtype:     (Coords, Coords)
 
     Examples::
 
-        >>> states_matrix = [
+        >>> states_matrix = np.asarray([
         ...    [0, 0, 0],
         ...    [0, 1, 0],
         ...    [0, 1, 1],
         ...    [0, 0, 1],
-        ... ]
-        >>> margins = get_sheet_margins(states_matrix)
-        >>> margins                                         # doctest: +SKIP
-        Coords(row={'_': 3, '^': 1}, col={'_': 2, '^': 1})
+        ... ])
+        >>> margins = margin_coords_from_states_matrix(states_matrix)
+        >>> margins
+        (Coords(row=1, col=1), Coords(row=3, col=2))
 
 
     Note that the botom-left cell is not the same as `states_matrix` matrix size::
 
-        >>> states_matrix = [
+        >>> states_matrix = np.asarray([
         ...    [0, 0, 0, 0],
         ...    [0, 1, 0, 0],
         ...    [0, 1, 1, 0],
         ...    [0, 0, 1, 0],
         ...    [0, 0, 0, 0],
-        ... ]
-        >>> margins_2 = get_sheet_margins(states_matrix)
-        >>> margins_2 == margins
+        ... ])
+        >>> margin_coords_from_states_matrix(states_matrix) == margins
         True
 
     """
+    if not states_matrix.any():
+        c = Coords(0, 0)
+        return c, c
     indices = np.asarray(np.where(states_matrix)).T
-    up_r, up_c = indices.min(0)
-    dn_r, dn_c = indices.max(0)
-    sheet_margins = Coords(row={'^': up_r, '_': dn_r},
-                           col={'^': up_c, '_': dn_c})
-    return sheet_margins
+
+    return Coords(*indices.min(0)), Coords(* indices.max(0))
 
 
-def _build_special_coords(cord_bounds, base_coord):
-    """Make a stacked dict of margins and base-coord, used for resolving all specials coords. """
+def make_special_margins(up, dn):
+    """
+    Returns the margins in a structure suitable for :func:`resolve_capture_rect()`
+
+    To get `up` and `dn` coords use one of:
+
+    * :meth:`Spreadsheet.get_margin_coords()`
+    * :func:`margin_coords_from_states_matrix()`
+
+    :param Coords up:     the top-left resolved (zero-based) coords
+    :param Coords dn:     the bottom-right resolved (zero-based) coords
+    :rtype:     Coords
+    :return:    a `Coords` with values dicts for special coords
+    :rtype:     Coords
+
+    Examples::
+
+        >>> margins = make_special_margins(Coords(1, 2), Coords(5, 6))
+        >>> margins.row == {'^': 1, '_': 5}
+        True
+
+        >>> margins.col == {'^': 2, '_': 6}
+        True
+    """
+    return Coords(row={'^': up.row, '_': dn.row},
+                  col={'^': up.col, '_': dn.col})
+
+
+def _update_dependent_coords(cord_bounds, base_coord):
+    """
+    Make a stacked dict of margins and base-coord, used for resolving all specials coords.
+    """
     try:
         from collections import ChainMap
         return ChainMap(cord_bounds, {'.': base_coord})
@@ -422,7 +452,7 @@ def _resolve_coord(cname, cfunc, coord, cbounds, bcoord=None):
     :param str        cname:  the coord-name, one of 'row', 'column'
     :param function   cfunc:  the function to convert coord ``str --> int``
     :param int, str   coord:  the coord to translate
-    :param dict     cbounds:  the coord part of :func:`get_sheet_margins()`
+    :param dict     cbounds:  a single coord part of :func:`make_special_margins()`
     :param int, None bcoord:  the basis for dependent coord, if any
 
     :return: the resolved coord or `None` if it were not a special coord.
@@ -497,9 +527,9 @@ def _resolve_coord(cname, cfunc, coord, cbounds, bcoord=None):
 
     """
     try:
-        if coord in _special_coords:
+        if coord in _special_coord_symbols:
             if bcoord is not None:
-                cbounds = _build_special_coords(cbounds, bcoord)
+                cbounds = _update_dependent_coords(cbounds, bcoord)
             rcoord = cbounds[coord]
         else:
             rcoord = cfunc(coord)
@@ -579,56 +609,59 @@ def _col2num(coord):
     return rcoord
 
 
-def _resolve_cell(cell, margins, base_cords=None):
+def _resolve_cell(cell, special_margins, base_cords=None):
     """
     Translates any special coords to absolute ones.
 
-    :param Coords cell:     The raw cell to translate its coords.
-    :param Coords base_cords: A resolved cell to base dependent coords (``.``).
-    :param Coords margins:  see :func:`get_sheet_margins()`
+    :param Coords cell:
+            The raw cell to translate its coords.
+    :param Coords special_margins:
+            see :func:`make_special_margins()`
+    :param Coords base_cords:
+            A resolved cell to base dependent coords (``.``).
     :rtype: Coords
 
 
     Examples::
 
-        >>> margins = Coords(
+        >>> special_margins = Coords(
         ...     row={'^':1, '_':10},
         ...     col={'^':2, '_':6})
 
-        >>> _resolve_cell(Coords(col='A', row=5), margins)
+        >>> _resolve_cell(Coords(col='A', row=5), special_margins)
         Coords(row=4, col=0)
 
-        >>> _resolve_cell(Coords('^', '^'), margins)
+        >>> _resolve_cell(Coords('^', '^'), special_margins)
         Coords(row=1, col=2)
 
-        >>> _resolve_cell(Coords('_', '_'), margins)
+        >>> _resolve_cell(Coords('_', '_'), special_margins)
         Coords(row=10, col=6)
 
-        >>> _resolve_cell(Coords('1', '5'), margins)
+        >>> _resolve_cell(Coords('1', '5'), special_margins)
         Traceback (most recent call last):
         ValueError: invalid cell(Coords(row='1', col='5')) due to:
                 invalid col('5') due to: substring not found
 
-        >>> _resolve_cell(Coords('A', 'B'), margins)
+        >>> _resolve_cell(Coords('A', 'B'), special_margins)
         Traceback (most recent call last):
         ValueError: invalid cell(Coords(row='A', col='B')) due to:
                 invalid row('A') due to: invalid literal for int() with base 10: 'A'
 
-        >>> _resolve_cell(Coords('1', '.'), margins)
+        >>> _resolve_cell(Coords('1', '.'), special_margins)
         Traceback (most recent call last):
         ValueError: invalid cell(Coords(row='1', col='.')) due to: invalid col('.') due to: '.'
 
     """
     try:
-        row = _resolve_coord('row', _row2num, cell.row, margins.row,
+        row = _resolve_coord('row', _row2num, cell.row, special_margins.row,
                              base_cords and base_cords.row)
-        col = _resolve_coord('col', _col2num, cell.col, margins.col,
+        col = _resolve_coord('col', _col2num, cell.col, special_margins.col,
                              base_cords and base_cords.col)
 
         return Coords(row=row, col=col)
     except Exception as ex:
-        msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  base_cords(%s)"
-        log.debug(msg, cell, ex, margins, base_cords)
+        msg = "invalid cell(%s) due to: %s\n  special_margins(%s)\n  base_cords(%s)"
+        log.debug(msg, cell, ex, special_margins, base_cords)
         raise ValueError("invalid cell(%s) due to: %s" % (cell, ex))
 
 
@@ -636,8 +669,8 @@ def _target_opposite_state(states_matrix, dn, state, land, moves):
     """
 
     :param ndarray states_matrix:
-            An array with `False` wherever cell are blank or empty.
-            Use :func:`read_states_matrix()` to derrive it.
+            A 2D-array with `False` wherever cell are blank or empty.
+            Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
     :param Coords dn:
             the bottom/right in resolved-coords
     :param bool state:
@@ -695,8 +728,8 @@ def _target_opposite_state(states_matrix, dn, state, land, moves):
 def _target_opposite_state_impl(states_matrix, dn, state, land, moves):
     up = Coords(0, 0)
     c0 = np.array(land)
-    mv1 = _primitive_dir[moves[0]]
-    mv2 = _primitive_dir[moves[1]] if len(moves) > 1 else None
+    mv1 = _primitive_dir_vectors[moves[0]]
+    mv2 = _primitive_dir_vectors[moves[1]] if len(moves) > 1 else None
 
     if not state:
         if land.row > dn.row and 'U' in moves:
@@ -734,8 +767,8 @@ def _target_same_state(states_matrix, dn, state, cell, moves):
     """
 
     :param ndarray states_matrix:
-            An array with `False` wherever cell are blank or empty.
-            Use :func:`read_states_matrix()` to derrive it.
+            A 2D-array with `False` wherever cell are blank or empty.
+            Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
     :param Coords dn:         the bottom/right coords
     :param bool state:      the state of the landing-cell, or `False`
                             if beyond limits
@@ -792,7 +825,7 @@ def _target_same_state(states_matrix, dn, state, cell, moves):
 
     for mv in moves:
         c = _target_opposite_state(states_matrix, dn, state, cell, mv)
-        dis = _primitive_dir[mv]
+        dis = _primitive_dir_vectors[mv]
         c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
     return Coords(*c1)
 
@@ -804,8 +837,8 @@ def _expand_rect(state, xl_rect, states_matrix, rect_exp):
     :param state:
     :param xl_rect:
     :param ndarray states_matrix:
-            An array with `False` wherever cell are blank or empty.
-            Use :func:`read_states_matrix()` to derrive it.
+            A 2D-array with `False` wherever cell are blank or empty.
+            Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
     :param rect_exp:
     :return:
 
@@ -855,7 +888,7 @@ def _expand_rect(state, xl_rect, states_matrix, rect_exp):
         for directions in moves:
             flag = True
             for d in directions:
-                mv = _primitive_dir[d]
+                mv = _primitive_dir_vectors[d]
                 i, j = _m[d]
                 st, nd = (xl_rect[i], xl_rect[j])
                 st = st + mv
@@ -875,7 +908,7 @@ def _expand_rect(state, xl_rect, states_matrix, rect_exp):
     return [Coords(*v) for v in xl_rect]
 
 
-def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
+def resolve_capture_rect(states_matrix, special_margins, st_edge,
                          nd_edge=None, rect_exp=None):
     """
     Performs :term:`targeting` and applies :term:`expansions` but does not extract values.
@@ -883,9 +916,10 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
     Feed the results into :func:`read_capture_values()`.
 
     :param ndarray states_matrix:
-            An array with `False` wherever cell are blank or empty.
-            Use :func:`read_states_matrix()` to derrive it.
-    :param Coords margins:  see :func:`get_sheet_margins()`
+            A 2D-array with `False` wherever cell are blank or empty.
+            Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
+    :param Coords special_margins:
+            see :func:`make_special_margins()`
     :param Edge st_edge: "uncooked" as matched by regex
     :param Edge nd_edge: "uncooked" as matched by regex
     :param list or none rect_exp:
@@ -903,32 +937,33 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
         ...     [0, 0, 0, 1, 1, 1],
         ...     [0, 0, 1, 0, 0, 1],
         ...     [0, 0, 1, 1, 1, 1]
-        ... ])
-        >>> sheet_margins = get_sheet_margins(states_matrix)
+        ... ], dtype=bool)
+        >>> margin_coords = margin_coords_from_states_matrix(states_matrix)
+        >>> special_margins = make_special_margins(*margin_coords)
 
         >>> st_edge = Edge(Coords('1', 'A'), 'DR')
         >>> nd_edge = Edge(Coords('.', '.'), 'DR')
-        >>> resolve_capture_rect(states_matrix, sheet_margins, st_edge, nd_edge)
+        >>> resolve_capture_rect(states_matrix, special_margins, st_edge, nd_edge)
         (Coords(row=3, col=2), Coords(row=4, col=2))
 
     Walking backwards::
 
         >>> st_edge = Edge(Coords('_', '_'), None)
         >>> nd_edge = Edge(Coords('.', '.'), 'UL')
-        >>> rect = resolve_capture_rect(states_matrix, sheet_margins, st_edge, nd_edge)
+        >>> rect = resolve_capture_rect(states_matrix, special_margins, st_edge, nd_edge)
         >>> rect
         (Coords(row=2, col=2), Coords(row=4, col=5))
 
         >>> st_edge = Edge(Coords('^', '_'), None)
         >>> nd_edge = Edge(Coords('_', '^'), None)
-        >>> rect == resolve_capture_rect(states_matrix, sheet_margins, st_edge, nd_edge)
+        >>> rect == resolve_capture_rect(states_matrix, special_margins, st_edge, nd_edge)
         True
 
     """
 
-    dn = Coords(sheet_margins[0]['_'], sheet_margins[1]['_'])
+    dn = Coords(special_margins[0]['_'], special_margins[1]['_'])
 
-    st = _resolve_cell(st_edge.land, sheet_margins)
+    st = _resolve_cell(st_edge.land, special_margins)
     try:
         state = states_matrix[st]
     except IndexError:
@@ -941,7 +976,7 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
     if nd_edge is None:
         capt_rect = (st, st)
     else:
-        nd = _resolve_cell(nd_edge.land, sheet_margins, st)
+        nd = _resolve_cell(nd_edge.land, special_margins, st)
 
         if nd_edge.mov is not None:
             mov = nd_edge.mov
@@ -968,20 +1003,17 @@ def resolve_capture_rect(states_matrix, sheet_margins, st_edge,
     return capt_rect
 
 
-def read_capture_rect(sheet, states_matrix, xl_rect):
+def read_capture_rect(sheet, xl_rect):
     """
     Extracts :term:`capture-rect` values from excel-sheet and apply :term:`filters`.
 
     :param sheet:
             anything supporting the :func:`read_rect(states_matrix, xl_rect)`
-            such as the the :class:`Spreadsheet` which can hide-away
+            such as the the :class:`Spreadsheet` which can hide away
             the backend-module .
     :param tuple xl_rect:  tuple (num_cell, num_cell) with the edge targets of
                            the capture-rect
-    :param ndarray states_matrix:
-            An array with `False` wherever cell are blank or empty.
-            Use :func:`read_states_matrix()` to derrive it.
-    :return:
+    :return: the rect values TODO: pre-processed
 
     .. testsetup::
         >>> import os, tempfile, xlrd, pandas as pd
@@ -999,42 +1031,43 @@ def read_capture_rect(sheet, states_matrix, xl_rect):
     Examples::
 
         >>> sheet = Spreadsheet(xlrd.open_workbook(tmp).sheet_by_name('Sheet1'))
-        >>> stm = np.array([
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 1, 1, 1],
-        ...     [0, 0, 0, 1, 0, 0, 0],
-        ...     [0, 0, 0, 1, 1, 1, 1]], dtype=bool)
+        >>> sheet.read_states_matrix()
+        array([[False, False, False, False, False, False, False],
+           [False, False, False, False, False, False, False],
+           [False, False, False, False, False, False, False],
+           [False, False, False, False, False, False, False],
+           [False, False, False, False, False, False, False],
+           [False, False, False, False,  True,  True,  True],
+           [False, False, False,  True, False, False, False],
+           [False, False, False,  True,  True,  True,  True]], dtype=bool)
 
         # minimum matrix in the sheet
-        >>> read_capture_rect(sheet, stm, (Coords(5, 3), Coords(7, 6)))
+        >>> read_capture_rect(sheet, (Coords(5, 3), Coords(7, 6)))
         [[None,  0,    1,    2],
          [0,    None, None, None],
          [1,     5.1,  6.1,  7.1]]
 
         # single-value
-        >>> read_capture_rect(sheet, stm, (Coords(6, 3), Coords(6, 3)))
+        >>> read_capture_rect(sheet, (Coords(6, 3), Coords(6, 3)))
         [0]
 
         # column
-        >>> read_capture_rect(sheet, stm, (Coords(0, 3), Coords(7, 3)))
+        >>> read_capture_rect(sheet, (Coords(0, 3), Coords(7, 3)))
         [None, None, None, None, None, None, 0, 1]
 
         # row
-        >>> read_capture_rect(sheet, stm, (Coords(5, 0), Coords(5, 6)))
+        >>> read_capture_rect(sheet, (Coords(5, 0), Coords(5, 6)))
         [None, None, None, None, 0, 1, 2]
 
         # row beyond sheet-limits
-        >>> read_capture_rect(sheet, stm, (Coords(5, 0), Coords(5, 10)))
+        >>> read_capture_rect(sheet, (Coords(5, 0), Coords(5, 10)))
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
     .. testcleanup::
         >>> os.remove(tmp)
     """
 
+    states_matrix = sheet.read_states_matrix()
     st_target, nd_target = xl_rect
 
     table = sheet.read_rect(states_matrix, xl_rect)
@@ -1190,8 +1223,33 @@ def _process_captured_values(value, type=None, args=(), kws=None, filters=None,
 
 class Spreadsheet(object):
     """
-    A wrapper for excel-worksheets created by backends, delegating back to them.
+    A delegating to backends excel-worksheets wrapper that is utilized by this module.
+
+    :param np.array _states_matrix:
+            The :term:`states-matrix` cached, so recreate object
+            to refresh it.
+    :param dict _margin_coords:
+            limits used by :func:`_resolve_cell`, cached, so recreate object
+            to refresh it.
+
+    Resource management is outside of the scope of this class,
+    and must happen in the backend workbook/sheet instance.
+
+    *xlrd* examples::
+
+        >>> import xlrd                                       #  doctest: +SKIP
+        >>> with xlrd.open_workbook(self.tmp) as wb:          #  doctest: +SKIP
+        ...     sheet = xlref.xlrdSheet(wb.sheet_by_name('Sheet1'))
+        ...     ## Do whatever
+
+    *win32* examples::
+
+        >>> with dsgdsdsfsd as wb:          #  doctest: +SKIP
+        ...     sheet = xlref.win32Sheet(wb.sheet['Sheet1'])
+        TODO
     """
+    _states_matrix = None
+    _margin_coords = None
 
     def __init__(self, sheet, backend=_xlrd):
         if not isinstance(backend, ModuleType):
@@ -1200,8 +1258,60 @@ class Spreadsheet(object):
         self._backend = backend
         self._sheet = sheet
 
+    def read_states_matrix(self):
+        """
+        Deduce the :term:`states-matrix` of the wrapped sheet.
+
+        :return:   A 2D-array with `False` wherever cell are blank or empty.
+        :rtype:     ndarray
+        """
+        if self._states_matrix is None:
+            self._states_matrix = self._backend.read_states_matrix(self._sheet)
+        return self._states_matrix
+
     def read_rect(self, states_matrix, xl_rect):
         return self._backend.read_rect(self._sheet, states_matrix, xl_rect)
 
-    def read_states_matrix(self):
-        return self._backend.read_states_matrix(self._sheet)
+    def _read_margin_coords(self):
+        """
+        Override if possible to read (any of the) limits directly from the sheet.
+
+        :return:    the 2 coords of the top-left & bottom-right full cells;
+                    anyone coords can be None.
+                    By default returns ``(None, None)``.
+        :rtype:     (Coords, Coords)
+
+        """
+        return None, None  # pragma: no cover
+
+    def get_margin_coords(self):
+        """
+        Extract (and cache) margins either internally or from :func:`margin_coords_from_states_matrix()`.
+
+        :return:    the resolved top-left and bottom-right :class:`Coords`
+        :rtype:     tuple
+
+
+        Examples::
+
+            >>> sheet = Spreadsheet(sheet=None)
+            >>> sheet._states_matrix = np.asarray([       ## Mock states_matrix.
+            ...    [0, 0, 0, 0],
+            ...    [1, 1, 0, 0],
+            ...    [0, 1, 1, 0],
+            ...    [0, 0, 1, 0],
+            ... ])
+            >>> sheet.get_margin_coords()
+            (Coords(row=1, col=0), Coords(row=3, col=2))
+
+        """
+        if not self._margin_coords:
+            up, dn = self._read_margin_coords()
+            if up is None or dn is None:
+                sm = self.read_states_matrix()
+                up1, dn1 = margin_coords_from_states_matrix(sm)
+                up = up or up1
+                dn = dn or dn1
+            self._margin_coords = up, dn
+
+        return self._margin_coords
