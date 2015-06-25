@@ -645,7 +645,8 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
                        ex)
 
 
-def _target_opposite_state(states_matrix, dn_coords, state, land, moves):
+def _target_opposite_state(states_matrix, up_coords, dn_coords,
+                           state, land, moves):
     """
 
     :param ndarray states_matrix:
@@ -670,7 +671,7 @@ def _target_opposite_state(states_matrix, dn_coords, state, land, moves):
         ...     [0, 0, 1, 0, 0, 1],
         ...     [0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (states_matrix, Coords(4, 5))
+        >>> args = (states_matrix, Coords(2, 2), Coords(4, 5))
 
         >>> _target_opposite_state(*(args + (False, Coords(0, 0), 'DR')))
         Coords(row=3, col=2)
@@ -697,7 +698,7 @@ def _target_opposite_state(states_matrix, dn_coords, state, land, moves):
 
     """
     target, last_move = _target_opposite_state_impl(
-        states_matrix, dn_coords, state, land, moves)
+        states_matrix, up_coords, dn_coords, state, land, moves)
 
     if state and (land != target).any():
         target -= last_move
@@ -705,22 +706,27 @@ def _target_opposite_state(states_matrix, dn_coords, state, land, moves):
     return Coords(target[0], target[1])
 
 
-def _target_opposite_state_impl(states_matrix, dn_coords, state, land, moves):
-    up = Coords(0, 0)
+def _target_opposite_state_impl(states_matrix, up_coords, dn_coords,
+                                state, land, moves):
+    up_coords = Coords(0, 0)  # FIXME: up-margin on target-oposite.
     c0 = np.array(land)
     mv1 = _primitive_dir_vectors[moves[0]]
     mv2 = _primitive_dir_vectors[moves[1]] if len(moves) > 1 else None
 
     if not state:
         if land.row > dn_coords.row and 'U' in moves:
-            c0[0] = dn_coords[0]
+            c0[0] = dn_coords.row
         if land.col > dn_coords.col and 'L' in moves:
-            c0[1] = dn_coords[1]
+            c0[1] = dn_coords.col
+        if land.row < up_coords.row and 'D' in moves:
+            c0[0] = up_coords.row
+        if land.col < up_coords.col and 'R' in moves:
+            c0[1] = up_coords.col
 
-    while (up <= c0).all() and (c0 <= dn_coords).all():
+    while (up_coords <= c0).all() and (c0 <= dn_coords).all():
         c1 = c0.copy()
         # Why rescan each time when searching-same?
-        while (up <= c1).all():
+        while (up_coords <= c1).all():
             try:
                 if states_matrix[c1[0], c1[1]] != state:
                     return c1, mv1
@@ -743,7 +749,7 @@ def _target_opposite_state_impl(states_matrix, dn_coords, state, land, moves):
             'empty' if state else 'full', land, moves))
 
 
-def _target_same_state(states_matrix, dn_coords, state, cell, moves):
+def _target_same_state(states_matrix, up_coords, dn_coords, state, cell, moves):
     """
 
     :param ndarray states_matrix:
@@ -766,7 +772,7 @@ def _target_same_state(states_matrix, dn_coords, state, cell, moves):
         ...     [0, 0, 1, 0, 0, 1],
         ...     [0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (states_matrix, Coords(4, 5))
+        >>> args = (states_matrix, Coords(2, 2), Coords(4, 5))
 
         >>> _target_same_state(*(args + (True, Coords(4, 5), 'U')))
         Coords(row=2, col=5)
@@ -801,16 +807,17 @@ def _target_same_state(states_matrix, dn_coords, state, cell, moves):
 
     """
 
-    c1 = list(cell)
+    c1 = cell
 
     for mv in moves:
-        c = _target_opposite_state(states_matrix, dn_coords, state, cell, mv)
+        c = _target_opposite_state(states_matrix, up_coords, dn_coords,
+                                   state, cell, mv)
         dis = _primitive_dir_vectors[mv]
         c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
     return Coords(*c1)
 
 
-def _expand_rect(state, xl_rect, states_matrix, rect_exp):
+def _expand_rect(states_matrix, state, xl_rect, exp_mov):
     """
     Applies the :term:`expansion-moves` based on the `states_matrix`.
 
@@ -819,7 +826,7 @@ def _expand_rect(state, xl_rect, states_matrix, rect_exp):
     :param ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
-    :param rect_exp:
+    :param exp_mov:
     :return:
 
 
@@ -837,23 +844,23 @@ def _expand_rect(state, xl_rect, states_matrix, rect_exp):
         ... ])
 
         >>> rng = (Coords(row=6, col=3), Coords(row=6, col=3))
-        >>> rect_exp = [_repeat_moves('U')]
-        >>> _expand_rect(True, rng, states_matrix, rect_exp)
+        >>> exp_mov = [_repeat_moves('U')]
+        >>> _expand_rect(states_matrix, True, rng, exp_mov)
         [Coords(row=6, col=3), Coords(row=6, col=3)]
 
         >>> rng = (Coords(row=6, col=3), Coords(row=7, col=3))
-        >>> rect_exp = [_repeat_moves('R')]
-        >>> _expand_rect(True, rng, states_matrix, rect_exp)
+        >>> exp_mov = [_repeat_moves('R')]
+        >>> _expand_rect(states_matrix, True, rng, exp_mov)
         [Coords(row=6, col=3), Coords(row=7, col=6)]
 
         >>> rng = (Coords(row=6, col=3), Coords(row=10, col=3))
-        >>> rect_exp = [_repeat_moves('R')]
-        >>> _expand_rect(True, rng, states_matrix, rect_exp)
+        >>> exp_mov = [_repeat_moves('R')]
+        >>> _expand_rect(states_matrix, True, rng, exp_mov)
         [Coords(row=6, col=3), Coords(row=10, col=6)]
 
         >>> rng = (Coords(row=6, col=5), Coords(row=6, col=5))
-        >>> rect_exp = [_repeat_moves('LURD')]
-        >>> _expand_rect(True, rng, states_matrix, rect_exp)
+        >>> exp_mov = [_repeat_moves('LURD')]
+        >>> _expand_rect(states_matrix, True, rng, exp_mov)
         [Coords(row=5, col=3), Coords(row=7, col=6)]
 
     """
@@ -864,7 +871,7 @@ def _expand_rect(state, xl_rect, states_matrix, rect_exp):
         'D': (1, 0)
     }
     xl_rect = [np.array(v) for v in xl_rect]
-    for moves in rect_exp:
+    for moves in exp_mov:
         for directions in moves:
             flag = True
             for d in directions:
@@ -955,7 +962,7 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
 
     if st_edge.mov is not None:
         st = _target_opposite_state(
-            states_matrix, dn_coords, state, st, st_edge.mov)
+            states_matrix, up_coords, dn_coords, state, st, st_edge.mov)
         state = not state
 
     if nd_edge is None:
@@ -972,10 +979,10 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
                 nd_state = False
 
             if state == nd_state:
-                nd = _target_same_state(
-                    states_matrix, dn_coords, state, nd, mov)
+                nd = _target_same_state(states_matrix, up_coords, dn_coords,
+                                        state, nd, mov)
             else:
-                nd = _target_opposite_state(states_matrix, dn_coords,
+                nd = _target_opposite_state(states_matrix, up_coords, dn_coords,
                                             not state, nd, mov)
 
         # Order rect-cells.
@@ -984,7 +991,7 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
         capt_rect = (Coords(*c.min(0).tolist()), Coords(*c.max(0).tolist()))
 
     if rect_exp:
-        capt_rect = _expand_rect(state, capt_rect, states_matrix, rect_exp)
+        capt_rect = _expand_rect(states_matrix, state, capt_rect, rect_exp)
 
     return capt_rect
 

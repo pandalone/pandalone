@@ -314,8 +314,8 @@ class Resolve(unittest.TestCase):
     def check_target_func(self, *args):
         (target_func, land_state, land_row, land_col,
          moves, exp_row, exp_col) = args
-        states_matrix, _, dn = self.make_states_matrix()
-        argshead = (states_matrix, dn)
+        states_matrix, up, dn = self.make_states_matrix()
+        argshead = (states_matrix, up, dn)
 
         land_cell = xr.Coords(land_row, land_col)
         args = argshead + (land_state, land_cell, moves)
@@ -367,7 +367,7 @@ class Resolve(unittest.TestCase):
             if 'D' in d:
                 self.check_target_opposite_state(False, 0, 10, d, 2, 5)
 
-    def test_target_opposite_state_Beyond_rows(self):
+    def test_target_opposite_state_Beyond_rows1(self):
         dirs = ['U', 'UL', 'UR', 'LU', 'RU']
         for d in dirs:
             for col in [2, 3, 5]:
@@ -378,6 +378,7 @@ class Resolve(unittest.TestCase):
             if 'R' in d:
                 self.check_target_opposite_state(False, 10, 0, d, 4, 2)
 
+    def test_target_opposite_state_Beyond_rows2(self):
         self.check_target_opposite_state(False, 10, 4, 'LU', 4, 3)
         self.check_target_opposite_state(False, 10, 4, 'RU', 4, 5)
 
@@ -419,7 +420,7 @@ class Resolve(unittest.TestCase):
         res = (xr.Coords(*args[6:8]),
                xr.Coords(*args[8:10]))
         args = argshead + (st_edge, nd_edge)
-        self.assertEqual(xr.resolve_capture_rect(*args), res)
+        self.assertEqual(xr.resolve_capture_rect(*args), res, str(args))
 
     def test_resolve_capture_rect_St_inverseTargetDirs(self):
         self.check_resolve_capture_rect('1', 'A', 'DR', '.', '.', 'DR',
