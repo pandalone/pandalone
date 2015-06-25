@@ -17,6 +17,8 @@ import re
 from string import ascii_uppercase
 from types import ModuleType
 
+import six
+
 import itertools as itt
 import numpy as np
 import pandas as pd
@@ -355,7 +357,7 @@ def parse_xl_url(url, base_url=None, backend=None):
         raise ValueError("Invalid xl-url({}) due to: {}".format(url, ex))
 
 
-def margin_coords_from_states_matrix(states_matrix):
+def _margin_coords_from_states_matrix(states_matrix):
     """
     Returns top-left/bottom-down margins of full cells from a :term:`state` matrix.
 
@@ -376,7 +378,7 @@ def margin_coords_from_states_matrix(states_matrix):
         ...    [0, 1, 1],
         ...    [0, 0, 1],
         ... ])
-        >>> margins = margin_coords_from_states_matrix(states_matrix)
+        >>> margins = _margin_coords_from_states_matrix(states_matrix)
         >>> margins
         (Coords(row=1, col=1), Coords(row=3, col=2))
 
@@ -390,7 +392,7 @@ def margin_coords_from_states_matrix(states_matrix):
         ...    [0, 0, 1, 0],
         ...    [0, 0, 0, 0],
         ... ])
-        >>> margin_coords_from_states_matrix(states_matrix) == margins
+        >>> _margin_coords_from_states_matrix(states_matrix) == margins
         True
 
     """
@@ -400,148 +402,6 @@ def margin_coords_from_states_matrix(states_matrix):
     indices = np.asarray(np.where(states_matrix)).T
 
     return Coords(*indices.min(0)), Coords(* indices.max(0))
-
-
-def make_special_margins(up, dn):
-    """
-    Returns the margins in a structure suitable for :func:`resolve_capture_rect()`
-
-    To get `up` and `dn` coords use one of:
-
-    * :meth:`Spreadsheet.get_margin_coords()`
-    * :func:`margin_coords_from_states_matrix()`
-
-    :param Coords up:     the top-left resolved (zero-based) coords
-    :param Coords dn:     the bottom-right resolved (zero-based) coords
-    :rtype:     Coords
-    :return:    a `Coords` with values dicts for special coords
-    :rtype:     Coords
-
-    Examples::
-
-        >>> margins = make_special_margins(Coords(1, 2), Coords(5, 6))
-        >>> margins.row == {'^': 1, '_': 5}
-        True
-
-        >>> margins.col == {'^': 2, '_': 6}
-        True
-    """
-    return Coords(row={'^': up.row, '_': dn.row},
-                  col={'^': up.col, '_': dn.col})
-
-
-def _update_dependent_coords(cord_bounds, base_coord):
-    """
-    Make a stacked dict of margins and base-coord, used for resolving all specials coords.
-    """
-    try:
-        from collections import ChainMap
-        return ChainMap(cord_bounds, {'.': base_coord})
-    except ImportError:
-        # TODO: FIX hack when ChainMap backported to py2.
-        c = {'.': base_coord}
-        c.update(cord_bounds)
-
-        return c
-
-
-def _resolve_coord(cname, cfunc, coord, cbounds, bcoord=None):
-    """
-    Translates special coords or converts Excel string 1-based rows/cols to zero-based, reporting invalids.
-
-    :param str        cname:  the coord-name, one of 'row', 'column'
-    :param function   cfunc:  the function to convert coord ``str --> int``
-    :param int, str   coord:  the coord to translate
-    :param dict     cbounds:  a single coord part of :func:`make_special_margins()`
-    :param int, None bcoord:  the basis for dependent coord, if any
-
-    :return: the resolved coord or `None` if it were not a special coord.
-
-
-    Row examples::
-
-        >>> cbounds = {'_': 10, '^':1}
-        >>> cname = 'row'
-
-        >>> r0 = _resolve_coord(cname, _row2num, '1', cbounds)
-        >>> r0
-        0
-        >>> r0 == _resolve_coord(cname, _row2num, 1, cbounds)
-        True
-        >>> _resolve_coord(cname, _row2num, '_', cbounds)
-        10
-        >>> _resolve_coord(cname, _row2num, '^', cbounds)
-        1
-        >>> _resolve_coord(cname, _row2num, '.', cbounds, 13)
-        13
-
-
-    But notice when base-cell missing::
-
-        >>> _resolve_coord(cname, _row2num, '.', cbounds, bcoord=None)
-        Traceback (most recent call last):
-        ValueError: invalid row('.') due to: '.'
-
-    Other ROW error-checks::
-
-        >>> _resolve_coord(cname, _row2num, '0', cbounds)
-        Traceback (most recent call last):
-        ValueError: invalid row('0') due to: resolved to negative(-1)!
-
-        >>> _resolve_coord(cname, _row2num, 'a', cbounds)
-        Traceback (most recent call last):
-        ValueError: invalid row('a') due to: invalid literal for int() with base 10: 'a'
-
-        >>> _resolve_coord(cname, _row2num, None, cbounds)
-        Traceback (most recent call last):
-        ValueError: invalid row(None) due to:
-                int() argument must be a string,
-                a bytes-like object or a number, not 'NoneType'
-
-
-    Column examples::
-
-        >>> cname = 'column'
-
-        >>> _resolve_coord(cname, _col2num, 'A', cbounds)
-        0
-        >>> _resolve_coord(cname, _col2num, 'DADA', cbounds)
-        71084
-        >>> _resolve_coord(cname, _col2num, '.', cbounds, 13)
-        13
-
-    And COLUMN error-checks::
-
-        >>> _resolve_coord(cname, _col2num, None, cbounds)
-        Traceback (most recent call last):
-        ValueError: invalid column(None) due to: 'NoneType' object is not iterable
-
-        >>> _resolve_coord(cname, _col2num, '4', cbounds)
-        Traceback (most recent call last):
-        ValueError: invalid column('4') due to: substring not found
-
-        >>> _resolve_coord(cname, _col2num, 4, cbounds)
-        Traceback (most recent call last):
-        ValueError: invalid column(4) due to: 'int' object is not iterable
-
-
-    """
-    try:
-        if coord in _special_coord_symbols:
-            if bcoord is not None:
-                cbounds = _update_dependent_coords(cbounds, bcoord)
-            rcoord = cbounds[coord]
-        else:
-            rcoord = cfunc(coord)
-
-        if rcoord < 0:
-            msg = 'resolved to negative(%s)!'
-            raise ValueError(msg % rcoord)
-
-        return rcoord
-    except Exception as ex:
-        msg = 'invalid {}({!r}) due to: {}'
-        raise ValueError(msg.format(cname, coord, ex))
 
 
 def _row2num(coord):
@@ -609,14 +469,126 @@ def _col2num(coord):
     return rcoord
 
 
-def _resolve_cell(cell, special_margins, base_cords=None):
+def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
+    """
+    Translates special coords or converts Excel string 1-based rows/cols to zero-based, reporting invalids.
+
+    :param str        cname:  the coord-name, one of 'row', 'column'
+    :param function   cfunc:  the function to convert coord ``str --> int``
+    :param int, str   coord:  the "A1" coord to translate
+    :param int up_coord:
+            the resolved *top* or *left* margin coordinate
+    :param int up_coord:
+            the resolved *bottom* or *right* margin coordinate
+    :param int, None base_coord:  the resolved basis for dependent coord, if any
+
+    :return: the resolved coord or `None` if it were not a special coord.
+
+
+    Row examples::
+
+        >>> cname = 'row'
+
+        >>> r0 = _resolve_coord(cname, _row2num, '1', 1, 10)
+        >>> r0
+        0
+        >>> r0 == _resolve_coord(cname, _row2num, 1, 1, 10)
+        True
+        >>> _resolve_coord(cname, _row2num, '^', 1, 10)
+        1
+        >>> _resolve_coord(cname, _row2num, '_', 1, 10)
+        10
+        >>> _resolve_coord(cname, _row2num, '.', 1, 10, 13)
+        13
+
+
+    But notice when base-cell missing::
+
+        >>> _resolve_coord(cname, _row2num, '.', 0, 10, base_coord=None)
+        Traceback (most recent call last):
+        ValueError: invalid row('.') due to: '.'
+
+    Other ROW error-checks::
+
+        >>> _resolve_coord(cname, _row2num, '0', 0, 10)
+        Traceback (most recent call last):
+        ValueError: invalid row('0') due to: resolved to negative(-1)!
+
+        >>> _resolve_coord(cname, _row2num, 'a', 0, 10)
+        Traceback (most recent call last):
+        ValueError: invalid row('a') due to: invalid literal for int() with base 10: 'a'
+
+        >>> _resolve_coord(cname, _row2num, None, 0, 10)
+        Traceback (most recent call last):
+        ValueError: invalid row(None) due to:
+                int() argument must be a string,
+                a bytes-like object or a number, not 'NoneType'
+
+
+    Column examples::
+
+        >>> cname = 'column'
+
+        >>> _resolve_coord(cname, _col2num, 'A', 1, 10)
+        0
+        >>> _resolve_coord(cname, _col2num, 'DADA', 1, 10)
+        71084
+        >>> _resolve_coord(cname, _col2num, '.', 1, 10, 13)
+        13
+
+    And COLUMN error-checks::
+
+        >>> _resolve_coord(cname, _col2num, None, 0, 10)
+        Traceback (most recent call last):
+        ValueError: invalid column(None) due to: 'NoneType' object is not iterable
+
+        >>> _resolve_coord(cname, _col2num, '4', 0, 10)
+        Traceback (most recent call last):
+        ValueError: invalid column('4') due to: substring not found
+
+        >>> _resolve_coord(cname, _col2num, 4, 0, 10)
+        Traceback (most recent call last):
+        ValueError: invalid column(4) due to: 'int' object is not iterable
+
+
+    """
+    try:
+        if coord in _special_coord_symbols:
+            special_dict = {
+                '^': up_coord,
+                '_': dn_coord
+            }
+            if base_coord is not None:
+                special_dict['.'] = base_coord
+            rcoord = special_dict[coord]
+        else:
+            rcoord = cfunc(coord)
+
+        if rcoord < 0:
+            msg = 'resolved to negative(%s)!'
+            raise ValueError(msg % rcoord)
+
+        return rcoord
+    except Exception as ex:
+        msg = 'invalid {}({!r}) due to: {}'
+        six.raise_from(ValueError(msg.format(cname, coord, ex)), ex)
+
+
+def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
     """
     Translates any special coords to absolute ones.
 
+    To get the margin_coords, use one of:
+
+    * :meth:`Spreadsheet.get_margin_coords()`
+    * :func:`_margin_coords_from_states_matrix()`
+
     :param Coords cell:
-            The raw cell to translate its coords.
-    :param Coords special_margins:
-            see :func:`make_special_margins()`
+            The "A1" cell to translate its coords.
+    :param Coords up_coords:
+            the top-left resolved :class:`Coords` with full-cells
+    :param Coords dn_coords:
+            the bottom-right resolved :class:`Coords` with full-cells
     :param Coords base_cords:
             A resolved cell to base dependent coords (``.``).
     :rtype: Coords
@@ -624,54 +596,62 @@ def _resolve_cell(cell, special_margins, base_cords=None):
 
     Examples::
 
-        >>> special_margins = Coords(
-        ...     row={'^':1, '_':10},
-        ...     col={'^':2, '_':6})
+        >>> up = Coords(row=1, col=2)
+        >>> dn = Coords(row=10, col=6)
+        >>> base = Coords(row=40, col=50)
 
-        >>> _resolve_cell(Coords(col='A', row=5), special_margins)
-        Coords(row=4, col=0)
+        >>> _resolve_cell(Coords(col='B', row=5), up, dn)
+        Coords(row=4, col=1)
 
-        >>> _resolve_cell(Coords('^', '^'), special_margins)
+        >>> _resolve_cell(Coords('^', '^'), up, dn)
         Coords(row=1, col=2)
 
-        >>> _resolve_cell(Coords('_', '_'), special_margins)
+        >>> _resolve_cell(Coords('_', '_'), up, dn)
         Coords(row=10, col=6)
 
-        >>> _resolve_cell(Coords('1', '5'), special_margins)
+        >>> base == _resolve_cell(Coords('.', '.'), up, dn, base)
+        True
+
+        >>> _resolve_cell(Coords('1', '5'), up, dn)
         Traceback (most recent call last):
         ValueError: invalid cell(Coords(row='1', col='5')) due to:
                 invalid col('5') due to: substring not found
 
-        >>> _resolve_cell(Coords('A', 'B'), special_margins)
+        >>> _resolve_cell(Coords('A', 'B'), up, dn)
         Traceback (most recent call last):
         ValueError: invalid cell(Coords(row='A', col='B')) due to:
                 invalid row('A') due to: invalid literal for int() with base 10: 'A'
 
-        >>> _resolve_cell(Coords('1', '.'), special_margins)
+    But notice when base-cell missing::
+
+        >>> _resolve_cell(Coords('1', '.'), up, dn)
         Traceback (most recent call last):
         ValueError: invalid cell(Coords(row='1', col='.')) due to: invalid col('.') due to: '.'
 
     """
     try:
-        row = _resolve_coord('row', _row2num, cell.row, special_margins.row,
+        row = _resolve_coord('row', _row2num, cell.row,
+                             up_coords.row, dn_coords.row,
                              base_cords and base_cords.row)
-        col = _resolve_coord('col', _col2num, cell.col, special_margins.col,
+        col = _resolve_coord('col', _col2num, cell.col,
+                             up_coords.col, dn_coords.col,
                              base_cords and base_cords.col)
 
         return Coords(row=row, col=col)
     except Exception as ex:
-        msg = "invalid cell(%s) due to: %s\n  special_margins(%s)\n  base_cords(%s)"
-        log.debug(msg, cell, ex, special_margins, base_cords)
-        raise ValueError("invalid cell(%s) due to: %s" % (cell, ex))
+        msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  base_cords(%s)"
+        log.debug(msg, cell, ex, (up_coords, dn_coords), base_cords)
+        six.raise_from(ValueError("invalid cell(%s) due to: %s" % (cell, ex)),
+                       ex)
 
 
-def _target_opposite_state(states_matrix, dn, state, land, moves):
+def _target_opposite_state(states_matrix, dn_coords, state, land, moves):
     """
 
     :param ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
-    :param Coords dn:
+    :param Coords dn_coords:
             the bottom/right in resolved-coords
     :param bool state:
             the state of the landing-cell, or `False` if beyond limits
@@ -717,7 +697,7 @@ def _target_opposite_state(states_matrix, dn, state, land, moves):
 
     """
     target, last_move = _target_opposite_state_impl(
-        states_matrix, dn, state, land, moves)
+        states_matrix, dn_coords, state, land, moves)
 
     if state and (land != target).any():
         target -= last_move
@@ -725,19 +705,19 @@ def _target_opposite_state(states_matrix, dn, state, land, moves):
     return Coords(target[0], target[1])
 
 
-def _target_opposite_state_impl(states_matrix, dn, state, land, moves):
+def _target_opposite_state_impl(states_matrix, dn_coords, state, land, moves):
     up = Coords(0, 0)
     c0 = np.array(land)
     mv1 = _primitive_dir_vectors[moves[0]]
     mv2 = _primitive_dir_vectors[moves[1]] if len(moves) > 1 else None
 
     if not state:
-        if land.row > dn.row and 'U' in moves:
-            c0[0] = dn[0]
-        if land.col > dn.col and 'L' in moves:
-            c0[1] = dn[1]
+        if land.row > dn_coords.row and 'U' in moves:
+            c0[0] = dn_coords[0]
+        if land.col > dn_coords.col and 'L' in moves:
+            c0[1] = dn_coords[1]
 
-    while (up <= c0).all() and (c0 <= dn).all():
+    while (up <= c0).all() and (c0 <= dn_coords).all():
         c1 = c0.copy()
         # Why rescan each time when searching-same?
         while (up <= c1).all():
@@ -763,13 +743,13 @@ def _target_opposite_state_impl(states_matrix, dn, state, land, moves):
             'empty' if state else 'full', land, moves))
 
 
-def _target_same_state(states_matrix, dn, state, cell, moves):
+def _target_same_state(states_matrix, dn_coords, state, cell, moves):
     """
 
     :param ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
-    :param Coords dn:         the bottom/right coords
+    :param Coords dn_coords:         the bottom/right coords
     :param bool state:      the state of the landing-cell, or `False`
                             if beyond limits
     :param cell:            the landing-cell
@@ -824,7 +804,7 @@ def _target_same_state(states_matrix, dn, state, cell, moves):
     c1 = list(cell)
 
     for mv in moves:
-        c = _target_opposite_state(states_matrix, dn, state, cell, mv)
+        c = _target_opposite_state(states_matrix, dn_coords, state, cell, mv)
         dis = _primitive_dir_vectors[mv]
         c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
     return Coords(*c1)
@@ -908,18 +888,25 @@ def _expand_rect(state, xl_rect, states_matrix, rect_exp):
     return [Coords(*v) for v in xl_rect]
 
 
-def resolve_capture_rect(states_matrix, special_margins, st_edge,
+def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
                          nd_edge=None, rect_exp=None):
     """
     Performs :term:`targeting` and applies :term:`expansions` but does not extract values.
 
-    Feed the results into :func:`read_capture_values()`.
+    To get the margin_coords, use one of:
+
+    * :meth:`Spreadsheet.get_margin_coords()`
+    * :func:`_margin_coords_from_states_matrix()`
+
+    Feed its results into :func:`read_capture_values()`.
 
     :param ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
-    :param Coords special_margins:
-            see :func:`make_special_margins()`
+    :param Coords up_coords:
+            the top-left resolved :class:`Coords` with full-cells
+    :param Coords dn_coords:
+            the bottom-right resolved :class:`Coords` with full-cells
     :param Edge st_edge: "uncooked" as matched by regex
     :param Edge nd_edge: "uncooked" as matched by regex
     :param list or none rect_exp:
@@ -938,45 +925,43 @@ def resolve_capture_rect(states_matrix, special_margins, st_edge,
         ...     [0, 0, 1, 0, 0, 1],
         ...     [0, 0, 1, 1, 1, 1]
         ... ], dtype=bool)
-        >>> margin_coords = margin_coords_from_states_matrix(states_matrix)
-        >>> special_margins = make_special_margins(*margin_coords)
+        >>> up, dn = _margin_coords_from_states_matrix(states_matrix)
 
         >>> st_edge = Edge(Coords('1', 'A'), 'DR')
         >>> nd_edge = Edge(Coords('.', '.'), 'DR')
-        >>> resolve_capture_rect(states_matrix, special_margins, st_edge, nd_edge)
+        >>> resolve_capture_rect(states_matrix, up, dn, st_edge, nd_edge)
         (Coords(row=3, col=2), Coords(row=4, col=2))
 
     Walking backwards::
 
         >>> st_edge = Edge(Coords('_', '_'), None)
         >>> nd_edge = Edge(Coords('.', '.'), 'UL')
-        >>> rect = resolve_capture_rect(states_matrix, special_margins, st_edge, nd_edge)
+        >>> rect = resolve_capture_rect(states_matrix, up, dn, st_edge, nd_edge)
         >>> rect
         (Coords(row=2, col=2), Coords(row=4, col=5))
 
         >>> st_edge = Edge(Coords('^', '_'), None)
         >>> nd_edge = Edge(Coords('_', '^'), None)
-        >>> rect == resolve_capture_rect(states_matrix, special_margins, st_edge, nd_edge)
+        >>> rect == resolve_capture_rect(states_matrix, up, dn, st_edge, nd_edge)
         True
 
     """
 
-    dn = Coords(special_margins[0]['_'], special_margins[1]['_'])
-
-    st = _resolve_cell(st_edge.land, special_margins)
+    st = _resolve_cell(st_edge.land, up_coords, dn_coords)
     try:
         state = states_matrix[st]
     except IndexError:
         state = False
 
     if st_edge.mov is not None:
-        st = _target_opposite_state(states_matrix, dn, state, st, st_edge.mov)
+        st = _target_opposite_state(
+            states_matrix, dn_coords, state, st, st_edge.mov)
         state = not state
 
     if nd_edge is None:
         capt_rect = (st, st)
     else:
-        nd = _resolve_cell(nd_edge.land, special_margins, st)
+        nd = _resolve_cell(nd_edge.land, up_coords, dn_coords, st)
 
         if nd_edge.mov is not None:
             mov = nd_edge.mov
@@ -987,9 +972,10 @@ def resolve_capture_rect(states_matrix, special_margins, st_edge,
                 nd_state = False
 
             if state == nd_state:
-                nd = _target_same_state(states_matrix, dn, state, nd, mov)
+                nd = _target_same_state(
+                    states_matrix, dn_coords, state, nd, mov)
             else:
-                nd = _target_opposite_state(states_matrix, dn,
+                nd = _target_opposite_state(states_matrix, dn_coords,
                                             not state, nd, mov)
 
         # Order rect-cells.
@@ -1067,10 +1053,8 @@ def read_capture_rect(sheet, xl_rect):
         >>> os.remove(tmp)
     """
 
-    states_matrix = sheet.read_states_matrix()
     st_target, nd_target = xl_rect
-
-    table = sheet.read_rect(states_matrix, xl_rect)
+    table = sheet.read_rect(xl_rect)
 
     # column
     if nd_target.col == st_target.col:
@@ -1168,7 +1152,7 @@ _default_filters = {
 }
 
 
-def _process_captured_values(value, type=None, args=(), kws=None, filters=None,
+def _process_captured_values(value, func=None, args=(), kws=None, filters=None,
                              available_filters=_default_filters):
     """
     Processes the output value of :func:`read_capture_rect()` function.
@@ -1199,7 +1183,7 @@ def _process_captured_values(value, type=None, args=(), kws=None, filters=None,
     Examples::
 
         >>> value = [[1, 2], [3, 4], [5, 6]]
-        >>> res = _process_captured_values(value, type='dict')
+        >>> res = _process_captured_values(value, func='dict')
         >>> sorted(res.items())
         [(1, 2),
          (3, 4),
@@ -1207,14 +1191,14 @@ def _process_captured_values(value, type=None, args=(), kws=None, filters=None,
 
         >>> value = [[1, 9], [8, 10], [5, 11]]
         >>> _process_captured_values(value,
-        ...     filters=[{'type':'sorted', 'kws':{'reverse': True}}])
+        ...     filters=[{'func':'sorted', 'kws':{'reverse': True}}])
         [[8, 10],
          [5, 11],
          [1, 9]]
     """
     if not kws:
         kws = {}
-    val = available_filters[type]['fun'](value, *args, **kws)
+    val = available_filters[func]['fun'](value, *args, **kws)
     if filters:
         for v in filters:
             val = _process_captured_values(val, **v)
@@ -1269,8 +1253,9 @@ class Spreadsheet(object):
             self._states_matrix = self._backend.read_states_matrix(self._sheet)
         return self._states_matrix
 
-    def read_rect(self, states_matrix, xl_rect):
-        return self._backend.read_rect(self._sheet, states_matrix, xl_rect)
+    def read_rect(self, xl_rect):
+        return self._backend.read_rect(self._sheet, self.read_states_matrix(),
+                                       xl_rect)
 
     def _read_margin_coords(self):
         """
@@ -1286,7 +1271,7 @@ class Spreadsheet(object):
 
     def get_margin_coords(self):
         """
-        Extract (and cache) margins either internally or from :func:`margin_coords_from_states_matrix()`.
+        Extract (and cache) margins either internally or from :func:`_margin_coords_from_states_matrix()`.
 
         :return:    the resolved top-left and bottom-right :class:`Coords`
         :rtype:     tuple
@@ -1309,7 +1294,7 @@ class Spreadsheet(object):
             up, dn = self._read_margin_coords()
             if up is None or dn is None:
                 sm = self.read_states_matrix()
-                up1, dn1 = margin_coords_from_states_matrix(sm)
+                up1, dn1 = _margin_coords_from_states_matrix(sm)
                 up = up or up1
                 dn = dn or dn1
             self._margin_coords = up, dn

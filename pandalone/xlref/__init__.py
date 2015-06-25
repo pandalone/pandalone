@@ -541,5 +541,6 @@ from ._xlref import (
     read_capture_rect,
 )
 from ._xlrd import (
-    open_xlref_workbook, open_sheet, read_states_matrix, read_rect
+    open_xlref_workbook, open_sheet, read_states_matrix, read_rect,
+    # TODO: wrap_sheet
 )
