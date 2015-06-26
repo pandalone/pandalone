@@ -785,6 +785,46 @@ def _target_opposite_state_impl(states_matrix, up_coords, dn_coords,
             'empty' if state else 'full', land, moves))
 
 
+def _target_opposite_state2(states_matrix, up_coords, dn_coords, state, land, moves):
+    mov_slices = {
+        'L': (lambda r, c: (r, slice(None, c + 1)), np.max, 1),
+        'U': (lambda r, c: (slice(None, r + 1), c), np.min, 0),
+        'R': (lambda r, c: (r, slice(c, None)), np.min, 1),
+        'D': (lambda r, c: (slice(r, None), c), np.max, 0),
+    }
+
+    target = np.array(land)
+    for mov in moves:
+        slice_func, id_func, coord_indx = mov_slices[mov]
+        vect_slice = slice_func(*land)
+        states_vect = states_matrix[vect_slice]
+        if not (states_vect == state).any():
+            continue
+        indx = states_vect.nonzero()[0]
+        target[coord_indx] += id_func(indx)
+    return Coords(*target)
+
+
+def _target_same_state2(states_matrix, up_coords, dn_coords, state, land, moves):
+    mov_slices = {
+        'L': (lambda r, c: (r, slice(None, c + 1)), np.max, 1),
+        'U': (lambda r, c: (slice(None, r + 1), c), np.min, 0),
+        'R': (lambda r, c: (r, slice(c, None)), np.min, 1),
+        'D': (lambda r, c: (slice(r, None), c), np.max, 0),
+    }
+
+    target = np.array(land)
+    for mov in moves:
+        slice_func, id_func, coord_indx = mov_slices[mov]
+        vect_slice = slice_func(*land)
+        states_vect = states_matrix[vect_slice]
+        if not (states_vect == state).any():
+            continue
+        indx = states_vect.nonzero()[0]
+        target[coord_indx] += id_func(indx)
+    return Coords(*target)
+
+
 def _target_same_state(states_matrix, up_coords, dn_coords, state, land, moves):
     """
 
@@ -908,7 +948,7 @@ def _expand_rect(states_matrix, state, xl_rect, exp_mov):
     """
     assert SKIP_CELLTYPE_CHECK or isinstance(xl_rect[0], Coords), xl_rect
     assert SKIP_CELLTYPE_CHECK or isinstance(xl_rect[1], Coords), xl_rect
-    _m = {
+    mov_indices = {
         'L': (0, 1),
         'U': (0, 1),
         'R': (1, 0),
@@ -920,7 +960,7 @@ def _expand_rect(states_matrix, state, xl_rect, exp_mov):
             flag = True
             for d in directions:
                 mv = _primitive_dir_vectors[d]
-                i, j = _m[d]
+                i, j = mov_indices[d]
                 st, nd = (xl_rect[i], xl_rect[j])
                 st = st + mv
                 nd = [p2 if k == 0 else p1 for p1, p2, k in zip(st, nd, mv)]
@@ -943,7 +983,7 @@ def _expand_rect(states_matrix, state, xl_rect, exp_mov):
 def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
                          nd_edge=None, rect_exp=None):
     """
-    Performs :term:`targeting`, :term:`capturing` and :term:`expansions` based on the :term:`states-matrix`.
+    Performs :term:`targeting`, :term:`capturing` and :term:`expansions` based on the :term:`st_states-matrix`.
 
     To get the margin_coords, use one of:
 
@@ -1003,14 +1043,14 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
 
     st = _resolve_cell(st_edge.land, up_coords, dn_coords)
     try:
-        state = states_matrix[st]
+        st_state = states_matrix[st]
     except IndexError:
-        state = False
+        st_state = False
 
     if st_edge.mov is not None:
         st = _target_opposite_state(
-            states_matrix, up_coords, dn_coords, state, st, st_edge.mov)
-        state = not state
+            states_matrix, up_coords, dn_coords, st_state, st, st_edge.mov)
+        st_state = not st_state
 
     if nd_edge is None:
         capt_rect = (st, st)
@@ -1025,12 +1065,12 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
             except IndexError:
                 nd_state = False
 
-            if state == nd_state:
+            if st_state == nd_state:
                 nd = _target_same_state(states_matrix, up_coords, dn_coords,
-                                        state, nd, mov)
+                                        st_state, nd, mov)
             else:
                 nd = _target_opposite_state(states_matrix, up_coords, dn_coords,
-                                            not state, nd, mov)
+                                            not st_state, nd, mov)
 
         # Order rect-cells.
         #
@@ -1039,7 +1079,7 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
         capt_rect = (Coords(*c.min(0).tolist()), Coords(*c.max(0).tolist()))
 
     if rect_exp:
-        capt_rect = _expand_rect(states_matrix, state, capt_rect, rect_exp)
+        capt_rect = _expand_rect(states_matrix, st_state, capt_rect, rect_exp)
 
     return capt_rect
 
@@ -1270,7 +1310,7 @@ class _Spreadsheet(object):
     Use :func:`pandalone.xlref.wrap_sheet()` to create it.
 
     :param np.array _states_matrix:
-            The :term:`states-matrix` cached, so recreate object
+            The :term:`st_states-matrix` cached, so recreate object
             to refresh it.
     :param dict _margin_coords:
             limits used by :func:`_resolve_cell`, cached, so recreate object
@@ -1306,7 +1346,7 @@ class _Spreadsheet(object):
 
     def get_states_matrix(self):
         """
-        Read and cache the :term:`states-matrix` of the wrapped sheet.
+        Read and cache the :term:`st_states-matrix` of the wrapped sheet.
 
         :return:   A 2D-array with `False` wherever cell are blank or empty.
         :rtype:     ndarray

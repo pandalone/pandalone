@@ -81,7 +81,8 @@ class Doctest(unittest.TestCase):
 
 _all_dir_pairs = ['LU', 'LD', 'UL', 'DL']
 _all_dir_pairs += _all_dir_pairs[::-1]
-_all_dirs = list(['LRUD']) + _all_dir_pairs
+_all_dir_single = list('LRUD')
+_all_dirs = _all_dir_single + _all_dir_pairs
 
 
 @ddt
@@ -408,6 +409,54 @@ class Resolve(unittest.TestCase):
 #         >>> _target_opposite_state(*(args + (True, Cell(0, 2), 'LD')))
 #         Cell(row=2, col=2)
 
+    @data(
+        (True, 1, 0),
+        (True, 1, 1),
+        (True, 1, 0),
+
+        (True, 0, 5),
+        (True, 1, 5),
+        (True, 4, 0),
+        (True, 4, 1),
+
+        (True, 2, 2),
+
+        (True, 4, 4),
+
+        (False, 2, 3),
+        (False, 3, 2),
+
+        (False, 2, 4),
+        (False, 2, 5),
+
+        (False, 3, 2),
+        (False, 3, 5),
+
+        (False, 4, 2),
+        (False, 4, 5),
+
+        (False, 4, 2),
+        (False, 4, 3),
+        (False, 4, 5),
+
+    )
+    def test_target_same_state_Land_on_opposite_state(self, case):
+        state, r, c = case
+        for mov in _all_dirs:
+            self.check_target_same_state(state, r, c, mov, r, c)
+
+    @data(
+        (False, 0, 0, 'DR', 2, 2),
+        (False, 0, 0, 'DR', 2, 2),
+        (False, 0, 0, 'RD', 2, 2),
+
+        (False, 2, 3, 'DR', 3, 2),
+        (False, 0, 0, 'RD', 2, 3),
+    )
+    def test_target_same_state_Empty_2moves(self, case):
+        state, r, c, mov, rr, rc = case
+        self.check_target_same_state(state, r, c, mov, rr, rc)
+
     def test_target_same_state_InverseWalking(self):
         self.check_target_same_state(True, 2, 5, 'LD', 4, 3)
 
@@ -421,8 +470,8 @@ class Resolve(unittest.TestCase):
 
         st_edge = xr.Edge(xr.Cell(*args[0:2]), args[2])
         nd_edge = xr.Edge(xr.Cell(*args[3:5]), args[5])
-        res = (xr.Cell(*args[6:8]),
-               xr.Cell(*args[8:10]))
+        res = (xr.Coords(*args[6:8]),
+               xr.Coords(*args[8:10]))
         args = argshead + (st_edge, nd_edge)
         self.assertEqual(xr.resolve_capture_rect(*args), res, str(args))
 
@@ -444,6 +493,36 @@ class Resolve(unittest.TestCase):
         ('4', 'D', 'LU', '4', 'F', 'RD', 3, 2, 4, 5),
     )
     def test_resolve_capture_rect_Target_fromEmpty_st(self, case):
+        self.check_resolve_capture_rect(*case)
+
+    @data(
+        ('3', 'D', 'R', '_', '_', None, 2, 5, 4, 5),
+        ('3', 'D', 'UR', '_', '_', None, 2, 5, 4, 5),
+        ('3', 'D', 'RU', '_', '_', None, 2, 5, 4, 5),
+        ('3', 'D', 'DR', '_', '_', None, 2, 5, 4, 5),
+        ('3', 'D', 'RD', '_', '_', None, 2, 5, 4, 5),
+
+        ('3', 'D', 'L', '_', '_', None, 2, 3, 4, 5),
+        ('3', 'D', 'UL', '_', '_', None, 2, 3, 4, 5),
+        ('3', 'D', 'LU', '_', '_', None, 2, 3, 4, 5),
+        ('3', 'D', 'DL', '_', '_', None, 2, 3, 4, 5),
+        ('3', 'D', 'LD', '_', '_', None, 2, 3, 4, 5),
+
+        ('3', 'E', 'R', '_', '_', None, 2, 5, 4, 5),
+        ('3', 'E', 'UR', '_', '_', None, 2, 5, 4, 5),
+        ('3', 'E', 'RU', '_', '_', None, 2, 5, 4, 5),
+        ('3', 'E', 'DR', '_', '_', None, 2, 5, 4, 5),
+        ('3', 'E', 'RD', '_', '_', None, 2, 5, 4, 5),
+
+        ('3', 'E', 'L', '_', '_', None, 2, 3, 4, 5),
+        ('3', 'E', 'UL', '_', '_', None, 2, 3, 4, 5),
+        ('3', 'E', 'LU', '_', '_', None, 2, 3, 4, 5),
+        ('3', 'E', 'DL', '_', '_', None, 2, 3, 4, 5),
+        ('3', 'E', 'LD', '_', '_', None, 2, 3, 4, 5),
+
+        ('3', 'E', 'L', '_', '_', None, 2, 3, 4, 5),
+    )
+    def test_resolve_capture_rect_Target_fromFull_st(self, case):
         self.check_resolve_capture_rect(*case)
 
     @data(
