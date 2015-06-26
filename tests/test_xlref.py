@@ -19,6 +19,7 @@ from tests._tutils import check_xl_installed, xw_Workbook
 import unittest
 
 from ddt import ddt, data
+from numpy import testing as npt
 import six
 import xlrd
 
@@ -212,7 +213,7 @@ class Resolve(unittest.TestCase):
         sm = np.array([
             [0, 1, 1, 0]
         ])
-        margins = (xr.Cell(0, 1), xr.Cell(0, 2))
+        margins = (xr.Coords(0, 1), xr.Coords(0, 2))
         self.assertEqual(xr._margin_coords_from_states_matrix(sm), margins)
 
         sm = np.asarray([
@@ -221,23 +222,27 @@ class Resolve(unittest.TestCase):
             [0, 1, 1],
             [0, 0, 1],
         ])
-        margins = (xr.Cell(1, 1), xr.Cell(3, 2))
+        margins = (xr.Coords(1, 1), xr.Coords(3, 2))
         self.assertEqual(xr._margin_coords_from_states_matrix(sm), margins)
 
     def test_find_states_matrix_margins_Single_cell(self):
-        sm = np.array([[1], ])
-        c = xr.Cell(0, 0)
+        sm = np.array([
+            [1],
+        ])
+        c = xr.Coords(0, 0)
         self.assertEqual(xr._margin_coords_from_states_matrix(sm), (c, c))
 
-        sm = np.array([[0, 0, 1], ])
-        c = xr.Cell(0, 2)
+        sm = np.array([
+            [0, 0, 1],
+        ])
+        c = xr.Coords(0, 2)
         self.assertEqual(xr._margin_coords_from_states_matrix(sm), (c, c))
 
         sm = np.array([
             [0, 0],
             [0, 1]
         ])
-        c = xr.Cell(1, 1)
+        c = xr.Coords(1, 1)
         self.assertEqual(xr._margin_coords_from_states_matrix(sm), (c, c))
 
         sm = np.array([
@@ -245,7 +250,7 @@ class Resolve(unittest.TestCase):
             [0, 0],
             [0, 1]
         ])
-        c = xr.Cell(2, 1)
+        c = xr.Coords(2, 1)
         self.assertEqual(xr._margin_coords_from_states_matrix(sm), (c, c))
 
     def test_find_states_matrix_margins_Further_empties(self):
@@ -256,7 +261,7 @@ class Resolve(unittest.TestCase):
             [0, 0, 1, 0],
             [0, 0, 0, 0],
         ])
-        margins = (xr.Cell(1, 1), xr.Cell(3, 2))
+        margins = (xr.Coords(1, 1), xr.Coords(3, 2))
         self.assertEqual(xr._margin_coords_from_states_matrix(sm), margins)
 
         sm = np.asarray([
@@ -264,14 +269,14 @@ class Resolve(unittest.TestCase):
             [0, 0],
             [0, 0],
         ])
-        margins = (xr.Cell(0, 0), xr.Cell(0, 0))
+        margins = (xr.Coords(0, 0), xr.Coords(0, 0))
         self.assertEqual(xr._margin_coords_from_states_matrix(sm), margins)
         sm = np.asarray([
             [0, 0, 0, 0],
             [0, 1, 0, 0],
             [0, 0, 0, 0],
         ])
-        margins = (xr.Cell(1, 1), xr.Cell(1, 1))
+        margins = (xr.Coords(1, 1), xr.Coords(1, 1))
         self.assertEqual(xr._margin_coords_from_states_matrix(sm), margins)
 
     @data(
@@ -281,7 +286,7 @@ class Resolve(unittest.TestCase):
         [[0, 0], [0, 0]],
     )
     def test_find_states_matrix_margins_EmptySheet(self, states_matrix):
-        margins = (xr.Cell(0, 0), xr.Cell(0, 0))
+        margins = (xr.Coords(0, 0), xr.Coords(0, 0))
         res = xr._margin_coords_from_states_matrix(np.asarray(states_matrix))
         self.assertEqual(res, margins, states_matrix)
 
@@ -317,10 +322,10 @@ class Resolve(unittest.TestCase):
         states_matrix, up, dn = self.make_states_matrix()
         argshead = (states_matrix, up, dn)
 
-        land_cell = xr.Cell(land_row, land_col)
+        land_cell = xr.Coords(land_row, land_col)
         args = argshead + (land_state, land_cell, moves)
         res = target_func(*args)
-        self.assertEqual(res, xr.Cell(exp_row, exp_col), str(args))
+        self.assertEqual(res, xr.Coords(exp_row, exp_col), str(args))
 
     def check_target_opposite_state_RaisesTargetMissed(self, *args):
         ## args =(land_state, land_row, land_col, moves)
@@ -394,7 +399,7 @@ class Resolve(unittest.TestCase):
 
     def TODO_Check_StateFalse(self):
         pass
-#                 >>> states_matrix = np.array([
+#                 >>> states_matrix = self.assertEqual([
 #         ...     [1, 1, 1],
 #         ...     [1, 1, 1],
 #         ...     [1, 1, 1],
@@ -498,7 +503,8 @@ class Read1(unittest.TestCase):
                                        [1, 0],
                                        [1, 1],
                                        [1, 1],
-                                       [1, 1]], dtype=bool)
+                                       [1, 1]
+                                       ], dtype=bool)
         self.sheet = xr.Spreadsheet(
             xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
 
@@ -510,7 +516,7 @@ class Read1(unittest.TestCase):
         # row vector in the sheet [B2:B_]
         args = (self.sheet, (xr.Cell(1, 1), xr.Cell(7, 1)))
         res = [datetime(1900, 8, 2), True, None, None, 'hi', 1.4, 5]
-        self.assertEqual(xr.read_capture_rect(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res, str(args))
 
     def test_comparison_vs_pandas_parse_cell(self):
 
@@ -621,56 +627,56 @@ class Read2(unittest.TestCase):  # FIXME: Why another class
                 xr.Edge(xr.Cell('1', 'D'), None),
                 xr.Edge(xr.Cell('_', 'D'), None))
         res = [None, None, None, None, None, None, 0, 1]
-        self.assertEqual(_read_rect_values(*args), res)
+        self.assertEqual(_read_rect_values(*args), res, str(args))
 
         # get whole row [_6]
         args = (sheet,
                 xr.Edge(xr.Cell('6', 'A'), None),
                 xr.Edge(xr.Cell('6', '_'), None))
         res = [None, None, None, None, 0, 1, 2]
-        self.assertEqual(_read_rect_values(*args), res)
+        self.assertEqual(_read_rect_values(*args), res, str(args))
 
         # minimum delimited row in the sheet [C6:_6]
         args = (sheet,
                 xr.Edge(xr.Cell('6', 'C'), None),
                 xr.Edge(xr.Cell('6', '_'), None))
         res = [None, None, 0, 1, 2]
-        self.assertEqual(_read_rect_values(*args), res)
+        self.assertEqual(_read_rect_values(*args), res, str(args))
 
         # minimum delimited row in the sheet [_7:_7]
         args = (sheet,
                 xr.Edge(xr.Cell('7', 'A'), None),
                 xr.Edge(xr.Cell('7', '_'), None))
         res = [None, None, None, 0, None, None, None]
-        self.assertEqual(_read_rect_values(*args), res)
+        self.assertEqual(_read_rect_values(*args), res, str(args))
 
         # minimum delimited row in the sheet [E6:_6]
         args = (sheet,
                 xr.Edge(xr.Cell('1', 'A'), 'RD'),
                 xr.Edge(xr.Cell('.', '.'), 'R'))
         res = [0, 1, 2]
-        self.assertEqual(_read_rect_values(*args), res)
+        self.assertEqual(_read_rect_values(*args), res, str(args))
 
         # delimited row in the sheet [A7:D7]
         args = (sheet,
                 xr.Edge(xr.Cell('7', 'A'), None),
                 xr.Edge(xr.Cell('7', 'D'), None))
         res = [None, None, None, 0]
-        self.assertEqual(_read_rect_values(*args), res)
+        self.assertEqual(_read_rect_values(*args), res, str(args))
 
         # minimum delimited column in the sheet [D_:D_]
         args = (sheet,
                 xr.Edge(xr.Cell('^', 'D'), None),
                 xr.Edge(xr.Cell('_', 'D'), None))
         res = [None, 0, 1]
-        self.assertEqual(_read_rect_values(*args), res)
+        self.assertEqual(_read_rect_values(*args), res, str(args))
 
         # minimum delimited column in the sheet [D5:D_]
         args = (sheet,
                 xr.Edge(xr.Cell('5', 'D'), None),
                 xr.Edge(xr.Cell('_', 'D'), None))
         res = [None, None, 0, 1]
-        self.assertEqual(_read_rect_values(*args), res)
+        self.assertEqual(_read_rect_values(*args), res, str(args))
 
         # minimum delimited column in the sheet [D_:D9]
         args = (sheet,
@@ -761,7 +767,7 @@ class Read2(unittest.TestCase):  # FIXME: Why another class
             [0, None, None],
             [1, 5.1, 6.1]
         ]
-        self.assertEqual(_read_rect_values(*args), res)
+        self.assertEqual(_read_rect_values(*args), res, str(args))
 
         # delimited matrix in the sheet [A1:F8]
         args = (sheet,
@@ -777,7 +783,7 @@ class Read2(unittest.TestCase):  # FIXME: Why another class
             [None, None, None, 0, None, None],
             [None, None, None, 1, 5.1, 6.1]
         ]
-        self.assertEqual(_read_rect_values(*args), res)
+        self.assertEqual(_read_rect_values(*args), res, str(args))
 
         # delimited matrix in the sheet [G9:__]
         args = (sheet,
@@ -899,7 +905,7 @@ class TestVsXlwings(unittest.TestCase):
         args = (sheet, rng)
         res = [[None, 0, 1],
                [0, 1, 2]]
-        self.assertEqual(xr.read_capture_rect(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res, str(args))
 
         # minimum delimited matrix in the sheet [F7:F7:LURD]
         st = xr.Edge(xr.coords2Cell(6, 5), None)
@@ -910,7 +916,7 @@ class TestVsXlwings(unittest.TestCase):
         res = [[None, 0, 1, 2],
                [0, 1, 2, None],
                [1, None, 6.1, 7.1]]
-        self.assertEqual(xr.read_capture_rect(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res, str(args))
 
         # minimum delimited matrix in the sheet [F7:A1(RD)]
         st = xr.Edge(xr.coords2Cell(6, 5), None)
@@ -919,7 +925,7 @@ class TestVsXlwings(unittest.TestCase):
         args = (sheet, rng)
         res = [[0, 1],
                [1, 2]]
-        self.assertEqual(xr.read_capture_rect(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res, str(args))
 
         # minimum delimited row in the sheet [_8:G8]
         st = xr.Edge(xr.coords2Cell(7, 6), None)
@@ -927,7 +933,7 @@ class TestVsXlwings(unittest.TestCase):
         rng = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
         args = (sheet, rng)
         res = [6.1, 7.1]
-        self.assertEqual(xr.read_capture_rect(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res, str(args))
 
         # minimum delimited column in the sheet [D_:D8]
         st = xr.Edge(xr.coords2Cell(7, 3), None)
@@ -935,7 +941,7 @@ class TestVsXlwings(unittest.TestCase):
         rng = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
         args = (sheet, rng)
         res = [0, 1]
-        self.assertEqual(xr.read_capture_rect(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res, str(args))
 
         # single value [D8]
         st = xr.Edge(xr.coords2Cell(7, 3), None)
@@ -943,7 +949,7 @@ class TestVsXlwings(unittest.TestCase):
         rng = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
         args = (sheet, rng)
         res = [1]
-        self.assertEqual(xr.read_capture_rect(*args), res)
+        self.assertEqual(xr.read_capture_rect(*args), res, str(args))
 
 
 class Spreadsheet(unittest.TestCase):

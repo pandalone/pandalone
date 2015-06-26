@@ -103,10 +103,10 @@ def read_rect(sheet, states_matrix, xl_rect):
     """
     st_cell, nd_cell = xl_rect
     table = []
-    for r in range(st_cell.row, nd_cell.row + 1):
+    for r in range(st_cell[0], nd_cell[0] + 1):
         row = []
         table.append(row)
-        for c in range(st_cell.col, nd_cell.col + 1):
+        for c in range(st_cell[1], nd_cell[1] + 1):
             try:
                 if states_matrix[r, c]:
                     row.append(_parse_cell(sheet.cell(r, c)))
