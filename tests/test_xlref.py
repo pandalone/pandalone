@@ -11,7 +11,7 @@ from __future__ import division, print_function, unicode_literals
 from datetime import datetime
 import doctest
 import os
-from pandalone.xlref import _xlrd as xd
+from pandalone.xlref import _xlrd as xd, wrap_sheet
 from pandalone.xlref import _xlref as xr
 import sys
 from tests import _tutils
@@ -19,7 +19,6 @@ from tests._tutils import check_xl_installed, xw_Workbook
 import unittest
 
 from ddt import ddt, data
-from numpy import testing as npt
 import six
 import xlrd
 
@@ -32,7 +31,7 @@ xl_installed = check_xl_installed()
 
 
 def _make_xl_margins(sheet):
-    states_matrix = sheet.read_states_matrix()
+    states_matrix = sheet.get_states_matrix()
 
     up = (0, 0)
 
@@ -57,7 +56,7 @@ def _make_local_url(fname, fragment=''):
 
 
 def _read_rect_values(sheet, st_edge, nd_edge=None):
-    states_matrix = sheet.read_states_matrix()
+    states_matrix = sheet.get_states_matrix()
     up, dn = sheet.get_margin_coords()
     xl_rect = xr.resolve_capture_rect(states_matrix, up, dn,
                                       st_edge, nd_edge)  # or Edge(None, None))
@@ -505,7 +504,7 @@ class Read1(unittest.TestCase):
                                        [1, 1],
                                        [1, 1]
                                        ], dtype=bool)
-        self.sheet = xr.Spreadsheet(
+        self.sheet = wrap_sheet(
             xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
 
     def tearDown(self):
@@ -532,52 +531,6 @@ class Read1(unittest.TestCase):
 
         self.assertEqual(df, res)
 
-    def test_open_xl_workbook(self):
-
-        url_parent = _make_local_url(self.tmp, 'Sheet1!A1')
-        xl_ref_parent = xr.parse_xl_url(url_parent)
-        xd.open_xlref_workbook(xl_ref_parent)
-
-        url_child = '#A1:B2'
-        xl_ref_child = xr.parse_xl_url(url_child)
-
-        self.assertRaises(
-            ValueError, xd.open_xlref_workbook, *(xl_ref_child,))
-
-        xd.open_xlref_workbook(xl_ref_child, xl_ref_parent)
-
-        self.assertEquals(xl_ref_child['xl_workbook'],
-                          xl_ref_parent['xl_workbook'])
-
-    def test_open_xl_sheet(self):
-        url_parent = _make_local_url(self.tmp, 'Sheet1!A1')
-        xl_ref_parent = xr.parse_xl_url(url_parent)
-        xd.open_xlref_workbook(xl_ref_parent)
-        xd.open_sheet(xl_ref_parent)
-
-        url_child = '#A1:B2'
-        xl_ref_child = xr.parse_xl_url(url_child)
-
-        xd.open_xlref_workbook(xl_ref_child, xl_ref_parent)
-
-        self.assertRaises(ValueError, xd.open_sheet, *(xl_ref_child,))
-
-        xd.open_sheet(xl_ref_child, xl_ref_parent)
-
-        self.assertEquals(xl_ref_child['xl_workbook'],
-                          xl_ref_parent['xl_workbook'])
-        self.assertEquals(xl_ref_child['xl_sheet'],
-                          xl_ref_parent['xl_sheet'])
-
-        url_child = '#Sheet2!A1:B2'
-        xl_ref_child = xr.parse_xl_url(url_child)
-        xd.open_xlref_workbook(xl_ref_child, xl_ref_parent)
-        xd.open_sheet(xl_ref_child, xl_ref_parent)
-        self.assertEquals(xl_ref_child['xl_workbook'],
-                          xl_ref_parent['xl_workbook'])
-        self.assertNotEquals(xl_ref_child['xl_sheet'],
-                             xl_ref_parent['xl_sheet'])
-
 
 class Read2(unittest.TestCase):  # FIXME: Why another class
 
@@ -591,7 +544,7 @@ class Read2(unittest.TestCase):  # FIXME: Why another class
 
         _make_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
 
-        self.sheet = xr.Spreadsheet(
+        self.sheet = wrap_sheet(
             xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
 
     def tearDown(self):
@@ -810,7 +763,7 @@ class TestVsXlwings(unittest.TestCase):
         ]
         _make_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
 
-        self.sheet = xr.Spreadsheet(
+        self.sheet = wrap_sheet(
             xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
 
     def tearDown(self):
@@ -833,7 +786,7 @@ class TestVsXlwings(unittest.TestCase):
                    ]
 
         sheet = self.sheet
-        states_matrix = sheet.read_states_matrix()
+        states_matrix = sheet.get_states_matrix()
         up, dn = xr._margin_coords_from_states_matrix(states_matrix)
 
         # minimum delimited column in the sheet [D7:D.(D)]
@@ -952,33 +905,22 @@ class TestVsXlwings(unittest.TestCase):
         self.assertEqual(xr.read_capture_rect(*args), res, str(args))
 
 
-class Spreadsheet(unittest.TestCase):
-
-    def test_backend_Default(self):
-        sheet = xr.Spreadsheet(sheet=None)
-        self.assertEqual(sheet._backend, xd)
-
-    def test_backend_Excplicit(self):
-        sheet = xr.Spreadsheet(sheet=None, backend='pandalone.xlref._xlref')
-        self.assertEqual(sheet._backend, xr)
-
-        sheet = xr.Spreadsheet(sheet=None, backend='pandalone.xlref._xlrd')
-        self.assertEqual(sheet._backend, xd)
+class _Spreadsheet(unittest.TestCase):
 
     def test_get_states_matrix_Caching(self):
-        sheet = xr.Spreadsheet(sheet=None)
+        sheet = xr._Spreadsheet(sheet=None)
         obj = object()
         sheet._states_matrix = obj
-        self.assertEqual(sheet.read_states_matrix(), obj)
+        self.assertEqual(sheet.get_states_matrix(), obj)
 
     def test_get_margin_coords_Cached(self):
-        sheet = xr.Spreadsheet(sheet=None)
+        sheet = xr._Spreadsheet(sheet=None)
         obj = object()
         sheet._margin_coords = obj
         self.assertEqual(sheet.get_margin_coords(), obj)
 
     def test_get_margin_coords_Extracted_from_states_matrix(self):
-        sheet = xr.Spreadsheet(sheet=None)
+        sheet = xr._Spreadsheet(sheet=None)
         sheet._states_matrix = np.array([
             [0, 1, 1, 0]
         ])

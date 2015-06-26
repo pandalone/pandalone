@@ -10,12 +10,13 @@ The user-facing implementation of *xlref*.
 
 Prefer accessing the public members from the parent module.
 """
+
+from abc import abstractmethod, ABCMeta
 from collections import namedtuple
 import json
 import logging
 import re
 from string import ascii_uppercase
-from types import ModuleType
 
 import six
 
@@ -24,10 +25,15 @@ import numpy as np
 import pandas as pd
 from six.moves.urllib.parse import urldefrag  # @UnresolvedImport
 
-from . import _xlrd
-
-
 log = logging.getLogger(__name__)
+
+try:
+    from xlrd import colname as xl_colname
+    # TODO: Try different backends providing `colname` function.
+except ImportError:
+    log.warning(
+        'One of `xlrd`, `...` libraries is needed, failures might occure later!')
+
 
 SKIP_CELLTYPE_CHECK = False
 """When `True`, most coord-functions accept any 2-tuples."""
@@ -74,7 +80,7 @@ def coords2Cell(row, col):
         row = str(row + 1)
     if col not in _special_coord_symbols:
         assert col >= 0, 'negative col!'
-        col = _xlrd.colname(col)
+        col = xl_colname(col)
     return Cell(row=row, col=col)
 
 Edge = namedtuple('Edge', ['land', 'mov'])
@@ -376,12 +382,12 @@ def _margin_coords_from_states_matrix(states_matrix):
     """
     Returns top-left/bottom-down margins of full cells from a :term:`state` matrix.
 
-    May be used by :meth:`Spreadsheet.get_margin_coords()` if a backend
+    May be used by :meth:`_Spreadsheet.get_margin_coords()` if a backend
     does not report the sheet-margins internally.
 
     :param np.ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
-            Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
+            Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
     :return:    the 2 coords of the top-left & bottom-right full cells
     :rtype:     (Coords, Coords)
 
@@ -596,7 +602,7 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
 
     To get the margin_coords, use one of:
 
-    * :meth:`Spreadsheet.get_margin_coords()`
+    * :meth:`_Spreadsheet.get_margin_coords()`
     * :func:`_margin_coords_from_states_matrix()`
 
     :param Cell cell:
@@ -673,7 +679,7 @@ def _target_opposite_state(states_matrix, up_coords, dn_coords,
 
     :param np.ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
-            Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
+            Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
     :param Coords up_coords:
             the resolved-coords for the top-left of full-cells
     :param Coords dn_coords:
@@ -784,7 +790,7 @@ def _target_same_state(states_matrix, up_coords, dn_coords, state, land, moves):
 
     :param Coords states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
-            Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
+            Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
     :param Coords up_coords:
             the resolved-coords for the top-left of full-cells
     :param Coords dn_coords:
@@ -861,7 +867,7 @@ def _expand_rect(states_matrix, state, xl_rect, exp_mov):
     :param xl_rect:
     :param Coords states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
-            Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
+            Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
     :param exp_mov:
     :return:
 
@@ -941,14 +947,14 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
 
     To get the margin_coords, use one of:
 
-    * :meth:`Spreadsheet.get_margin_coords()`
+    * :meth:`_Spreadsheet.get_margin_coords()`
     * :func:`_margin_coords_from_states_matrix()`
 
     Its results can be fed into :func:`read_capture_values()`.
 
     :param Coords states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
-            Use :meth:`Spreadsheet.read_states_matrix()` to derrive it.
+            Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
     :param Coords up_coords:
             the top-left coords with full-cells
     :param Coords dn_coords:
@@ -1044,10 +1050,10 @@ def read_capture_rect(sheet, xl_rect):
 
     :param sheet:
             anything supporting the :func:`read_rect(states_matrix, xl_rect)`
-            such as the the :class:`Spreadsheet` which can hide away
+            such as the the :class:`_Spreadsheet` which can hide away
             the backend-module .
-    :param tuple xl_rect:  tuple (num_cell, num_cell) with the edge targets of
-                           the capture-rect
+    :param (Coords, Coords) xl_rect:
+            the the top-left/bottom/right edges of capture-rect, inclusive
     :return: the rect values TODO: pre-processed
 
     .. testsetup::
@@ -1064,9 +1070,12 @@ def read_capture_rect(sheet, xl_rect):
         >>> writer.save()
 
     Examples::
+        >>> import xlrd
+        >>> from pandalone import xlref
 
-        >>> sheet = Spreadsheet(xlrd.open_workbook(tmp).sheet_by_name('Sheet1'))
-        >>> sheet.read_states_matrix()
+        >>> xwb = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
+        >>> sheet = xlref.wrap_sheet(xwb)
+        >>> sheet.get_states_matrix()
         array([[False, False, False, False, False, False, False],
            [False, False, False, False, False, False, False],
            [False, False, False, False, False, False, False],
@@ -1102,9 +1111,9 @@ def read_capture_rect(sheet, xl_rect):
         >>> os.remove(tmp)
     """
 
-    st_target, nd_target = xl_rect
-    table = sheet.read_rect(xl_rect)
+    table = sheet.read_rect(*xl_rect)
 
+    st_target, nd_target = xl_rect
     # column
     if nd_target[1] == st_target[1]:
         table = [v[0] for v in table]
@@ -1254,9 +1263,11 @@ def _process_captured_values(value, func=None, args=(), kws=None, filters=None,
     return val
 
 
-class Spreadsheet(object):
+class _Spreadsheet(object):
     """
-    A delegating to backends excel-worksheets wrapper that is utilized by this module.
+    An abstract  delegating to backends excel-worksheets wrapper that is utilized by this module.
+
+    Use :func:`pandalone.xlref.wrap_sheet()` to create it.
 
     :param np.array _states_matrix:
             The :term:`states-matrix` cached, so recreate object
@@ -1281,30 +1292,43 @@ class Spreadsheet(object):
         ...     sheet = xlref.win32Sheet(wb.sheet['Sheet1'])
         TODO
     """
+    __metaclass__ = ABCMeta
+
     _states_matrix = None
     _margin_coords = None
 
-    def __init__(self, sheet, backend=_xlrd):
-        if not isinstance(backend, ModuleType):
-            import importlib
-            backend = importlib.import_module(backend)
-        self._backend = backend
+    def __init__(self, sheet):
         self._sheet = sheet
 
-    def read_states_matrix(self):
+    @abstractmethod
+    def _read_states_matrix(self):
+        pass
+
+    def get_states_matrix(self):
         """
-        Deduce the :term:`states-matrix` of the wrapped sheet.
+        Read and cache the :term:`states-matrix` of the wrapped sheet.
 
         :return:   A 2D-array with `False` wherever cell are blank or empty.
         :rtype:     ndarray
         """
         if self._states_matrix is None:
-            self._states_matrix = self._backend.read_states_matrix(self._sheet)
+            self._states_matrix = self._read_states_matrix()
         return self._states_matrix
 
-    def read_rect(self, xl_rect):
-        return self._backend.read_rect(self._sheet, self.read_states_matrix(),
-                                       xl_rect)
+    @abstractmethod
+    def read_rect(self, up_coords, dn_coords):
+        """
+        Fecth the actual values contained in the from the backend Excel-sheet.
+
+        :param up_coords:
+                the top-left edges of capture-rect, inclusive
+        :param dn_coords:
+                the bottom-right edges of capture-rect, inclusive
+        :return: a 2D-list with the values with at least 1 element,
+                or an empty-list
+        :rtype: list
+        """
+        pass
 
     def _read_margin_coords(self):
         """
@@ -1328,7 +1352,7 @@ class Spreadsheet(object):
 
         Examples::
 
-            >>> sheet = Spreadsheet(sheet=None)
+            >>> sheet = _Spreadsheet(sheet=None)
             >>> sheet._states_matrix = np.asarray([       ## Mock states_matrix.
             ...    [0, 0, 0, 0],
             ...    [1, 1, 0, 0],
@@ -1342,7 +1366,7 @@ class Spreadsheet(object):
         if not self._margin_coords:
             up, dn = self._read_margin_coords()
             if up is None or dn is None:
-                sm = self.read_states_matrix()
+                sm = self.get_states_matrix()
                 up1, dn1 = _margin_coords_from_states_matrix(sm)
                 up = up or up1
                 dn = dn or dn1

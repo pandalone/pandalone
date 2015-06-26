@@ -17,11 +17,11 @@ import logging
 
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
                   XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER)
-from xlrd import colname  # @UnusedImport
 import xlrd
 
 import numpy as np
-from six.moves.urllib.request import urlopen  # @UnresolvedImport
+
+from ._xlref import _Spreadsheet
 
 
 log = logging.getLogger(__name__)
@@ -34,96 +34,12 @@ else:
     _xlrd_0_9_3 = False
 
 
-def open_xlref_workbook(xl_ref_child, xl_ref_parent=None):
+def _parse_cell(xcell, epoch1904=False):
     """
-    Opens the excel workbook of an excel ref.
+    Parse a xl-xcell.
 
-    TODO: Remove
-
-    :param dict xl_ref_child: excel ref of the child
-
-    :param xl_ref_parent: excel ref of the parent
-    :type xl_ref_parent: dict, None
-
-    """
-    url_fl = xl_ref_child['url_file']
-    try:
-        if url_fl:
-            log.debug("Opening URL(%s)...", url_fl)
-            wb = xlrd.open_workbook(file_contents=urlopen(url_fl).read())
-        else:
-            wb = xl_ref_parent['xl_workbook']
-        xl_ref_child['xl_workbook'] = wb
-
-    except Exception as ex:
-        raise ValueError("Invalid excel-file({}) due to:{}".format(url_fl, ex))
-
-
-def open_sheet(xl_ref_child, xl_ref_parent=None):
-    """
-    Opens the excel sheet of an excel ref.
-
-    TODO: Remove
-
-    :param dict xl_ref_child: excel ref of the child
-
-    :param xl_ref_parent: excel ref of the parent
-    :type xl_ref_parent: dict, None
-
-    """
-    try:
-        if xl_ref_child['sheet']:
-            wb = xl_ref_child['xl_workbook']
-            sheet = wb.sheet_by_name(xl_ref_child['sheet'])
-        else:
-            sheet = xl_ref_parent['xl_sheet']
-        xl_ref_child['xl_sheet'] = sheet
-
-    except Exception as ex:
-        sh = xl_ref_child['sheet']
-        raise ValueError("Invalid excel-sheet({}) due to:{}".format(sh, ex))
-
-# noinspection PyProtectedMember
-
-
-def read_states_matrix(sheet):
-    """
-    Return a boolean ndarray with `False` wherever cell are blank or empty.
-    """
-    types = np.array(sheet._cell_types)
-    return (types != XL_CELL_EMPTY) & (types != XL_CELL_BLANK)
-
-
-def read_rect(sheet, states_matrix, xl_rect):
-    """
-    Extract the values enclaved between the 2 edge-cells as a 2D-table.
-
-    :param sheet: a xlrd-sheet to read from
-    :param (Cell, Cell) xl_rect: the starting & finishing cells of the rect
-    """
-    st_cell, nd_cell = xl_rect
-    table = []
-    for r in range(st_cell[0], nd_cell[0] + 1):
-        row = []
-        table.append(row)
-        for c in range(st_cell[1], nd_cell[1] + 1):
-            try:
-                if states_matrix[r, c]:
-                    row.append(_parse_cell(sheet.cell(r, c)))
-                    continue
-            except IndexError:
-                pass
-            row.append(None)
-
-    return table
-
-
-def _parse_cell(cell, epoch1904=False):
-    """
-    Parse a xl-cell.
-
-    :param cell: an excel cell
-    :type cell: xlrd.sheet.Cell
+    :param xlrd.Cell xcell: an excel xcell
+    :type xcell: xlrd.sheet.Cell
 
     :param epoch1904:
         Which date system was in force when this file was last saved.
@@ -131,7 +47,7 @@ def _parse_cell(cell, epoch1904=False):
         True => 1904 system (the Excel for Macintosh default).
     :type epoch1904: bool
 
-    :return: formatted cell value
+    :return: formatted xcell value
     :rtype:
         int, float, datetime.datetime, bool, None, str, datetime.time,
         float('nan')
@@ -151,25 +67,25 @@ def _parse_cell(cell, epoch1904=False):
         'hi'
     """
 
-    ctype = cell.ctype
+    ctype = xcell.ctype
 
     if ctype == XL_CELL_NUMBER:
         # GH5394 - Excel 'numbers' are always floats
         # it's a minimal perf hit and less suprising
-        val = int(cell.value)
-        if val == cell.value:
+        val = int(xcell.value)
+        if val == xcell.value:
             return val
-        return cell.value
+        return xcell.value
     elif ctype in (XL_CELL_EMPTY, XL_CELL_BLANK):
         return None
     elif ctype == XL_CELL_TEXT:
-        return cell.value
+        return xcell.value
     elif ctype == XL_CELL_BOOLEAN:
-        return bool(cell.value)
+        return bool(xcell.value)
     elif ctype == XL_CELL_DATE:  # modified from Pandas library
         if _xlrd_0_9_3:
             # Use the newer xlrd datetime handling.
-            d = xldate.xldate_as_datetime(cell.value, epoch1904)
+            d = xldate.xldate_as_datetime(xcell.value, epoch1904)
 
             # Excel doesn't distinguish between dates and time, so we treat
             # dates on the epoch as times only. Also, Excel supports 1900 and
@@ -179,7 +95,7 @@ def _parse_cell(cell, epoch1904=False):
                 d = datetime.time(d.hour, d.minute, d.second, d.microsecond)
         else:
             # Use the xlrd <= 0.9.2 date handling.
-            d = xldate.xldate_as_tuple(cell.value, epoch1904)
+            d = xldate.xldate_as_tuple(xcell.value, epoch1904)
             if d[0] < datetime.MINYEAR:  # time
                 d = datetime.time(*d[3:])
             else:  # date
@@ -188,4 +104,53 @@ def _parse_cell(cell, epoch1904=False):
     elif ctype == XL_CELL_ERROR:
         return float('nan')
 
-    raise ValueError('invalid cell type %s for %s' % (cell.ctype, cell.value))
+    raise ValueError('invalid xcell type %s for %s' %
+                     (xcell.ctype, xcell.value))
+
+
+def wrap_sheet(sheet, epoch1904=False):
+    """
+    Wraps it into :class:`_Spreadsheet`.
+
+    :param xlrd.Sheet_sheet:
+    """
+    if not isinstance(sheet, xlrd.sheet.Sheet):
+        raise ValueError("Invalid xlrd-sheet({})".format(sheet))
+    return _Spreadsheet(sheet)
+
+
+class XlrdSheet(_Spreadsheet):
+
+    def __init__(self, sheet, epoch1904=False):
+        _Spreadsheet.__init__(self, sheet)
+        self._epoch1904 = epoch1904
+
+    def _read_states_matrix(self):
+        """See super-method. """
+        types = np.array(self._sheet._cell_types)
+        return (types != XL_CELL_EMPTY) & (types != XL_CELL_BLANK)
+
+    def read_rect(self, up_coords, dn_coords):
+        """See super-method. """
+        up_row, up_col = up_coords
+        dn_row, dn_col = dn_coords
+        sheet = self._sheet
+        states_matrix = self.get_states_matrix()
+
+        dn_row += 1  # inclusive
+        dn_col += 1  # inclusive
+        table = []
+        for r in range(up_row, dn_row):
+            row = []
+            table.append(row)
+            for c in range(up_col, dn_col):
+                try:
+                    if states_matrix[r, c]:
+                        c = _parse_cell(sheet.cell(r, c), self._epoch1904)
+                        row.append(c)
+                        continue
+                except IndexError:
+                    pass
+                row.append(None)
+
+        return table

@@ -73,6 +73,10 @@ API
 
 - User-facing functionality:
 
+  .. autosummary::
+
+      wrap_sheet
+
   .. currentmodule:: pandalone.xlref._xlref
   .. autosummary::
 
@@ -88,10 +92,7 @@ API
 
   .. currentmodule:: pandalone.xlref._xlrd
   .. autosummary::
-      open_xlref_workbook
-      open_sheet
-      read_states_matrix
-      read_rect
+      XlrdSheet
 
 .. default-role:: term
 
@@ -534,13 +535,19 @@ TODOs
 * Notation for specifying the "last-sheet".
 """
 
-
 from ._xlref import (
     Cell, coords2Cell, Edge,
     parse_xl_url, parse_xl_ref, resolve_capture_rect,
-    read_capture_rect,
+    read_capture_rect, _Spreadsheet
 )
 from ._xlrd import (
-    open_xlref_workbook, open_sheet, read_states_matrix, read_rect,
-    # TODO: wrap_sheet
+    wrap_sheet as wrap_xlrd_sheet, XlrdSheet
 )
+
+
+def wrap_sheet(backed_sheet, *args, **kws):
+    sheet = XlrdSheet(backed_sheet, *args, **kws)
+
+    # Other backends here in try-blocks.
+
+    return sheet
