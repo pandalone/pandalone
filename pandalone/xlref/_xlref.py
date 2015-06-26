@@ -29,6 +29,8 @@ from . import _xlrd
 
 log = logging.getLogger(__name__)
 
+SKIP_CELLTYPE_CHECK = False
+"""When `True`, most coord-functions accept any 2-tuples."""
 
 Cell = namedtuple('Cell', ['row', 'col'])
 """
@@ -43,29 +45,9 @@ Coords = namedtuple('Coords', ['row', 'col'])
 """
 A pair of 0-based integers denoting the "num" coordinates of a cell.
 
-The "A1" coords (1-based coordinates) are specified using numpy-arrays
-(:class:`Cell`).
+The "A1" coords (1-based coordinates) are specified using :class:`Cell`.
 """
 #     return np.array([row, cell], dtype=np.int16)
-
-Edge = namedtuple('Edge', ['land', 'mov'])
-"""
-An :term:`Edge` might be "cooked" or "uncooked" depending on its `land`:
-
-- An *uncooked* edge contains *A1* :class:`Cell`.
-- An *cooked* edge contains a *resolved* :class:`Coords`.
-
-Use None for missing moves.
-"""
-
-_special_coord_symbols = {'^', '_', '.'}
-
-_primitive_dir_vectors = {
-    'L': Coords(0, -1),
-    'U': Coords(-1, 0),
-    'R': Coords(0, 1),
-    'D': Coords(1, 0)
-}
 
 
 def coords2Cell(row, col):
@@ -94,6 +76,16 @@ def coords2Cell(row, col):
         assert col >= 0, 'negative col!'
         col = _xlrd.colname(col)
     return Cell(row=row, col=col)
+
+Edge = namedtuple('Edge', ['land', 'mov'])
+"""
+An :term:`Edge` might be "cooked" or "uncooked" depending on its `land`:
+
+- An *uncooked* edge contains *A1* :class:`Cell`.
+- An *cooked* edge contains a *resolved* :class:`Coords`.
+
+Use None for missing moves.
+"""
 
 
 def _uncooked_Edge(row, col, mov):
@@ -139,6 +131,15 @@ def _uncooked_Edge(row, col, mov):
         return None
 
     return Edge(land=Cell(col=col and col.upper(), row=row), mov=mov and mov.upper())
+
+_special_coord_symbols = {'^', '_', '.'}
+
+_primitive_dir_vectors = {
+    'L': Coords(0, -1),
+    'U': Coords(-1, 0),
+    'R': Coords(0, 1),
+    'D': Coords(1, 0)
+}
 
 _re_xl_ref_parser = re.compile(
     r"""
@@ -645,9 +646,9 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
         ValueError: invalid cell(Cell(row='1', col='.')) due to: invalid col('.') due to: '.'
 
     """
-    assert isinstance(cell, Cell), cell
-    assert isinstance(up_coords, Coords), up_coords
-    assert isinstance(dn_coords, Coords), dn_coords
+    assert SKIP_CELLTYPE_CHECK or isinstance(cell, Cell), cell
+    assert SKIP_CELLTYPE_CHECK or isinstance(up_coords, Coords), up_coords
+    assert SKIP_CELLTYPE_CHECK or isinstance(dn_coords, Coords), dn_coords
     try:
         if base_cords is None:
             base_row = base_col = None
@@ -721,9 +722,9 @@ def _target_opposite_state(states_matrix, up_coords, dn_coords,
         Coords(row=3, col=5)
 
     """
-    assert isinstance(up_coords, Coords), up_coords
-    assert isinstance(dn_coords, Coords), dn_coords
-    assert isinstance(land, Coords), land
+    assert SKIP_CELLTYPE_CHECK or isinstance(up_coords, Coords), up_coords
+    assert SKIP_CELLTYPE_CHECK or isinstance(dn_coords, Coords), dn_coords
+    assert SKIP_CELLTYPE_CHECK or isinstance(land, Coords), land
 
     target, last_move = _target_opposite_state_impl(
         states_matrix, up_coords, dn_coords, state, land, moves)
@@ -899,8 +900,8 @@ def _expand_rect(states_matrix, state, xl_rect, exp_mov):
         [Coords(row=5, col=3), Coords(row=7, col=6)]
 
     """
-    assert isinstance(xl_rect[0], Coords), xl_rect
-    assert isinstance(xl_rect[1], Coords), xl_rect
+    assert SKIP_CELLTYPE_CHECK or isinstance(xl_rect[0], Coords), xl_rect
+    assert SKIP_CELLTYPE_CHECK or isinstance(xl_rect[1], Coords), xl_rect
     _m = {
         'L': (0, 1),
         'U': (0, 1),
@@ -936,14 +937,14 @@ def _expand_rect(states_matrix, state, xl_rect, exp_mov):
 def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
                          nd_edge=None, rect_exp=None):
     """
-    Performs :term:`targeting` and applies :term:`expansions` but does not extract values.
+    Performs :term:`targeting`, :term:`capturing` and :term:`expansions` based on the :term:`states-matrix`.
 
     To get the margin_coords, use one of:
 
     * :meth:`Spreadsheet.get_margin_coords()`
     * :func:`_margin_coords_from_states_matrix()`
 
-    Feed its results into :func:`read_capture_values()`.
+    Its results can be fed into :func:`read_capture_values()`.
 
     :param Coords states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
@@ -991,8 +992,8 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
         True
 
     """
-    assert isinstance(up_coords, Coords), up_coords
-    assert isinstance(dn_coords, Coords), dn_coords
+    assert SKIP_CELLTYPE_CHECK or isinstance(up_coords, Coords), up_coords
+    assert SKIP_CELLTYPE_CHECK or isinstance(dn_coords, Coords), dn_coords
 
     st = _resolve_cell(st_edge.land, up_coords, dn_coords)
     try:
