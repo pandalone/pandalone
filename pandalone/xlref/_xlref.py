@@ -673,23 +673,40 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
                        ex)
 
 
-def _target_opposite_state(states_matrix, up_coords, dn_coords,
-                           state, land, moves):
+_mov_slices = {
+    # VECTO_SLICE        REVERSE  COORD_INDEX
+    'L': (1, -1, lambda r, c: (r, slice(None, c + 1))),
+    'U': (0, -1, lambda r, c: (slice(None, r + 1), c)),
+    'R': (1, 1, lambda r, c: (r, slice(c, None))),
+    'D': (0, 1, lambda r, c: (slice(r, None), c)),
+}
+
+
+def _extract_states_vector(states_matrix, dn_coords, land, mov,
+                           mov_slices=_mov_slices):
+    coord_indx, is_reverse, slice_func = mov_slices[mov]
+    vect_slice = slice_func(*land)
+    states_vect = states_matrix[vect_slice]
+    if is_reverse < 0:
+        states_vect = states_vect[::-1]
+
+    return states_vect, coord_indx, is_reverse
+
+
+def _target_opposite(states_matrix, dn_coords, land, moves,
+                     primitive_dir_vectors=_primitive_dir_vectors):
     """
+    Scan row-by-row (or column-by-column) on specified `moves` and stop on the 1st full-cell.
 
     :param np.ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
-    :param Coords up_coords:
-            the resolved-coords for the top-left of full-cells
     :param Coords dn_coords:
             the bottom-right for the top-left of full-cells
-    :param bool state:
-            the state of the landing-cell, or `False` if beyond limits
-    :param land:
+    :param Coords land:
             the landing-cell
-    :param moves:
-    :return: the resolved num-coords
+    :param moves: which MUST not be empty
+    :return: the identified target-cell's coordinates
     :rtype: Coords
 
 
@@ -702,146 +719,111 @@ def _target_opposite_state(states_matrix, up_coords, dn_coords,
         ...     [0, 0, 1, 0, 0, 1],
         ...     [0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (states_matrix, Coords(2, 2), Coords(4, 5))
+        >>> args = (states_matrix, Coords(4, 5))
 
-        >>> _target_opposite_state(*(args + (False, Coords(0, 0), 'DR')))
+        >>> _target_opposite(*(args + (Coords(0, 0), 'DR')))
         Coords(row=3, col=2)
 
-        >>> _target_opposite_state(*(args + (False, Coords(0, 0), 'RD')))
+        >>> _target_opposite(*(args + (Coords(0, 0), 'RD')))
         Coords(row=2, col=3)
 
     It fails if a non-empty target-cell cannot be found, or
     it ends-up beyond bounds::
 
-        >>> _target_opposite_state(*(args + (False, Coords(0, 0), 'D')))
+        >>> _target_opposite(*(args + (Coords(0, 0), 'D')))
         Traceback (most recent call last):
-        ValueError: No full-target for landing-Coords(row=0, col=0) with movement(D)!
+        ValueError: No opposite-target for landing-Coords(row=0, col=0) with movement(D)!
 
-        >>> _target_opposite_state(*(args + (False, Coords(0, 0), 'UR')))
+        >>> _target_opposite(*(args + (Coords(0, 0), 'UR')))
         Traceback (most recent call last):
-        ValueError: No full-target for landing-Coords(row=0, col=0) with movement(UR)!
+        ValueError: No opposite-target for landing-Coords(row=0, col=0) with movement(UR)!
 
 
     But notice that the landing-cell maybe outside of bounds::
 
-        >>> _target_opposite_state(*(args + (False, Coords(3, 10), 'L')))
+        >>> _target_opposite(*(args + (Coords(3, 10), 'L')))
         Coords(row=3, col=5)
 
     """
-    assert SKIP_CELLTYPE_CHECK or isinstance(up_coords, Coords), up_coords
     assert SKIP_CELLTYPE_CHECK or isinstance(dn_coords, Coords), dn_coords
     assert SKIP_CELLTYPE_CHECK or isinstance(land, Coords), land
 
-    target, last_move = _target_opposite_state_impl(
-        states_matrix, up_coords, dn_coords, state, land, moves)
+    up_coords = np.array([0, 0])
+    target = np.array(land)
 
-    if state and (land != target).any():
-        target -= last_move
+    if land[0] > dn_coords[0] and 'U' in moves:
+        target[0] = dn_coords[0]
+    if land[1] > dn_coords[1] and 'L' in moves:
+        target[1] = dn_coords[1]
 
-    # return target
-    return Coords(target[0], target[1])
+#     if states_matrix[target].all():
+#         return Coords(*target)
 
+    imoves = iter(moves)
+    mov1 = next(imoves)
+    mov2 = next(imoves, None)
+    dv2 = mov2 and primitive_dir_vectors[mov2]
 
-def _target_opposite_state_impl(states_matrix, up_coords, dn_coords,
-                                state, land, moves):
-    up_coords = Coords(0, 0)  # FIXME: up-margin on target-oposite.
-    c0 = np.array(land)  # .copy()
-    mv1 = _primitive_dir_vectors[moves[0]]
-    mv2 = _primitive_dir_vectors[moves[1]] if len(moves) > 1 else None
-
-    if not state:
-        if land[0] > dn_coords[0] and 'U' in moves:
-            c0[0] = dn_coords[0]
-        if land[1] > dn_coords[1] and 'L' in moves:
-            c0[1] = dn_coords[1]
-        if land[0] < up_coords[0] and 'D' in moves:
-            c0[0] = up_coords[0]
-        if land[1] < up_coords[1] and 'R' in moves:
-            c0[1] = up_coords[1]
-
-    while (up_coords <= c0).all() and (c0 <= dn_coords).all():
-        c1 = c0.copy()
-        # Why rescan each time when searching-same?
-        while (up_coords <= c1).all():
-            try:
-                if states_matrix[c1[0], c1[1]] != state:
-                    return c1, mv1
-            except IndexError:
-                if state:
-                    return c1, mv1
-                break
-            c1 += mv1
-
-        if mv2 is None:
+    # Limit negative coords, since they are valid indices.
+    while (up_coords <= target).all():
+        try:
+            states_vect, coord_indx, is_reverse = _extract_states_vector(
+                states_matrix, dn_coords, target, mov1)
+        except IndexError:
             break
+        else:
+            if states_vect.any():
+                indices = states_vect.nonzero()[0]
+                target[coord_indx] += is_reverse * indices.min()
 
-        c0 += mv2
+                return Coords(*target)
 
-    if state:
-        return c0, mv2
+            if not dv2:
+                break
 
-    raise ValueError(
-        'No {}-target for landing-{} with movement({})!'.format(
-            'empty' if state else 'full', land, moves))
+            target += dv2
 
-
-def _target_opposite_state2(states_matrix, up_coords, dn_coords, state, land, moves):
-    mov_slices = {
-        'L': (lambda r, c: (r, slice(None, c + 1)), np.max, 1),
-        'U': (lambda r, c: (slice(None, r + 1), c), np.min, 0),
-        'R': (lambda r, c: (r, slice(c, None)), np.min, 1),
-        'D': (lambda r, c: (slice(r, None), c), np.max, 0),
-    }
-
-    target = np.array(land)
-    for mov in moves:
-        slice_func, id_func, coord_indx = mov_slices[mov]
-        vect_slice = slice_func(*land)
-        states_vect = states_matrix[vect_slice]
-        if not (states_vect == state).any():
-            continue
-        indx = states_vect.nonzero()[0]
-        target[coord_indx] += id_func(indx)
-    return Coords(*target)
+    msg = 'No opposite-target for landing-{} with movement({})!'
+    raise ValueError(msg.format(land, moves))
 
 
-def _target_same_state2(states_matrix, up_coords, dn_coords, state, land, moves):
-    mov_slices = {
-        'L': (lambda r, c: (r, slice(None, c + 1)), np.max, 1),
-        'U': (lambda r, c: (slice(None, r + 1), c), np.min, 0),
-        'R': (lambda r, c: (r, slice(c, None)), np.min, 1),
-        'D': (lambda r, c: (slice(r, None), c), np.max, 0),
-    }
-
-    target = np.array(land)
-    for mov in moves:
-        slice_func, id_func, coord_indx = mov_slices[mov]
-        vect_slice = slice_func(*land)
-        states_vect = states_matrix[vect_slice]
-        if not (states_vect == state).any():
-            continue
-        indx = states_vect.nonzero()[0]
-        target[coord_indx] += id_func(indx)
-    return Coords(*target)
-
-
-def _target_same_state(states_matrix, up_coords, dn_coords, state, land, moves):
+def _target_same_vector(states_matrix, dn_coords, land, mov):
     """
+    :param np.ndarray states_matrix:
+            A 2D-array with `False` wherever cell are blank or empty.
+            Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
+    :param Coords dn_coords:
+            the bottom-right for the top-left of full-cells
+    :param Coords dn_coords:
+            the bottom-right for the top-left of full-cells
+    :param Coords land:
+            The landing-cell, which MUST be full!
+    """
+    states_vect, coord_indx, is_reverse = _extract_states_vector(
+        states_matrix, dn_coords, land, mov)
+    if states_vect.all():
+        same_len = len(states_vect) - 1
+    else:
+        indices = np.diff(states_vect).nonzero()[0]
+        same_len = indices.min()
+    target_coord = land[coord_indx] + is_reverse * same_len
+
+    return target_coord, coord_indx
+
+
+def _target_same(states_matrix, dn_coords, land, moves):
+    """
+    Scan term:`exterior` row and column on specified `moves` and stop on the last full-cell.
 
     :param Coords states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
-    :param Coords up_coords:
-            the resolved-coords for the top-left of full-cells
     :param Coords dn_coords:
             the bottom-right for the top-left of full-cells
-    :param bool state:
-            the state of the landing-cell, or `False`
-            if beyond limits
     :param Coords land:
-            the landing-cell
-    :param moves:
-    :return: the identified cell
+            the landing-cell which MUST be within bounds
+    :param moves: which MUST not be empty
+    :return: the identified target-cell's coordinates
     :rtype: Coords
 
 
@@ -854,49 +836,43 @@ def _target_same_state(states_matrix, up_coords, dn_coords, state, land, moves):
         ...     [0, 0, 1, 0, 0, 1],
         ...     [0, 0, 1, 1, 1, 1]
         ... ])
-        >>> args = (states_matrix, Coords(2, 2), Coords(4, 5))
+        >>> args = (states_matrix, Coords(4, 5))
 
-        >>> _target_same_state(*(args + (True, Coords(4, 5), 'U')))
+        >>> _target_same(*(args + (Coords(4, 5), 'U')))
         Coords(row=2, col=5)
 
-        >>> _target_same_state(*(args + (True, Coords(4, 5), 'L')))
+        >>> _target_same(*(args + (Coords(4, 5), 'L')))
         Coords(row=4, col=2)
 
-        >>> _target_same_state(*(args + (True, Coords(4, 5), 'UL', )))
-        Coords(row=2, col=2)
-
-        >>> _target_same_state(*(args + (True, Coords(2, 2), 'DR')))
+        >>> _target_same(*(args + (Coords(4, 5), 'UL', )))
         Coords(row=2, col=2)
 
 
-    It fails if a non-empty target-cell cannot be found, or
-    it ends-up beyond bounds::
+    It fails if landing is empty or beyond bounds::
 
-        >>> _target_same_state(*(args + (False, Coords(2, 2), 'UL')))
+        >>> _target_same(*(args + (Coords(2, 2), 'DR')))
         Traceback (most recent call last):
-        ValueError: No full-target for landing-Coords(row=2, col=2) with movement(U)!
+        ValueError: No same-target for landing-Coords(row=2, col=2) with movement(DR)!
 
-
-    But notice that the landing-cell maybe outside of bounds::
-
-        >>> _target_same_state(*(args + (False, Coords(10, 3), 'U')))
-        Coords(row=4, col=3)
-
-    And this is the *negative* (??)::
-
-        >>> _target_same_state(*(args + (True, Coords(2, 5), 'DL')))
-        Coords(row=4, col=3)
+        >>> _target_same(*(args + (Coords(10, 3), 'U')))
+        Traceback (most recent call last):
+        ValueError: No same-target for landing-Coords(row=10, col=3) with movement(U)!
 
     """
+    assert SKIP_CELLTYPE_CHECK or isinstance(dn_coords, Coords), dn_coords
+    assert SKIP_CELLTYPE_CHECK or isinstance(land, Coords), land
 
-    c1 = land
-    for mv in moves:
-        c = _target_opposite_state(states_matrix, up_coords, dn_coords,
-                                   state, land, mv)
-        dis = _primitive_dir_vectors[mv]
-        c1 = [i if not k == 0 else j for i, j, k in zip(c, c1, dis)]
-    # return c1
-    return Coords(*c1)
+    target = np.array(land)
+    if (target <= dn_coords).all() and states_matrix[land]:
+        for mov in moves:
+            coord, indx = _target_same_vector(states_matrix, dn_coords,
+                                              np.array(land), mov)
+            target[indx] = coord
+
+        return Coords(*target)
+
+    msg = 'No same-target for landing-{} with movement({})!'
+    raise ValueError(msg.format(land, moves))
 
 
 def _expand_rect(states_matrix, state, xl_rect, exp_mov):
@@ -983,7 +959,7 @@ def _expand_rect(states_matrix, state, xl_rect, exp_mov):
 def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
                          nd_edge=None, rect_exp=None):
     """
-    Performs :term:`targeting`, :term:`capturing` and :term:`expansions` based on the :term:`st_states-matrix`.
+    Performs :term:`targeting`, :term:`capturing` and :term:`expansions` based on the :term:`states-matrix`.
 
     To get the margin_coords, use one of:
 
@@ -1048,9 +1024,10 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
         st_state = False
 
     if st_edge.mov is not None:
-        st = _target_opposite_state(
-            states_matrix, up_coords, dn_coords, st_state, st, st_edge.mov)
-        st_state = not st_state
+        if st_state:
+            st = _target_same(states_matrix, dn_coords, st, st_edge.mov)
+        else:
+            st = _target_opposite(states_matrix, dn_coords, st, st_edge.mov)
 
     if nd_edge is None:
         capt_rect = (st, st)
@@ -1058,19 +1035,16 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
         nd = _resolve_cell(nd_edge.land, up_coords, dn_coords, st)
 
         if nd_edge.mov is not None:
-            mov = nd_edge.mov
-
             try:
                 nd_state = states_matrix[nd]
             except IndexError:
                 nd_state = False
 
-            if st_state == nd_state:
-                nd = _target_same_state(states_matrix, up_coords, dn_coords,
-                                        st_state, nd, mov)
+            mov = nd_edge.mov
+            if nd_state:
+                nd = _target_same(states_matrix, dn_coords, nd, mov)
             else:
-                nd = _target_opposite_state(states_matrix, up_coords, dn_coords,
-                                            not st_state, nd, mov)
+                nd = _target_opposite(states_matrix, dn_coords, nd, mov)
 
         # Order rect-cells.
         #
@@ -1310,7 +1284,7 @@ class _Spreadsheet(object):
     Use :func:`pandalone.xlref.wrap_sheet()` to create it.
 
     :param np.array _states_matrix:
-            The :term:`st_states-matrix` cached, so recreate object
+            The :term:`states-matrix` cached, so recreate object
             to refresh it.
     :param dict _margin_coords:
             limits used by :func:`_resolve_cell`, cached, so recreate object
@@ -1346,7 +1320,7 @@ class _Spreadsheet(object):
 
     def get_states_matrix(self):
         """
-        Read and cache the :term:`st_states-matrix` of the wrapped sheet.
+        Read and cache the :term:`states-matrix` of the wrapped sheet.
 
         :return:   A 2D-array with `False` wherever cell are blank or empty.
         :rtype:     ndarray

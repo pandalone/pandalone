@@ -23,6 +23,7 @@ import six
 import xlrd
 
 import numpy as np
+from numpy import testing as npt
 import pandas as pd
 
 
@@ -206,8 +207,242 @@ class Parse(unittest.TestCase):
         self.assertEquals(res['url_file'], '')
 
 
+def make_sample_matrix():
+    states_matrix = np.array([
+        [0, 1, 3],
+        [4, 5, 7],
+        [8, 9, 11],
+        [12, 13, 15],
+    ])
+    dn = xr.Coords(3, 2)
+    args = (states_matrix, dn)
+
+    return args
+
+
+def make_states_matrix():
+    states_matrix = np.array([
+        # A  B  C  D  E  F
+        [0, 0, 0, 0, 0, 0],  # '1'
+        [0, 0, 0, 0, 0, 0],  # '2'
+        [0, 0, 0, 1, 1, 1],  # '3'
+        [0, 0, 1, 0, 0, 1],  # '4'
+        [0, 0, 1, 1, 0, 1],  # '5'
+    ], dtype=bool)
+    args = (states_matrix, xr.Coords(4, 5))
+
+    return args
+
+
 @ddt
-class Resolve(unittest.TestCase):
+class StatesVector(unittest.TestCase):
+
+    @data(*_all_dir_single)
+    def test_extract_states_vector_1st_element(self, mov):
+        args = make_sample_matrix()
+        sm = args[0]
+        for r in range(sm.shape[0]):
+            for c in range(sm.shape[1]):
+                nargs = args + (xr.Coords(r, c), mov)
+                vect = xr._extract_states_vector(*nargs)[0]
+
+                npt.assert_array_equal(vect[0], sm[r, c], str(args))
+
+    def check_extract_states_vector(self, land_r, land_c, mov, exp_vect):
+        args = make_sample_matrix()
+        args += (xr.Coords(land_r, land_c), mov)
+        vect = xr._extract_states_vector(*args)[0]
+
+        npt.assert_array_equal(vect, exp_vect, str(args))
+
+    @data(
+        (1, 1, 'L', [5, 4]),
+        (1, 1, 'U', [5, 1]),
+        (1, 1, 'R', [5, 7]),
+        (1, 1, 'D', [5, 9, 13]),
+    )
+    def test_extract_states_vector_Center(self, case):
+        self.check_extract_states_vector(*case)
+
+    @data(
+        (0, 0, 'L', [0]),
+        (0, 0, 'U', [0]),
+        (0, 0, 'R', [0, 1, 3]),
+        (0, 0, 'D', [0, 4, 8, 12]),
+
+        (0, 2, 'L', [3, 1, 0]),
+        (0, 2, 'U', [3]),
+        (0, 2, 'R', [3]),
+        (0, 2, 'D', [3, 7, 11, 15]),
+
+        (3, 2, 'L', [15, 13, 12]),
+        (3, 2, 'U', [15, 11, 7, 3]),
+        (3, 2, 'R', [15]),
+        (3, 2, 'D', [15]),
+
+        (3, 0, 'L', [12]),
+        (3, 0, 'U', [12, 8, 4, 0]),
+        (3, 0, 'R', [12, 13, 15]),
+        (3, 0, 'D', [12]),
+    )
+    def test_extract_states_vector_Corners(self, case):
+        self.check_extract_states_vector(*case)
+
+
+@ddt
+class TargetOpposite(unittest.TestCase):
+
+    def check_target_opposite_full_impl(self, *args):
+        (land_row, land_col,
+         moves, exp_row, exp_col) = args
+        states_matrix, dn = make_states_matrix()
+        argshead = (states_matrix, dn)
+
+        land_cell = xr.Coords(land_row, land_col)
+        args = argshead + (land_cell, moves)
+
+        if exp_row:
+            res = xr._target_opposite(*args)
+            self.assertEqual(res, xr.Coords(exp_row, exp_col), str(args))
+        else:
+            with self.assertRaisesRegexp(ValueError, "No \w+-target for",
+                                         msg=str(args)):
+                xr._target_opposite(*args)
+
+    def check_target_opposite_state(self, land_row, land_col, moves,
+                                    exp_row=None, exp_col=None):
+        self.check_target_opposite_full_impl(land_row, land_col,
+                                             moves, exp_row, exp_col)
+
+    @data(
+        (0, 0, 'DR', 3, 2),
+        (0, 0, 'RD', 2, 3),
+
+        (3, 0, 'UR', 3, 2),
+        (3, 0, 'RU', 3, 2),
+        (3, 0, 'DR', 3, 2),
+        (3, 0, 'RD', 3, 2),
+
+        (0, 3, 'DL', 2, 3),
+        (0, 3, 'LD', 2, 3),
+        (0, 3, 'DR', 2, 3),
+        (0, 3, 'RD', 2, 3),
+    )
+    def test_target_opposite_state_Basic(self, case):
+        self.check_target_opposite_state(*case)
+
+    def test_target_opposite_state_NotMovingFromMatch(self):
+        coords = [(2, 3), (3, 2),
+                  (2, 4), (2, 5),
+                  (3, 5),
+                  (4, 2), (4, 3),   (4, 5),
+                  ]
+        for d in _all_dirs:
+            for r, c in coords:
+                self.check_target_opposite_state(r, c, d, r, c)
+
+    def test_target_opposite_state_Beyond_columns(self):
+        dirs = ['L', 'LU', 'LD', 'UL', 'DL']
+        for d in dirs:
+            for row in [2, 3, 4]:
+                self.check_target_opposite_state(row, 10, d, row, 5)
+            if 'D' in d:
+                self.check_target_opposite_state(0, 10, d, 2, 5)
+
+    @data('U', 'UL', 'UR', 'LU', 'RU')
+    def test_target_opposite_state_Beyond_rows1(self, moves):
+        for col in [2, 3, 5]:
+            self.check_target_opposite_state(10, col, moves, 4, col)
+        if 'U' in moves[0]:
+            self.check_target_opposite_state(10, 4, moves, 2, 4)
+        if 'R' in moves:
+            self.check_target_opposite_state(10, 0, moves, 4, 2)
+
+    def test_target_opposite_state_Beyond_rows2(self):
+        self.check_target_opposite_state(10, 4, 'LU', 4, 3)
+        self.check_target_opposite_state(10, 4, 'RU', 4, 5)
+
+    def test_target_opposite_state_Beyond_both(self):
+        self.check_target_opposite_state(10, 10, 'UL', 4, 5)
+        self.check_target_opposite_state(10, 10, 'LU', 4, 5)
+
+    @data(*(list('UDLR') + ['UR', 'RU', 'UL', 'LU', 'DL', 'LD']))
+    def test_target_opposite_state_InvalidMoves(self, moves):
+        self.check_target_opposite_state(0, 0, moves)
+
+
+@ddt
+class TargetSame(unittest.TestCase):
+
+    def check_target_same_full_impl(self, *args):
+        (inverse_sm, land_row, land_col,
+         moves, exp_row, exp_col) = args
+        states_matrix, dn = make_states_matrix()
+        if inverse_sm:
+            states_matrix = ~states_matrix
+        argshead = (states_matrix, dn)
+
+        land_cell = xr.Coords(land_row, land_col)
+        args = argshead + (land_cell, moves)
+
+        if exp_row:
+            res = xr._target_same(*args)
+            self.assertEqual(res, xr.Coords(exp_row, exp_col), str(args))
+        else:
+            with self.assertRaisesRegexp(ValueError, "No \w+-target for",
+                                         msg=str(args)):
+                xr._target_same(*args)
+
+    def check_target_same_state(self, inverse_sm, land_row, land_col, moves,
+                                exp_row=None, exp_col=None):
+        self.check_target_same_full_impl(inverse_sm, land_row, land_col,
+                                         moves, exp_row, exp_col)
+
+    @data(
+        (True, 0, 0, 'DR', 4, 5),
+        (True, 0, 0, 'DR', 4, 5),
+        (True, 1, 1, 'DR', 4, 5),
+
+        (False, 2, 3, 'DR', 2, 5),
+        (False, 2, 3, 'RD', 2, 5),
+    )
+    def test_target_same_state_Empty_2moves(self, case):
+        state, r, c, mov, rr, rc = case
+        self.check_target_same_state(state, r, c, mov, rr, rc)
+
+    @data(
+        (False, 2, 5, 'LD', 4, 3),
+        (False, 2, 5, 'DL', 4, 3),
+    )
+    def test_target_same_state_NormalWalking(self, case):
+        self.check_target_same_state(*case)
+
+    @data(
+        (False, 2, 5, 'L', 2, 3),
+        (False, 2, 5, 'U', 2, 5),
+        (False, 2, 5, 'LU', 2, 3),
+        (False, 2, 5, 'UL', 2, 3),
+
+        (False, 4, 2, 'U', 3, 2),
+        (False, 4, 2, 'RU', 3, 3),
+        (False, 4, 2, 'UR', 3, 3),
+
+
+        (False, 4, 5, 'L', 4, 5),
+        (False, 4, 5, 'U', 2, 5),
+        (False, 4, 5, 'LU', 2, 5),
+        (False, 4, 5, 'UL', 2, 5),
+
+        (True, 4, 4, 'U', 3, 4),
+        (True, 4, 4, 'UR', 3, 4),
+        (True, 4, 4, 'UL', 3, 4),
+    )
+    def test_target_same_state_InverseWalking(self, case):
+        self.check_target_same_state(*case)
+
+
+@ddt
+class Margins(unittest.TestCase):
 
     def test_find_states_matrix_margins(self):
         sm = np.array([
@@ -290,6 +525,10 @@ class Resolve(unittest.TestCase):
         res = xr._margin_coords_from_states_matrix(np.asarray(states_matrix))
         self.assertEqual(res, margins, states_matrix)
 
+
+@ddt
+class Capture(unittest.TestCase):
+
     def make_states_matrix(self):
         states_matrix = np.array([
             # A  B  C  D  E  F
@@ -303,164 +542,6 @@ class Resolve(unittest.TestCase):
         args = (states_matrix, up, dn)
 
         return args
-
-    def check_target_opposite_state(self, land_state, land_row, land_col,
-                                    moves, exp_row, exp_col):
-        target_func = xr._target_opposite_state
-        self.check_target_func(target_func, land_state, land_row, land_col,
-                               moves, exp_row, exp_col)
-
-    def check_target_same_state(self, land_state, land_row, land_col,
-                                moves, exp_row, exp_col):
-        target_func = xr._target_same_state
-        self.check_target_func(target_func, land_state, land_row, land_col,
-                               moves, exp_row, exp_col)
-
-    def check_target_func(self, *args):
-        (target_func, land_state, land_row, land_col,
-         moves, exp_row, exp_col) = args
-        states_matrix, up, dn = self.make_states_matrix()
-        argshead = (states_matrix, up, dn)
-
-        land_cell = xr.Coords(land_row, land_col)
-        args = argshead + (land_state, land_cell, moves)
-        res = target_func(*args)
-        self.assertEqual(res, xr.Coords(exp_row, exp_col), str(args))
-
-    def check_target_opposite_state_RaisesTargetMissed(self, *args):
-        ## args =(land_state, land_row, land_col, moves)
-        with self.assertRaisesRegexp(ValueError, "No \w+-target for",
-                                     msg=str(args)):
-            args += (None, None)
-            self.check_target_opposite_state(*args)
-
-    def test_target_opposite_state_Basic(self):
-        self.check_target_opposite_state(False, 0, 0, 'DR', 3, 2)
-        self.check_target_opposite_state(False, 0, 0, 'RD', 2, 3)
-
-        self.check_target_opposite_state(False, 3, 0, 'UR', 3, 2)
-        self.check_target_opposite_state(False, 3, 0, 'RU', 3, 2)
-        self.check_target_opposite_state(False, 3, 0, 'DR', 3, 2)
-        self.check_target_opposite_state(False, 3, 0, 'RD', 3, 2)
-
-        self.check_target_opposite_state(False, 0, 3, 'DL', 2, 3)
-        self.check_target_opposite_state(False, 0, 3, 'LD', 2, 3)
-        self.check_target_opposite_state(False, 0, 3, 'DR', 2, 3)
-        self.check_target_opposite_state(False, 0, 3, 'RD', 2, 3)
-
-    def test_target_opposite_state_NotMovingFromMatch(self):
-        coords = [(2, 3), (3, 2),
-                  (2, 4), (2, 5),
-                  (3, 5),
-                  (4, 2), (4, 3),   (4, 5),
-                  ]
-        for d in _all_dirs:
-            for r, c in coords:
-                self.check_target_opposite_state(False, r, c, d, r, c)
-
-    def test_target_opposite_state_NotState(self):
-        # FIXME: How is this working!!!
-        self.check_target_opposite_state(True, 7, 2, 'U', 7, 2)
-        self.check_target_opposite_state(True, 3, 2, 'D', 4, 2)
-
-    def test_target_opposite_state_Beyond_columns(self):
-        dirs = ['L', 'LU', 'LD', 'UL', 'DL']
-        for d in dirs:
-            for row in [2, 3, 4]:
-                self.check_target_opposite_state(
-                    False, row, 10, d, row, 5)
-            if 'D' in d:
-                self.check_target_opposite_state(False, 0, 10, d, 2, 5)
-
-    def test_target_opposite_state_Beyond_rows1(self):
-        dirs = ['U', 'UL', 'UR', 'LU', 'RU']
-        for d in dirs:
-            for col in [2, 3, 5]:
-                self.check_target_opposite_state(
-                    False, 10, col, d, 4, col)
-            if 'U' in d[0]:
-                self.check_target_opposite_state(False, 10, 4, d, 2, 4)
-            if 'R' in d:
-                self.check_target_opposite_state(False, 10, 0, d, 4, 2)
-
-    def test_target_opposite_state_Beyond_rows2(self):
-        self.check_target_opposite_state(False, 10, 4, 'LU', 4, 3)
-        self.check_target_opposite_state(False, 10, 4, 'RU', 4, 5)
-
-    def test_target_opposite_state_Beyond_both(self):
-        self.check_target_opposite_state(False, 10, 10, 'UL', 4, 5)
-        self.check_target_opposite_state(False, 10, 10, 'LU', 4, 5)
-
-    def test_target_opposite_state_InvalidMoves(self):
-        bad_dirs = list('UDLR') + ['UR', 'RU', 'UL', 'LU', 'DL', 'LD']
-        for d in bad_dirs:
-            self.check_target_opposite_state_RaisesTargetMissed(
-                False, 0, 0, d)
-
-    def TODO_Check_StateFalse(self):
-        pass
-#                 >>> states_matrix = self.assertEqual([
-#         ...     [1, 1, 1],
-#         ...     [1, 1, 1],
-#         ...     [1, 1, 1],
-#         ... ])
-#         >>> args = (states_matrix, (2, 2))
-#
-#         >>> _target_opposite_state(*(args + (True, Cell(0, 2), 'LD')))
-#         Cell(row=2, col=2)
-
-    @data(
-        (True, 1, 0),
-        (True, 1, 1),
-        (True, 1, 0),
-
-        (True, 0, 5),
-        (True, 1, 5),
-        (True, 4, 0),
-        (True, 4, 1),
-
-        (True, 2, 2),
-
-        (True, 4, 4),
-
-        (False, 2, 3),
-        (False, 3, 2),
-
-        (False, 2, 4),
-        (False, 2, 5),
-
-        (False, 3, 2),
-        (False, 3, 5),
-
-        (False, 4, 2),
-        (False, 4, 5),
-
-        (False, 4, 2),
-        (False, 4, 3),
-        (False, 4, 5),
-
-    )
-    def test_target_same_state_Land_on_opposite_state(self, case):
-        state, r, c = case
-        for mov in _all_dirs:
-            self.check_target_same_state(state, r, c, mov, r, c)
-
-    @data(
-        (False, 0, 0, 'DR', 2, 2),
-        (False, 0, 0, 'DR', 2, 2),
-        (False, 0, 0, 'RD', 2, 2),
-
-        (False, 2, 3, 'DR', 3, 2),
-        (False, 0, 0, 'RD', 2, 3),
-    )
-    def test_target_same_state_Empty_2moves(self, case):
-        state, r, c, mov, rr, rc = case
-        self.check_target_same_state(state, r, c, mov, rr, rc)
-
-    def test_target_same_state_InverseWalking(self):
-        self.check_target_same_state(True, 2, 5, 'LD', 4, 3)
-
-        self.check_target_same_state(True, 4, 5, 'LU', 2, 5)
 
     def check_resolve_capture_rect(self, *args):
         #     st_row, st_col, st_mov,
