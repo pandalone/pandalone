@@ -1012,6 +1012,12 @@ class Pstep(str):
         else:
             raise self._ex_invalid_assignment(cpname, value)
 
+    def __dir__(self):
+        d = super(str, self).__dir__()
+        if self._csteps:
+            d = sorted(d + list(self._csteps.keys()))
+        return d
+
     def _ex_invalid_assignment(self, cpname, value):
         msg = "Cannot assign '%s' to '%s/%s'!  Only other psteps allowed."
         return AssertionError(msg % (value, self, cpname))
