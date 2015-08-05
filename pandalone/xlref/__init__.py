@@ -16,17 +16,13 @@ Introduction
 This modules defines a url-fragment notation for `capturing` rectangular areas
 from excel-sheets when their exact position is not known beforehand.
 The notation extends the ordinary excel `coordinates`, and provides for
-conditionally `traversing` the cells based on their `state`.
+`traversing` conditionally the cells based on their `state`.
 
 The goal is to make the extraction of data-tables from excel-workbooks
-as practical as reading CSVs, while keeping it as "cheap" as possible,
-by employing state-checks instead of parsing the complete sheet contents.
-
-Since the `capturing` depends only on the full/empty `state` of the cells,
-another library would be needed to examine the values of the `capture-rect`
-afterwards (i.e. "pandas").  Nevertheless, the `xl-ref` syntax
-provides for specifying common `filter` transformations at the end, for setting
-the dimensionality and the final type of the captured values.
+as practical as reading CSVs, while keeping it as "cheap" as possible.
+Since another library would be needed to examine the actual values of the cells
+(i.e. "pandas"), the `xl-ref` syntax provides common `filter` transformations,
+for setting the dimensionality and final type of the captured values.
 
 It is based on `xlrd <http://www.python-excel.org/>`_ library but also
 checked for compatibility with `xlwings <http://xlwings.org/quickstart/>`_
@@ -48,7 +44,7 @@ Annotated Syntax
     target-moves──────┐
     landing-cell───┐  │
                   ┌┤ ┌┤
-                  A1(RD):..(RD):L1DR:{"type": "df_num", "kws": {"header": false}}
+                  C3(UL):..(RD):L1DR:{"type": "df_num", "kws": {"header": false}}
                   └─┬──┘ └─┬──┘ └┬─┘ └───────────────────┬──────────────────────┘
     1st-edge────────┘      │     │                       │
     2nd-edge───────────────┘     │                       │
@@ -57,10 +53,12 @@ Annotated Syntax
 
 Which means:
 
-    1. `Target` the `1st` `edge` by identifying the first `full-cell`
-       beyond ``A1`` as traversing right and down;
-    2. continue from this point right-down `targeting` the `2nd` `edge`;
-    3. `capture` the cells between the targets.
+    1. `Target` the `1st` `edge` of the `capture-rect` by starting from ``C3``
+       `landing-cell`. If it is a `full-cell`, stop, otherwise start moving
+       above and to the left of ``C3`` and stop on the first `full-cell`;
+    2. continue from the last `target` and travel the `exterior` row and column
+       right and down, stopping on their last `full-cell`;
+    3. `capture` all the cells between the 2 targets.
     4. try `expansions` on the `target-rect`, once to the left column
        and then down and right until a full-empty line/row is met, respectively;
     5. finally `filter` the values of the `capture-rect` to wrap them up
@@ -281,6 +279,11 @@ Definitions
             *"Start going right, column-by-column, traversing each column
             from top to bottom."*
 
+    move-modifier
+        One of ``+`` and ``-`` chars that might trail the `target-moves`
+        and define which the `termination-rule` to follow if `landing-cell`
+        is `full-cell`, i.e. ``A1(RD+)``
+
     expansions
     expansion-moves
         Due to `state-change` on the 'exterior' cells the `capture-rect`
@@ -321,25 +324,24 @@ Definitions
         vice-versa, while `targeting`.
 
     termination-rule
-        The condition to stop `targeting` while traversing an `exterior`
-        row/column and detecting a `state-change`.
+        The condition to stop `targeting` while traversing from `landing-cell`.
         The are 2 rules: `search-same` and `search-opposite`.
 
         .. seealso::
-            Check `Target-termination rules`_ for the enactment of the rules.
-
-    search-same
-        The `target-cell` is the LAST cell with the SAME `state` as
-        the `landing-cell`, while `targeting` from it.
+            Check `Target-termination enactment`_ for the enactment of the rules.
 
     search-opposite
-        The `target-cell` is the FIRST cell with OPPOSITE `state` from
-        the `landing-cell`, while `targeting` from it.
+        The `target-cell` is the first `full-cell` from the `landing-cell`,
+        while traveling according to the `target-moves`.
+
+    search-same
+        The coordinates of the `target-cell` are given by the LAST `full-cell`
+        on the `exterior` column/row according to the `target-moves`;
+        the order of the moves is insignificant in that case.
 
     exterior
-        The *column* and the *row* of the `1st` `landing-cell`;
-        the `termination-rule` gets to be triggered only by `state-change`
-        on them.
+        The *column* and the *row* of the `landing-cell`; the `search-same`
+        `termination-rule` gets to be triggered by 'full-cells' only on them.
 
     filter
     filters
@@ -409,7 +411,7 @@ columns/rows of the sheet with non-empty values.
 
 When no ``LURD`` moves are specified, the target-cell coinceds with the starting one.
 
-.. Seealso:: `Target-termination rules`_ section
+.. Seealso:: `Target-termination enactment`_ section
 
 
 Capturing
@@ -464,32 +466,34 @@ In the above example-sheet, here are some ways to specify refs::
     specified on the 2nd cell.
 
 
-.. Seealso:: `Target-termination rules`_ section
 
+Target-termination enactment
+----------------------------
 
-Target-termination rules
-------------------------
+The guiding principle for when to enact each rule is to always `capture`
+a matrix of `full-cell`.
 
-- For the 1st target-cell:
-  Target-cell is identified using `search-opposite` rule.
+- If the `landing-cell` is `empty-cell`, always `search-opposite`, that is,
+  stop on the first `full-cell`.
+- When the `landing-cell` is `full-cell`, it depends on the 'move-modifier':
 
-  .. Note:: It might be useful to allow the user to reverse this behavior
-      (ie by the use of the ``-`` char).
+  - If ``+`` exists, apply `search-same`.
+  - If ``-`` exists, stop on `landing-cell`.
+  - If no modifier, behave like ```-` (stop on `landing-cell`) except when
+    on a `2nd` edge with both its coordinates `dependent` (``..``),
+    where the `search-same` is applied
 
-- For the 2nd target cell:
+So, the ``+`` and ``-`` `move-modifier` apply only when `landing-cell` is
+`full-cell`.
 
-  - If the `state` of the ``2nd-landing-cell == 1st-target-cell``:
-    - Use `search-same` to identify target.
-
-  - Otherwise:
-    - Use `search-opposite` to identify target.
+If the termination conditions is not met, it is considered an error.
 
 
 
 Expansions
 ----------
 
-Captured-rects ("values") may be limited due to empty-cells in the 1st
+Captured-rects ("values") may be limited due to `empty-cell` in the 1st
 row/column traversed.  To overcome this, the xl-ref may specify `expansions`
 directions using a 3rd ``:``-section like that::
 

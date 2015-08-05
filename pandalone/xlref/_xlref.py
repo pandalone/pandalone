@@ -85,12 +85,14 @@ def coords2Cell(row, col):
 
 Edge = namedtuple('Edge', ['land', 'mov'])
 """
+:param Cell land:
+:param str mov: use None for missing moves.
+
 An :term:`Edge` might be "cooked" or "uncooked" depending on its `land`:
 
 - An *uncooked* edge contains *A1* :class:`Cell`.
 - An *cooked* edge contains a *resolved* :class:`Coords`.
 
-Use None for missing moves.
 """
 
 
@@ -150,19 +152,21 @@ _primitive_dir_vectors = {
 _re_xl_ref_parser = re.compile(
     r"""
     ^\s*(?:(?P<sheet>[^!]+)?!)?                          # xl sheet name
-    (?:                                                  # first cell
-        (?P<st_col>[A-Z]+|_|\^)                          # first col
-        (?P<st_row>[123456789]\d*|_|\^)                  # first row
+    (?:                                                  # 1st-edge
+        (?P<st_col>[A-Z]+|_|\^)                          # col
+        (?P<st_row>[123456789]\d*|_|\^)                  # row
         (?:\(
-            (?P<st_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves from st cell
+            (?P<st_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves
+            (?P<st_mod>[+-])?                            # move modifiers
             \)
         )?
     )
-    (?::                                                 # second cell [opt]
-        (?P<nd_col>[A-Z]+|_|\^|\.)                       # second col
-        (?P<nd_row>[123456789]\d*|_|\^|\.)               # second row
+    (?::                                                 # 2nd-edge [opt]
+        (?P<nd_col>[A-Z]+|_|\^|\.)                       # col
+        (?P<nd_row>[123456789]\d*|_|\^|\.)               # row
         (?:\(
-            (?P<nd_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves from nd cell
+            (?P<nd_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves
+            (?P<nd_mod>[+-])?                            # move-modifiers
             \)
         )?
         (?::
@@ -283,14 +287,15 @@ def parse_xl_ref(xl_ref):
 
     Examples::
 
-        >>> res = parse_xl_ref('Sheet1!A1(DR):Z20(UL):L1U2R1D1:{"json":"..."}')
+        >>> res = parse_xl_ref('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"json":"..."}')
         >>> sorted(res.items())
         [('json', {'json': '...'}),
          ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL')),
+         ('nd_mod', None),
          ('rect_exp', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
          ('sheet', 'Sheet1'),
-         ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR'))]
-
+         ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR')),
+         ('st_mod', '+')]
         >>> parse_xl_ref('A1(DR)Z20(UL)')
         Traceback (most recent call last):
         ValueError: Invalid xl-ref(A1(DR)Z20(UL)) due to: not an `xl-ref` syntax.
@@ -346,9 +351,11 @@ def parse_xl_url(url, base_url=None, backend=None):
         - st_col
         - st_row
         - st_mov
+        - st_mod
         - nd_col
         - nd_row
         - nd_mov
+        - nd_mod
         - json
 
     :rtype: dict
@@ -361,9 +368,11 @@ def parse_xl_url(url, base_url=None, backend=None):
         >>> sorted(res.items())
         [('json', {'2': 'ciao'}),
          ('nd_edge', Edge(land=Cell(row='^', col='.'), mov='DR')),
+         ('nd_mod', None),
          ('rect_exp', [repeat('L'), repeat('U', 1)]),
          ('sheet', 'Sheet1'),
          ('st_edge', Edge(land=Cell(row='1', col='A'), mov='UL')),
+         ('st_mod', None),
          ('url_file', 'file:///sample.xlsx')]
     """
 
@@ -673,7 +682,7 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
                        ex)
 
 
-_mov_slices = {
+_mov_vector_slices = {
     # VECTO_SLICE        REVERSE  COORD_INDEX
     'L': (1, -1, lambda r, c: (r, slice(None, c + 1))),
     'U': (0, -1, lambda r, c: (slice(None, r + 1), c)),
@@ -683,12 +692,12 @@ _mov_slices = {
 
 
 def _extract_states_vector(states_matrix, dn_coords, land, mov,
-                           mov_slices=_mov_slices):
+                           mov_slices=_mov_vector_slices):
+    """Extract a slice from the states-matrix by starting from `land` and following `mov`."""
     coord_indx, is_reverse, slice_func = mov_slices[mov]
     vect_slice = slice_func(*land)
     states_vect = states_matrix[vect_slice]
-    if is_reverse < 0:
-        states_vect = states_vect[::-1]
+    states_vect = states_vect[::is_reverse]
 
     return states_vect, coord_indx, is_reverse
 
@@ -696,7 +705,7 @@ def _extract_states_vector(states_matrix, dn_coords, land, mov,
 def _target_opposite(states_matrix, dn_coords, land, moves,
                      primitive_dir_vectors=_primitive_dir_vectors):
     """
-    Scan row-by-row (or column-by-column) on specified `moves` and stop on the 1st full-cell.
+    Follow `moves from `land` and stop on the 1st full-cell.
 
     :param np.ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
@@ -705,7 +714,7 @@ def _target_opposite(states_matrix, dn_coords, land, moves,
             the bottom-right for the top-left of full-cells
     :param Coords land:
             the landing-cell
-    :param moves: which MUST not be empty
+    :param str moves: MUST not be empty
     :return: the identified target-cell's coordinates
     :rtype: Coords
 
@@ -792,8 +801,6 @@ def _target_same_vector(states_matrix, dn_coords, land, mov):
     :param np.ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
-    :param Coords dn_coords:
-            the bottom-right for the top-left of full-cells
     :param Coords dn_coords:
             the bottom-right for the top-left of full-cells
     :param Coords land:
