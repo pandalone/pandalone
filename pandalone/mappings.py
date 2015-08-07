@@ -14,7 +14,21 @@ Programmatically build paths and later *rename* or *relocate* them.
     pmods_from_tuples
     Pmod
 
-- TODO: Can joining psteps work again?
+*Example*::
+
+    >>> from pandalone.mappings import pmods_from_tuples
+
+    >>> pmods = pmods_from_tuples([
+    ...     ('',         'deeper/ROOT'),
+    ...     ('/abc',     'ABC'),
+    ...     ('/abc/foo', 'BAR'),
+    ... ])
+    >>> p = pmods.step()
+    >>> p.abc.foo
+    `BAR`
+    >>> p._paths()
+    ['deeper/ROOT/ABC/BAR']
+
 - TODO: Implements "anywhere" pmods(`//`).
 """
 
@@ -23,13 +37,14 @@ from __future__ import division, unicode_literals
 from collections import OrderedDict
 from copy import copy
 import logging
-import re
-import six
-import functools as ft
-
 from pandalone import utils
 from pandalone.pandata import (
     iter_jsonpointer_parts_relaxed, JSchema, unescape_jsonpointer_part)
+import re
+
+import six
+
+import functools as ft
 
 
 __commit__ = ""
@@ -88,8 +103,7 @@ class Pmod(object):
 
     .. Note::
         Do not manually construct instances from this class!
-        To construct a hierarchy use the :func:`pmods_from_tuples()` and/or
-        the :func:`df_as_pmods_tuples()`.
+        To construct a hierarchy use the :func:`pmods_from_tuples()`.
 
     You can either use it for massively map paths, either for *renaming* them::
 
@@ -145,6 +159,16 @@ class Pmod(object):
                 (re.compile(k), v) for k, v in _regxs)
         else:
             self._regxs = _regxs
+
+    def step(self, pname='', alias=None):
+        """
+        Create a new :class:`Pstep` having as mappings this pmod.
+
+        If no `pname` specified, creates a *root* pstep.
+
+        Delegates to :meth:`Pstep.__new__()`.
+        """
+        return Pstep(pname, _proto_or_pmod=self, alias=alias)
 
     def _append_into_steps(self, key):
         """
@@ -859,7 +883,12 @@ class Pstep(str):
     :ivar set _tags:     A set of strings (default `()`)
     :ivar dict _schema:  json-schema data.
 
+    See :meth:`__new__()` for interal constructor.
+
     **Usage:**
+
+    - Use a :meth:`Pmod.pstep()` to construct a *root* pstep from mappings.
+      Specify a string argument to construct a relative pstep-hierarchy.
 
     - Just referencing (non_private) attributes, creates them.
 
@@ -867,12 +896,12 @@ class Pstep(str):
       specific operations (ie for specifying json-schema, or
       for collection all paths).
 
-    - Assignments are only allowed to private attributes::
+    - Assignments are only allowed for string-values, or to private attributes::
 
         >>> p = Pstep()
-        >>> p.assignments = 'FAIL!'
+        >>> p.assignments = 12
         Traceback (most recent call last):
-        AssertionError: Cannot assign 'FAIL!' to '/assignments'!  Only other psteps allowed.
+        AssertionError: Cannot assign '12' to '/assignments!
 
         >>> p._but_hidden = 'Ok'
 
@@ -893,22 +922,22 @@ class Pstep(str):
         >>> p = Pstep('a')
         >>> assert m[p] == 1
         >>> assert m[p.abc] == 2
-        >>> assert m[p['321'].cc] == 33
+        >>> assert m[p.a321.cc] == 33
 
         >>> sorted(p._paths())
-        ['a/321/cc', 'a/abc']
+        ['a/a321/cc', 'a/abc']
 
 
     - Any "path-mappings" or "pmods" maybe specified during construction::
 
-        >>> from pandalone import mappings
+        >>> from pandalone.mappings import pmods_from_tuples
 
         >>> pmods = pmods_from_tuples([
         ...     ('',         'deeper/ROOT'),
         ...     ('/abc',     'ABC'),
         ...     ('/abc/foo', 'BAR'),
         ... ])
-        >>> p = Pstep(_pmod=pmods)
+        >>> p = pmods.step()
         >>> p.abc.foo
         `BAR`
         >>> p._paths()
@@ -923,10 +952,6 @@ class Pstep(str):
         Traceback (most recent call last):
         ValueError: Cannot rename/relocate 'foo'-->'BAR' due to LOCKED!
 
-
-    - .. Warning::
-          String's slicing operations do not work on this string-subclass!
-
     - .. Warning::
           Creating an empty(`''`) step in some paths will "root" the path::
 
@@ -936,7 +961,8 @@ class Pstep(str):
               >>> p._paths()
               ['/A2', '/a1/b']
 
-              >>> _ = p.a1[''].c
+              >>> _ = p.a1.a2.c
+              >>> _ = p.a1.a2 = ''
               >>> p._paths()
               ['/A2', '/a1/b', '/c']
 
@@ -954,29 +980,58 @@ class Pstep(str):
             return 'LOCKED'
         return 'LOCKED'
 
-    def __new__(cls, pname='', _pmod=None):
+    def __new__(cls, pname='', _proto_or_pmod=None, alias=None):
         """
-        Constructs a string with str-content which may be mapped from pmods.
+        Constructs a string with str-content which may comes from the mappings.
 
-        :param str pname:   this pstep's name; it is stored at `_orig` and
-                            if unmapped by pmod, becomes super-str object.
-                            The pname get jsonpointer-escaped
-                            (see :func:`pandata.escape_jsonpointer_part()`)
-        :param PMod _pmod:  the mappings for this pstep, or None.
-                            It will apply only if :meth:`Pmod.descend()`
-                            matches the `pname` passed here.
+        These are the valid argument combinations::
+
+            pname='attr_name`,
+            pname='attr_name`, _alias='Mass [kg]'
+
+            pname='attr_name`, _proto_or_pmod=Pmod
+
+            pname='attr_name`, _proto_or_pmod=Pstep
+            pname='attr_name`, _proto_or_pmod=Pstep, _alias='Mass [kg]'
+
+
+        :param str pname:
+                this pstep's name which must coincede with the name of
+                the parent-pstep's attribute holding this pstep.
+                It is stored at `_orig` and if no `alias` and unmapped by pmod,
+                this becomes the `alias`.
+        :param Pmod or Pstep _proto_or_pmod:
+                It can be either:
+                - the mappings for this pstep,
+                - another pstep to clone attributes from
+                  (used when replacing an existing child-pstep), or
+                - None.
+                The mappings will apply only if :meth:`Pmod.descend()`
+                match `pname` and will derrive the alias.
+        :param str alias:
+                Will become the super-str object when no mappaings specified
+                (`_proto_or_pmod` is a dict from some prototype pstep)
+                It gets jsonpointer-escaped if it exists
+                (see :func:`pandata.escape_jsonpointer_part()`)
         """
-        pname = unescape_jsonpointer_part(pname)  # TODO: Add Escape-path TCs.
-        if _pmod:
-            _pmod, alias = _pmod.descend(pname)
-            if alias is None:
-                alias = pname
-        else:
+        pmod = None
+        attrs = None
+        if _proto_or_pmod:
+            if isinstance(_proto_or_pmod, Pmod):
+                pmod, m_alias = _proto_or_pmod.descend(pname)
+                if alias is None and m_alias:
+                    # TODO: Add Escape-path TCs.
+                    alias = unescape_jsonpointer_part(m_alias)
+            else:
+                assert isinstance(_proto_or_pmod, Pstep), (
+                    'Invalid type(%s) for `_proto_or_pmod`!' % _proto_or_pmod)
+                attrs = _proto_or_pmod.__clone_attrs()
+        if alias is None:
             alias = pname
         self = str.__new__(cls, alias)
-        self.__dict__ = {
+        self.__dict__ = attrs or {
             '_orig': pname,
-            '_pmod': _pmod,
+            '_pmod': pmod,
             '_csteps': None,
             '_locked': Pstep.CAN_RELOCATE,
             '_tags': ()
@@ -984,33 +1039,45 @@ class Pstep(str):
 
         return self
 
-    def __missing__(self, cpname):
-        child = Pstep(cpname, self._pmod)
-        if self._csteps:
-            self._csteps[cpname] = child
+    def __clone_attrs(self):
+        """Clone deeply any collection attributes."""
+        attrs = self.__dict__.copy()
+        ccsteps = attrs.get('_csteps', None)
+        if ccsteps:
+            attrs['_csteps'] = ccsteps.copy()
+        ctags = attrs['_tags']
+        if ctags:
+            attrs['_tags'] = attrs['_tags'].copy()
+        return attrs
+
+    def __make_cstep(self, ckey, alias=None, existing_cstep=None):
+        csteps = self._csteps
+        if not csteps:
+            self._csteps = csteps = {}
         else:
-            self._csteps = {cpname: child}
+            if existing_cstep is None:
+                existing_cstep = csteps.get(ckey, None)
+        csteps[ckey] = child = Pstep(ckey, existing_cstep or self._pmod, alias)
+
         return child
 
-    def __getitem__(self, cpname):
-        child = self._csteps and self._csteps.get(cpname, None)
-        return child or self.__missing__(cpname)
-
-    def __setitem__(self, cpname, value):
-        raise self._ex_invalid_assignment(cpname, value)
-
-    def __getattr__(self, cpname):
-        if cpname.startswith('_'):
+    def __getattr__(self, attr):
+        if attr.startswith('_'):
             msg = "'%s' object has no attribute '%s'"
-            raise AttributeError(msg % (self, cpname))
-        child = self._csteps and self._csteps.get(cpname, None)
-        return child or self.__missing__(cpname)
+            raise AttributeError(msg % (self, attr))
+        csteps = self._csteps
+        child = csteps and csteps.get(attr, None)
+        return child or self.__make_cstep(attr)
 
-    def __setattr__(self, cpname, value):
-        if cpname.startswith('_'):
-            str.__setattr__(self, cpname, value)
+    def __setattr__(self, attr, value):
+        if attr.startswith('_'):
+            str.__setattr__(self, attr, value)
+        elif isinstance(value, Pstep):
+            self.__make_cstep(attr, existing_cstep=value)
+        elif isinstance(value, six.string_types):
+            self.__make_cstep(attr, alias=value)
         else:
-            raise self._ex_invalid_assignment(cpname, value)
+            raise self._ex_invalid_assignment(attr, value)
 
     def __dir__(self):
         d = super(str, self).__dir__()
@@ -1019,7 +1086,7 @@ class Pstep(str):
         return d
 
     def _ex_invalid_assignment(self, cpname, value):
-        msg = "Cannot assign '%s' to '%s/%s'!  Only other psteps allowed."
+        msg = "Cannot assign '%s' to '%s/%s!"
         return AssertionError(msg % (value, self, cpname))
 
     def __repr__(self):
@@ -1090,6 +1157,14 @@ class Pstep(str):
 
         return self
 
+    def _steps(self, keys=False, tag=None):
+        csteps = self._csteps
+        if not csteps:
+            return []
+        if keys:
+            return csteps.keys()
+        return csteps.values()
+
     def _paths(self, with_orig=False, tag=None):
         """
         Return all children-paths (str-list) constructed so far, in a list.
@@ -1119,7 +1194,7 @@ class Pstep(str):
             ...     ('',         'ROOT'),
             ...     ('/a',     'A/AA'),
             ... ])
-            >>> p = Pstep(_pmod=pmods)
+            >>> p = pmods.step()
             >>> _ = p.a.b
             >>> p._paths(with_orig=True)
              ['(-->ROOT)/(a-->A/AA)/b']

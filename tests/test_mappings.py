@@ -578,20 +578,18 @@ class TestPstep(unittest.TestCase):
             ('',            '/root' if absolute else 'root'),
             ('/a',          'b'),
             ('/abc',        'BAR'),
-            ('/abc/def',    'DEF'),
-            ('/abc/def/123', '234'),
-            ('/for',        '/sub/path'),
+            ('/abc/df',     'DEF'),
+            ('/abc/df/a123', '234'),
+            ('/some',       '/sub/path'),
         ])
 
     def test_equality(self):
         p = Pstep()
         self.assertEqual(str(p), '')
         self.assertEqual(p, Pstep(''))
-        self.assertEquals(str(p['']), str(p))
 
         self.assertEqual(str(p.a), 'a')
         self.assertEqual(p.a, Pstep('a'))
-        self.assertEquals(str(p['a']), str(p.a))
 
         n = 'foo'
         p = Pstep(n)
@@ -603,18 +601,33 @@ class TestPstep(unittest.TestCase):
         p = Pstep(n)
         self.assertEqual(str(p), n)
         self.assertEquals(p, Pstep(n))
-        p['12']
-        self.assertNotEquals(str(p), '12')
 
     def test_buildtree_valid_ops(self):
         p = Pstep()
         p.abc
-        p.abc['def']
-        p['abc'].defg
+        p.abc.ddd = 'def'
+        p.abc.dfg = 'defg'
         p.n123
-        p['321']
-        p._some_hidden = 12
-        p.a.b.c['123']['4']
+        p.pp = '321'
+        p._some_hidden = '12'
+        p.a.b.c.d = '123'
+        p.a.b.c.d.e = '123'
+
+    def test_constructor(self):
+        pmod = pmods_from_tuples([('/a', 'A'), ('/a/c', 'C'), ('/b/c', 'C1')])
+        p = pmod.step()
+        self.assertEquals(p.a, 'A')
+        self.assertEquals(p.a.c, 'C')
+        self.assertEqual(p.b, 'b')
+        self.assertEqual(p.b.c, 'C1')
+
+        p.a = 'AA'
+        self.assertEqual(p.a, 'AA')
+        self.assertIn('AA', p._steps())
+        self.assertIn('c', p.a._steps(keys=True))
+        self.assertIn('C', p.a._steps())
+        self.assertIn('c', p.b._steps(keys=True))
+        self.assertIn('C1', p.b._steps())
 
     def test_buildtree_invalid_ops(self):
 
@@ -624,18 +637,15 @@ class TestPstep(unittest.TestCase):
             p.abc = 1
 
         def f2(p):
-            p['a'] = 1
+            p.a = 1
 
         def f3(p):
-            p['a']['b'] = 1
+            p.a.b = 1
 
         def f4(p):
-            p['a'].c = 1
+            p.a.c = 1
 
-        def f5(p):
-            p['_hid'] = 1
-
-        for f in [f1, f2, f3, f4, f5]:
+        for f in [f1, f2, f3, f4]:
             p = Pstep()
             with self.assertRaises(AssertionError, msg=f):
                 f(p),
@@ -664,10 +674,10 @@ class TestPstep(unittest.TestCase):
     def test_paths_multi_empty1ststep(self):
         p = Pstep()
         p.abc
-        p.abc['def']
-        p['abc'].defg
+        p.abc.aaa = 'def'
+        p.abc.defg
         p.n123
-        p['321']
+        p.pp = '321'
         p._some_hidden = 12
         exp = [
             '/abc/def',
@@ -677,15 +687,21 @@ class TestPstep(unittest.TestCase):
         ]
         self.assertListEqual(sorted(p._paths()), sorted(exp))
 
+        exp = [
+            '/abc/(aaa-->def)',
+            '/abc/defg',
+            '/(pp-->321)',
+            '/n123',
+        ]
         self.assertListEqual(sorted(p._paths(with_orig=True)), sorted(exp))
 
     def test_paths_multi_nonemptyroot(self):
         p = Pstep('r')
         p.abc
-        p.abc['def']
-        p['abc'].defg
+        p.abc.aaa = 'def'
+        p.abc.defg
         p.n123
-        p['321']
+        p.pp = '321'
         p._some_hidden = 12
         exp = [
             'r/abc/def',
@@ -695,40 +711,51 @@ class TestPstep(unittest.TestCase):
         ]
         self.assertListEqual(sorted(p._paths()), sorted(exp))
 
-        self.assertListEqual(sorted(p._paths(with_orig=True)), sorted(exp))
+        exp = [
+            'r/abc/(aaa-->def)',
+            'r/abc/defg',
+            'r/(pp-->321)',
+            'r/n123',
+        ]
 
     ### DOT ###
 
     def test_paths_dot_atroot_emptyroot(self):
         p = Pstep()
-        p['.']
+        p.pp = '.'
         self.assertListEqual(sorted(p._paths()), sorted(['']))
 
     def test_paths_dot_emptyroot(self):
         p = Pstep()
-        p.a['.']
+        p.a.b = '.'
         self.assertListEqual(sorted(p._paths()), sorted(['/a']))
 
     def test_paths_dot_atroot(self):
         p = Pstep('r')
-        p['.']
+        p.pp = '.'
+        self.assertListEqual(sorted(p._paths()), sorted(['r']))
+        p.pp = '.'
         self.assertListEqual(sorted(p._paths()), sorted(['r']))
 
     def test_paths_dot(self):
         p = Pstep('r')
-        p.a['.']
+        p.a.b = '.'
         self.assertListEqual(sorted(p._paths()), sorted(['r/a']))
 
     def test_paths_dot_multi_emptyroot(self):
         p = Pstep('')
-        p['.'].a.b
-        p.c['.'].d
+        p.pp = '.'
+        p.pp.a.b
+        p.c.pp = '.'
+        p.c.pp.d
         self.assertListEqual(sorted(p._paths()), sorted(['/a/b', '/c/d']))
 
     def test_paths_dot_multi(self):
         p = Pstep('r')
-        p['.'].a.b
-        p.c['.'].d
+        p.pp = '.'
+        p.pp.a.b
+        p.c.cc = '.'
+        p.c.cc.d
         self.assertListEqual(sorted(p._paths()), sorted(['r/a/b', 'r/c/d']))
 
     ### DOTDOT ###
@@ -738,56 +765,66 @@ class TestPstep(unittest.TestCase):
 
     def test_paths_dotdot_atroot_emptyroot(self):
         p = Pstep()
-        p['..'].a
+        p.pp = '..'
+        p.pp.a
         self.assertListEqual(sorted(p._paths()), sorted(['/a']))
 
         p = Pstep()
-        p['..'].a
-        p['..'].b
+        p.pp = '..'
+        p.pp.a
+        p.pp.b
         self.assertListEqual(sorted(p._paths()), sorted(['/a', '/b']))
 
     def test_paths_dotdot_emptyroot(self):
         p = Pstep()
-        p.a['..'].b
+        p.a.aa = '..'
+        p.a.aa.b
         self.assertListEqual(sorted(p._paths()), sorted(['/b']))
 
         p = Pstep()
-        p.a['..'].b
+        p.a.aa = '..'
+        p.a.aa.b
         p.a.c
         self.assertListEqual(sorted(p._paths()), sorted(['/a/c', '/b']))
 
     def test_paths_dotdot_atroot(self):
         p = Pstep('r')
-        p['..'].a
+        p.pp = '..'
+        p.pp.a
         self.assertListEqual(sorted(p._paths()), sorted(['a']))
 
     def test_paths_dotdot(self):
         p = Pstep('r')
-        p.a['..'].b
+        p.a.aa = '..'
+        p.a.aa.b
         self.assertListEqual(sorted(p._paths()), sorted(['r/b']))
 
     def test_paths_dotdot_multi_emptyroot(self):
         p = Pstep('')
-        p['..'].a.b
-        p.c['..'].d
+        p.pp = '..'
+        p.pp.a.b
+        p.c.cc = '..'
+        p.c.cc.d
         self.assertListEqual(sorted(p._paths()), sorted(['/a/b', '/d']))
 
     def test_paths_dotdot_multi(self):
         p = Pstep('r')
-        p['..'].a.b
-        p.c['..'].d
+        p.pp = '..'
+        p.pp.a.b
+        p.c.cc = '..'
+        p.c.cc.d
         self.assertListEqual(sorted(p._paths()), sorted(['a/b', 'r/d']))
 
     ### PMODS ###
 
     def test_pmods_miss(self):
-        p = Pstep(_pmod=pmods_from_tuples([('/MISS', 'BOO')]))
+        p = pmods_from_tuples([('/MISS', 'BOO')]).step()
         self.assertEquals(p, '', (p, p._paths()))
         p = Pstep('foo', pmods_from_tuples([('/MISS', 'BOO')]))
         self.assertEquals(p, 'foo', (p, p._paths()))
 
     def test_pmods_emptyroot_rootunmapped(self):
-        p = Pstep(_pmod=pmods_from_tuples([('/a', 'bar')]))
+        p = pmods_from_tuples([('/a', 'bar')]).step()
         p.a
         self.assertEquals(p, '', (p, p._paths()))
         self.assertEquals(p.a, 'bar', (p, p._paths()))
@@ -803,7 +840,7 @@ class TestPstep(unittest.TestCase):
         self.assertEquals(sorted(p._paths()), ['/bar/b', '/bar/f', '/c'])
 
     def test_pmods_nonemptyroot_rootunmapped(self):
-        p = Pstep('root', _pmod=pmods_from_tuples([('root/a', 'bar')]))
+        p = pmods_from_tuples([('root/a', 'bar')]).step('root')
         p.a
         self.assertEquals(p, 'root', (p, p._paths()))
         self.assertEquals(p.a, 'bar', (p, p._paths()))
@@ -820,7 +857,7 @@ class TestPstep(unittest.TestCase):
                           ['root/bar/b', 'root/bar/f', 'root/c'])
 
     def test_pmods_emptyroot_rootmapped(self):
-        p = Pstep(_pmod=pmods_from_tuples([('', 'root'), ('/a', 'bar')]))
+        p = pmods_from_tuples([('', 'root'), ('/a', 'bar')]).step()
         p.a
         self.assertEquals(p, 'root')
         self.assertEquals(p.a, 'bar')
@@ -837,9 +874,8 @@ class TestPstep(unittest.TestCase):
             sorted(p._paths()), ['root/bar/b', 'root/bar/f', 'root/c'])
 
     def test_pmods_nonemptyroot_rootmapped(self):
-        p = Pstep(
-            'root', _pmod=pmods_from_tuples([
-                ('root', 'ROOT'), ('root/a', 'bar')]))
+        p = pmods_from_tuples(
+            [('root', 'ROOT'), ('root/a', 'bar')]).step('root')
         p.a
         self.assertEquals(p, 'ROOT')
         self.assertEquals(p.a, 'bar')
@@ -856,16 +892,16 @@ class TestPstep(unittest.TestCase):
             sorted(p._paths()), ['ROOT/bar/b', 'ROOT/bar/f', 'ROOT/c'])
 
     def _build_psteps(self, root='', pmods=None):
-        p = Pstep(root, _pmod=pmods)
+        p = Pstep(root, pmods)
         p.a.b.c
         p.a.b.d
         p.a.c
-        p.abc['def']
+        p.abc.df
         p.n123
         p.a.n123
-        p.cc['123']['123']
-        p.cc['123'].abc
-        p['321']
+        p.cc.a123.a123
+        p.cc.a123.abc
+        p.b321
         # p[''] ##NOTE: Will always return to root.
 
         return p
@@ -904,51 +940,52 @@ class TestPstep(unittest.TestCase):
         self._assert_pstep_pmods_with_map_paths('', pmods)
 
     def test_paths_pmods_mass(self):
-        p = Pstep(_pmod=self.PMODS())
+        p = self.PMODS().step()
         p.a
-        p.abc['def']['123']
+        p.abc.df.a123
         exp = ['root/b', 'root/BAR/DEF/234']
         self.assertListEqual(sorted(p._paths()), sorted(exp), (p, p._paths()))
 
-        p = Pstep(_pmod=self.PMODS(absolute=True))
+        p = self.PMODS(absolute=True).step()
         p.a
-        p.abc['def']['123']
+        p.abc.df
+        p.abc.df.a123
         exp = ['/root/b', '/root/BAR/DEF/234']
         self.assertListEqual(sorted(p._paths()), sorted(exp), (p, p._paths()))
 
     def test_paths_pmods_orig_mass(self):
-        p = Pstep(_pmod=self.PMODS())
+        p = self.PMODS().step()
         p.a
-        p.abc['def']['123']
+        p.abc.df.a123
         exp = [
             '(-->root)/(a-->b)',
-            '(-->root)/(abc-->BAR)/(def-->DEF)/(123-->234)'
+            '(-->root)/(abc-->BAR)/(df-->DEF)/(a123-->234)'
         ]
         self.assertListEqual(
             sorted(p._paths(with_orig=True)), sorted(exp), (p, p._paths()))
 
-        p = Pstep(_pmod=self.PMODS(absolute=True))
+        p = self.PMODS(absolute=True).step()
         p.a
-        p.abc['def']['123']
+        p.abc.df.a123
         exp = [
             '(-->/root)/(a-->b)',
-            '(-->/root)/(abc-->BAR)/(def-->DEF)/(123-->234)'
+            '(-->/root)/(abc-->BAR)/(df-->DEF)/(a123-->234)'
         ]
         self.assertListEqual(
             sorted(p._paths(with_orig=True)), sorted(exp), (p, p._paths()))
 
     def test_pmods_lock_not_applying(self):
-        p = Pstep('not dot', _pmod=self.PMODS())
+        p = self.PMODS().step('not dot')
         p.nota
-        p = Pstep('not dot', _pmod=self.PMODS(absolute=True))
+        p = self.PMODS(absolute=True).step('not dot')
         p.nota
 
         pmods = self.PMODS()
         pmods._alias = None
-        p = Pstep(_pmod=pmods)
+        p = pmods.step()
         pmods = self.PMODS(absolute=True)
         pmods._alias = None
-        p = Pstep(_pmod=pmods)
+        p = pmods.step()
 
     def test_pmods_lock_CAN_RELOCATE_unmapped(self):
         p = Pstep()
@@ -965,7 +1002,7 @@ class TestPstep(unittest.TestCase):
 
     def test_pmods_lock_CAN_RELOCATE_mapped(self):
         pmods = self.PMODS()
-        p = Pstep(_pmod=pmods)
+        p = pmods.step()
         p._locked = Pstep.CAN_RELOCATE
 
         p2 = p.unmapped._lock
@@ -975,23 +1012,23 @@ class TestPstep(unittest.TestCase):
 
     def test_pmods_lock_CAN_RENAME_root(self):
         pmods = self.PMODS(absolute=True)
-        p = Pstep(_pmod=pmods)
+        p = pmods.step()
         with self.assertRaises(ValueError, msg=p._paths()):
             p._locked = Pstep.CAN_RENAME
         with self.assertRaises(ValueError, msg=p._paths()):
             p._lock
 
     def test_pmods_lock_CAN_RENAME_rest(self):
-        p = Pstep(_pmod=self.PMODS())
+        p = self.PMODS().step()
         p2 = p.a._fix  # `a` just renamed `b`.
         self.assertIs(p2, p.a)
         with self.assertRaises(ValueError, msg=p._paths()):
-            p['for']._locked = Pstep.CAN_RENAME
+            p.some._locked = Pstep.CAN_RENAME
         with self.assertRaises(ValueError, msg=p._paths()):
-            p['for']._lock
+            p.some._lock
 
     def test_pmods_lock_LOCKED_root(self):
-        p = Pstep(_pmod=self.PMODS())
+        p = self.PMODS().step()
         with self.assertRaises(ValueError, msg=p._paths()):
             p._locked = Pstep.LOCKED
         with self.assertRaises(ValueError, msg=p._paths()):
@@ -999,16 +1036,16 @@ class TestPstep(unittest.TestCase):
 
     def test_pmods_lock_LOCKED_rest(self):
         pmods = self.PMODS()
-        p = Pstep(_pmod=pmods)
+        p = pmods.step()
         with self.assertRaises(ValueError, msg=p._paths()):
             p.abc._locked = Pstep.LOCKED
         with self.assertRaises(ValueError, msg=p._paths()):
             p.abc._lock
 
         with self.assertRaises(ValueError, msg=p._paths()):
-            p['for']._locked = Pstep.LOCKED
+            p.some._locked = Pstep.LOCKED
         with self.assertRaises(ValueError, msg=p._paths()):
-            p['for']._lock
+            p.some._lock
 
     def test_assign(self):
         p1 = Pstep('root')
@@ -1016,29 +1053,11 @@ class TestPstep(unittest.TestCase):
         def f1():
             p1.a = 1
 
-        def f2():
-            p1.a = p1
-
-        def f3():
-            p1.a = Pstep()  # TODO: Make step assigning work?
+        p1.a = 'a'
+        p1.a = p1
+        p1.a = Pstep()  # TODO: Make step assigning work?
 
         self.assertRaises(AssertionError, f1)
-        self.assertRaises(AssertionError, f2)
-        self.assertRaises(AssertionError, f3)
-
-    def test_indexing(self):
-        m = {'a': 1, 'b': 2, 'c': {'cc': 33}}
-        n = 'a'
-        p = Pstep(n)
-        self.assertEqual(m[p], m[n])
-        self.assertEqual(m[p[n]], m[n])
-
-    def test_idex_assigning(self):
-        m = {'a': 1, 'b': 2, 'c': {'cc': 33}}
-        n = 'a'
-        p = Pstep(n)
-        self.assertEqual(m[p], m[n])
-        self.assertEqual(m[p[n]], m[n])
 
     def test_schema(self):
         json.dumps(Pstep())
