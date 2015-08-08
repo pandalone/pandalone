@@ -19,7 +19,7 @@ TODO
 
 1. Assembly use ComponentLoader collecting components with:
 
-   - `gatattr()` and 
+   - `gatattr()` and
    - `filter_predicate` default to ``attr.__name__.startswith('cfunc_')``.
    - enforce a `disable` flag on them.
 
@@ -30,7 +30,7 @@ TODO
    - pmods on init OR `run()`?
    - As ContextManager?
 
-4. Imply a default Assembly. 
+4. Imply a default Assembly.
 """
 
 from __future__ import division, unicode_literals
@@ -48,42 +48,6 @@ except ImportError:
 __commit__ = ""
 
 log = logging.getLogger(__name__)
-
-
-def _append_step(steps, step):
-    """
-    Joins `steps`-list with `path`, respecting '/', '..', '.', ''.
-
-    :return: the new or updated steps-list.
-    :rtype:  list
-
-    Example::
-
-        >>> _append_step([], 'a')
-        ['a']
-
-        >>> _append_step([], '..')
-        []
-        >>> _append_step(['a', 'b'], '..')
-        ['a']
-
-        >>> _append_step(['a', 'b'], '.')
-        ['a', 'b']
-
-        >>> _append_step(['a', 'b'], '')
-        []
-
-    """
-    if step == '':
-        steps = []
-    elif step == '.':
-        pass
-    elif step == '..':
-        steps = steps[:-1]
-    else:
-        steps.append(step)
-
-    return steps
 
 
 name_uniqueizer = None  # TODO: Handle clashes on component-names.
@@ -197,7 +161,7 @@ class FuncComponent(Component):
         >>> from pandalone.mappings import pmods_from_tuples
 
         >>> pmods = pmods_from_tuples([
-        ...     ('.*', '/A/B'),
+        ...     ('~.*', '/A/B'),
         ... ])
         >>> comp._build(pmods)
 
@@ -242,14 +206,16 @@ class FuncComponent(Component):
         """The suggested :class:`Pstep` for cfunc to use to access inputs."""
         p = self._pinp
         if p is None:
-            self._pinp = p = Pstep(path or self._name, _pmod=self._pmod)
+            self._pinp = p = Pstep(path or self._name,
+                                   _proto_or_pmod=self._pmod)
         return p
 
     def pout(self, path=None):
         """The suggested :class:`Pstep` for cfunc to use to access outputs."""
         p = self._pout
         if p is None:
-            self._pout = p = Pstep(path or self._name, _pmod=self._pmod)
+            self._pout = p = Pstep(path or self._name,
+                                   _proto_or_pmod=self._pmod)
         return p
 
     def _build(self, pmod=None):
@@ -289,7 +255,7 @@ class Assembly(Component):  # TODO: Assembly inherit Component
         >>> from pandalone.mappings import pmods_from_tuples
 
         >>> pmod = pmods_from_tuples([
-        ...     ('.*',  '/root'), 
+        ...     ('~.*',  '/root'),
         ... ])
         >>> ass._build(pmod)
         >>> sorted(ass._inp + ass._out)

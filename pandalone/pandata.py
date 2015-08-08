@@ -1177,7 +1177,7 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
     return doc
 
 
-def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
+def set_jsonpointer(doc, jsonpointer, value, object_factory=OrderedDict):
     """
     Resolve a ``jsonpointer`` within the referenced ``doc``.
 
