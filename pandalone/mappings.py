@@ -39,7 +39,8 @@ from copy import copy
 import logging
 from pandalone import utils
 from pandalone.pandata import (
-    iter_jsonpointer_parts_relaxed, JSchema, unescape_jsonpointer_part)
+    iter_jsonpointer_parts_relaxed, JSchema, unescape_jsonpointer_part,
+    escape_jsonpointer_part)
 import re
 
 import six
@@ -879,7 +880,7 @@ class Pstep(str):
     :ivar int _locked:   one of
                          - :const:`Pstep.CAN_RELOCATE` (default),
                          - :const:`Pstep.CAN_RENAME`,
-                         - :const:`Pstep.LOCKED' (neither from the above).
+                         - :const:`Pstep.LOCKED` (neither from the above).
     :ivar set _tags:     A set of strings (default `()`)
     :ivar dict _schema:  json-schema data.
 
@@ -986,13 +987,13 @@ class Pstep(str):
 
         These are the valid argument combinations::
 
-            pname='attr_name`,
-            pname='attr_name`, _alias='Mass [kg]'
+            pname='attr_name',
+            pname='attr_name', _alias='Mass [kg]'
 
-            pname='attr_name`, _proto_or_pmod=Pmod
+            pname='attr_name', _proto_or_pmod=Pmod
 
-            pname='attr_name`, _proto_or_pmod=Pstep
-            pname='attr_name`, _proto_or_pmod=Pstep, _alias='Mass [kg]'
+            pname='attr_name', _proto_or_pmod=Pstep
+            pname='attr_name', _proto_or_pmod=Pstep, _alias='Mass [kg]'
 
 
         :param str pname:
@@ -1002,10 +1003,12 @@ class Pstep(str):
                 this becomes the `alias`.
         :param Pmod or Pstep _proto_or_pmod:
                 It can be either:
+
                 - the mappings for this pstep,
                 - another pstep to clone attributes from
                   (used when replacing an existing child-pstep), or
                 - None.
+
                 The mappings will apply only if :meth:`Pmod.descend()`
                 match `pname` and will derrive the alias.
         :param str alias:
@@ -1057,6 +1060,14 @@ class Pstep(str):
         else:
             if existing_cstep is None:
                 existing_cstep = csteps.get(ckey, None)
+                # Update my mappings for `b` when ``self.b = "foo"``.
+                #
+                if not alias is None:
+                    pmod = self._pmod
+                    if pmod:
+                        pmod._alias = alias
+                    else:
+                        self._pmod = Pmod(_alias=alias)
         csteps[ckey] = child = Pstep(ckey, existing_cstep or self._pmod, alias)
 
         return child
@@ -1146,7 +1157,7 @@ class Pstep(str):
 
         return self
 
-    def _dtag(self, tag):
+    def _tag_remove(self, tag):
         """Delete a "tag" from this pstep.
 
         :return: self, for chained use
@@ -1213,6 +1224,7 @@ class Pstep(str):
         :param tuple prefix_steps:     branch currently visiting
         :param str, True, None tag:    If not 'None', fetches all paths
                                        with `tag` in their last step.
+        :para bool with_orig:          Collect steps like ``key --> alias``.
         :rtype: [str]
         """
         me = self
@@ -1230,11 +1242,42 @@ class Pstep(str):
         csteps = self._csteps
         if csteps:
             for v in csteps.values():
-                v._append_subtree(
-                    paths, prefix_steps, with_orig=with_orig, tag=tag)
+                v._append_subtree(paths, prefix_steps,
+                                  with_orig=with_orig, tag=tag)
         else:
             if not tag:
                 paths.append(_join_paths(*prefix_steps))
+
+    def derrive_map_tuples(self):
+        """
+        Recursively extract ``(cmap --> alias)`` pairs from the pstep-hierarchy.
+
+        :param list pairs:             Where to append subtree-paths built.
+        :param tuple prefix_steps:     branch currently visiting
+        :rtype: [(str, str)]
+        """
+        def orig_paths(psteps):
+            return [p._orig for p in psteps]
+        map_pairs = ((_join_paths(*orig_paths(p)), str(p[-1]))
+                     for p in self._iter_hierarchy())
+        return sorted(map_pairs, key=lambda p: p[0])
+
+    def _iter_hierarchy(self, prefix_steps=()):
+        """
+        Breadth-first traversing of pstep-hierarchy.
+
+        :param tuple prefix_steps:     Builds here branch currently visiting.
+        :return: yields the visited pstep along with its path (including it)
+        :rtype: (Pstep, [Pstep])
+        """
+        prefix_steps += (self, )
+        yield prefix_steps
+
+        csteps = self._csteps
+        if csteps:
+            for v in csteps.values():
+                for p in v._iter_hierarchy(prefix_steps):
+                    yield p
 
     @property
     def _schema(self):

@@ -10,16 +10,17 @@ from __future__ import division, unicode_literals
 
 import doctest
 import json
-import re
-import sre_constants
-import sys
-import unittest
-
-import functools as ft
 from pandalone.mappings import (
     Pmod, pmods_from_tuples, Pstep, _join_paths, _append_step)
 import pandalone.mappings
+import re
+import sre_constants
+import sys
 from tests._tutils import _init_logging
+from textwrap import dedent
+import unittest
+
+import functools as ft
 
 
 log = _init_logging(__name__)
@@ -613,6 +614,8 @@ class TestPstep(unittest.TestCase):
         p.a.b.c.d = '123'
         p.a.b.c.d.e = '123'
 
+        return p
+
     def test_constructor(self):
         pmod = pmods_from_tuples([('/a', 'A'), ('/a/c', 'C'), ('/b/c', 'C1')])
         p = pmod.step()
@@ -1047,6 +1050,26 @@ class TestPstep(unittest.TestCase):
         with self.assertRaises(ValueError, msg=p._paths()):
             p.some._lock
 
+    def test_map_from_pstep(self):
+        p = self.test_buildtree_valid_ops()
+        pairs = p.derrive_map_tuples()
+        #print('\n'.join(str(p) for p in pairs))
+
+        exp = [
+            ('', ''),
+            ('/a', 'a'),
+            ('/a/b', 'b'),
+            ('/a/b/c', 'c'),
+            ('/a/b/c/d', '123'),
+            ('/a/b/c/d/e', '123'),
+            ('/abc', 'abc'),
+            ('/abc/ddd', 'def'),
+            ('/abc/dfg', 'defg'),
+            ('/n123', 'n123'),
+            ('/pp', '321'),
+        ]
+        self.assertEqual(pairs, exp)
+
     def test_assign(self):
         p1 = Pstep('root')
 
@@ -1069,11 +1092,10 @@ class TestPstep(unittest.TestCase):
         p._schema.type = 'list'
         p.a._schema.kws = {'minimum': 1}
 
-    @unittest.skip('Unknwon why sets fail with Pstep!')
-    def test_json_sets(self):
-        json.dumps({Pstep(), Pstep()})
+    def test_json_list(self):
+        json.dumps([Pstep(), Pstep('a')])
 
-    def test_tags(self):
+    def test_tags_paths(self):
         p = Pstep()
         self.assertEqual(p._tags, ())
         self.assertEqual(p._paths(tag='BAD'), [])
@@ -1115,20 +1137,20 @@ class TestPstep(unittest.TestCase):
         self.assertSequenceEqual(sorted(p._paths(tag='u')), ['/a', '/b/c'])
         self.assertSequenceEqual(sorted(p._paths(tag='BAD')), [])
 
-        p.a._dtag('u').aa.aaa
+        p.a._tag_remove('u').aa.aaa
         self.assertSequenceEqual(sorted(p._paths()), ['/a/aa/aaa', '/b/c'])
         self.assertSequenceEqual(sorted(p._paths(tag='t')), ['/a/aa'])
         self.assertSequenceEqual(sorted(p._paths(tag='u')), ['/b/c'])
 
-        p.a.aa._dtag('t').aaa
-        p.a.aa._dtag('u').aaa  # Useless
-        p.b.c._dtag('u')
+        p.a.aa._tag_remove('t').aaa
+        p.a.aa._tag_remove('u').aaa  # Useless
+        p.b.c._tag_remove('u')
         self.assertSequenceEqual(sorted(p._paths()), ['/a/aa/aaa', '/b/c'])
         self.assertSequenceEqual(sorted(p._paths(tag='t')), [])
         self.assertSequenceEqual(sorted(p._paths(tag='u')), [])
 
-        p.a.aa.aaa._dtag('u')  # Useless
-        p.a.aa.aaa._dtag('t')
+        p.a.aa.aaa._tag_remove('u')  # Useless
+        p.a.aa.aaa._tag_remove('t')
         self.assertSequenceEqual(sorted(p._paths()), ['/a/aa/aaa', '/b/c'])
         self.assertSequenceEqual(sorted(p._paths(tag='t')), [])
         self.assertSequenceEqual(sorted(p._paths(tag='u')), [])
