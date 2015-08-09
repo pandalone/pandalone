@@ -83,10 +83,11 @@ def coords2Cell(row, col):
         col = xl_colname(col)
     return Cell(row=row, col=col)
 
-Edge = namedtuple('Edge', ['land', 'mov'])
+_Edge = namedtuple('Edge', ['land', 'mov', 'mod'])
 """
 :param Cell land:
 :param str mov: use None for missing moves.
+:param str mod: one of (`+`, `-` or `None`)
 
 An :term:`Edge` might be "cooked" or "uncooked" depending on its `land`:
 
@@ -96,13 +97,18 @@ An :term:`Edge` might be "cooked" or "uncooked" depending on its `land`:
 """
 
 
-def _uncooked_Edge(row, col, mov):
+def Edge(land, mov, mod=None):
+    return _Edge(land, mov, mod)
+
+
+def _uncooked_Edge(row, col, mov, mod=None):
     """
     Make a new `Edge` from any non-values supplied, as is capitalized, or nothing.
 
     :param str, None col:    ie ``A``
     :param str, None row:    ie ``1``
-    :param str, None mov:    ie ``RU1D?``
+    :param str, None mov:    ie ``RU``
+    :param str, None mod:    ie ``+``
 
     :return:    a `Edge` if any non-None
     :rtype:     Edge, None
@@ -110,35 +116,36 @@ def _uncooked_Edge(row, col, mov):
 
     Examples::
 
-        >>> tr = _uncooked_Edge('1', 'a', 'Rul')
+        >>> tr = _uncooked_Edge('1', 'a', 'Rul', '-')
         >>> tr
-        Edge(land=Cell(row='1', col='A'), mov='RUL')
+        Edge(land=Cell(row='1', col='A'), mov='RUL', mod='-')
 
 
     No error checking performed::
 
-        >>> _uncooked_Edge('Any', 'foo', 'BaR')
-        Edge(land=Cell(row='Any', col='FOO'), mov='BAR')
+        >>> _uncooked_Edge('Any', 'foo', 'BaR', '+_&%')
+        Edge(land=Cell(row='Any', col='FOO'), mov='BAR', mod='+_&%')
 
-        >>> print(_uncooked_Edge(None, None, None))
+        >>> print(_uncooked_Edge(None, None, None, None))
         None
 
 
     except were coincidental::
 
-        >>> _uncooked_Edge(row=0, col=123, mov='BAR')
+        >>> _uncooked_Edge(row=0, col=123, mov='BAR', mod=None)
         Traceback (most recent call last):
         AttributeError: 'int' object has no attribute 'upper'
 
-        >>> _uncooked_Edge(row=0, col='A', mov=123)
+        >>> _uncooked_Edge(row=0, col='A', mov=123, mod=None)
         Traceback (most recent call last):
         AttributeError: 'int' object has no attribute 'upper'
     """
 
-    if col == row == mov is None:
+    if col == row == mov == mod is None:
         return None
 
-    return Edge(land=Cell(col=col and col.upper(), row=row), mov=mov and mov.upper())
+    return Edge(land=Cell(col=col and col.upper(), row=row),
+                mov=mov and mov.upper(), mod=mod)
 
 _special_coord_symbols = {'^', '_', '.'}
 
@@ -196,7 +203,7 @@ def _repeat_moves(moves, times=None):
 
     Used when parsing primitive :term:`directions`.
 
-   :param str moves: the moves to repeat
+   :param str moves: the moves to repeat ie ``RU1D?``
    :param str times: N of repetitions. If `None` it means infinite repetitions.
    :return:    An iterator of the moves
    :rtype:     iterator
@@ -290,12 +297,10 @@ def parse_xl_ref(xl_ref):
         >>> res = parse_xl_ref('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"json":"..."}')
         >>> sorted(res.items())
         [('json', {'json': '...'}),
-         ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL')),
-         ('nd_mod', None),
+         ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None)),
          ('rect_exp', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
          ('sheet', 'Sheet1'),
-         ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR')),
-         ('st_mod', '+')]
+         ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'))]
         >>> parse_xl_ref('A1(DR)Z20(UL)')
         Traceback (most recent call last):
         ValueError: Invalid xl-ref(A1(DR)Z20(UL)) due to: not an `xl-ref` syntax.
@@ -311,8 +316,10 @@ def parse_xl_ref(xl_ref):
         #     with "uncooked" edge.
         #
         p = gs.pop
-        gs['st_edge'] = _uncooked_Edge(p('st_row'), p('st_col'), p('st_mov'))
-        gs['nd_edge'] = _uncooked_Edge(p('nd_row'), p('nd_col'), p('nd_mov'))
+        gs['st_edge'] = _uncooked_Edge(p('st_row'), p('st_col'),
+                                       p('st_mov'), p('st_mod'))
+        gs['nd_edge'] = _uncooked_Edge(p('nd_row'), p('nd_col'),
+                                       p('nd_mov'), p('nd_mod'))
 
         js = gs['json']
         gs['json'] = json.loads(js) if js else None
@@ -367,12 +374,10 @@ def parse_xl_url(url, base_url=None, backend=None):
         >>> res = parse_xl_url(url)
         >>> sorted(res.items())
         [('json', {'2': 'ciao'}),
-         ('nd_edge', Edge(land=Cell(row='^', col='.'), mov='DR')),
-         ('nd_mod', None),
+         ('nd_edge', Edge(land=Cell(row='^', col='.'), mov='DR', mod=None)),
          ('rect_exp', [repeat('L'), repeat('U', 1)]),
          ('sheet', 'Sheet1'),
-         ('st_edge', Edge(land=Cell(row='1', col='A'), mov='UL')),
-         ('st_mod', None),
+         ('st_edge', Edge(land=Cell(row='1', col='A'), mov='UL', mod=None)),
          ('url_file', 'file:///sample.xlsx')]
     """
 
@@ -1007,7 +1012,7 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
         >>> resolve_capture_rect(states_matrix, up, dn, st_edge, nd_edge)
         (Coords(row=3, col=2), Coords(row=4, col=2))
 
-    Walking backwards::
+    Using dependenent coordinates for the 2nd edge::
 
         >>> st_edge = Edge(Cell('_', '_'), None)
         >>> nd_edge = Edge(Cell('.', '.'), 'UL')
@@ -1015,8 +1020,17 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
         >>> rect
         (Coords(row=2, col=2), Coords(row=4, col=5))
 
+    Using sheet's margins::
+
         >>> st_edge = Edge(Cell('^', '_'), None)
         >>> nd_edge = Edge(Cell('_', '^'), None)
+        >>> rect == resolve_capture_rect(states_matrix, up, dn, st_edge, nd_edge)
+        True
+
+    Walking backwards::
+
+        >>> st_edge = Edge(Cell('^', '_'), 'L')          # Landing is full, so 'L' ignored.
+        >>> nd_edge = Edge(Cell('_', '_'), 'L', '+')    # '+' or would also stop.
         >>> rect == resolve_capture_rect(states_matrix, up, dn, st_edge, nd_edge)
         True
 
@@ -1032,7 +1046,8 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
 
     if st_edge.mov is not None:
         if st_state:
-            st = _target_same(states_matrix, dn_coords, st, st_edge.mov)
+            if st_edge.mod == '+':
+                st = _target_same(states_matrix, dn_coords, st, st_edge.mov)
         else:
             st = _target_opposite(states_matrix, dn_coords, st, st_edge.mov)
 
@@ -1049,7 +1064,9 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
 
             mov = nd_edge.mov
             if nd_state:
-                nd = _target_same(states_matrix, dn_coords, nd, mov)
+                if (nd_edge.mod == '+' or
+                        nd_edge.land == Cell('.', '.') and nd_edge.mod != '-'):
+                    nd = _target_same(states_matrix, dn_coords, nd, mov)
             else:
                 nd = _target_opposite(states_matrix, dn_coords, nd, mov)
 

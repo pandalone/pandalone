@@ -549,8 +549,8 @@ class Capture(unittest.TestCase):
         #     res_st_row, res_st_col, res_nd_row, res_nd_col
         argshead = self.make_states_matrix()
 
-        st_edge = xr.Edge(xr.Cell(*args[0:2]), args[2])
-        nd_edge = xr.Edge(xr.Cell(*args[3:5]), args[5])
+        st_edge = xr.Edge(xr.Cell(*args[0:2]), args[2], '+')
+        nd_edge = xr.Edge(xr.Cell(*args[3:5]), args[5], '+')
         res = (xr.Coords(*args[6:8]),
                xr.Coords(*args[8:10]))
         args = argshead + (st_edge, nd_edge)
@@ -875,7 +875,7 @@ class Read2(unittest.TestCase):  # FIXME: Why another class
         # minimum delimited matrix in the sheet [D:F8]
         args = (sheet,
                 xr.Edge(xr.Cell('8', 'F'), None),
-                xr.Edge(xr.Cell('8', 'D'), 'U'))
+                xr.Edge(xr.Cell('8', 'D'), 'U', '+'))
         res = [
             [0, None, None],
             [1, 5.1, 6.1]
@@ -1041,23 +1041,23 @@ class TestVsXlwings(unittest.TestCase):
         self.assertEqual(xr.read_capture_rect(*args), res, str(args))
 
         # minimum delimited row in the sheet [_8:G8]
-        st = xr.Edge(xr.coords2Cell(7, 6), None)
-        nd = xr.Edge(xr.coords2Cell(7, '.'), 'L')
+        st = xr.Edge(xr.coords2Cell(7, 6), None, '+')
+        nd = xr.Edge(xr.coords2Cell(7, '.'), 'L', '+')
         rng = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
         args = (sheet, rng)
         res = [6.1, 7.1]
         self.assertEqual(xr.read_capture_rect(*args), res, str(args))
 
         # minimum delimited column in the sheet [D_:D8]
-        st = xr.Edge(xr.coords2Cell(7, 3), None)
-        nd = xr.Edge(xr.coords2Cell('.', 3), 'U')
+        st = xr.Edge(xr.coords2Cell(7, 3), None, '+')
+        nd = xr.Edge(xr.coords2Cell('.', 3), 'U', '+')
         rng = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
         args = (sheet, rng)
         res = [0, 1]
         self.assertEqual(xr.read_capture_rect(*args), res, str(args))
 
         # single value [D8]
-        st = xr.Edge(xr.coords2Cell(7, 3), None)
+        st = xr.Edge(xr.coords2Cell(7, 3), None, '+')
         nd = None
         rng = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
         args = (sheet, rng)
