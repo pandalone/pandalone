@@ -11,8 +11,9 @@ from __future__ import division, print_function, unicode_literals
 from datetime import datetime
 import doctest
 import os
-from pandalone.xlref import _xlrd as xd, wrap_sheet
+from pandalone.xlref import _xlrd as xd
 from pandalone.xlref import _xlref as xr
+from pandalone.xlref._xlrd import XlrdSheet as Sheet
 import sys
 from tests import _tutils
 from tests._tutils import check_xl_installed, xw_Workbook
@@ -664,7 +665,7 @@ class Read1(unittest.TestCase):
                                        [1, 1],
                                        [1, 1]
                                        ], dtype=bool)
-        self.sheet = wrap_sheet(
+        self.sheet = Sheet(
             xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
 
     def tearDown(self):
@@ -704,7 +705,7 @@ class Read2(unittest.TestCase):  # FIXME: Why another class
 
         _make_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
 
-        self.sheet = wrap_sheet(
+        self.sheet = Sheet(
             xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
 
     def tearDown(self):
@@ -923,7 +924,7 @@ class TestVsXlwings(unittest.TestCase):
         ]
         _make_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
 
-        self.sheet = wrap_sheet(
+        self.sheet = Sheet(
             xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
 
     def tearDown(self):

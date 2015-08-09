@@ -1110,9 +1110,10 @@ def read_capture_rect(sheet, xl_rect):
     Examples::
         >>> import xlrd
         >>> from pandalone import xlref
+        >>> from pandalone.xlref._xlrd import XlrdSheet as Sheet
 
         >>> xwb = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
-        >>> sheet = xlref.wrap_sheet(xwb)
+        >>> sheet = Sheet(xwb)
         >>> sheet.get_states_matrix()
         array([[False, False, False, False, False, False, False],
            [False, False, False, False, False, False, False],
@@ -1366,7 +1367,6 @@ class _Spreadsheet(object):
                 or an empty-list
         :rtype: list
         """
-        pass
 
     def _read_margin_coords(self):
         """

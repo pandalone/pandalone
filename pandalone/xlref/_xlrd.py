@@ -108,20 +108,11 @@ def _parse_cell(xcell, epoch1904=False):
                      (xcell.ctype, xcell.value))
 
 
-def wrap_sheet(sheet, epoch1904=False):
-    """
-    Wraps it into :class:`_Spreadsheet`.
-
-    :param xlrd.Sheet_sheet:
-    """
-    if not isinstance(sheet, xlrd.sheet.Sheet):
-        raise ValueError("Invalid xlrd-sheet({})".format(sheet))
-    return _Spreadsheet(sheet)
-
-
 class XlrdSheet(_Spreadsheet):
 
     def __init__(self, sheet, epoch1904=False):
+        if not isinstance(sheet, xlrd.sheet.Sheet):
+            raise ValueError("Invalid xlrd-sheet({})".format(sheet))
         _Spreadsheet.__init__(self, sheet)
         self._epoch1904 = epoch1904
 

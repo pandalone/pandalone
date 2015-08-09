@@ -71,10 +71,6 @@ API
 
 - User-facing functionality:
 
-  .. autosummary::
-
-      wrap_sheet
-
   .. currentmodule:: pandalone.xlref._xlref
   .. autosummary::
 
@@ -544,14 +540,3 @@ from ._xlref import (
     parse_xl_url, parse_xl_ref, resolve_capture_rect,
     read_capture_rect, _Spreadsheet
 )
-from ._xlrd import (
-    wrap_sheet as wrap_xlrd_sheet, XlrdSheet
-)
-
-
-def wrap_sheet(backed_sheet, *args, **kws):
-    sheet = XlrdSheet(backed_sheet, *args, **kws)
-
-    # Other backends here in try-blocks.
-
-    return sheet
