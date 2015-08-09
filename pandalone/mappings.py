@@ -326,7 +326,7 @@ class Pmod(object):
                         (re.compile('c'), pmod('C'))]))
         """
         self = copy(self)
-        if not other._alias is None:
+        if other._alias is not None:
             self._alias = other._alias
         self._override_steps(other)
         self._override_regxs(other)
@@ -410,11 +410,11 @@ class Pmod(object):
         cpmod = self._steps.get(cstep)
         pmods = self._match_regxs(cstep)
 
-        if cpmod and not cpmod._alias is None:
+        if cpmod and cpmod._alias is not None:
             alias = cpmod._alias
         else:
             for rpmod, match in reversed(pmods):
-                if not rpmod._alias is None:
+                if rpmod._alias is not None:
                     alias = match.expand(rpmod._alias)
                     break
         pmods = [pmod for pmod, _ in pmods]
@@ -432,13 +432,13 @@ class Pmod(object):
         :return: the expanded alias from child/regexs or None
         """
         cpmod = self._steps.get(cstep)
-        if cpmod and not cpmod._alias is None:
+        if cpmod and cpmod._alias is not None:
             return cpmod._alias
 
         pmods = self._match_regxs(cstep)
 
         for rpmod, match in reversed(pmods):
-            if not rpmod._alias is None:
+            if rpmod._alias is not None:
                 return match.expand(rpmod._alias)
 
     def map_path(self, path):
@@ -1062,7 +1062,7 @@ class Pstep(str):
                 existing_cstep = csteps.get(ckey, None)
                 # Update my mappings for `b` when ``self.b = "foo"``.
                 #
-                if not alias is None:
+                if alias is not None:
                     pmod = self._pmod
                     if pmod:
                         pmod._alias = alias

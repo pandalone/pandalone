@@ -34,7 +34,6 @@ def _make_sample_sheet(wb, sheetname, addr, value):
     xw.Range(addr).value = value
 
 
-
 @unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
 class TestExcel(unittest.TestCase):
 
@@ -57,7 +56,7 @@ class TestExcel(unittest.TestCase):
         sheetname = 'shitt'
         addr = 'f6'
         table = pd.DataFrame([[1, 2], [True, 'off']], columns=list('ab'))
-        with xw_Workbook() as wb: ## FIXME: Ugrade xlwings, Leaves exel open.
+        with xw_Workbook() as wb:  # FIXME: Ugrade xlwings, Leaves exel open.
             xw.Sheet(1).name = sheetname
             xw.Range(addr).value = table
 
@@ -96,7 +95,7 @@ class TestExcel(unittest.TestCase):
                     out = resolve_excel_ref(inp)
                     log.debug(
                         '%i: INP(%s), OUT(%s), EXP(%s)', i, inp, out, exp)
-                    if not exp is None:
+                    if exp is not None:
                         if isinstance(out, NDFrame):
                             out = out.values
                         if isinstance(exp, NDFrame):
