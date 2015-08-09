@@ -1052,7 +1052,7 @@ class TestPstep(unittest.TestCase):
 
     def test_map_from_pstep(self):
         p = self.test_buildtree_valid_ops()
-        pairs = p.derrive_map_tuples()
+        pairs = p._derrive_map_tuples()
         #print('\n'.join(str(p) for p in pairs))
 
         exp = [

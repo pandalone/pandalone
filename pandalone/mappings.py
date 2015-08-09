@@ -1211,44 +1211,21 @@ class Pstep(str):
              ['(-->ROOT)/(a-->A/AA)/b']
 
         """
+        def append_orig(s):
+            orig = s._orig
+            return '(%s-->%s)' % (orig, s) if s != orig else s
+
         paths = []
-        self._append_subtree(paths, with_orig=with_orig, tag=tag)
+        for path in self._iter_hierarchy():
+            send = path[-1]
+            if (tag and tag in send._tags) or (not tag and not send._csteps):
+                if with_orig:
+                    path = [append_orig(s) for s in path]
+                paths.append(_join_paths(*path))
 
         return sorted(set(paths))
 
-    def _append_subtree(self, paths, prefix_steps=(), with_orig=False, tag=None):
-        """
-        Recursively append all child-steps in the `paths` list.
-
-        :param list paths:             Where to append subtree-paths built.
-        :param tuple prefix_steps:     branch currently visiting
-        :param str, True, None tag:    If not 'None', fetches all paths
-                                       with `tag` in their last step.
-        :para bool with_orig:          Collect steps like ``key --> alias``.
-        :rtype: [str]
-        """
-        me = self
-        if with_orig:
-            orig = self._orig
-            if me != orig:
-                me = '(%s-->%s)' % (orig, me)
-            prefix_steps += (me, )
-        else:
-            prefix_steps += tuple(iter_jsonpointer_parts_relaxed(me))
-
-        if tag in self._tags:
-            paths.append(_join_paths(*prefix_steps))
-
-        csteps = self._csteps
-        if csteps:
-            for v in csteps.values():
-                v._append_subtree(paths, prefix_steps,
-                                  with_orig=with_orig, tag=tag)
-        else:
-            if not tag:
-                paths.append(_join_paths(*prefix_steps))
-
-    def derrive_map_tuples(self):
+    def _derrive_map_tuples(self):
         """
         Recursively extract ``(cmap --> alias)`` pairs from the pstep-hierarchy.
 
@@ -1258,6 +1235,7 @@ class Pstep(str):
         """
         def orig_paths(psteps):
             return [p._orig for p in psteps]
+
         map_pairs = ((_join_paths(*orig_paths(p)), str(p[-1]))
                      for p in self._iter_hierarchy())
         return sorted(map_pairs, key=lambda p: p[0])
