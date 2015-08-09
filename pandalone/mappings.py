@@ -14,7 +14,21 @@ Programmatically build paths and later *rename* or *relocate* them.
     pmods_from_tuples
     Pmod
 
-- TODO: Explicit mark pmods_from_tuples() for relative/absolute & regex.
+*Example*::
+
+    >>> from pandalone.mappings import pmods_from_tuples
+
+    >>> pmods = pmods_from_tuples([
+    ...     ('',         'deeper/ROOT'),
+    ...     ('/abc',     'ABC'),
+    ...     ('/abc/foo', 'BAR'),
+    ... ])
+    >>> p = pmods.step()
+    >>> p.abc.foo
+    `BAR`
+    >>> p._paths()
+    ['deeper/ROOT/ABC/BAR']
+
 - TODO: Implements "anywhere" pmods(`//`).
 """
 
@@ -23,12 +37,15 @@ from __future__ import division, unicode_literals
 from collections import OrderedDict
 from copy import copy
 import logging
-import re
-
-import functools as ft
 from pandalone import utils
 from pandalone.pandata import (
-    iter_jsonpointer_parts_relaxed, JSchema, unescape_jsonpointer_part)
+    iter_jsonpointer_parts_relaxed, JSchema, unescape_jsonpointer_part,
+    escape_jsonpointer_part)
+import re
+
+import six
+
+import functools as ft
 
 
 __commit__ = ""
@@ -87,15 +104,14 @@ class Pmod(object):
 
     .. Note::
         Do not manually construct instances from this class!
-        To construct a hierarchy use the :func:`pmods_from_tuples()` and/or
-        the :func:`df_as_pmods_tuples()`.
+        To construct a hierarchy use the :func:`pmods_from_tuples()`.
 
     You can either use it for massively map paths, either for *renaming* them::
 
         >>> pmods = pmods_from_tuples([
         ...         ('/a',           'A'),
-        ...         ('/b.*',        r'BB\g<0>'),  ## Previous match.
-        ...         ('/b.*/c.(.*)', r'W\1ER'),    ## Capturing-group(1)
+        ...         ('/~b.*',        r'BB\g<0>'),  ## Previous match.
+        ...         ('/~b.*/~c.(.*)', r'W\1ER'),    ## Capturing-group(1)
         ... ])
         >>> pmods.map_paths(['/a', '/a/foo'])     ## 1st rule
         ['/A', '/A/foo']
@@ -111,8 +127,8 @@ class Pmod(object):
 
         >>> pmods = pmods_from_tuples([
         ...         ('/a',           'A/AA'),
-        ...         ('/b.*/c(.*)',  r'../C/\1'),
-        ...         ('/b.*/.*/r.*', r'/\g<0>'),
+        ...         ('/~b.*/~c(.*)',  r'../C/\1'),
+        ...         ('/~b.*/~.*/~r.*', r'/\g<0>'),
         ... ])
         >>> pmods.map_paths(['/a/foo', '/big/child', '/begin/from/root'])
         ['/A/AA/foo', '/big/C/hild', '/root']
@@ -144,6 +160,16 @@ class Pmod(object):
                 (re.compile(k), v) for k, v in _regxs)
         else:
             self._regxs = _regxs
+
+    def step(self, pname='', alias=None):
+        """
+        Create a new :class:`Pstep` having as mappings this pmod.
+
+        If no `pname` specified, creates a *root* pstep.
+
+        Delegates to :meth:`Pstep.__new__()`.
+        """
+        return Pstep(pname, _proto_or_pmod=self, alias=alias)
 
     def _append_into_steps(self, key):
         """
@@ -300,7 +326,7 @@ class Pmod(object):
                         (re.compile('c'), pmod('C'))]))
         """
         self = copy(self)
-        if not other._alias is None:
+        if other._alias is not None:
             self._alias = other._alias
         self._override_steps(other)
         self._override_regxs(other)
@@ -384,11 +410,11 @@ class Pmod(object):
         cpmod = self._steps.get(cstep)
         pmods = self._match_regxs(cstep)
 
-        if cpmod and not cpmod._alias is None:
+        if cpmod and cpmod._alias is not None:
             alias = cpmod._alias
         else:
             for rpmod, match in reversed(pmods):
-                if not rpmod._alias is None:
+                if rpmod._alias is not None:
                     alias = match.expand(rpmod._alias)
                     break
         pmods = [pmod for pmod, _ in pmods]
@@ -406,13 +432,13 @@ class Pmod(object):
         :return: the expanded alias from child/regexs or None
         """
         cpmod = self._steps.get(cstep)
-        if cpmod and not cpmod._alias is None:
+        if cpmod and cpmod._alias is not None:
             return cpmod._alias
 
         pmods = self._match_regxs(cstep)
 
         for rpmod, match in reversed(pmods):
-            if not rpmod._alias is None:
+            if rpmod._alias is not None:
                 return match.expand(rpmod._alias)
 
     def map_path(self, path):
@@ -429,11 +455,11 @@ class Pmod(object):
 
             >>> pmods = pmods_from_tuples([
             ...         ('/a',              'A/AA'),
-            ...         ('/a(\\w*)',       r'BB\1'),
-            ...         ('/a\\w*/d.*',     r'D \g<0>'),
-            ...         ('/a(\\d+)',       r'C/\1'),
-            ...         ('/a(\\d+)/(c.*)', r'CC-/\1'), # The 1st group is ignored!
-            ...         ('/a\\d+/e.*',     r'/newroot/\g<0>'), # Rooted mapping.
+            ...         ('/~a(\\w*)',       r'BB\1'),
+            ...         ('/~a\\w*/~d.*',     r'D \g<0>'),
+            ...         ('/~a(\\d+)',       r'C/\1'),
+            ...         ('/~a(\\d+)/~(c.*)', r'CC-/\1'), # The 1st group is ignored!
+            ...         ('/~a\\d+/~e.*',     r'/newroot/\g<0>'), # Rooted mapping.
             ... ])
 
             >>> pmods.map_path('/a')
@@ -489,41 +515,52 @@ class Pmod(object):
             ''
 
         """
-#         if path.endswith('/'):
-#             is_folder = True
-#             path = path[:-1]
-#         else:
-#             is_folder = False
+        is_folder = len(path) > 1 and path.endswith('/')
+        if is_folder:
+            path = path[:-1]
 
-        steps = list(iter_jsonpointer_parts_relaxed(path))
-        nsteps = []
-        if not self._alias is None:
-            nsteps.append(self._alias)
+        steps = tuple(iter_jsonpointer_parts_relaxed(path))
+        if self._alias is None:
+            nsteps = ()
+        else:
+            nsteps = tuple(iter_jsonpointer_parts_relaxed(self._alias))
+
         if steps:
             pmod = self
+            # Separate last-step from loop below, since
+            #    merged child-pmods in `descend` are not needed.
+            #
             for step in steps[:-1]:
                 if pmod:
                     pmod, alias = pmod.descend(step)
-                if not alias is None:
+                if alias is not None:
                     if alias.startswith('.'):
-                        nsteps.append(step)
+                        nsteps += (step, )
                     step = alias
-                nsteps = _append_path(nsteps, step)
+                # XXX: Monkey business here.
+                if len(step) > 1 and step.endswith('/'):
+                    step = step[:-1]
+                nsteps += tuple(iter_jsonpointer_parts_relaxed(step))
 
-            # On last step, the merging of child-pmods is a waste,
-            #    so make it outside above-loop to
-            #    avoid calling expensive `descend`.
-            #
             final_step = steps[-1]
             if pmod:
                 alias = pmod.alias(final_step)
-                if not alias is None:
+                if alias is not None:
                     if alias.startswith('.'):
-                        nsteps.append(final_step)
+                        nsteps += (final_step, )
                     final_step = alias
-            nsteps = _append_path(nsteps, final_step)
+            # XXX: Monkey business here.
+            is_folder = len(final_step) > 1 and final_step.endswith('/')
+            if is_folder:
+                final_step = final_step[:-1]
+            nsteps += tuple(iter_jsonpointer_parts_relaxed(final_step))
 
-        return '/'.join(nsteps)
+        npath = _join_paths(*nsteps)
+
+        if is_folder:
+            path += '%s/' % path
+
+        return npath
 
     def map_paths(self, paths):
         return [self.map_path(p) for p in paths]
@@ -555,22 +592,21 @@ def pmods_from_tuples(pmods_tuples):
 
 
     - The "from" path may be:
-      - relative, 
-      - absolute(starting with `/`), or 
-      - "anywhere"(starting with `//`).  
+      - relative,
+      - absolute(starting with `/`), or
+      - TODO: "anywhere"(starting with `//`).
 
-    - In case the "from" path starts with tilda(`~`), it is assumed to be 
-      a regular-expression, and it is removed from it.
-      A "anywhere" regex "from" path starts with `~//`.
+    - In case a "step" in the "from" path starts with tilda(`~`),
+      it is assumed to be a regular-expression, and it is removed from it.
       The "to" path can make use of any "from" capture-groups::
 
-          ('~/all(.*)/path', 'foo')
+          ('/~all(.*)/path', 'foo')
           ('~some[\d+]/path', 'foo\1')
-          ('~//all(.*)/path', 'foo')
+          ('//~all(.*)/path', 'foo')
 
 
 
-    :param list(tuple(str, str) pmods_tuples: 
+    :param list(tuple(str, str) pmods_tuples:
     :return: a root pmod
     :rtype:  Pmod
 
@@ -584,8 +620,8 @@ def pmods_from_tuples(pmods_tuples):
         pmod({'': pmod({'a': pmod('A1/A2', {'b': pmod('B')})})})
 
         >>> pmods_from_tuples([
-        ...     ('/a*', 'A1/A2'),
-        ...     ('/a/b[123]', 'B'),
+        ...     ('/~a*', 'A1/A2'),
+        ...     ('/a/~b[123]', 'B'),
         ... ])
         pmod({'': pmod({'a':
                 pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))},
@@ -622,15 +658,15 @@ def pmods_from_tuples(pmods_tuples):
     root = Pmod()
     for i, (f, t) in enumerate(pmods_tuples):
         if (f, t) == ('', '') or f is None or t is None:
-            msg = 'pmod-tuple(%i): `to(%s)` were empty!'
-            log.warning(msg, i, f, t)
+            msg = 'pmod-tuple #%i of %i: Invalid "from-to" tuple (%r, %r).'
+            log.warning(msg, i + 1, len(pmods_tuples), f, t)
             continue
 
         pmod = root
         for srcstep in iter_jsonpointer_parts_relaxed(f):
-            is_regex = any(set('[]().*+?') & set(srcstep))
+            is_regex = srcstep.startswith('~')
             if is_regex:
-                pmod = pmod._append_into_regxs(srcstep)
+                pmod = pmod._append_into_regxs(srcstep[1:])
             else:
                 pmod = pmod._append_into_steps(srcstep)
 
@@ -641,136 +677,186 @@ def pmods_from_tuples(pmods_tuples):
 
 def _append_step(steps, step):
     """
-    Joins `steps`-list with `path`, respecting '/', '..', '.', ''.
+    Joins `step` at the right of `steps`, respecting '/', '..', '.', ''.
 
-    :param list steps:  where to append into ("absolute" when 1st-element is '')
-    :param str step:    what to append (may be 'foo', '.', '..', ''-->"root")
-    :return: a new or the steps-list updated
-    :rtype:  list
+    :param tuple steps:  where to append into
+                         ("absolute" when 1st-element is '')
+    :param str step:     what to append
+                         (may be: ``'foo', '.', '..', ''``)
+    :rtype:  tuple
 
     .. Note::
-        An empty-list[] in the `steps` is considered "root,
-        but the *root* step is empty-string('').
+        The empty-string('') is the "root" for both `steps` and `step`.
+        An empty-tuple `steps` is considered "relative", equivalent to dot(`.`).
 
 
     Example::
 
-        >>> _append_step([], 'a')
-        ['a']
+        >>> _append_step((), 'a')
+        ('a',)
 
-        >>> _append_step([], '..')
-        []
-        >>> _append_step(['a', 'b'], '..')
-        ['a']
+        >>> _append_step(('a', 'b'), '..')
+        ('a',)
 
-        >>> _append_step(['a', 'b'], '.')
-        ['a', 'b']
+        >>> _append_step(('a', 'b'), '.')
+        ('a', 'b')
 
 
     Not that an "absolute" path has the 1st-step empty(`''`),
     (so the previous paths above were all "relative")::
 
-        >>> _append_step(['a', 'b'], '')
-        ['']
-        >>> _append_step([''], '')
-        ['']
-        >>> _append_step(['', 'a'], '')
-        ['']
-        >>> _append_step([''], '.')
-        ['']
+        >>> _append_step(('a', 'b'), '')
+        ('',)
+
+        >>> _append_step(('',), '')
+        ('',)
+
+        >>> _append_step((), '')
+        ('',)
 
 
-    But dot-doting(`..`) on absolute paths preserves rooted-ness::
+    Dot-dots preserve "relative" and "absolute" paths, respectively,
+    and hence do not coalesce when at the left::
 
-        >>> _append_path([''], '..')
-        ['']
-        >>> _append_path(['', ''], '..')
-        ['']
+        >>> _append_step(('',), '..')
+        ('',)
+
+        >>> _append_step(('',), '.')
+        ('',)
+
+        >>> _append_step(('a',), '..')
+        ()
+
+        >>> _append_step((), '..')
+        ('..',)
+
+        >>> _append_step(('..',), '..')
+        ('..', '..')
+
+        >>> _append_step((), '.')
+        ()
+
+
+
+    Single-dots('.') just dissappear::
+
+        >>> _append_step(('.',), '.')
+        ()
+
+        >>> _append_step(('.',), '..')
+        ('..',)
 
     """
-    _append_step_funcs = {
-        '': lambda steps, step: [''],
-        '.': lambda steps, step: steps,
-        '..': lambda steps, step: steps[:-1] if [''] != steps else steps,
+    assert isinstance(steps, tuple), (steps, step)
+    assert not step or isinstance(step, six.string_types), (steps, step)
+
+    if step == '':
+        return ('',)
+
+    _last_pair_choices = {
+        ('.',): (),
+        ('..',): ('..',),
+        ('.', '.'): (),
+        ('.', '..',): ('..',),
+        ('..', '.'): ('..',),
+        ('..', '..'): ('..', '..'),
+        ('', '.'): ('',),
+        ('', '..'): ('',),
     }
 
     try:
-        steps = _append_step_funcs[step](steps, step)
+        last_pair = steps[-1:] + (step,)
+        steps = steps[:-1] + _last_pair_choices[last_pair]
     except KeyError:
-        steps.append(step)
+        if step == '.':
+            pass
+        elif step == '..':
+            steps = steps[:-1]
+        else:
+            steps += (step,)
 
     return steps
 
 
-def _append_path(steps, path):
+def _join_paths(*steps):
     """
-    Joins `steps`-list with `path`, respecting '/', '..', '.', ''.
+    Joins all path-steps in a single string, respecting ``'/', '..', '.', ''``.
 
-    :param list steps:  where to append into ("absolute" when 1st-element is '')
-    :param str path:    what to append (ie '/foo/', '.', '..', ''-->"root")
-    :return: a new or the steps-list updated
-    :rtype:  list
+    :param str steps:  single json-steps, from left to right
+    :rtype: str
 
     .. Note::
-        For `path`, the "root" is signified by the empty(`''`) step;
-        not the slash(`/`).
-        A lone slash(`/`) will translate an empty step after root: ``['', '']``.
-        The same happens when `/` is the last char of `path`.
+        If you use :func:`iter_jsonpointer_parts_relaxed()` to generate
+        path-steps, the "root" is signified by the empty(`''`) step;
+        not the slash(`/`)!
 
-    Example::
+        Hence a lone slash(`/`) gets splitted to an empty step after "root"
+        like that: ``('', '')``, which generates just "root"(`''`).
 
-        >>> _append_path([], 'a')
-        ['a']
-
-        >>> _append_path([], '../a')
-        ['a']
-        >>> _append_path(['a', 'b'], '../c')
-        ['a', 'c']
-        >>> _append_path(['a', 'b'], '../../c')
-        ['c']
-
-        >>> _append_path(['a', 'b'], '.')
-        ['a', 'b']
-
-        >>> _append_path(['a', 'b'], './c')
-        ['a', 'b', 'c']
-
-    Not that an "absolute" path has the 1st-step empty(`''`),
-    (so the previous paths above were all "relative")::
-
-        >>> _append_path(['a', 'b'], '/r')
-        ['', 'r']
-
-        >>> _append_path(['a', 'b'], '')
-        ['']
+        Therefore a "folder" (i.e. `some/folder/`) when splitted equals
+        ``('some', 'folder', '')``, which results again in the "root"(`''`)!
 
 
-    But dot-doting on "rooted" paths (1st-step empty), preserves them::
+    Examples::
 
-        >>> _append_path([''], '..')
-        ['']
+        >>> _join_paths('r', 'a', 'b')
+        'r/a/b'
 
-        >>> _append_path([''], '../../a')
-        ['', 'a']
+        >>> _join_paths('', 'a', 'b', '..', 'bb', 'cc')
+        '/a/bb/cc'
 
-        >>> _append_path(['', 'foo'], '/')
-        ['', '']
+        >>> _join_paths('a', 'b', '.', 'c')
+        'a/b/c'
 
+
+    An empty-step "roots" the remaining path-steps::
+
+        >>> _join_paths('a', 'b', '', 'r', 'aa', 'bb')
+        '/r/aa/bb'
+
+
+    All `steps` have to be already "splitted"::
+
+        >>> _join_paths('a', 'b', '../bb')
+        'a/b/../bb'
+
+
+    Dot-doting preserves "relative" and "absolute" paths, respectively::
+
+        >>> _join_paths('..')
+        '..'
+
+        >>> _join_paths('a', '..')
+        '.'
+
+        >>> _join_paths('a', '..', '..', '..')
+        '../..'
+
+        >>> _join_paths('', 'a', '..', '..')
+        ''
+
+
+    Some more special cases::
+
+        >>> _join_paths('..', 'a')
+        '../a'
+
+        >>> _join_paths('', '.', '..', '..')
+        ''
+
+        >>> _join_paths('.', '..')
+        '..'
+
+        >>> _join_paths('..', '.', '..')
+        '../..'
+
+    .. seealso:: _append_step
     """
-
-    if path.endswith('/'):
-        is_folder = True
-        path = path[:-1]
+    nsteps = ft.reduce(_append_step, steps, ())
+    if not nsteps:
+        return '.'
     else:
-        is_folder = False
-
-    for step in iter_jsonpointer_parts_relaxed(path):
-        steps = _append_step(steps, step)
-
-    if is_folder:
-        steps.append('')
-
-    return steps
+        return '/'.join(nsteps)
 
 
 class Pstep(str):
@@ -788,18 +874,22 @@ class Pstep(str):
     so the same data-accessing code can refer to differently-named values
     int the data-tree.
 
-    :ivar Pstep _csteps: the child-psteps
-    :ivar dict _pmod:   path-modifications used to construct this and
-                         relayed to children
-    :ivar int _locked:   one of:
-
-                         - :const:`Pstep.CAN_RELOCATE` 
-                           (default, reparenting allowed),
+    :ivar dict _csteps:  the child-psteps by their name (default `None`)
+    :ivar dict _pmod:    path-modifications used to construct this and
+                         relayed to children (default `None`)
+    :ivar int _locked:   one of
+                         - :const:`Pstep.CAN_RELOCATE` (default),
                          - :const:`Pstep.CAN_RENAME`,
                          - :const:`Pstep.LOCKED` (neither from the above).
+    :ivar set _tags:     A set of strings (default `()`)
     :ivar dict _schema:  json-schema data.
 
+    See :meth:`__new__()` for interal constructor.
+
     **Usage:**
+
+    - Use a :meth:`Pmod.pstep()` to construct a *root* pstep from mappings.
+      Specify a string argument to construct a relative pstep-hierarchy.
 
     - Just referencing (non_private) attributes, creates them.
 
@@ -807,12 +897,12 @@ class Pstep(str):
       specific operations (ie for specifying json-schema, or
       for collection all paths).
 
-    - Assignments are only allowed to private attributes::
+    - Assignments are only allowed for string-values, or to private attributes::
 
         >>> p = Pstep()
-        >>> p.assignments = 'FAIL!'
+        >>> p.assignments = 12
         Traceback (most recent call last):
-        AssertionError: Cannot assign 'FAIL!' to '/assignments'!  Only other psteps allowed.
+        AssertionError: Cannot assign '12' to '/assignments!
 
         >>> p._but_hidden = 'Ok'
 
@@ -833,22 +923,22 @@ class Pstep(str):
         >>> p = Pstep('a')
         >>> assert m[p] == 1
         >>> assert m[p.abc] == 2
-        >>> assert m[p['321'].cc] == 33
+        >>> assert m[p.a321.cc] == 33
 
         >>> sorted(p._paths())
-        ['a/321/cc', 'a/abc']
+        ['a/a321/cc', 'a/abc']
 
 
     - Any "path-mappings" or "pmods" maybe specified during construction::
 
-        >>> from pandalone import mappings
+        >>> from pandalone.mappings import pmods_from_tuples
 
-        >>> pmods = mappings.pmods_from_tuples([
-        ...     ('',               'deeper/ROOT'),
+        >>> pmods = pmods_from_tuples([
+        ...     ('',         'deeper/ROOT'),
         ...     ('/abc',     'ABC'),
         ...     ('/abc/foo', 'BAR'),
         ... ])
-        >>> p = Pstep(_pmod=pmods)
+        >>> p = pmods.step()
         >>> p.abc.foo
         `BAR`
         >>> p._paths()
@@ -863,10 +953,6 @@ class Pstep(str):
         Traceback (most recent call last):
         ValueError: Cannot rename/relocate 'foo'-->'BAR' due to LOCKED!
 
-
-    - .. Warning::
-          String's slicing operations do not work on this string-subclass!
-
     - .. Warning::
           Creating an empty(`''`) step in some paths will "root" the path::
 
@@ -876,7 +962,8 @@ class Pstep(str):
               >>> p._paths()
               ['/A2', '/a1/b']
 
-              >>> _ = p.a1[''].c
+              >>> _ = p.a1.a2.c
+              >>> _ = p.a1.a2 = ''
               >>> p._paths()
               ['/A2', '/a1/b', '/c']
 
@@ -894,59 +981,123 @@ class Pstep(str):
             return 'LOCKED'
         return 'LOCKED'
 
-    def __new__(cls, pname='', _pmod=None):
+    def __new__(cls, pname='', _proto_or_pmod=None, alias=None):
         """
-        Constructs a string with str-content which may be mapped from pmods.
+        Constructs a string with str-content which may comes from the mappings.
 
-        :param str pname:   this pstep's name; it is stored at `_orig` and
-                            if unmapped by pmod, becomes super-str object.
-                            The pname get jsonpointer-escaped
-                            (see :func:`pandata.escape_jsonpointer_part()`)
-        :param PMod _pmod:  the mappings for this pstep, or None.
-                            It will apply only if :meth:`Pmod.descend()`
-                            matches the `pname` passed here.
+        These are the valid argument combinations::
+
+            pname='attr_name',
+            pname='attr_name', _alias='Mass [kg]'
+
+            pname='attr_name', _proto_or_pmod=Pmod
+
+            pname='attr_name', _proto_or_pmod=Pstep
+            pname='attr_name', _proto_or_pmod=Pstep, _alias='Mass [kg]'
+
+
+        :param str pname:
+                this pstep's name which must coincede with the name of
+                the parent-pstep's attribute holding this pstep.
+                It is stored at `_orig` and if no `alias` and unmapped by pmod,
+                this becomes the `alias`.
+        :param Pmod or Pstep _proto_or_pmod:
+                It can be either:
+
+                - the mappings for this pstep,
+                - another pstep to clone attributes from
+                  (used when replacing an existing child-pstep), or
+                - None.
+
+                The mappings will apply only if :meth:`Pmod.descend()`
+                match `pname` and will derrive the alias.
+        :param str alias:
+                Will become the super-str object when no mappaings specified
+                (`_proto_or_pmod` is a dict from some prototype pstep)
+                It gets jsonpointer-escaped if it exists
+                (see :func:`pandata.escape_jsonpointer_part()`)
         """
-        pname = unescape_jsonpointer_part(pname)  # TODO: Add Escape-path TCs.
-        if _pmod:
-            _pmod, alias = _pmod.descend(pname)
-            if alias is None:
-                alias = pname
-        else:
+        pmod = None
+        attrs = None
+        if _proto_or_pmod:
+            if isinstance(_proto_or_pmod, Pmod):
+                pmod, m_alias = _proto_or_pmod.descend(pname)
+                if alias is None and m_alias:
+                    # TODO: Add Escape-path TCs.
+                    alias = unescape_jsonpointer_part(m_alias)
+            else:
+                assert isinstance(_proto_or_pmod, Pstep), (
+                    'Invalid type(%s) for `_proto_or_pmod`!' % _proto_or_pmod)
+                attrs = _proto_or_pmod.__clone_attrs()
+        if alias is None:
             alias = pname
         self = str.__new__(cls, alias)
-        self._orig = pname
-        self._pmod = _pmod
-        self._csteps = {}
-        vars(self)['_locked'] = Pstep.CAN_RELOCATE
+        self.__dict__ = attrs or {
+            '_orig': pname,
+            '_pmod': pmod,
+            '_csteps': None,
+            '_locked': Pstep.CAN_RELOCATE,
+            '_tags': ()
+        }
 
         return self
 
-    def __missing__(self, cpname):
-        self._csteps[cpname] = child = Pstep(cpname, self._pmod)
+    def __clone_attrs(self):
+        """Clone deeply any collection attributes."""
+        attrs = self.__dict__.copy()
+        ccsteps = attrs.get('_csteps', None)
+        if ccsteps:
+            attrs['_csteps'] = ccsteps.copy()
+        ctags = attrs['_tags']
+        if ctags:
+            attrs['_tags'] = attrs['_tags'].copy()
+        return attrs
+
+    def __make_cstep(self, ckey, alias=None, existing_cstep=None):
+        csteps = self._csteps
+        if not csteps:
+            self._csteps = csteps = {}
+        else:
+            if existing_cstep is None:
+                existing_cstep = csteps.get(ckey, None)
+                # Update my mappings for `b` when ``self.b = "foo"``.
+                #
+                if alias is not None:
+                    pmod = self._pmod
+                    if pmod:
+                        pmod._alias = alias
+                    else:
+                        self._pmod = Pmod(_alias=alias)
+        csteps[ckey] = child = Pstep(ckey, existing_cstep or self._pmod, alias)
+
         return child
 
-    def __getitem__(self, cpname):
-        child = self._csteps.get(cpname, None)
-        return child or self.__missing__(cpname)
-
-    def __setitem__(self, cpname, value):
-        raise self._ex_invalid_assignment(cpname, value)
-
-    def __getattr__(self, cpname):
-        if cpname.startswith('_'):
+    def __getattr__(self, attr):
+        if attr.startswith('_'):
             msg = "'%s' object has no attribute '%s'"
-            raise AttributeError(msg % (self, cpname))
-        child = self._csteps.get(cpname, None)
-        return child or self.__missing__(cpname)
+            raise AttributeError(msg % (self, attr))
+        csteps = self._csteps
+        child = csteps and csteps.get(attr, None)
+        return child or self.__make_cstep(attr)
 
-    def __setattr__(self, cpname, value):
-        if cpname.startswith('_'):
-            str.__setattr__(self, cpname, value)
+    def __setattr__(self, attr, value):
+        if attr.startswith('_'):
+            str.__setattr__(self, attr, value)
+        elif isinstance(value, Pstep):
+            self.__make_cstep(attr, existing_cstep=value)
+        elif isinstance(value, six.string_types):
+            self.__make_cstep(attr, alias=value)
         else:
-            raise self._ex_invalid_assignment(cpname, value)
+            raise self._ex_invalid_assignment(attr, value)
+
+    def __dir__(self):
+        d = super(str, self).__dir__()
+        if self._csteps:
+            d = sorted(d + list(self._csteps.keys()))
+        return d
 
     def _ex_invalid_assignment(self, cpname, value):
-        msg = "Cannot assign '%s' to '%s/%s'!  Only other psteps allowed."
+        msg = "Cannot assign '%s' to '%s/%s!"
         return AssertionError(msg % (value, self, cpname))
 
     def __repr__(self):
@@ -986,40 +1137,147 @@ class Pstep(str):
 
     @property
     def _lock(self):
-        """Sets :attr:`locked` = `LOCKED`.
-        :return: self
+        """Set :attr:`locked` = `LOCKED`.
+        :return: self, for chained use
         :raise: ValueError if step has been renamed/relocated pstep
         """
         self._locked = Pstep.LOCKED
         return self
 
-    def _paths(self, is_orig=False):
+    def _tag(self, tag):
+        """Add a "tag" for this pstep.
+
+        :return: self, for chained use
+        """
+        tags = self._tags
+        if tags:
+            tags.add(tag)
+        else:
+            self._tags = set([tag])
+
+        return self
+
+    def _tag_remove(self, tag):
+        """Delete a "tag" from this pstep.
+
+        :return: self, for chained use
+        """
+        tags = self._tags
+        if tags:
+            tags.discard(tag)
+
+        return self
+
+    def _steps(self, keys=False, tag=None):
+        csteps = self._csteps
+        if not csteps:
+            return []
+        if keys:
+            return csteps.keys()
+        return csteps.values()
+
+    def _paths(self, with_orig=False, tag=None):
         """
         Return all children-paths (str-list) constructed so far, in a list.
 
+        :param bool with_orig: wheter to include also orig-path, for debug.
+        :param str tag:        If not 'None', fetches all paths with `tag`
+                               in their last step.
         :rtype: [str]
+
+
+        Examples::
+
+              >>> p = Pstep()
+              >>> _ = p.a1._tag('inp').b._tag('inp').c
+              >>> _ = p.a2.b2
+
+              >>> p._paths()
+              ['/a1/b/c', '/a2/b2']
+
+              >>> p._paths(tag='inp')
+              ['/a1', '/a1/b']
+
+
+        For debugging set `with_orig` to `True`::
+
+            >>> pmods = pmods_from_tuples([
+            ...     ('',         'ROOT'),
+            ...     ('/a',     'A/AA'),
+            ... ])
+            >>> p = pmods.step()
+            >>> _ = p.a.b
+            >>> p._paths(with_orig=True)
+             ['(-->ROOT)/(a-->A/AA)/b']
+
         """
         paths = []
-        self._append_children(paths, is_orig=is_orig)
-        paths = ['/'.join(p) for p in paths]
+        self._append_subtree(paths, with_orig=with_orig, tag=tag)
 
         return sorted(set(paths))
 
-    def _append_children(self, paths, prefix_steps=[], is_orig=False):
+    def _append_subtree(self, paths, prefix_steps=(), with_orig=False, tag=None):
         """
-        Append all child-steps in the `paths` list.
+        Recursively append all child-steps in the `paths` list.
 
-        :param list prefix_steps: default-value always copied
-        :rtype: [[str]]
+        :param list paths:             Where to append subtree-paths built.
+        :param tuple prefix_steps:     branch currently visiting
+        :param str, True, None tag:    If not 'None', fetches all paths
+                                       with `tag` in their last step.
+        :para bool with_orig:          Collect steps like ``key --> alias``.
+        :rtype: [str]
         """
-        nprefix = list(prefix_steps)
-        nprefix = _append_path(nprefix, self._orig if is_orig else self)
-        # nprefix.append(self)
-        if self._csteps:
-            for v in self._csteps.values():
-                v._append_children(paths, nprefix, is_orig=is_orig)
+        me = self
+        if with_orig:
+            orig = self._orig
+            if me != orig:
+                me = '(%s-->%s)' % (orig, me)
+            prefix_steps += (me, )
         else:
-            paths.append(nprefix)
+            prefix_steps += tuple(iter_jsonpointer_parts_relaxed(me))
+
+        if tag in self._tags:
+            paths.append(_join_paths(*prefix_steps))
+
+        csteps = self._csteps
+        if csteps:
+            for v in csteps.values():
+                v._append_subtree(paths, prefix_steps,
+                                  with_orig=with_orig, tag=tag)
+        else:
+            if not tag:
+                paths.append(_join_paths(*prefix_steps))
+
+    def derrive_map_tuples(self):
+        """
+        Recursively extract ``(cmap --> alias)`` pairs from the pstep-hierarchy.
+
+        :param list pairs:             Where to append subtree-paths built.
+        :param tuple prefix_steps:     branch currently visiting
+        :rtype: [(str, str)]
+        """
+        def orig_paths(psteps):
+            return [p._orig for p in psteps]
+        map_pairs = ((_join_paths(*orig_paths(p)), str(p[-1]))
+                     for p in self._iter_hierarchy())
+        return sorted(map_pairs, key=lambda p: p[0])
+
+    def _iter_hierarchy(self, prefix_steps=()):
+        """
+        Breadth-first traversing of pstep-hierarchy.
+
+        :param tuple prefix_steps:     Builds here branch currently visiting.
+        :return: yields the visited pstep along with its path (including it)
+        :rtype: (Pstep, [Pstep])
+        """
+        prefix_steps += (self, )
+        yield prefix_steps
+
+        csteps = self._csteps
+        if csteps:
+            for v in csteps.values():
+                for p in v._iter_hierarchy(prefix_steps):
+                    yield p
 
     @property
     def _schema(self):
@@ -1028,10 +1286,11 @@ class Pstep(str):
         # Lazy create it
         #    (clients should check before`_schema_exists()`)
         #
-        jschema = vars(self).get('_schema')
+        sdict = vars(self)
+        jschema = sdict.get('_schema')
         if jschema is None:
-            jschema = JSchema()
-            vars(self)['_schema'] = jschema
+            sdict['_schema'] = jschema = JSchema()
+
         return jschema
 
     def _schema_exists(self):

@@ -18,9 +18,9 @@ from jsonschema.exceptions import RefResolutionError
 import numpy as np
 import numpy.testing as npt
 from pandalone import pandata
-from pandalone.pandata import JSONCodec, iter_jsonpointer_parts,\
-    iter_jsonpointer_parts_relaxed, escape_jsonpointer_part,\
-    unescape_jsonpointer_part
+from pandalone.pandata import (JSONCodec, iter_jsonpointer_parts,
+                               iter_jsonpointer_parts_relaxed, escape_jsonpointer_part,
+                               unescape_jsonpointer_part)
 import pandas as pd
 from tests._tutils import _init_logging
 

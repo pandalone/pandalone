@@ -902,7 +902,7 @@ class Pandel(object):
 
         elif (isinstance(a, Sequence) and not isinstance(a, string_types)) or \
                 (isinstance(b, Sequence) and not isinstance(b, string_types)):
-            if not b is None:
+            if b is not None:
                 val = b
             else:
                 val = a
@@ -917,7 +917,7 @@ class Pandel(object):
             raise ValidationError("Cannot merge Nones at path(%s)!" % path)
 
         else:
-            if not b is None:
+            if b is not None:
                 a = b
 
         return a
@@ -1177,7 +1177,7 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
     return doc
 
 
-def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
+def set_jsonpointer(doc, jsonpointer, value, object_factory=OrderedDict):
     """
     Resolve a ``jsonpointer`` within the referenced ``doc``.
 
