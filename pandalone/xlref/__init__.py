@@ -110,7 +110,7 @@ the exact `coordinates`::
     3  │X X X X│                    #    until B3; capture till bottom-left;
     4  │X X X X│                    #    expand once upwards (to header row).
        └───────┘     A1(RD):__:L1   ## Start from A1 and move down by row
-                                    #    until C4; capture till bottom-left;
+                                    #    until C1; capture till bottom-left;
                                     #    expand once left (to index column).
 
 
@@ -125,7 +125,7 @@ For that we may resort to `dependent` referencing for the `2nd` `edge`, and
 define its position in relation to the `1st` `target`::
 
       A B C D E
-    1  ┌─────┐    _^:..(LD):L1      ## Start from top-right(E2) and target left
+    1  ┌─────┐    _^:..(LD+):L1     ## Start from top-right(E2) and target left
     2  │  X X│                      #    left(D2); from there capture left-down
     3  │X X X│                      #    till 1st empty-cell(C4, regardless of
     4  │X X X│                      #    col/row order); expand left once.
@@ -139,8 +139,8 @@ the `1st` `landing-cell`, the capturing becomes more intricate::
       A B C D E
     1  ┌─────┐      Β2:D_
     2  │  X X│      A1(RD):..(RD):L1D
-    3  │X X  │      C_:^^
-    3  │X    │      A^(DR):C_:U
+    3  │X X  │      D_:^^
+    3  │X    │      A^(DR):D_:U
     4  │  X  │X
        └─────┘
 
@@ -160,7 +160,7 @@ the `1st` `landing-cell`, the capturing becomes more intricate::
     3  │X X│        C_:^^
     3  │X  │        A^(DR):C_:U
     4  │  X│  X     ^^(RD):..(D):D
-       └───┘
+       └───┘        D2(L+):^_
 
 
 .. seealso:: Example spreadsheet: :download:`xls_ref.xlsx`
@@ -327,8 +327,8 @@ Definitions
             Check `Target-termination enactment`_ for the enactment of the rules.
 
     search-opposite
-        The `target-cell` is the first `full-cell` from the `landing-cell`,
-        while traveling according to the `target-moves`.
+        The `target-cell` is the FIRST `full-cell` found while traveling
+        from the `landing-cell` according to the `target-moves`.
 
     search-same
         The coordinates of the `target-cell` are given by the LAST `full-cell`
@@ -479,8 +479,8 @@ a matrix of `full-cell`.
     on a `2nd` edge with both its coordinates `dependent` (``..``),
     where the `search-same` is applied
 
-So, the ``+`` and ``-`` `move-modifier` apply only when `landing-cell` is
-`full-cell`.
+So, both `move-modifier` apply only when `landing-cell` is `full-cell`
+, and ``-`` actually makes sense only when `2nd` edge is `dependent`.
 
 If the termination conditions is not met, it is considered an error.
 
@@ -533,6 +533,7 @@ TODOs
 =====
 * Support cubic areas.
 * Notation for specifying the "last-sheet".
+* Support RC with negative coords for counting backwards from the end.
 """
 
 from ._xlref import (

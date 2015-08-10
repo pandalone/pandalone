@@ -528,6 +528,112 @@ class Margins(unittest.TestCase):
 
 
 @ddt
+class Expand(unittest.TestCase):
+
+    def make_states_matrix(self):
+        states_matrix = np.array([
+            # 0  1  2  3  4  5
+            [0, 0, 0, 0, 0, 0],  # 0
+            [0, 0, 1, 1, 1, 0],  # 1
+            [0, 1, 0, 0, 1, 0],  # 2
+            [0, 1, 1, 1, 1, 0],  # 3
+            [0, 0, 0, 0, 0, 1],  # 4
+        ], dtype=bool)
+        return states_matrix
+
+    def check_expand_rect(self, rect_in, exp_mov, rect_out):
+        states_matrix = self.make_states_matrix()
+
+        rect_in = (xr.Coords(*rect_in[:2]), xr.Coords(*rect_in[2:]))
+        rect_out = (xr.Coords(*rect_out[:2]), xr.Coords(*rect_out[2:]))
+        exp_mov = xr._parse_rect_expansions(exp_mov)
+        rect_got = xr._expand_rect(states_matrix, rect_in, exp_mov)
+
+        self.assertEqual(rect_got, rect_out)
+
+    @data(
+        ((2, 1, 2, 1), 'U'),
+        ((3, 1, 3, 1), 'D'),
+        ((2, 1, 3, 1), 'U'),
+        ((2, 1, 3, 1), 'D'),
+
+        ((2, 1, 2, 1), 'U1'),
+        ((3, 1, 3, 1), 'D1'),
+        ((2, 1, 3, 1), 'U1'),
+        ((2, 1, 3, 1), 'D1'),
+
+        ((2, 1, 2, 1), 'U?'),
+        ((3, 1, 3, 1), 'D?'),
+        ((2, 1, 3, 1), 'U?'),
+        ((2, 1, 3, 1), 'D?'),
+
+        ((1, 3, 1, 4), 'R'),
+        ((1, 2, 1, 3), 'L'),
+
+        ((1, 3, 1, 4), 'R1'),
+        ((1, 2, 1, 3), 'L1'),
+
+        ((1, 1, 3, 4), 'LURD'),
+    )
+    def test_expand_rect_standStill(self, case):
+        case += (case[0], )
+        self.check_expand_rect(*case)
+
+    @data(
+        ((2, 5, 2, 5), 'R'),
+        ((4, 0, 4, 4), 'D'),
+
+        ((4, 5, 4, 5), 'R'),
+        ((4, 5, 4, 5), 'D'),
+
+        ((0, 1, 0, 2), 'U'),
+        ((1, 0, 3, 0), 'L'),
+
+        ((0, 0, 0, 0), 'U'),
+        ((0, 0, 0, 0), 'L'),
+    )
+    def test_expand_rect_standStill_beyondMargins(self, case):
+        case += (case[0], )
+        self.check_expand_rect(*case)
+
+    @data(
+        ((3, 1, 3, 5), 'U', (1, 1, 3, 5)),
+        ((2, 1, 3, 2), 'RU', (1, 1, 3, 4)),
+        ((2, 3, 2, 3), 'LURD', (1, 1, 3, 4)),
+
+        ((1, 1, 3, 2), 'LURD', (1, 1, 3, 4)),
+        ((2, 1, 3, 2), 'LURD', (1, 1, 3, 4)),
+        ((1, 2, 3, 2), 'LURD', (1, 1, 3, 4)),
+        ((1, 1, 3, 2), 'DLRU', (1, 1, 3, 4)),
+        ((2, 1, 3, 2), 'DLRU', (1, 1, 3, 4)),
+        ((1, 2, 3, 2), 'DLRU', (1, 1, 3, 4)),
+    )
+    def test_expand_rect(self, case):
+        self.check_expand_rect(*case)
+
+    @data(
+        ((3, 1, 3, 2), 'U1R1', (2, 1, 3, 3)),
+        ((3, 1, 3, 2), 'R1U1', (2, 1, 3, 3)),
+        ((3, 1, 3, 2), 'U?R?', (2, 1, 3, 3)),
+        ((3, 1, 3, 2), 'R?U?', (2, 1, 3, 3)),
+
+        ((2, 1, 3, 2), 'R1U1', (1, 1, 3, 3)),
+        ((2, 1, 3, 2), 'U1R1', (1, 1, 3, 3)),
+
+        ((3, 3, 4, 3), 'L1', (3, 2, 4, 3)),
+    )
+    def test_expand_rect_single(self, case):
+        self.check_expand_rect(*case)
+
+    @data(
+        ((2, 1, 6, 1), 'R', (2, 1, 6, 5)),
+    )
+    def test_expand_rect_OutOfBounds(self, case):
+        pass
+#         self.check_expand_rect(*case)
+
+
+@ddt
 class Capture(unittest.TestCase):
 
     def make_states_matrix(self):

@@ -887,7 +887,7 @@ def _target_same(states_matrix, dn_coords, land, moves):
     raise ValueError(msg.format(land, moves))
 
 
-def _expand_rect(states_matrix, state, xl_rect, exp_mov):
+def _expand_rect(states_matrix, xl_rect, exp_mov):
     """
     Applies the :term:`expansion-moves` based on the `states_matrix`.
 
@@ -903,35 +903,33 @@ def _expand_rect(states_matrix, state, xl_rect, exp_mov):
     Examples::
 
         >>> states_matrix = np.array([
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 0, 0, 0],
-        ...     [0, 0, 0, 0, 1, 1, 1],
-        ...     [0, 0, 0, 1, 0, 0, 1],
-        ...     [0, 0, 0, 1, 1, 1, 1]
-        ... ])
+        ...     #0  1  2  3  4  5
+        ...     [0, 0, 0, 0, 0, 0], #0
+        ...     [0, 0, 1, 1, 1, 0], #1
+        ...     [0, 1, 0, 0, 1, 0], #2
+        ...     [0, 1, 1, 1, 1, 0], #3
+        ...     [0, 0, 0, 0, 0, 1], #4
+        ... ], dtype=bool)
 
-        >>> rng = (Coords(6, 3), Coords(6, 3))
+        >>> rect = (Coords(2, 1), Coords(2, 1))
         >>> exp_mov = [_repeat_moves('U')]
-        >>> _expand_rect(states_matrix, True, rng, exp_mov)
-        [Coords(row=6, col=3), Coords(row=6, col=3)]
+        >>> _expand_rect(states_matrix, rect, exp_mov)
+        (Coords(row=2, col=1), Coords(row=2, col=1))
 
-        >>> rng = (Coords(6, 3), Coords(7, 3))
+        >>> rect = (Coords(2, 1), Coords(3, 1))
         >>> exp_mov = [_repeat_moves('R')]
-        >>> _expand_rect(states_matrix, True, rng, exp_mov)
-        [Coords(row=6, col=3), Coords(row=7, col=6)]
+        >>> _expand_rect(states_matrix, rect, exp_mov)
+        (Coords(row=2, col=1), Coords(row=3, col=4))
 
-        >>> rng = (Coords(6, 3), Coords(10, 3))
+        >>> rect = (Coords(2, 1), Coords(6, 1))
         >>> exp_mov = [_repeat_moves('R')]
-        >>> _expand_rect(states_matrix, True, rng, exp_mov)
-        [Coords(row=6, col=3), Coords(row=10, col=6)]
+        >>> _expand_rect(states_matrix, rect, exp_mov)
+        (Coords(row=2, col=1), Coords(row=6, col=5))
 
-        >>> rng = (Coords(6, 5), Coords(6, 5))
+        >>> rect = (Coords(2, 3), Coords(2, 3))
         >>> exp_mov = [_repeat_moves('LURD')]
-        >>> _expand_rect(states_matrix, True, rng, exp_mov)
-        [Coords(row=5, col=3), Coords(row=7, col=6)]
+        >>> _expand_rect(states_matrix, rect, exp_mov)
+        (Coords(row=1, col=1), Coords(row=3, col=4))
 
     """
     assert SKIP_CELLTYPE_CHECK or isinstance(xl_rect[0], Coords), xl_rect
@@ -956,7 +954,7 @@ def _expand_rect(states_matrix, state, xl_rect, exp_mov):
                     v = states_matrix[nd[0]:st[0] + 1, nd[1]:st[1] + 1]
                 else:
                     v = states_matrix[st[0]:nd[0] + 1, st[1]:nd[1] + 1]
-                if (not v.size and state) or (v != state).all():
+                if not v.size or not v.any():
                     continue
                 xl_rect[i] = st
                 flag = False
@@ -965,7 +963,7 @@ def _expand_rect(states_matrix, state, xl_rect, exp_mov):
                 break
 
     # return xl_rect
-    return [Coords(*v) for v in xl_rect]
+    return tuple(Coords(*v) for v in xl_rect)
 
 
 def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
@@ -1077,7 +1075,7 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
         capt_rect = (Coords(*c.min(0).tolist()), Coords(*c.max(0).tolist()))
 
     if rect_exp:
-        capt_rect = _expand_rect(states_matrix, st_state, capt_rect, rect_exp)
+        capt_rect = _expand_rect(states_matrix, capt_rect, rect_exp)
 
     return capt_rect
 
