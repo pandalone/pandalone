@@ -5,6 +5,7 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
+from pandas.tseries import offsets
 """
 The user-facing implementation of *xlref*.
 
@@ -935,36 +936,38 @@ def _expand_rect(states_matrix, xl_rect, exp_mov):
     """
     assert SKIP_CELLTYPE_CHECK or isinstance(xl_rect[0], Coords), xl_rect
     assert SKIP_CELLTYPE_CHECK or isinstance(xl_rect[1], Coords), xl_rect
-    xl_rect = np.array(xl_rect, dtype=int)
-    xl_rect.sort(0)
-    edge_indices = {
-        'L': (0, 1),
-        'U': (0, 1),
-        'R': (1, 0),
-        'D': (1, 0),
+
+    nd_offsets = np.array([0, 1, 0, 1])
+    coord_offsets = {
+        'L': np.array([0,  0, -1, 0]),
+        'R': np.array([0,  0,  0, 1]),
+        'U': np.array([-1, 0,  0, 0]),
+        'D': np.array([0,  1,  0, 0]),
     }
-    xl_rect = [np.array(v) for v in xl_rect]
+    coord_indices = {
+        'L': [0, 1, 2, 2],
+        'R': [0, 1, 3, 3],
+        'U': [0, 0, 2, 3],
+        'D': [1, 1, 2, 3],
+    }
+
+    rect = np.array(xl_rect, dtype=int)
+    rect.sort(0)
+    rect = rect.T.flatten()  # [r1, r2, c1, c2]
     for moves in exp_mov:
         for directions in moves:
-            breakMoves = True
+            foundFull = False
             for d in directions:
-                mv = _primitive_dir_vectors[d]
-                i, j = edge_indices[d]
-                st, nd = (xl_rect[i], xl_rect[j])
-                st = st + mv
-                nd = [p2 if k == 0 else p1 for p1, p2, k in zip(st, nd, mv)]
-                if i == 1:
-                    v = states_matrix[nd[0]:st[0] + 1, nd[1]:st[1] + 1]
-                else:
-                    v = states_matrix[st[0]:nd[0] + 1, st[1]:nd[1] + 1]
-                if v.any():
-                    xl_rect[i] = st
-                    breakMoves = False
-            if breakMoves:
+                new_rect = rect + coord_offsets[d]
+                vect_i = new_rect[coord_indices[d]] + nd_offsets
+                vect_v = states_matrix[slice(*vect_i[:2]), slice(*vect_i[2:])]
+                if vect_v.any():
+                    rect = new_rect
+                    foundFull = True
+            if not foundFull:
                 break
 
-    # return xl_rect
-    return tuple(Coords(*v) for v in xl_rect)
+    return Coords(*rect[[0, 2]]), Coords(*rect[[1, 3]])
 
 
 def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
