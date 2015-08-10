@@ -892,7 +892,8 @@ def _expand_rect(states_matrix, xl_rect, exp_mov):
     Applies the :term:`expansion-moves` based on the `states_matrix`.
 
     :param state:
-    :param xl_rect:
+    :param Sequence xl_rect:
+            2 instances of :class:`Coords`
     :param Coords states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
@@ -934,7 +935,9 @@ def _expand_rect(states_matrix, xl_rect, exp_mov):
     """
     assert SKIP_CELLTYPE_CHECK or isinstance(xl_rect[0], Coords), xl_rect
     assert SKIP_CELLTYPE_CHECK or isinstance(xl_rect[1], Coords), xl_rect
-    mov_indices = {
+    xl_rect = np.array(xl_rect, dtype=int)
+    xl_rect.sort(0)
+    edge_indices = {
         'L': (0, 1),
         'U': (0, 1),
         'R': (1, 0),
@@ -943,10 +946,10 @@ def _expand_rect(states_matrix, xl_rect, exp_mov):
     xl_rect = [np.array(v) for v in xl_rect]
     for moves in exp_mov:
         for directions in moves:
-            flag = True
+            breakMoves = True
             for d in directions:
                 mv = _primitive_dir_vectors[d]
-                i, j = mov_indices[d]
+                i, j = edge_indices[d]
                 st, nd = (xl_rect[i], xl_rect[j])
                 st = st + mv
                 nd = [p2 if k == 0 else p1 for p1, p2, k in zip(st, nd, mv)]
@@ -954,12 +957,10 @@ def _expand_rect(states_matrix, xl_rect, exp_mov):
                     v = states_matrix[nd[0]:st[0] + 1, nd[1]:st[1] + 1]
                 else:
                     v = states_matrix[st[0]:nd[0] + 1, st[1]:nd[1] + 1]
-                if not v.size or not v.any():
-                    continue
-                xl_rect[i] = st
-                flag = False
-
-            if flag:
+                if v.any():
+                    xl_rect[i] = st
+                    breakMoves = False
+            if breakMoves:
                 break
 
     # return xl_rect

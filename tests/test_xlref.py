@@ -541,14 +541,19 @@ class Expand(unittest.TestCase):
         ], dtype=bool)
         return states_matrix
 
-    def check_expand_rect(self, rect_in, exp_mov, rect_out):
-        states_matrix = self.make_states_matrix()
+    def check_expand_rect(self, rect_in, exp_mov_str, rect_out, states_matrix=None):
+        if states_matrix is None:
+            states_matrix = self.make_states_matrix()
 
+        exp_mov = xr._parse_rect_expansions(exp_mov_str)
         rect_in = (xr.Coords(*rect_in[:2]), xr.Coords(*rect_in[2:]))
         rect_out = (xr.Coords(*rect_out[:2]), xr.Coords(*rect_out[2:]))
-        exp_mov = xr._parse_rect_expansions(exp_mov)
         rect_got = xr._expand_rect(states_matrix, rect_in, exp_mov)
+        self.assertEqual(rect_got, rect_out)
 
+        exp_mov = xr._parse_rect_expansions(exp_mov_str)
+        rect_in = (rect_in[1], rect_in[0])
+        rect_got = xr._expand_rect(states_matrix, rect_in, exp_mov)
         self.assertEqual(rect_got, rect_out)
 
     @data(
@@ -575,7 +580,7 @@ class Expand(unittest.TestCase):
 
         ((1, 1, 3, 4), 'LURD'),
     )
-    def test_expand_rect_standStill(self, case):
+    def test_expand_rect_StandStill(self, case):
         case += (case[0], )
         self.check_expand_rect(*case)
 
@@ -592,7 +597,7 @@ class Expand(unittest.TestCase):
         ((0, 0, 0, 0), 'U'),
         ((0, 0, 0, 0), 'L'),
     )
-    def test_expand_rect_standStill_beyondMargins(self, case):
+    def test_expand_rect_StandStill_beyondMargins(self, case):
         case += (case[0], )
         self.check_expand_rect(*case)
 
@@ -622,15 +627,38 @@ class Expand(unittest.TestCase):
 
         ((3, 3, 4, 3), 'L1', (3, 2, 4, 3)),
     )
-    def test_expand_rect_single(self, case):
+    def test_expand_rect_Single(self, case):
         self.check_expand_rect(*case)
 
     @data(
         ((2, 1, 6, 1), 'R', (2, 1, 6, 5)),
     )
     def test_expand_rect_OutOfBounds(self, case):
-        pass
-#         self.check_expand_rect(*case)
+        self.check_expand_rect(*case)
+
+    def test_spiral(self):
+        states_matrix = np.array([
+            # 0  1  2  3  4  5
+            [0, 1, 0, 0, 0, 0],  # 0
+            [0, 0, 1, 0, 1, 0],  # 1
+            [0, 0, 1, 1, 0, 0],  # 2
+            [0, 1, 0, 0, 1, 0],  # 3
+            [0, 0, 0, 0, 0, 1],  # 4
+        ], dtype=bool)
+        self.check_expand_rect((2, 2, 2, 2), 'LURD', (0, 1, 3, 4),
+                               states_matrix=states_matrix)
+
+    def test_spiral_Broken(self):
+        states_matrix = np.array([
+            # 0  1  2  3  4  5
+            [0, 1, 0, 0, 0, 0],  # 0
+            [0, 0, 1, 0, 0, 0],  # 1
+            [0, 0, 1, 1, 0, 0],  # 2
+            [0, 1, 0, 1, 1, 0],  # 3
+            [0, 0, 0, 0, 0, 1],  # 4
+        ], dtype=bool)
+        self.check_expand_rect((2, 2, 2, 2), 'LURD', (0, 1, 3, 4),
+                               states_matrix=states_matrix)
 
 
 @ddt
