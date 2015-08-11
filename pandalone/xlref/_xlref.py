@@ -36,7 +36,7 @@ except ImportError:
         'One of `xlrd`, `...` libraries is needed, failures might occure later!')
 
 
-SKIP_CELLTYPE_CHECK = False
+CHECK_CELLTYPE = False
 """When `True`, most coord-functions accept any 2-tuples."""
 
 Cell = namedtuple('Cell', ['row', 'col'])
@@ -178,7 +178,7 @@ _re_xl_ref_parser = re.compile(
             \)
         )?
         (?::
-            (?P<rect_exp>[LURD?123456789]+)              # rect expansion [opt]
+            (?P<exp_moves>[LURD?123456789]+)              # expansion moves [opt]
         )?
     )?
     \s*
@@ -187,10 +187,10 @@ _re_xl_ref_parser = re.compile(
     )\s*$""",
     re.IGNORECASE | re.X)
 
-_re_rect_exp_splitter = re.compile('([LURD]\d+)', re.IGNORECASE)
+_re_exp_moves_splitter = re.compile('([LURD]\d+)', re.IGNORECASE)
 
-# TODO: Make rect_expansions `?` work different from numbers.
-_re_rect_expansion_parser = re.compile(
+# TODO: Make exp_moves `?` work different from numbers.
+_re_exp_moves_parser = re.compile(
     r"""
     ^(?P<moves>[LURD]+)                                  # primitive moves
     (?P<times>\?|\d+)?                                   # repetition times
@@ -224,11 +224,11 @@ def _repeat_moves(moves, times=None):
     return itt.repeat(*args)
 
 
-def _parse_rect_expansions(rect_exp):
+def _parse_expansion_moves(exp_moves):
     """
     Parse rect-expansion into a list of dir-letters iterables.
 
-    :param rect_exp:
+    :param exp_moves:
         A string with a sequence of primitive moves:
         es. L1U1R1D1
     :type xl_ref: str
@@ -240,7 +240,7 @@ def _parse_rect_expansions(rect_exp):
 
     Examples::
 
-        >>> res = _parse_rect_expansions('LURD?')
+        >>> res = _parse_expansion_moves('LURD?')
         >>> res
         [repeat('LUR'), repeat('D', 1)]
 
@@ -251,22 +251,22 @@ def _parse_rect_expansions(rect_exp):
         >>> list(res[1])
         ['D']
 
-        >>> _parse_rect_expansions('1LURD')
+        >>> _parse_expansion_moves('1LURD')
         Traceback (most recent call last):
         ValueError: Invalid rect-expansion(1LURD) due to:
                 'NoneType' object has no attribute 'groupdict'
 
     """
     try:
-        res = _re_rect_exp_splitter.split(rect_exp.replace('?', '1'))
+        res = _re_exp_moves_splitter.split(exp_moves.replace('?', '1'))
 
-        return [_repeat_moves(**_re_rect_expansion_parser.match(v).groupdict())
+        return [_repeat_moves(**_re_exp_moves_parser.match(v).groupdict())
                 for v in res
                 if v != '']
 
     except Exception as ex:
         msg = 'Invalid rect-expansion({}) due to: {}'
-        raise ValueError(msg.format(rect_exp, ex))
+        raise ValueError(msg.format(exp_moves, ex))
 
 
 def parse_xl_ref(xl_ref):
@@ -276,7 +276,7 @@ def parse_xl_ref(xl_ref):
     :param str xl_ref:
         a string with the following format:
         <sheet>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):
-        <rect_exp>{<json>}
+        <exp_moves>{<json>}
         i.e.::
 
             sheet!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}
@@ -287,7 +287,7 @@ def parse_xl_ref(xl_ref):
         - sheet: str
         - st_edge: (Edge, None) the 1st-ref, uncooked, with raw cell
         - nd_edge: (Edge, None) the 2nd-ref, uncooked, with raw cell
-        - rect_exp: (str) as found on the xl-ref
+        - exp_moves: (str) as found on the xl-ref
         - json: parsed
 
     :rtype: dict
@@ -297,9 +297,9 @@ def parse_xl_ref(xl_ref):
 
         >>> res = parse_xl_ref('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"json":"..."}')
         >>> sorted(res.items())
-        [('json', {'json': '...'}),
+        [('exp_moves', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
+         ('json', {'json': '...'}),
          ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None)),
-         ('rect_exp', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
          ('sheet', 'Sheet1'),
          ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'))]
         >>> parse_xl_ref('A1(DR)Z20(UL)')
@@ -325,8 +325,8 @@ def parse_xl_ref(xl_ref):
         js = gs['json']
         gs['json'] = json.loads(js) if js else None
 
-        rect_exp = gs['rect_exp']
-        gs['rect_exp'] = _parse_rect_expansions(rect_exp) if rect_exp else None
+        exp_moves = gs['exp_moves']
+        gs['exp_moves'] = _parse_expansion_moves(exp_moves) if exp_moves else None
 
         return gs
 
@@ -374,9 +374,9 @@ def parse_xl_url(url, base_url=None, backend=None):
         >>> url = 'file:///sample.xlsx#Sheet1!A1(UL):.^(DR):LU?:{"2": "ciao"}'
         >>> res = parse_xl_url(url)
         >>> sorted(res.items())
-        [('json', {'2': 'ciao'}),
+        [('exp_moves', [repeat('L'), repeat('U', 1)]),
+         ('json', {'2': 'ciao'}),
          ('nd_edge', Edge(land=Cell(row='^', col='.'), mov='DR', mod=None)),
-         ('rect_exp', [repeat('L'), repeat('U', 1)]),
          ('sheet', 'Sheet1'),
          ('st_edge', Edge(land=Cell(row='1', col='A'), mov='UL', mod=None)),
          ('url_file', 'file:///sample.xlsx')]
@@ -667,9 +667,9 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
         ValueError: invalid cell(Cell(row='1', col='.')) due to: invalid col('.') due to: '.'
 
     """
-    assert SKIP_CELLTYPE_CHECK or isinstance(cell, Cell), cell
-    assert SKIP_CELLTYPE_CHECK or isinstance(up_coords, Coords), up_coords
-    assert SKIP_CELLTYPE_CHECK or isinstance(dn_coords, Coords), dn_coords
+    assert not CHECK_CELLTYPE or isinstance(cell, Cell), cell
+    assert not CHECK_CELLTYPE or isinstance(up_coords, Coords), up_coords
+    assert not CHECK_CELLTYPE or isinstance(dn_coords, Coords), dn_coords
     try:
         if base_cords is None:
             base_row = base_col = None
@@ -760,8 +760,8 @@ def _target_opposite(states_matrix, dn_coords, land, moves,
         Coords(row=3, col=5)
 
     """
-    assert SKIP_CELLTYPE_CHECK or isinstance(dn_coords, Coords), dn_coords
-    assert SKIP_CELLTYPE_CHECK or isinstance(land, Coords), land
+    assert not CHECK_CELLTYPE or isinstance(dn_coords, Coords), dn_coords
+    assert not CHECK_CELLTYPE or isinstance(land, Coords), land
 
     up_coords = np.array([0, 0])
     target = np.array(land)
@@ -872,8 +872,8 @@ def _target_same(states_matrix, dn_coords, land, moves):
         ValueError: No same-target for landing-Coords(row=10, col=3) with movement(U)!
 
     """
-    assert SKIP_CELLTYPE_CHECK or isinstance(dn_coords, Coords), dn_coords
-    assert SKIP_CELLTYPE_CHECK or isinstance(land, Coords), land
+    assert not CHECK_CELLTYPE or isinstance(dn_coords, Coords), dn_coords
+    assert not CHECK_CELLTYPE or isinstance(land, Coords), land
 
     target = np.array(land)
     if (target <= dn_coords).all() and states_matrix[land]:
@@ -887,19 +887,35 @@ def _target_same(states_matrix, dn_coords, land, moves):
     msg = 'No same-target for landing-{} with movement({})!'
     raise ValueError(msg.format(land, moves))
 
+def _sort_rect(r1, r2):
+    """
+    Sorts rect-vertices in a 2D-array (with vertices in rows).
+    
+    Example::
+    
+        >>> _sort_rect((5, 3), (4, 6))
+        array([[4, 3],
+               [5, 6]])
+    """
+    rect = np.array([r1, r2], dtype=int)
+    rect.sort(0)
+    return rect
 
-def _expand_rect(states_matrix, xl_rect, exp_mov):
+
+def _expand_rect(states_matrix, r1, r2, exp_mov):
     """
     Applies the :term:`expansion-moves` based on the `states_matrix`.
 
     :param state:
-    :param Sequence xl_rect:
-            2 instances of :class:`Coords`
+    :param Coords r1:
+              any vertice of the rect to expand
+    :param Coords r2:
+              any vertice of the rect to expand
     :param Coords states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
     :param exp_mov:
-    :return:
+    :return: a sorted rect top-left/bottom-right
 
 
     Examples::
@@ -913,29 +929,29 @@ def _expand_rect(states_matrix, xl_rect, exp_mov):
         ...     [0, 0, 0, 0, 0, 1], #4
         ... ], dtype=bool)
 
-        >>> rect = (Coords(2, 1), Coords(2, 1))
+        >>> r1, r2 = (Coords(2, 1), Coords(2, 1))
         >>> exp_mov = [_repeat_moves('U')]
-        >>> _expand_rect(states_matrix, rect, exp_mov)
+        >>> _expand_rect(states_matrix, r1, r2, exp_mov)
         (Coords(row=2, col=1), Coords(row=2, col=1))
 
-        >>> rect = (Coords(2, 1), Coords(3, 1))
+        >>> r1, r2 = (Coords(3, 1), Coords(2, 1))
         >>> exp_mov = [_repeat_moves('R')]
-        >>> _expand_rect(states_matrix, rect, exp_mov)
+        >>> _expand_rect(states_matrix, r1, r2, exp_mov)
         (Coords(row=2, col=1), Coords(row=3, col=4))
 
-        >>> rect = (Coords(2, 1), Coords(6, 1))
+        >>> r1, r2 = (Coords(2, 1), Coords(6, 1))
         >>> exp_mov = [_repeat_moves('R')]
-        >>> _expand_rect(states_matrix, rect, exp_mov)
+        >>> _expand_rect(states_matrix, r1, r2, exp_mov)
         (Coords(row=2, col=1), Coords(row=6, col=5))
 
-        >>> rect = (Coords(2, 3), Coords(2, 3))
+        >>> r1, r2 = (Coords(2, 3), Coords(2, 3))
         >>> exp_mov = [_repeat_moves('LURD')]
-        >>> _expand_rect(states_matrix, rect, exp_mov)
+        >>> _expand_rect(states_matrix, r1, r2, exp_mov)
         (Coords(row=1, col=1), Coords(row=3, col=4))
 
     """
-    assert SKIP_CELLTYPE_CHECK or isinstance(xl_rect[0], Coords), xl_rect
-    assert SKIP_CELLTYPE_CHECK or isinstance(xl_rect[1], Coords), xl_rect
+    assert not CHECK_CELLTYPE or isinstance(r1, Coords), r1
+    assert not CHECK_CELLTYPE or isinstance(r2, Coords), r2
 
     nd_offsets = np.array([0, 1, 0, 1])
     coord_offsets = {
@@ -951,18 +967,19 @@ def _expand_rect(states_matrix, xl_rect, exp_mov):
         'D': [1, 1, 2, 3],
     }
 
-    rect = np.array(xl_rect, dtype=int)
-    rect.sort(0)
-    rect = rect.T.flatten()  # [r1, r2, c1, c2]
+    ## Sort rect's vertices top-left/bottom-right.
+    #
+    rect = _sort_rect(r1, r2)
+    rect = rect.T.flatten()  # ``[r1, r2, c1, c2]`` to use slices, below
     for moves in exp_mov:
         for directions in moves:
             foundFull = False
             for d in directions:
-                new_rect = rect + coord_offsets[d]
-                vect_i = new_rect[coord_indices[d]] + nd_offsets
-                vect_v = states_matrix[slice(*vect_i[:2]), slice(*vect_i[2:])]
-                if vect_v.any():
-                    rect = new_rect
+                exp_rect = rect + coord_offsets[d]
+                exp_vect_i = exp_rect[coord_indices[d]] + nd_offsets
+                exp_vect_v = states_matrix[slice(*exp_vect_i[:2]), slice(*exp_vect_i[2:])]
+                if exp_vect_v.any():
+                    rect = exp_rect
                     foundFull = True
             if not foundFull:
                 break
@@ -971,7 +988,7 @@ def _expand_rect(states_matrix, xl_rect, exp_mov):
 
 
 def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
-                         nd_edge=None, rect_exp=None):
+                         nd_edge=None, exp_moves=None):
     """
     Performs :term:`targeting`, :term:`capturing` and :term:`expansions` based on the :term:`states-matrix`.
 
@@ -991,8 +1008,8 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
             the bottom-right coords with full-cells
     :param Edge st_edge: "uncooked" as matched by regex
     :param Edge nd_edge: "uncooked" as matched by regex
-    :param list or none rect_exp:
-            the result of :func:`_parse_rect_expansions()`
+    :param list or none exp_moves:
+            the result of :func:`_parse_expansion_moves()`
 
     :return:    a ``(Coords, Coords)`` with the 1st and 2nd :term:`capture-cell`
                 ordered from top-left --> bottom-right.
@@ -1037,8 +1054,8 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
         True
 
     """
-    assert SKIP_CELLTYPE_CHECK or isinstance(up_coords, Coords), up_coords
-    assert SKIP_CELLTYPE_CHECK or isinstance(dn_coords, Coords), dn_coords
+    assert not CHECK_CELLTYPE or isinstance(up_coords, Coords), up_coords
+    assert not CHECK_CELLTYPE or isinstance(dn_coords, Coords), dn_coords
 
     st = _resolve_cell(st_edge.land, up_coords, dn_coords)
     try:
@@ -1054,7 +1071,7 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
             st = _target_opposite(states_matrix, dn_coords, st, st_edge.mov)
 
     if nd_edge is None:
-        capt_rect = (st, st)
+        nd = None
     else:
         nd = _resolve_cell(nd_edge.land, up_coords, dn_coords, st)
 
@@ -1072,19 +1089,17 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
             else:
                 nd = _target_opposite(states_matrix, dn_coords, nd, mov)
 
-        # Order rect-cells.
-        #
-        c = np.array([st, nd], dtype=np.int16)
-        #capt_rect = c.min(0), c.max(0)
-        capt_rect = (Coords(*c.min(0).tolist()), Coords(*c.max(0).tolist()))
+    if exp_moves:
+        st, nd = _expand_rect(states_matrix, st, nd or st, exp_moves)
+    else:
+        if nd is not None:
+            rect = _sort_rect(st, nd)
+            st, nd = tuple(Coords(*c) for c in rect)
 
-    if rect_exp:
-        capt_rect = _expand_rect(states_matrix, capt_rect, rect_exp)
-
-    return capt_rect
+    return st, nd
 
 
-def read_capture_rect(sheet, xl_rect):
+def read_capture_rect(sheet, st, nd):
     """
     Extracts :term:`capture-rect` values from excel-sheet and apply :term:`filters`.
 
@@ -1092,8 +1107,10 @@ def read_capture_rect(sheet, xl_rect):
             anything supporting the :func:`read_rect(states_matrix, xl_rect)`
             such as the the :class:`_Spreadsheet` which can hide away
             the backend-module .
-    :param (Coords, Coords) xl_rect:
-            the the top-left/bottom/right edges of capture-rect, inclusive
+    :param Coords st:
+            the the top-left edge of capture-rect, inclusive
+    :param Coords or None nd:
+            the the bottom-right edge of capture-rect, inclusive
     :return: the rect values TODO: pre-processed
 
     .. testsetup::
@@ -1127,40 +1144,44 @@ def read_capture_rect(sheet, xl_rect):
            [False, False, False,  True,  True,  True,  True]], dtype=bool)
 
         # minimum matrix in the sheet
-        >>> read_capture_rect(sheet, (Coords(5, 3), Coords(7, 6)))
+        >>> read_capture_rect(sheet, Coords(5, 3), Coords(7, 6))
         [[None,  0,    1,    2],
          [0,    None, None, None],
          [1,     5.1,  6.1,  7.1]]
 
         # single-value
-        >>> read_capture_rect(sheet, (Coords(6, 3), Coords(6, 3)))
+        >>> read_capture_rect(sheet, Coords(6, 3), Coords(6, 3))
         [0]
 
         # column
-        >>> read_capture_rect(sheet, (Coords(0, 3), Coords(7, 3)))
+        >>> read_capture_rect(sheet, Coords(0, 3), Coords(7, 3))
         [None, None, None, None, None, None, 0, 1]
 
         # row
-        >>> read_capture_rect(sheet, (Coords(5, 0), Coords(5, 6)))
+        >>> read_capture_rect(sheet, Coords(5, 0), Coords(5, 6))
         [None, None, None, None, 0, 1, 2]
 
         # row beyond sheet-limits
-        >>> read_capture_rect(sheet, (Coords(5, 0), Coords(5, 10)))
+        >>> read_capture_rect(sheet, Coords(5, 0), Coords(5, 10))
         [None, None, None, None, 0, 1, 2, None, None, None, None]
 
     .. testcleanup::
         >>> os.remove(tmp)
     """
+    assert not CHECK_CELLTYPE or isinstance(st, Coords), st
+    assert not CHECK_CELLTYPE or nd is None or isinstance(nd, Coords), nd
 
-    table = sheet.read_rect(*xl_rect)
+    ## TODO: FIX DIM
+    if nd is None:
+        nd = st
+    table = sheet.read_rect(st, nd)
 
-    st_target, nd_target = xl_rect
     # column
-    if nd_target[1] == st_target[1]:
+    if st[1] == nd[1]:
         table = [v[0] for v in table]
 
     # row
-    if nd_target[0] == st_target[0]:
+    if st[0] == nd[0]:
         table = table[0]
 
     if isinstance(table, list):
