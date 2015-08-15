@@ -5,7 +5,6 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
-from pandas.tseries import offsets
 """
 The user-facing implementation of *xlref*.
 
@@ -13,7 +12,7 @@ Prefer accessing the public members from the parent module.
 """
 
 from abc import abstractmethod, ABCMeta
-from collections import namedtuple
+from collections import namedtuple, Iterable
 import json
 import logging
 import re
@@ -23,8 +22,8 @@ import six
 
 import itertools as itt
 import numpy as np
-import pandas as pd
 from six.moves.urllib.parse import urldefrag  # @UnresolvedImport
+
 
 log = logging.getLogger(__name__)
 
@@ -98,7 +97,7 @@ An :term:`Edge` might be "cooked" or "uncooked" depending on its `land`:
 """
 
 
-def Edge(land, mov, mod=None):
+def Edge(land, mov=None, mod=None):
     return _Edge(land, mov, mod)
 
 
@@ -326,7 +325,8 @@ def parse_xl_ref(xl_ref):
         gs['json'] = json.loads(js) if js else None
 
         exp_moves = gs['exp_moves']
-        gs['exp_moves'] = _parse_expansion_moves(exp_moves) if exp_moves else None
+        gs['exp_moves'] = _parse_expansion_moves(
+            exp_moves) if exp_moves else None
 
         return gs
 
@@ -347,24 +347,25 @@ def parse_xl_url(url, base_url=None, backend=None):
 
         Exxample::
 
-            file:///path/to/file.xls#sheet_name!UP10:DN20:LDL1{"dim":2}
+            file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
     :param XlUrl base_url:
     :param module backend: one of :mod:`_xlrd` or mod:`_xlwings`
 
     :return:
-        dictionary containing the following parameters::
+        dictionary containing the following parameters:
 
-        - url_file
-        - sheet
-        - st_col
-        - st_row
-        - st_mov
-        - st_mod
-        - nd_col
-        - nd_row
-        - nd_mov
-        - nd_mod
-        - json
+        - url_file: i.e. ``foo.xls``
+        - sheet: i.e. ``Sheet 1``
+        - st_col: i.e. ``UPT``
+        - st_row: i.e. ``8``
+        - st_mov: i.e. ``LU``
+        - st_mod: i.e. ``-``
+        - nd_col: i.e. ``_``
+        - nd_row: i.e. ``.``
+        - nd_mov: i.e. ``D``
+        - nd_mod: i.e. ``+``
+        - exp_moves: i.e. ``LDL1``
+        - json: i.e. ``{"dims: 1}``
 
     :rtype: dict
 
@@ -711,7 +712,7 @@ def _extract_states_vector(states_matrix, dn_coords, land, mov,
 def _target_opposite(states_matrix, dn_coords, land, moves,
                      primitive_dir_vectors=_primitive_dir_vectors):
     """
-    Follow `moves from `land` and stop on the 1st full-cell.
+    Follow moves from `land` and stop on the 1st full-cell.
 
     :param np.ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
@@ -875,11 +876,11 @@ def _target_same(states_matrix, dn_coords, land, moves):
     assert not CHECK_CELLTYPE or isinstance(dn_coords, Coords), dn_coords
     assert not CHECK_CELLTYPE or isinstance(land, Coords), land
 
-    target = np.array(land)
+    target = np.asarray(land)
     if (target <= dn_coords).all() and states_matrix[land]:
         for mov in moves:
             coord, indx = _target_same_vector(states_matrix, dn_coords,
-                                              np.array(land), mov)
+                                              np.asarray(land), mov)
             target[indx] = coord
 
         return Coords(*target)
@@ -887,12 +888,13 @@ def _target_same(states_matrix, dn_coords, land, moves):
     msg = 'No same-target for landing-{} with movement({})!'
     raise ValueError(msg.format(land, moves))
 
+
 def _sort_rect(r1, r2):
     """
     Sorts rect-vertices in a 2D-array (with vertices in rows).
-    
+
     Example::
-    
+
         >>> _sort_rect((5, 3), (4, 6))
         array([[4, 3],
                [5, 6]])
@@ -967,7 +969,7 @@ def _expand_rect(states_matrix, r1, r2, exp_mov):
         'D': [1, 1, 2, 3],
     }
 
-    ## Sort rect's vertices top-left/bottom-right.
+    # Sort rect's vertices top-left/bottom-right.
     #
     rect = _sort_rect(r1, r2)
     rect = rect.T.flatten()  # ``[r1, r2, c1, c2]`` to use slices, below
@@ -977,7 +979,8 @@ def _expand_rect(states_matrix, r1, r2, exp_mov):
             for d in directions:
                 exp_rect = rect + coord_offsets[d]
                 exp_vect_i = exp_rect[coord_indices[d]] + nd_offsets
-                exp_vect_v = states_matrix[slice(*exp_vect_i[:2]), slice(*exp_vect_i[2:])]
+                exp_vect_v = states_matrix[
+                    slice(*exp_vect_i[:2]), slice(*exp_vect_i[2:])]
                 if exp_vect_v.any():
                     rect = exp_rect
                     foundFull = True
@@ -1099,177 +1102,159 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
     return st, nd
 
 
-def read_capture_rect(sheet, st, nd):
+def read_capture_rect(sheet, st, nd, dims=None):
     """
-    Extracts :term:`capture-rect` values from excel-sheet and apply :term:`filters`.
+    Extracts and process :term:`capture-rect` values from excel-sheet by applying :term:`filters`.
 
     :param sheet:
-            anything supporting the :func:`read_rect(states_matrix, xl_rect)`
+            anything supporting the :func:`read_rect(states_matrix, rect)`
             such as the the :class:`_Spreadsheet` which can hide away
             the backend-module .
     :param Coords st:
             the the top-left edge of capture-rect, inclusive
     :param Coords or None nd:
             the the bottom-right edge of capture-rect, inclusive
-    :return: the rect values TODO: pre-processed
+    :param int dims:    
+            the non-negative minimum num of dimensions for the results. 
+            The num of dims is derived from the shape of rect-edges according 
+            to the following matrix:
 
-    .. testsetup::
-        >>> import os, tempfile, xlrd, pandas as pd
+             ========  ====  =====  =====  =====
+             `dims`:   None      0      1      2
+             ========  ====  =====  =====  =====
+             1 coord:     0      0      1      2
+                cell:     1      0      1      2
+                 row:     1  raise      1      2
+                 col:     2  raise      1      2
+               table:     2  raise  raise      2
+             ========  ====  =====  =====  =====
 
-        >>> df = pd.DataFrame([
-        ... # Cols: 0       1    2
-        ...        [None, None, None],
-        ...        [5.1,  6.1,  7.1]
-        ... ])
-        >>> tmp = ''.join([tempfile.mkstemp()[1], '.xlsx'])
-        >>> writer = pd.ExcelWriter(tmp)
-        >>> df.to_excel(writer, 'Sheet1', startrow=5, startcol=3)
-        >>> writer.save()
+
+    :return: 
+            The rect values appropriately dimensioned ,or 
+            a scalar-value if `nd` is `None`.
 
     Examples::
-        >>> import xlrd
-        >>> from pandalone import xlref
-        >>> from pandalone.xlref._xlrd import XlrdSheet as Sheet
 
-        >>> xwb = xlrd.open_workbook(tmp).sheet_by_name('Sheet1')
-        >>> sheet = Sheet(xwb)
-        >>> sheet.get_states_matrix()
-        array([[False, False, False, False, False, False, False],
-           [False, False, False, False, False, False, False],
-           [False, False, False, False, False, False, False],
-           [False, False, False, False, False, False, False],
-           [False, False, False, False, False, False, False],
-           [False, False, False, False,  True,  True,  True],
-           [False, False, False,  True, False, False, False],
-           [False, False, False,  True,  True,  True,  True]], dtype=bool)
+        import numpy as np
+        from pandalone import xref
 
-        # minimum matrix in the sheet
-        >>> read_capture_rect(sheet, Coords(5, 3), Coords(7, 6))
-        [[None,  0,    1,    2],
-         [0,    None, None, None],
-         [1,     5.1,  6.1,  7.1]]
+        ## A mockup sheet.
+        #
+        class ArraySheet(xref._Spreadsheet):
+            def __init__(self, arr):
+                self._arr = np.asarray(arr)
 
-        # single-value
-        >>> read_capture_rect(sheet, Coords(6, 3), Coords(6, 3))
-        [0]
+            def get_states_matrix(self):
+                return ~np.equal(self._arr, None)
 
-        # column
-        >>> read_capture_rect(sheet, Coords(0, 3), Coords(7, 3))
-        [None, None, None, None, None, None, 0, 1]
+            def read_rect(self, st, nd):
+                if nd is None:
+                    return self._arr[st]
+                rect = np.array([st, nd]) + [[0, 0], [1, 1]]
+                return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])]
 
-        # row
-        >>> read_capture_rect(sheet, Coords(5, 0), Coords(5, 6))
-        [None, None, None, None, 0, 1, 2]
 
-        # row beyond sheet-limits
-        >>> read_capture_rect(sheet, Coords(5, 0), Coords(5, 10))
-        [None, None, None, None, 0, 1, 2, None, None, None, None]
 
-    .. testcleanup::
-        >>> os.remove(tmp)
     """
     assert not CHECK_CELLTYPE or isinstance(st, Coords), st
     assert not CHECK_CELLTYPE or nd is None or isinstance(nd, Coords), nd
+    assert dims is None or dims >= 0, dims
 
-    ## TODO: FIX DIM
-    if nd is None:
-        nd = st
-    table = sheet.read_rect(st, nd)
+    res = sheet.read_rect(st, nd)
+    res = np.asarray(res)
 
-    # column
-    if st[1] == nd[1]:
-        table = [v[0] for v in table]
+    if dims is None:
+        if nd is None:
+            dims = 0
+        else:
+            # Calculate dims implied by CaptureRect,
+            #    preserving cells as 1D & cols as 2D.
+            #
+            rect = np.array([st, nd])
+            coord_dims = (rect[0] - rect[1]).astype(bool)
+            rect_dims = coord_dims.sum()
+            col_dims = 2 * coord_dims[0]
+            dims = max(1, rect_dims, col_dims)
 
-    # row
-    if st[0] == nd[0]:
-        table = table[0]
+    if res.ndim != dims:
+        res = _redim_array(res, dims)
 
-    if isinstance(table, list):
-        return table
-    else:
-        return [table]
-
-
-def _get_value_dim(value):
-    try:
-        if isinstance(value, list):
-            return 1 + _get_value_dim(value[0])
-    except IndexError:
-        return 1
-    return 0
+    return res
 
 
-def _redim_value(value, n):
-    if n > 0:
-        return [_redim_value(value, n - 1)]
-    elif n < 0:
-        if len(value) > 1:
-            raise Exception
-        return _redim_value(value[0], n + 1)
-    return value
-
-
-def _redim_captured_values(value, dim_min, dim_max=None):
+def _redim_array(arr, dims):
     """
-    Reshapes the output value of :func:`read_capture_rect()`.
-
-    :param value: matrix or vector or value
-    :type value: list of lists, list, value
-
-    :param dim_min: minimum dimension or 'auto'
-    :type dim_min: int, None
-
-    :param dim_max: maximum dimension
-    :type dim_max: int, None
-
-    :return: reshaped value
-    :rtype: list of lists, list, value
-
+    :param array arr:     what to redim
+    :param int dims:      the new dimensions
 
     Examples::
 
-        >>> _redim_captured_values([1, 2], 2)
-        [[1, 2]]
+        >>> _redim_array(np.array([[1, 2]]), 1)
+        array([1, 2])
 
-        >>> _redim_captured_values([[1, 2]], 1)
-        [[1, 2]]
+        >>> _redim_array(np.array([1, 2]), 2)
+        array([[1, 2]])
 
-        >>> _redim_captured_values([[1, 2]], 1, 1)
-        [1, 2]
+        >>> _redim_array(np.array([]), 3)
+        array([], shape=(1, 1, 0), dtype=float64)
 
-        >>> _redim_captured_values([], 2)
-        [[]]
-
-        >>> _redim_captured_values([[1, 2]], 0, 0)
+        >>> _redim_array(np.array([[1, 2], [3, 4]]), 1)
         Traceback (most recent call last):
-        ValueError: Cannot reduce Captured-values dimension(2) to (0, 0)!
+        ValueError: Cannot reduce dimensions of (2, 2) from 2-->1!
+
+        >>> _redim_array(np.array([[3.14]]), 0)
+        3.14
+
+        >>> repr(_redim_array(np.array([[]]), 0))
+        Traceback (most recent call last):
+        ValueError: Cannot reduce dimensions of (1, 0) from 2-->0!
+
+        >>> _redim_array(np.array([[1, 2]]), 0)
+        Traceback (most recent call last):
+        ValueError: Cannot reduce dimensions of (1, 2) from 2-->0!
 
     """
-    val_dim = _get_value_dim(value)
-    try:
-        if val_dim < dim_min:
-            return _redim_value(value, dim_min - val_dim)
-        elif dim_max is not None and val_dim > dim_max:
-            return _redim_value(value, dim_max - val_dim)
-        return value
-    except:
-        # TODO: Make redimming use np-arrays.
-        msg = 'Cannot reduce Captured-values dimension({}) to ({}, {})!'
-        raise ValueError(msg.format(val_dim, dim_min, dim_max))
+    def raise_cannot_reduce(a_shape, dims):
+        msg = "Cannot reduce dimensions of {} from {}-->{}!"
+        raise ValueError(msg.format(a_shape, len(a_shape), dims))
+    a_shape = arr.shape
+    if dims == 0:
+        if arr.size == 1:
+            return arr.item()
+        else:
+            raise_cannot_reduce(a_shape, dims)
 
+    if dims < arr.ndim:
+        arr = arr.squeeze()
 
-def _type_df_with_numeric_conversion(df, args, kws):
-    df = pd.DataFrame(args, kws)
-    return df.convert_objects(convert_numeric=True)
+    if dims == arr.ndim:
+        return arr
+    elif dims < arr.ndim:
+        raise_cannot_reduce(a_shape, dims)
+    else:
+        # Append trivial dimensions o the left.
+        new_shape = (1,) * (dims - arr.ndim) + arr.shape
+
+        return arr.reshape(new_shape)
+
 
 _default_filters = {
     None: {'fun': lambda x: x},  # TODO: Actually _redim_captured_values().
-    'df': {'fun': pd.DataFrame},
-    'df_num': {'fun': _type_df_with_numeric_conversion},
     'nparray': {'fun': np.array},
     'dict': {'fun': dict},
     'sorted': {'fun': sorted}
 }
+try:
+    import pandas as pd
+
+    def _type_df_with_numeric_conversion(df, args, kws):
+        df = pd.DataFrame(args, kws)
+        return df.convert_objects(convert_numeric=True)
+    _default_filters['df'] = {'fun': pd.DataFrame}
+    _default_filters['df_num'] = {'fun': _type_df_with_numeric_conversion}
+except ImportError:
+    pass
 
 
 def _process_captured_values(value, func=None, args=(), kws=None, filters=None,
@@ -1329,8 +1314,6 @@ class _Spreadsheet(object):
     """
     An abstract  delegating to backends excel-worksheets wrapper that is utilized by this module.
 
-    Use :func:`pandalone.xlref.wrap_sheet()` to create it.
-
     :param np.array _states_matrix:
             The :term:`states-matrix` cached, so recreate object
             to refresh it.
@@ -1359,9 +1342,6 @@ class _Spreadsheet(object):
     _states_matrix = None
     _margin_coords = None
 
-    def __init__(self, sheet):
-        self._sheet = sheet
-
     @abstractmethod
     def _read_states_matrix(self):
         pass
@@ -1378,16 +1358,18 @@ class _Spreadsheet(object):
         return self._states_matrix
 
     @abstractmethod
-    def read_rect(self, up_coords, dn_coords):
+    def read_rect(self, st, nd):
         """
-        Fecth the actual values contained in the from the backend Excel-sheet.
+        Fecth the actual values  from the backend Excel-sheet.
 
-        :param up_coords:
-                the top-left edges of capture-rect, inclusive
-        :param dn_coords:
-                the bottom-right edges of capture-rect, inclusive
-        :return: a 2D-list with the values with at least 1 element,
-                or an empty-list
+        :param Coords st:
+                the top-left edge, inclusive
+        :param Coords, None nd:
+                the bottom-right edge, inclusive(!); when `None`,
+                must return a scalar value.
+        :return: 
+                a 1D or 2D-list with the values fenced by the rect,
+                which might be empty if beyond limits.
         :rtype: list
         """
 
@@ -1413,7 +1395,7 @@ class _Spreadsheet(object):
 
         Examples::
 
-            >>> sheet = _Spreadsheet(sheet=None)
+            >>> sheet = _Spreadsheet()
             >>> sheet._states_matrix = np.asarray([       ## Mock states_matrix.
             ...    [0, 0, 0, 0],
             ...    [1, 1, 0, 0],

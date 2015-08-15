@@ -113,7 +113,7 @@ class XlrdSheet(_Spreadsheet):
     def __init__(self, sheet, epoch1904=False):
         if not isinstance(sheet, xlrd.sheet.Sheet):
             raise ValueError("Invalid xlrd-sheet({})".format(sheet))
-        _Spreadsheet.__init__(self, sheet)
+        self._sheet = sheet
         self._epoch1904 = epoch1904
 
     def _read_states_matrix(self):
@@ -121,20 +121,21 @@ class XlrdSheet(_Spreadsheet):
         types = np.array(self._sheet._cell_types)
         return (types != XL_CELL_EMPTY) & (types != XL_CELL_BLANK)
 
-    def read_rect(self, up_coords, dn_coords):
+    def read_rect(self, st, nd):
         """See super-method. """
-        up_row, up_col = up_coords
-        dn_row, dn_col = dn_coords
         sheet = self._sheet
+
+        if nd is None:
+            return _parse_cell(sheet.cell(*st), self._epoch1904)
+
+        rect = np.array([st, nd]) + [[0, 0], [1, 1]]
         states_matrix = self.get_states_matrix()
 
-        dn_row += 1  # inclusive
-        dn_col += 1  # inclusive
         table = []
-        for r in range(up_row, dn_row):
+        for r in range(*rect[:, 0]):
             row = []
             table.append(row)
-            for c in range(up_col, dn_col):
+            for c in range(*rect[:, 1]):
                 try:
                     if states_matrix[r, c]:
                         c = _parse_cell(sheet.cell(r, c), self._epoch1904)

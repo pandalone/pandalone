@@ -11,26 +11,27 @@ from __future__ import division, print_function, unicode_literals
 from datetime import datetime
 import doctest
 import os
-from pandalone.xlref import _xlrd as xd
-from pandalone.xlref import _xlref as xr
-from pandalone.xlref._xlrd import XlrdSheet as Sheet
 import sys
-from tests import _tutils
-from tests._tutils import check_xl_installed, xw_Workbook
 import unittest
 
 from ddt import ddt, data
+from numpy import testing as npt
 import six
 import xlrd
 
 import numpy as np
-from numpy import testing as npt
+from pandalone.xlref import _xlrd as xd
+from pandalone.xlref import _xlref as xr
+from pandalone.xlref._xlrd import XlrdSheet as Sheet
 import pandas as pd
+from tests import _tutils
+from tests._tutils import check_xl_installed, xw_Workbook
 
 
 log = _tutils._init_logging(__name__)
 xl_installed = check_xl_installed()
 xr.CHECK_CELLTYPE = True
+
 
 def _make_xl_margins(sheet):
     states_matrix = sheet.get_states_matrix()
@@ -42,7 +43,7 @@ def _make_xl_margins(sheet):
     return states_matrix, up, dn
 
 
-def _make_sample_sheet(path, matrix, sheet_name, startrow=0, startcol=0):
+def _write_sample_sheet(path, matrix, sheet_name, startrow=0, startcol=0):
     df = pd.DataFrame(matrix)
     with pd.ExcelWriter(path) as w:
         if isinstance(sheet_name, tuple):
@@ -57,12 +58,12 @@ def _make_local_url(fname, fragment=''):
     return 'file:///{}#{}'.format(fpath, fragment)
 
 
-def _read_rect_values(sheet, st_edge, nd_edge=None):
+def _read_rect_values(sheet, st_edge, nd_edge, dims):
     states_matrix = sheet.get_states_matrix()
     up, dn = sheet.get_margin_coords()
     st, nd = xr.resolve_capture_rect(states_matrix, up, dn,
-                                      st_edge, nd_edge)  # or Edge(None, None))
-    return xr.read_capture_rect(sheet, st, nd)
+                                     st_edge, nd_edge)  # or Edge(None, None))
+    return xr.read_capture_rect(sheet, st, nd, dims)
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
@@ -547,9 +548,9 @@ class Expand(unittest.TestCase):
 
         exp_mov = xr._parse_expansion_moves(exp_mov_str)
         st = xr.Coords(*rect_in[:2])
-        nd = xr.Coords(*rect_in[2:]) if len(rect_in) > 2 else st 
-        rect_out = (xr.Coords(*rect_out[:2]), 
-            xr.Coords(*rect_out[2:]) if len(rect_out) > 2 else xr.Coords(*rect_out))
+        nd = xr.Coords(*rect_in[2:]) if len(rect_in) > 2 else st
+        rect_out = (xr.Coords(*rect_out[:2]),
+                    xr.Coords(*rect_out[2:]) if len(rect_out) > 2 else xr.Coords(*rect_out))
         rect_got = xr._expand_rect(states_matrix, st, nd, exp_mov)
         self.assertEqual(rect_got, rect_out)
 
@@ -783,23 +784,229 @@ class Capture(unittest.TestCase):
         self.check_resolve_capture_rect(*case)
 
 
-class Read1(unittest.TestCase):
+@ddt
+class Redim(unittest.TestCase):
+
+    def check_redim_array(self, case):
+        arr, dim, exp = case
+        res = xr._redim_array(np.array(arr), dim)
+
+        if isinstance(exp, list):
+            exp = np.asarray(exp, dtype=object)
+        if isinstance(exp, np.ndarray):
+            npt.assert_array_equal(res, exp)
+        else:
+            npt.assert_equal(res, exp)
+
+    @data(
+        ([1],       1,  [1]),
+        ([1],       2,  [[1]]),
+        ([13],      3,  [[[13]]]),
+        ([1, 2],    1,  [1, 2]),
+        ([1, 2],    2,  [[1, 2]]),
+        ([1, 2],    3,  [[[1, 2]]]),
+    )
+    def test_upscale(self, case):
+        self.check_redim_array(case)
+
+    @data(
+        ([[1, 2]],   1,  [1, 2]),
+        ([[[1, 2]]], 2,  [[1, 2]]),
+        ([[[1, 2]]], 1,  [1, 2]),
+    )
+    def test_downscale(self, case):
+        self.check_redim_array(case)
+
+    @data(
+        ([np.NaN],  0,  np.NaN),
+        ([['str']], 0,  'str'),
+        ([[[3.14]]], 0, 3.14),
+        ('str',     0,  'str'),
+        (np.NaN,    0,  np.NaN),
+        (5.1,       0,  5.1),
+    )
+    def test_zero(self, case):
+        self.check_redim_array(case)
+
+    @data(
+        ([],        3,  [[[]]]),
+        ([[]],      3,  [[[]]]),
+        ([[]],      2,  [[]]),
+        ([],        2,  [[]]),
+        ([],        1,  []),
+        ([[]],      1,  []),
+    )
+    def test_empty(self, case):
+        self.check_redim_array(case)
+
+    @data(
+        ([[1, 2], [3, 4]], 1,
+         r"Cannot reduce dimensions of \(2, 2\) from 2-->1!"),
+        ([[[1, 1]], [[2, 2]]], 1,
+         r"Cannot reduce dimensions of \(2, 1, 2\) from 3-->1!"),
+    )
+    def test_unreducable(self, case):
+        arr, dims, err = case
+        with self.assertRaisesRegex(ValueError, err):
+            res = xr._redim_array(np.array(arr), dims)
+            print(res)
+
+    @data(
+        ([1, 2, 3], 0,
+         r"Cannot reduce dimensions of \(3.\) from 1-->0!"),
+        ([[1, 2], [3, 4]], 0,
+         r"Cannot reduce dimensions of \(2, 2\) from 2-->0!"),
+        ([[1, 2]], 0,
+         r"Cannot reduce dimensions of \(1, 2\) from 2-->0!"),
+        ([1, 2], 0,
+         r"Cannot reduce dimensions of \(2,\) from 1-->0!"),
+        ([], 0,
+         r"Cannot reduce dimensions of \(0,\) from 1-->0!"),
+        ([[]], 0,
+         r"Cannot reduce dimensions of \(1, 0\) from 2-->0!"),
+    )
+    def test_unreducableZero(self, case):
+        arr, dims, msg = case
+        with self.assertRaisesRegex(ValueError, msg):
+            res = xr._redim_array(np.array(arr), dims)
+            print(res)
+
+
+@ddt
+class ReadRect(unittest.TestCase):
+
+    def setUp(self):
+        arr = np.array([
+            # A     B       C      D
+            [None, None,   None,  None],  # 1
+            [None, None,   None,  None],  # 2
+            [None, np.NaN, 5.1,   7.1],   # 3
+            [None, None,   43,    'str'],  # 4
+            [None, -1,     None,  None],  # 5
+        ])
+        self.sheet = ArraySheet(arr)
+
+    def check_read_capture_rect(self, case):
+        sheet = self.sheet
+
+        e1 = case[0]
+        e1 = xr.Edge(xr.Cell(*e1[:2]), *e1[2:])
+        e2 = case[1]
+        e2 = e2 and xr.Edge(xr.Cell(*e2[:2]), *e2[2:])
+        args = (sheet, e1, e2, case[2])
+        res = _read_rect_values(*args)
+        exp = case[3]
+        if isinstance(exp, list):
+            exp = np.asarray(exp, dtype=object)
+        else:
+            npt.assert_array_equal(res, exp)
+
+    @data(
+        # Edge-1            Edge2       Dims    Result
+        (('1', 'A'),        None,       None,   None),
+        (('4', 'D'),        None,       None,   'str'),
+        (('1', 'A', 'DR'),  None,       None,   np.NaN),
+        (('^', '^'),        None,       None,   np.NaN),
+        (('_', '^'),        None,       None,   -1),
+        (('_', 'C', 'U'),   None,       None,   43),
+    )
+    def test_Scalar(self, case):
+        self.check_read_capture_rect(case)
+
+    @data(
+        # Edge-1            Edge2       Dims    Result
+        (('1', 'A'),        None,       0,      None),
+        (('4', 'D'),        None,       1,      ['str']),
+        (('1', 'A', 'DR'),  None,       2,      [[np.NaN]]),
+        (('^', '^'),        None,       3,      [[[np.NaN]]]),
+        (('_', '^'),        None,       0,      -1),
+        (('_', 'C', 'U'),   None,       1,      [43]),
+    )
+    def test_Scalar_withDims(self, case):
+        self.check_read_capture_rect(case)
+
+    @data(
+        # Edge-1         Edge2          Dims    Result
+        (('1', 'A'),    ('1', 'A'),     None,   [None]),
+        (('4', 'D'),    ('4', 'D'),     None,   ['str']),
+        (('1', 'A', 'DR'), ('.', '.'),  None,   [np.NaN]),
+        (('^', '^'),    ('^', '^'),     None,   [np.NaN]),
+        (('_', '^'),    ('_', '^'),     None,   [-1]),
+        (list('_CU'),   list('^CD+'),   None,   [43]),
+    )
+    def test_Cell(self, case):
+        self.check_read_capture_rect(case)
+
+    @data(
+        # Edge-1         Edge2          Dims    Result
+        (('1', 'A'),    ('1', 'A'),     2,      [[None]]),
+        (('4', 'D'),    ('4', 'D'),     3,      [[['str']]]),
+        (('1', 'A', 'DR'), ('.', '.'),  0,      np.NaN),
+        (('^', '^'),    ('^', '^'),     1,      [np.NaN]),
+        (('_', '^'),    ('_', '^'),     2,      [[-1]]),
+        (list('_CU'),   list('^CD+'),   3,      [[[43]]]),
+    )
+    def test_Cell_withDims(self, case):
+        self.check_read_capture_rect(case)
+
+    @data(
+        # Edge-1         Edge2          Dims    Result
+        (('1', 'A'),    ('1', '_'),     None,   [None] * 4),
+        (('3', 'A'),    list('.BR+'),   None,   [None, np.NaN, 5.1, 7.1]),
+        (list('^_L'),   list('^AR'),    None,   [np.NaN, 5.1, 7.1]),
+        (('_', '_', 'UL'), list('..L'), None,   [43, 'str']),
+        (('_', '^'),    ('_', '_'),     None,   [-1, None, None]),
+        (list('^CR'),   list('^DR'),    None,   [5.1, 7.1]),
+    )
+    def test_Row(self, case):
+        self.check_read_capture_rect(case)
+
+    @data(
+        # Edge-1         Edge2          Dims    Result
+        (('1', 'A'),    ('1', '_'),     1,      [None] * 4),
+        (('3', 'A'),    list('.BR+'),   2,      [[None, np.NaN,  5.1, 7.1]]),
+        (list('^_L'),   list('^AR'),    3,      [[[np.NaN, 5.1, 7.1]]]),
+        (('_', '_', 'UL'), list('..L'), 2,      [[43, 'str']]),
+        (('_', '^'),    ('_', '_'),     1,      [-1, None, None]),
+        (list('^CR'),   list('^DR'),    2,      [[5.1, 7.1]]),
+    )
+    def test_Row_withDims(self, case):
+        self.check_read_capture_rect(case)
+
+    @data(
+        # Edge-1         Edge2          Dims    Result
+        (('1', 'A'),    ('_', 'A'),     None,   [[None] * 5]),
+        (('^', '^'),    list('_^'),     None,   [[5.1,  None, -1]]),
+        (('1', 'B'),    ('_', 'A', 'RU'), None,
+         [[None, None, np.NaN,  None, -1]]),
+        (('1', '_', 'LD'), list('..D'), None,   [[7.1,  'str']]),
+        (('_', 'C'), list('1CD+'),      None,   [[np.NaN, 43, None]]),
+        (('_', '_'), ('1', '_', 'D'),   None,   [[7.1,  'str', None]]),
+    )
+    def test_Col(self, case):
+        self.check_read_capture_rect(case)
+
+    @data(
+        # Edge-1         Edge2          Dims    Result
+        (('1', 'A'),    ('_', 'A'),     1,      [None] * 5),
+        (('^', '^'),    list('_^'),     2,      [[5.1,  None, -1]]),
+        (('1', 'B'),    ('_', 'A', 'RU'), 3,
+         [[[None, None, np.NaN,  None, -1]]]),
+        (('1', '_', 'LD'), list('..D'), 2,      [[7.1,  'str']]),
+        (('_', 'C'), list('1CD+'),      1,      [np.NaN, 43, None]),
+        (('_', '_'), ('1', '_', 'D'),   2,      [[7.1,  'str', None]]),
+    )
+    def test_Col_withDims(self, case):
+        self.check_read_capture_rect(case)
+
+
+class VsPandas(unittest.TestCase):
 
     def setUp(self):
         from tempfile import mkstemp
         self.tmp = '%s.xlsx' % mkstemp()[1]
         xl = [datetime(1900, 8, 2), True, None, u'', 'hi', 1.4, 5.0]
-        _make_sample_sheet(self.tmp, xl, ('Sheet1', 'Sheet2'))
-
-        self.states_matrix = np.array([[0, 1],
-                                       [1, 1],
-                                       [1, 1],
-                                       [1, 0],
-                                       [1, 0],
-                                       [1, 1],
-                                       [1, 1],
-                                       [1, 1]
-                                       ], dtype=bool)
+        _write_sample_sheet(self.tmp, xl, ('Sheet1', 'Sheet2'))
         self.sheet = Sheet(
             xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
 
@@ -807,248 +1014,18 @@ class Read1(unittest.TestCase):
         del self.sheet
         os.remove(self.tmp)
 
-    def test_parse_rect_values(self):
-        # row vector in the sheet [B2:B_]
-        args = (self.sheet, xr.Coords(1, 1), xr.Coords(7, 1))
-        res = [datetime(1900, 8, 2), True, None, None, 'hi', 1.4, 5]
-        self.assertEqual(xr.read_capture_rect(*args), res, str(args))
-
+    @unittest.expectedFailure
     def test_comparison_vs_pandas_parse_cell(self):
-
-        # row vector in the sheet [B2:B_]
-        args = (self.sheet, xr.Coords(1, 1), xr.Coords(7, 1))
-
-        res = xr.read_capture_rect(*args)
-
-        df = pd.read_excel(self.tmp, 'Sheet1')[0]
-
-        # in pandas None values are converted in float('nan')
-        df = df.where(pd.notnull(df), None).values.tolist()
-
-        self.assertEqual(df, res)
-
-
-class Read2(unittest.TestCase):  # FIXME: Why another class
-
-    def setUp(self):
-        from tempfile import mkstemp
-        self.tmp = '%s.xlsx' % mkstemp()[1]
-        xl = [
-            [None, None, None],
-            [5.1, 6.1, 7.1]
-        ]
-
-        _make_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
-
-        self.sheet = Sheet(
-            xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
-
-    def tearDown(self):
-        del self.sheet
-        os.remove(self.tmp)
-
-    def test_read_rect_values_Scalar(self):
-        sheet = self.sheet
-
-        # get single value [D7]
-        args = (sheet, xr.Edge(xr.Cell('7', 'D'), None))
-        self.assertEqual(_read_rect_values(*args), [0])
-
-        # get single value [A1]
-        args = (sheet, xr.Edge(xr.Cell('1', 'A'), None))
-        self.assertEqual(_read_rect_values(*args), [None])
-
-        # get single value [H9]
-        args = (sheet, xr.Edge(xr.Cell('9', 'H'), None))
-        self.assertEqual(_read_rect_values(*args), [None])
-
-    def test_read_rect_values_Vector(self):
-        sheet = self.sheet
-
-        # single value in the sheet [D7:D7]
-        args = (sheet,
-                xr.Edge(xr.Cell('7', 'D'), None),
-                xr.Edge(xr.Cell('7', 'D'), None))
-        self.assertEqual(_read_rect_values(*args), [0])
-
-        # get whole column [D_]
-        args = (sheet,
-                xr.Edge(xr.Cell('1', 'D'), None),
-                xr.Edge(xr.Cell('_', 'D'), None))
-        res = [None, None, None, None, None, None, 0, 1]
-        self.assertEqual(_read_rect_values(*args), res, str(args))
-
-        # get whole row [_6]
-        args = (sheet,
-                xr.Edge(xr.Cell('6', 'A'), None),
-                xr.Edge(xr.Cell('6', '_'), None))
-        res = [None, None, None, None, 0, 1, 2]
-        self.assertEqual(_read_rect_values(*args), res, str(args))
-
-        # minimum delimited row in the sheet [C6:_6]
-        args = (sheet,
-                xr.Edge(xr.Cell('6', 'C'), None),
-                xr.Edge(xr.Cell('6', '_'), None))
-        res = [None, None, 0, 1, 2]
-        self.assertEqual(_read_rect_values(*args), res, str(args))
-
-        # minimum delimited row in the sheet [_7:_7]
-        args = (sheet,
-                xr.Edge(xr.Cell('7', 'A'), None),
-                xr.Edge(xr.Cell('7', '_'), None))
-        res = [None, None, None, 0, None, None, None]
-        self.assertEqual(_read_rect_values(*args), res, str(args))
-
-        # minimum delimited row in the sheet [E6:_6]
-        args = (sheet,
-                xr.Edge(xr.Cell('1', 'A'), 'RD'),
-                xr.Edge(xr.Cell('.', '.'), 'R'))
-        res = [0, 1, 2]
-        self.assertEqual(_read_rect_values(*args), res, str(args))
-
-        # delimited row in the sheet [A7:D7]
-        args = (sheet,
-                xr.Edge(xr.Cell('7', 'A'), None),
-                xr.Edge(xr.Cell('7', 'D'), None))
-        res = [None, None, None, 0]
-        self.assertEqual(_read_rect_values(*args), res, str(args))
-
-        # minimum delimited column in the sheet [D_:D_]
-        args = (sheet,
-                xr.Edge(xr.Cell('^', 'D'), None),
-                xr.Edge(xr.Cell('_', 'D'), None))
-        res = [None, 0, 1]
-        self.assertEqual(_read_rect_values(*args), res, str(args))
-
-        # minimum delimited column in the sheet [D5:D_]
-        args = (sheet,
-                xr.Edge(xr.Cell('5', 'D'), None),
-                xr.Edge(xr.Cell('_', 'D'), None))
-        res = [None, None, 0, 1]
-        self.assertEqual(_read_rect_values(*args), res, str(args))
-
-        # minimum delimited column in the sheet [D_:D9]
-        args = (sheet,
-                xr.Edge(xr.Cell('^', 'D'), None),
-                xr.Edge(xr.Cell('9', 'D'), None))
-        res = [None, 0, 1, None]
-        self.assertEqual(_read_rect_values(*args), res)
-
-        # delimited column in the sheet [D3:D9]
-        args = (sheet,
-                xr.Edge(xr.Cell('3', 'D'), None),
-                xr.Edge(xr.Cell('9', 'D'), None))
-        res = [None, None, None, None, 0, 1, None]
-        self.assertEqual(_read_rect_values(*args), res)
-
-    def test_read_rect_values(self):
-        sheet = self.sheet
-
-        # minimum matrix in the sheet [:]
-        args = (sheet,
-                xr.Edge(xr.Cell('^', '^'), None),
-                xr.Edge(xr.Cell('_', '_'), None))
-        res = [
-            [None, 0, 1, 2],
-            [0, None, None, None],
-            [1, 5.1, 6.1, 7.1]
-        ]
-        self.assertEqual(_read_rect_values(*args), res)
-
-        # minimum delimited matrix in the sheet [E_:__]
-        args = (sheet,
-                xr.Edge(xr.Cell('^', 'E'), None),
-                xr.Edge(xr.Cell('_', '_'), None))
-        res = [
-            [0, 1, 2],
-            [None, None, None],
-            [5.1, 6.1, 7.1]
-        ]
-        self.assertEqual(_read_rect_values(*args), res)
-
-        # minimum delimited matrix in the sheet [E7:__]
-        args = (sheet,
-                xr.Edge(xr.Cell('7', 'E'), None),
-                xr.Edge(xr.Cell('_', '_'), None))
-        res = [
-            [None, None, None],
-            [5.1, 6.1, 7.1]
-        ]
-        self.assertEqual(_read_rect_values(*args), res)
-
-        # delimited matrix in the sheet [D6:F8]
-        args = (sheet,
-                xr.Edge(xr.Cell('6', 'D'), None),
-                xr.Edge(xr.Cell('8', 'F'), None))
-        res = [
-            [None, 0, 1],
-            [0, None, None],
-            [1, 5.1, 6.1]
-        ]
-        self.assertEqual(_read_rect_values(*args), res)
-
-        # minimum delimited matrix in the sheet [:F8]
-        args = (sheet,
-                xr.Edge(xr.Cell('8', 'F'), None),
-                xr.Edge(xr.Cell('^', '^'), None))
-        res = [
-            [None, 0, 1],
-            [0, None, None],
-            [1, 5.1, 6.1]
-        ]
-        self.assertEqual(_read_rect_values(*args), res)
-
-        # minimum delimited matrix in the sheet [7:F8]
-        args = (sheet,
-                xr.Edge(xr.Cell('8', 'F'), None),
-                xr.Edge(xr.Cell('7', '^'), None))
-        res = [
-            [0, None, None],
-            [1, 5.1, 6.1]
-        ]
-        self.assertEqual(_read_rect_values(*args), res)
-
-        # minimum delimited matrix in the sheet [D:F8]
-        args = (sheet,
-                xr.Edge(xr.Cell('8', 'F'), None),
-                xr.Edge(xr.Cell('8', 'D'), 'U', '+'))
-        res = [
-            [0, None, None],
-            [1, 5.1, 6.1]
-        ]
-        self.assertEqual(_read_rect_values(*args), res, str(args))
-
-        # delimited matrix in the sheet [A1:F8]
-        args = (sheet,
-                xr.Edge(xr.Cell('1', 'A'), None),
-                xr.Edge(xr.Cell('8', 'F'), None))
-        res = [
-            [None, None, None, None, None, None],
-            [None, None, None, None, None, None],
-            [None, None, None, None, None, None],
-            [None, None, None, None, None, None],
-            [None, None, None, None, None, None],
-            [None, None, None, None, 0, 1],
-            [None, None, None, 0, None, None],
-            [None, None, None, 1, 5.1, 6.1]
-        ]
-        self.assertEqual(_read_rect_values(*args), res, str(args))
-
-        # delimited matrix in the sheet [G9:__]
-        args = (sheet,
-                xr.Edge(xr.Cell('9', 'G'), None),
-                xr.Edge(xr.Cell('.', '.'), 'D'))
-        self.assertRaises(ValueError, _read_rect_values, *args)
-
-        # delimited matrix in the sheet [F9:__]
-        args = (sheet,
-                xr.Edge(xr.Cell('9', 'F'), None),
-                xr.Edge(xr.Cell('.', '.'), 'R'))
-        self.assertRaises(ValueError, _read_rect_values, *args)
+        xlref_res = xr.read_capture_rect(self.sheet,
+                                         xr.Coords(1, 1), xr.Coords(7, 1),
+                                         dims=1)
+        df = pd.read_excel(self.tmp, 'Sheet1')
+        pd_res = df[0].values
+        npt.assert_array_equal(xlref_res, pd_res)
 
 
 @unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
-class TestVsXlwings(unittest.TestCase):
+class VsXlwings(unittest.TestCase):
 
     def setUp(self):
         from tempfile import mkstemp
@@ -1057,7 +1034,7 @@ class TestVsXlwings(unittest.TestCase):
             [1, 2, None],
             [None, 6.1, 7.1]
         ]
-        _make_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
+        _write_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
 
         self.sheet = Sheet(
             xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
@@ -1067,7 +1044,7 @@ class TestVsXlwings(unittest.TestCase):
         os.remove(self.tmp)
 
     def test_xlwings_vs_get_xl_table(self):
-        import xlwings as xw
+        import xlwings as xw  # @UnresolvedImport
         # load Workbook for --> xlwings
         with xw_Workbook(self.tmp):
             resTarget = xw.Range("Sheet1", "D7").vertical.value
@@ -1151,7 +1128,8 @@ class TestVsXlwings(unittest.TestCase):
         st = xr.Edge(xr.coords2Cell(6, 5), None)
         nd = xr.Edge(xr.coords2Cell(6, 5), None)
         exp_moves = xr._parse_expansion_moves('LURD')
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd, exp_moves)
+        rect = xr.resolve_capture_rect(
+            states_matrix, up, dn, st, nd, exp_moves)
         res = [[None, 0, 1, 2],
                [0, 1, 2, None],
                [1, None, 6.1, 7.1]]
@@ -1190,19 +1168,19 @@ class TestVsXlwings(unittest.TestCase):
 class _Spreadsheet(unittest.TestCase):
 
     def test_get_states_matrix_Caching(self):
-        sheet = xr._Spreadsheet(sheet=None)
+        sheet = xr._Spreadsheet()
         obj = object()
         sheet._states_matrix = obj
         self.assertEqual(sheet.get_states_matrix(), obj)
 
     def test_get_margin_coords_Cached(self):
-        sheet = xr._Spreadsheet(sheet=None)
+        sheet = xr._Spreadsheet()
         obj = object()
         sheet._margin_coords = obj
         self.assertEqual(sheet.get_margin_coords(), obj)
 
     def test_get_margin_coords_Extracted_from_states_matrix(self):
-        sheet = xr._Spreadsheet(sheet=None)
+        sheet = xr._Spreadsheet()
         sheet._states_matrix = np.array([
             [0, 1, 1, 0]
         ])
@@ -1225,3 +1203,18 @@ class _Spreadsheet(unittest.TestCase):
         sheet._margin_coords = None
         margins = (xr.Cell(1, 0), xr.Cell(3, 2))
         self.assertEqual(sheet.get_margin_coords(), margins)
+
+
+class ArraySheet(xr._Spreadsheet):
+
+    def __init__(self, arr):
+        self._arr = np.asarray(arr)
+
+    def _read_states_matrix(self):
+        return ~np.equal(self._arr, None)
+
+    def read_rect(self, st, nd):
+        if nd is None:
+            return self._arr[st]
+        rect = np.array([st, nd]) + [[0, 0], [1, 1]]
+        return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])]
