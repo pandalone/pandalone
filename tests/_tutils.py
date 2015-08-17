@@ -11,6 +11,7 @@ import logging
 import os
 import sys
 from tempfile import mkdtemp
+import unittest
 
 import six
 
@@ -32,6 +33,14 @@ def _init_logging(module_name, loglevel=DEFAULT_LOG_LEVEL):
     return log
 
 _xl_installed = None
+
+##############
+#  Compatibility
+#
+try:  # pragma: no cover
+    assertRaisesRegex = unittest.TestCase.assertRaisesRegex
+except:  # pragma: no cover
+    assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
 
 
 def check_xl_installed():

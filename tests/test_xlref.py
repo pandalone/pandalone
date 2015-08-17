@@ -27,6 +27,8 @@ import pandas as pd
 from tests import _tutils
 from tests._tutils import check_xl_installed, xw_Workbook
 
+from ._tutils import assertRaisesRegex
+
 
 log = _tutils._init_logging(__name__)
 xl_installed = check_xl_installed()
@@ -307,8 +309,8 @@ class TargetOpposite(unittest.TestCase):
             res = xr._target_opposite(*args)
             self.assertEqual(res, xr.Coords(exp_row, exp_col), str(args))
         else:
-            with self.assertRaisesRegexp(ValueError, "No \w+-target for",
-                                         msg=str(args)):
+            with assertRaisesRegex(self, ValueError, "No \w+-target for",
+                                   msg=str(args)):
                 xr._target_opposite(*args)
 
     def check_target_opposite_state(self, land_row, land_col, moves,
@@ -391,8 +393,8 @@ class TargetSame(unittest.TestCase):
             res = xr._target_same(*args)
             self.assertEqual(res, xr.Coords(exp_row, exp_col), str(args))
         else:
-            with self.assertRaisesRegexp(ValueError, "No \w+-target for",
-                                         msg=str(args)):
+            with assertRaisesRegex(self, ValueError, "No \w+-target for",
+                                   msg=str(args)):
                 xr._target_same(*args)
 
     def check_target_same_state(self, inverse_sm, land_row, land_col, moves,
@@ -847,7 +849,7 @@ class Redim(unittest.TestCase):
     )
     def test_unreducable(self, case):
         arr, dims, err = case
-        with self.assertRaisesRegex(ValueError, err):
+        with assertRaisesRegex(self, ValueError, err, msg=str((arr, dims))):
             res = xr._redim_array(np.array(arr), dims)
             print(res)
 
@@ -866,8 +868,8 @@ class Redim(unittest.TestCase):
          r"Cannot reduce dimensions of \(1, 0\) from 2-->0!"),
     )
     def test_unreducableZero(self, case):
-        arr, dims, msg = case
-        with self.assertRaisesRegex(ValueError, msg):
+        arr, dims, err = case
+        with assertRaisesRegex(self, ValueError, err, msg=str((arr, dims))):
             res = xr._redim_array(np.array(arr), dims)
             print(res)
 

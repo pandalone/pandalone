@@ -15,8 +15,9 @@ from jsonschema.exceptions import ValidationError
 import numpy.testing as npt
 from pandalone import pandata
 from pandalone.pandata import PandelVisitor
-from pandalone.utils import assertRaisesRegex
 import pandas as pd
+
+from ._tutils import assertRaisesRegex
 
 
 class TestJsonPath(unittest.TestCase):

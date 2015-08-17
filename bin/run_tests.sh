@@ -33,7 +33,7 @@ else
 	echo "OK"
 fi
 
-if  python -c 'import sys; print(sys.version_info[0])'| grep -q '3'; then
+if  python -c 'import sys;  exit(not sys.version_info >= (3,4))'; then
     echo "+++ Checking all TCs, DTs & Coverage....";
 	out="$( python setup.py test_all  2>&1 )"
 	if [ $? -ne 0 ]; then

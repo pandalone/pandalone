@@ -185,6 +185,20 @@ _re_xl_ref_parser = re.compile(
         (?P<json>\{.*\})?                                # any json object [opt]
     )\s*$""",
     re.IGNORECASE | re.X)
+"""
+This regex produces the following capture-groups:
+
+- sheet: i.e. ``Sheet 1``
+- st_col: i.e. ``UPT``
+- st_row: i.e. ``8``
+- st_mov: i.e. ``LU``
+- st_mod: i.e. ``-``
+- nd_col: i.e. ``_``
+- nd_row: i.e. ``.``
+- nd_mov: i.e. ``D``
+- nd_mod: i.e. ``+``
+- exp_moves: i.e. ``LDL1``
+"""
 
 _re_exp_moves_splitter = re.compile('([LURD]\d+)', re.IGNORECASE)
 
@@ -273,21 +287,25 @@ def parse_xl_ref(xl_ref):
     Parses a :term:`xl-ref` and splits it in its "ingredients".
 
     :param str xl_ref:
-        a string with the following format:
-        <sheet>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):
-        <exp_moves>{<json>}
-        i.e.::
+            a string with the following format::
 
-            sheet!A1(DR):Z20(UL):L1U2R1D1{"json":"..."}
+                <sheet>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):<exp_moves>{<json>}
+
+            i.e.::
+
+                sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
 
     :return:
-        dictionary containing the following parameters::
+        dictionary containing the following parameters:
 
-        - sheet: str
+        - sheet: (str, int, None) i.e. ``sheet_name``
         - st_edge: (Edge, None) the 1st-ref, uncooked, with raw cell
+          i.e. ``Edge(land=Cell(row='8', col='UPT'), mov='LU', mod='-')``
         - nd_edge: (Edge, None) the 2nd-ref, uncooked, with raw cell
-        - exp_moves: (str) as found on the xl-ref
-        - json: parsed
+          i.e. ``Edge(land=Cell(row='_', col='.'), mov='D', mod='+')``
+        - exp_moves: (sequence, None), as i.e. ``LDL1`` parsed by 
+          :func:`_parse_expansion_moves()`
+        - json: dict i.e. ``{"dims: 1}``
 
     :rtype: dict
 
@@ -345,27 +363,18 @@ def parse_xl_url(url, base_url=None, backend=None):
 
             <url_file>#<sheet>!<1st_edge>:<2nd_edge>:<expand><json>
 
-        Exxample::
+        i.e.::
 
             file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
+
     :param XlUrl base_url:
     :param module backend: one of :mod:`_xlrd` or mod:`_xlwings`
 
     :return:
-        dictionary containing the following parameters:
+        the dictionary returned by :func:`parse_xl_ref()`  augmented 
+        with the following:
 
-        - url_file: i.e. ``foo.xls``
-        - sheet: i.e. ``Sheet 1``
-        - st_col: i.e. ``UPT``
-        - st_row: i.e. ``8``
-        - st_mov: i.e. ``LU``
-        - st_mod: i.e. ``-``
-        - nd_col: i.e. ``_``
-        - nd_row: i.e. ``.``
-        - nd_mov: i.e. ``D``
-        - nd_mod: i.e. ``+``
-        - exp_moves: i.e. ``LDL1``
-        - json: i.e. ``{"dims: 1}``
+        - url_file: i.e. ``path/to/file.xls``
 
     :rtype: dict
 
