@@ -68,24 +68,24 @@ def _parse_cell(xcell, epoch1904=False):
     """
 
     ctype = xcell.ctype
-
+    cvalue = xcell.value
     if ctype == XL_CELL_NUMBER:
         # GH5394 - Excel 'numbers' are always floats
         # it's a minimal perf hit and less suprising
-        val = int(xcell.value)
-        if val == xcell.value:
-            return val
-        return xcell.value
+        cint = int(cvalue)
+        if cint == cvalue:
+            return cint
+        return cvalue
     elif ctype in (XL_CELL_EMPTY, XL_CELL_BLANK):
-        return None
+        return None  # RECT-LOOP NEVER USE THIS
     elif ctype == XL_CELL_TEXT:
-        return xcell.value
+        return cvalue
     elif ctype == XL_CELL_BOOLEAN:
-        return bool(xcell.value)
+        return bool(cvalue)
     elif ctype == XL_CELL_DATE:  # modified from Pandas library
         if _xlrd_0_9_3:
             # Use the newer xlrd datetime handling.
-            d = xldate.xldate_as_datetime(xcell.value, epoch1904)
+            d = xldate.xldate_as_datetime(cvalue, epoch1904)
 
             # Excel doesn't distinguish between dates and time, so we treat
             # dates on the epoch as times only. Also, Excel supports 1900 and
@@ -104,7 +104,7 @@ def _parse_cell(xcell, epoch1904=False):
     elif ctype == XL_CELL_ERROR:
         return float('nan')
 
-    raise ValueError('invalid xcell type %s for %s' %
+    raise ValueError('Invalid XL-cell type(%s) for value(%s)!' %
                      (xcell.ctype, xcell.value))
 
 
@@ -118,7 +118,7 @@ class XlrdSheet(_Spreadsheet):
 
     def _read_states_matrix(self):
         """See super-method. """
-        types = np.array(self._sheet._cell_types)
+        types = np.asarray(self._sheet._cell_types)
         return (types != XL_CELL_EMPTY) & (types != XL_CELL_BLANK)
 
     def read_rect(self, st, nd):

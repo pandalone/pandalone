@@ -913,7 +913,7 @@ def _sort_rect(r1, r2):
     return rect
 
 
-def _expand_rect(states_matrix, r1, r2, exp_mov):
+def _expand_rect(states_matrix, r1, r2, exp_moves):
     """
     Applies the :term:`expansion-moves` based on the `states_matrix`.
 
@@ -925,7 +925,7 @@ def _expand_rect(states_matrix, r1, r2, exp_mov):
     :param Coords states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`_Spreadsheet.get_states_matrix()` to derrive it.
-    :param exp_mov:
+    :param exp_moves:
     :return: a sorted rect top-left/bottom-right
 
 
@@ -941,23 +941,23 @@ def _expand_rect(states_matrix, r1, r2, exp_mov):
         ... ], dtype=bool)
 
         >>> r1, r2 = (Coords(2, 1), Coords(2, 1))
-        >>> exp_mov = [_repeat_moves('U')]
-        >>> _expand_rect(states_matrix, r1, r2, exp_mov)
+        >>> exp_moves = [_repeat_moves('U')]
+        >>> _expand_rect(states_matrix, r1, r2, exp_moves)
         (Coords(row=2, col=1), Coords(row=2, col=1))
 
         >>> r1, r2 = (Coords(3, 1), Coords(2, 1))
-        >>> exp_mov = [_repeat_moves('R')]
-        >>> _expand_rect(states_matrix, r1, r2, exp_mov)
+        >>> exp_moves = [_repeat_moves('R')]
+        >>> _expand_rect(states_matrix, r1, r2, exp_moves)
         (Coords(row=2, col=1), Coords(row=3, col=4))
 
         >>> r1, r2 = (Coords(2, 1), Coords(6, 1))
-        >>> exp_mov = [_repeat_moves('R')]
-        >>> _expand_rect(states_matrix, r1, r2, exp_mov)
+        >>> exp_moves = [_repeat_moves('R')]
+        >>> _expand_rect(states_matrix, r1, r2, exp_moves)
         (Coords(row=2, col=1), Coords(row=6, col=5))
 
         >>> r1, r2 = (Coords(2, 3), Coords(2, 3))
-        >>> exp_mov = [_repeat_moves('LURD')]
-        >>> _expand_rect(states_matrix, r1, r2, exp_mov)
+        >>> exp_moves = [_repeat_moves('LURD')]
+        >>> _expand_rect(states_matrix, r1, r2, exp_moves)
         (Coords(row=1, col=1), Coords(row=3, col=4))
 
     """
@@ -981,19 +981,19 @@ def _expand_rect(states_matrix, r1, r2, exp_mov):
     # Sort rect's vertices top-left/bottom-right.
     #
     rect = _sort_rect(r1, r2)
-    rect = rect.T.flatten()  # ``[r1, r2, c1, c2]`` to use slices, below
-    for moves in exp_mov:
-        for directions in moves:
-            foundFull = False
-            for d in directions:
+    # ``[r1, r2, c1, c2]`` to use slices, below
+    rect = rect.T.flatten()
+    for dirs_repeated in exp_moves:
+        for dirs in dirs_repeated:
+            orig_rect = rect
+            for d in dirs:
                 exp_rect = rect + coord_offsets[d]
                 exp_vect_i = exp_rect[coord_indices[d]] + nd_offsets
-                exp_vect_v = states_matrix[
-                    slice(*exp_vect_i[:2]), slice(*exp_vect_i[2:])]
+                exp_vect_v = states_matrix[slice(*exp_vect_i[:2]),
+                                           slice(*exp_vect_i[2:])]
                 if exp_vect_v.any():
                     rect = exp_rect
-                    foundFull = True
-            if not foundFull:
+            if (rect == orig_rect).all():
                 break
 
     return Coords(*rect[[0, 2]]), Coords(*rect[[1, 3]])
@@ -1111,6 +1111,76 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
     return st, nd
 
 
+def _updim(matrix, dims):
+    """Append trivial dimensions to the left."""
+    new_shape = (1,) * (dims - matrix.ndim) + matrix.shape
+    return matrix.reshape(new_shape)
+
+
+def _downdim(matrix, dims):
+    matrix = matrix.squeeze()
+
+    if matrix.ndim > dims:
+        raise
+    elif matrix.ndim < dims:
+        matrix = _updim(matrix, dims)
+
+    return matrix
+
+
+def _redim(matrix, min_ndims=None, max_ndims=None):
+    """
+    Reshapes the output matrix of :func:`read_capture_rect()`.
+
+    If `max` < `min`, the bahavior is undefined.
+
+    :param matrix: what to redim
+    :type matrix: (nested) list, *
+    :param int, None min_ndims: minimum dimension of the result
+    :param int, None max_ndims: maximum dimension of the result
+
+    :return: reshaped matrix
+    :rtype: list of lists, list, *
+
+
+    Examples::
+
+        >>> _redim([1, 2], 2)
+        [[1, 2]]
+
+        >>> _redim([[1, 2]], None, 1)
+        [1, 2]
+
+        >>> _redim([], 2)
+        [[]]
+
+        >>> _redim([[3.14]], None, 0)
+        3.14
+
+        >>> _redim([[1, 2]], None, 0)
+        Traceback (most recent call last):
+        ValueError: Cannot reduce dimensions of (1, 2) from 2-->[None, 0]!
+
+    Note that it can squeeze in-between dimensions::
+
+        >>> _redim([[[1, 2]], [[3, 4]]], None, 2)
+        [[1, 2], [3, 4]]
+        
+    """
+    matrix = np.asarray(matrix)
+    ndims = matrix.ndim
+    try:
+        if min_ndims is not None and ndims < min_ndims:
+            matrix = _updim(matrix, min_ndims)
+        elif max_ndims is not None and ndims > max_ndims:
+            matrix = _downdim(matrix, max_ndims)
+            
+        return matrix.tolist()
+    except:
+        msg = "Cannot reduce dimensions of {} from {}-->[{}, {}]!"
+        raise ValueError(msg.format(matrix.shape, ndims, min_ndims, max_ndims))
+
+
 def read_capture_rect(sheet, st, nd, dims=None):
     """
     Extracts and process :term:`capture-rect` values from excel-sheet by applying :term:`filters`.
@@ -1124,24 +1194,25 @@ def read_capture_rect(sheet, st, nd, dims=None):
     :param Coords or None nd:
             the the bottom-right edge of capture-rect, inclusive
     :param int dims:    
-            the non-negative minimum num of dimensions for the results. 
-            The num of dims is derived from the shape of rect-edges according 
-            to the following matrix:
+            when 1-int, the minimum AND desired num of dimensions, 
+            otherwise [min, max].
+            Negatives do not raise in unscaleable cases (denoted with 'R').
+            The following matrices describe the affect of this parameter 
+            on the result's num-of-dimensions, dependent on the shape of 
+            the rect-edges (header-column):
 
-             ========  ====  =====  =====  =====
-             `dims`:   None      0      1      2
-             ========  ====  =====  =====  =====
-             1 coord:     0      0      1      2
-                cell:     1      0      1      2
-                 row:     1  raise      1      2
-                 col:     2  raise      1      2
-               table:     2  raise  raise      2
-             ========  ====  =====  =====  =====
-
+            ========  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==
+            min_dim:  NN  0N  01  02  1N  11  12  2N  22  N0  N1  N2
+            ========  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==
+            1 coord:   0   0   0   0   1   1   1   2   2   0   0   0
+               cell:   1   1   1   1   1   1   1   2   2   0   1   1
+                row:   1   1   1   1   1   1   1   2   2  R1   1   1
+                col:   2   1   1   2   1   1   2   2   2  R1   1   2
+              table:   2   2  R2   2   2  R2   2   2   2  R2  R2   2
+            ========  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==
 
     :return: 
-            The rect values appropriately dimensioned ,or 
-            a scalar-value if `nd` is `None`.
+            The rect values appropriately dimensioned.
 
     Examples::
 
@@ -1171,85 +1242,27 @@ def read_capture_rect(sheet, st, nd, dims=None):
     assert dims is None or dims >= 0, dims
 
     res = sheet.read_rect(st, nd)
-    res = np.asarray(res)
+
+    if nd is None and not dims:
+        return res
 
     if dims is None:
-        if nd is None:
-            dims = 0
-        else:
-            # Calculate dims implied by CaptureRect,
-            #    preserving cells as 1D & cols as 2D.
-            #
-            rect = np.array([st, nd])
-            coord_dims = (rect[0] - rect[1]).astype(bool)
-            rect_dims = coord_dims.sum()
-            col_dims = 2 * coord_dims[0]
-            dims = max(1, rect_dims, col_dims)
+        # Calculate dims implied by CaptureRect,
+        #    preserving cells as 1D & cols as 2D.
+        #
+        rect = np.array([st, nd])
+        coord_dims = (rect[0] - rect[1]).astype(bool)
+        rect_dims = coord_dims.sum()
+        col_dims = 2 * coord_dims[0]
+        dims = max(1, rect_dims, col_dims)
 
-    if res.ndim != dims:
-        res = _redim_array(res, dims)
+    res = _redim(res, dims, dims)
 
     return res
 
 
-def _redim_array(arr, dims):
-    """
-    :param array arr:     what to redim
-    :param int dims:      the new dimensions
-
-    Examples::
-
-        >>> _redim_array(np.array([[1, 2]]), 1)
-        array([1, 2])
-
-        >>> _redim_array(np.array([1, 2]), 2)
-        array([[1, 2]])
-
-        >>> _redim_array(np.array([]), 3)
-        array([], shape=(1, 1, 0), dtype=float64)
-
-        >>> _redim_array(np.array([[1, 2], [3, 4]]), 1)
-        Traceback (most recent call last):
-        ValueError: Cannot reduce dimensions of (2, 2) from 2-->1!
-
-        >>> _redim_array(np.array([[3.14]]), 0)
-        3.14
-
-        >>> repr(_redim_array(np.array([[]]), 0))
-        Traceback (most recent call last):
-        ValueError: Cannot reduce dimensions of (1, 0) from 2-->0!
-
-        >>> _redim_array(np.array([[1, 2]]), 0)
-        Traceback (most recent call last):
-        ValueError: Cannot reduce dimensions of (1, 2) from 2-->0!
-
-    """
-    def raise_cannot_reduce(a_shape, dims):
-        msg = "Cannot reduce dimensions of {} from {}-->{}!"
-        raise ValueError(msg.format(a_shape, len(a_shape), dims))
-    a_shape = arr.shape
-    if dims == 0:
-        if arr.size == 1:
-            return arr.item()
-        else:
-            raise_cannot_reduce(a_shape, dims)
-
-    if dims < arr.ndim:
-        arr = arr.squeeze()
-
-    if dims == arr.ndim:
-        return arr
-    elif dims < arr.ndim:
-        raise_cannot_reduce(a_shape, dims)
-    else:
-        # Append trivial dimensions o the left.
-        new_shape = (1,) * (dims - arr.ndim) + arr.shape
-
-        return arr.reshape(new_shape)
-
-
 _default_filters = {
-    None: {'fun': lambda x: x},  # TODO: Actually _redim_captured_values().
+    None: {'fun': lambda x: x},
     'nparray': {'fun': np.array},
     'dict': {'fun': dict},
     'sorted': {'fun': sorted}

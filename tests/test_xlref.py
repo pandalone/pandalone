@@ -8,6 +8,7 @@
 
 from __future__ import division, print_function, unicode_literals
 
+import contextlib
 from datetime import datetime
 import doctest
 import os
@@ -16,18 +17,19 @@ import unittest
 
 from ddt import ddt, data
 from numpy import testing as npt
+from pandas.io import parsers, excel as pdexcel
 import six
 import xlrd
 
 import numpy as np
 from pandalone.xlref import _xlrd as xd
 from pandalone.xlref import _xlref as xr
-from pandalone.xlref._xlrd import XlrdSheet as Sheet
+from pandalone.xlref._xlrd import XlrdSheet
 import pandas as pd
 from tests import _tutils
 from tests._tutils import check_xl_installed, xw_Workbook
 
-from ._tutils import assertRaisesRegex
+from ._tutils import assertRaisesRegex, CustomAssertions
 
 
 log = _tutils._init_logging(__name__)
@@ -45,14 +47,16 @@ def _make_xl_margins(sheet):
     return states_matrix, up, dn
 
 
-def _write_sample_sheet(path, matrix, sheet_name, startrow=0, startcol=0):
+def _write_sample_sheet(path, matrix, sheet_name, startrow=0, startcol=0,
+                        **kws):
     df = pd.DataFrame(matrix)
     with pd.ExcelWriter(path) as w:
         if isinstance(sheet_name, tuple):
             for s in sheet_name:
-                df.to_excel(w, s, startrow=startrow, startcol=startcol)
+                df.to_excel(w, s, startrow=startrow, startcol=startcol, **kws)
         else:
-            df.to_excel(w, sheet_name, startrow=startrow, startcol=startcol)
+            df.to_excel(w, sheet_name,
+                        startrow=startrow, startcol=startcol, **kws)
 
 
 def _make_local_url(fname, fragment=''):
@@ -789,16 +793,27 @@ class Capture(unittest.TestCase):
 @ddt
 class Redim(unittest.TestCase):
 
+    @data(
+        ([],                (0,)),
+        ([[[]]],            (1, 1, 0)),
+        ([[1, 2, 3]],       (1, 3)),
+        ([[[1, 2], [3, 4]]], (1, 2, 2)),
+        ([[[[1, 2]], [[3, 4]]]], (1, 2, 1, 2)),
+        (3.14,              ()),
+        ('ff',              ()),
+        (None,              ()),
+    )
+    def test_shape(self, case):
+        self.assertEqual(np.array(case[0]).shape, case[1])
+
     def check_redim_array(self, case):
         arr, dim, exp = case
-        res = xr._redim_array(np.array(arr), dim)
+        res = xr._redim(arr, dim, dim)
 
-        if isinstance(exp, list):
-            exp = np.asarray(exp, dtype=object)
-        if isinstance(exp, np.ndarray):
-            npt.assert_array_equal(res, exp)
-        else:
-            npt.assert_equal(res, exp)
+        self.assertEqual(res, exp)
+#         if isinstance(exp, list):
+#             exp = np.asarray(exp, dtype=object)
+#             npt.assert_equal(res, exp)
 
     @data(
         ([1],       1,  [1]),
@@ -820,11 +835,11 @@ class Redim(unittest.TestCase):
         self.check_redim_array(case)
 
     @data(
-        ([np.NaN],  0,  np.NaN),
+        ([None],    0,  None),
         ([['str']], 0,  'str'),
         ([[[3.14]]], 0, 3.14),
         ('str',     0,  'str'),
-        (np.NaN,    0,  np.NaN),
+        (None,      0,  None),
         (5.1,       0,  5.1),
     )
     def test_zero(self, case):
@@ -842,35 +857,47 @@ class Redim(unittest.TestCase):
         self.check_redim_array(case)
 
     @data(
-        ([[1, 2], [3, 4]], 1,
-         r"Cannot reduce dimensions of \(2, 2\) from 2-->1!"),
-        ([[[1, 1]], [[2, 2]]], 1,
-         r"Cannot reduce dimensions of \(2, 1, 2\) from 3-->1!"),
+        ([[1, 2], [3, 4]], (None, 1),
+         r"Cannot reduce dimensions of \(2, 2\) from 2-->\[None, 1\]!"),
+        ([[1, 2], [3, 4]], (0, 1),
+         r"Cannot reduce dimensions of \(2, 2\) from 2-->\[0, 1\]!"),
+        ([[1, 2], [3, 4]], (1, 1),
+         r"Cannot reduce dimensions of \(2, 2\) from 2-->\[1, 1\]!"),
+
+        ([[[1, 1]], [[2, 2]]], (None, 1),
+         r"Cannot reduce dimensions of \(2, 1, 2\) from 3-->\[None, 1\]!"),
+        ([[[1, 1]], [[2, 2]]], (0, 1),
+         r"Cannot reduce dimensions of \(2, 1, 2\) from 3-->\[0, 1\]!"),
+        ([[[1, 1]], [[2, 2]]], (1, 1),
+         r"Cannot reduce dimensions of \(2, 1, 2\) from 3-->\[1, 1\]!"),
     )
-    def test_unreducable(self, case):
+    def test_cannot_downscale(self, case):
         arr, dims, err = case
         with assertRaisesRegex(self, ValueError, err, msg=str((arr, dims))):
-            res = xr._redim_array(np.array(arr), dims)
+            res = xr._redim(arr, *dims)
             print(res)
 
     @data(
-        ([1, 2, 3], 0,
-         r"Cannot reduce dimensions of \(3.\) from 1-->0!"),
-        ([[1, 2], [3, 4]], 0,
-         r"Cannot reduce dimensions of \(2, 2\) from 2-->0!"),
-        ([[1, 2]], 0,
-         r"Cannot reduce dimensions of \(1, 2\) from 2-->0!"),
-        ([1, 2], 0,
-         r"Cannot reduce dimensions of \(2,\) from 1-->0!"),
-        ([], 0,
-         r"Cannot reduce dimensions of \(0,\) from 1-->0!"),
-        ([[]], 0,
-         r"Cannot reduce dimensions of \(1, 0\) from 2-->0!"),
+        ([1, 2, 3], (0, 0),
+         r"Cannot reduce dimensions of \(3,\) from 1-->\[0, 0\]!"),
+        ([1, 2, 3], (None, 0),
+         r"Cannot reduce dimensions of \(3,\) from 1-->\[None, 0\]!"),
+
+        ([[1, 2], [3, 4]], (0, 0),
+         r"Cannot reduce dimensions of \(2, 2\) from 2-->\[0, 0\]!"),
+        ([[1, 2]], (0, 0),
+         r"Cannot reduce dimensions of \(1, 2\) from 2-->\[0, 0\]!"),
+        ([1, 2], (0, 0),
+         r"Cannot reduce dimensions of \(2,\) from 1-->\[0, 0\]!"),
+        ([], (0, 0),
+         r"Cannot reduce dimensions of \(0,\) from 1-->\[0, 0\]!"),
+        ([[]], (0, 0),
+         r"Cannot reduce dimensions of \(1, 0\) from 2-->\[0, 0\]!"),
     )
     def test_unreducableZero(self, case):
         arr, dims, err = case
         with assertRaisesRegex(self, ValueError, err, msg=str((arr, dims))):
-            res = xr._redim_array(np.array(arr), dims)
+            res = xr._redim(arr, *dims)
             print(res)
 
 
@@ -1002,28 +1029,64 @@ class ReadRect(unittest.TestCase):
         self.check_read_capture_rect(case)
 
 
-class VsPandas(unittest.TestCase):
+@ddt
+class VsPandas(unittest.TestCase, CustomAssertions):
 
-    def setUp(self):
-        from tempfile import mkstemp
-        self.tmp = '%s.xlsx' % mkstemp()[1]
-        xl = [datetime(1900, 8, 2), True, None, u'', 'hi', 1.4, 5.0]
-        _write_sample_sheet(self.tmp, xl, ('Sheet1', 'Sheet2'))
-        self.sheet = Sheet(
-            xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
+    @contextlib.contextmanager
+    def sample_xl_file(self, matrix):
+        import tempfile
+        try:
+            tmp_file = '%s.xlsx' % tempfile.mktemp()
+            _write_sample_sheet(tmp_file, matrix, 'Sheet1')
 
-    def tearDown(self):
-        del self.sheet
-        os.remove(self.tmp)
+            yield tmp_file
+        finally:
+            os.unlink(tmp_file)
 
-    @unittest.expectedFailure
-    def test_comparison_vs_pandas_parse_cell(self):
-        xlref_res = xr.read_capture_rect(self.sheet,
-                                         xr.Coords(1, 1), xr.Coords(7, 1),
-                                         dims=1)
-        df = pd.read_excel(self.tmp, 'Sheet1')
-        pd_res = df[0].values
-        npt.assert_array_equal(xlref_res, pd_res)
+    dt = datetime(1900, 8, 2)
+    m1 = np.array([
+        # A     B       C      D       E
+        [1,    True,   None, False,  None],   # 1
+        [5,    True,   dt,    u'',    3.14],  # 2
+        [7,    False,  5.1,   7.1,    ''],    # 3
+        [9,    True,   43,    'str',  dt],    # 4
+    ])
+
+    def check_vs_read_df(self, matrix, st, nd, dims,
+                         header=None):
+        with self.sample_xl_file(matrix.tolist()) as xl_file:
+            pd_df = pd.read_excel(xl_file, 'Sheet1')
+            xlrd_wb = xlrd.open_workbook(xl_file)
+            self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
+            xlref_res = xr.read_capture_rect(self.sheet, st, nd, dims)
+            if header is not None:
+                xlref_res[header] = pdexcel._trim_excel_header(
+                    xlref_res[header])
+            xlref_df = parsers.TextParser(xlref_res,
+                                          header=header, parse_dates=False,
+                                          convert_float=True,
+                                          ).read()
+            msg = '\n---\n%s\n--\n%s\n-\n%s' % (xlref_res, xlref_df, pd_df)
+            self.assertTrue(xlref_df.equals(pd_df), msg=msg)
+
+    def test_vs_read_df(self):
+        self.check_vs_read_df(
+            self.m1, xr.Coords(0, 0), xr.Coords(4, 5), None, header=0)
+
+    @unittest.expectedFailure  # Dims mismatch.
+    @data(
+        *range(m1.shape[0])
+    )
+    def test_vs_read_df_Row(self, i):
+        self.check_vs_read_df(
+            self.m1[i, :], xr.Coords(1, 1), xr.Coords(1, 5), 2)
+
+    @data(
+        *range(m1.shape[1])
+    )
+    def test_vs_read_df_Col(self, i):
+        self.check_vs_read_df(
+            self.m1[:, i], xr.Coords(1, 1), xr.Coords(4, 1), 2)
 
 
 @unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
@@ -1038,8 +1101,8 @@ class VsXlwings(unittest.TestCase):
         ]
         _write_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
 
-        self.sheet = Sheet(
-            xlrd.open_workbook(self.tmp).sheet_by_name('Sheet1'))
+        xlrd_wb = xlrd.open_workbook(self.tmp)
+        self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
 
     def tearDown(self):
         del self.sheet
@@ -1219,4 +1282,4 @@ class ArraySheet(xr._Spreadsheet):
         if nd is None:
             return self._arr[st]
         rect = np.array([st, nd]) + [[0, 0], [1, 1]]
-        return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])]
+        return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])].tolist()
