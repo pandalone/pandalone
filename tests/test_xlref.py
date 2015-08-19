@@ -13,11 +13,12 @@ from datetime import datetime
 import doctest
 import os
 import sys
+import tempfile
 import unittest
+from unittest.mock import MagicMock
 
 from ddt import ddt, data
 from numpy import testing as npt
-from pandas.io import parsers, excel as pdexcel
 import six
 import xlrd
 
@@ -47,16 +48,14 @@ def _make_xl_margins(sheet):
     return states_matrix, up, dn
 
 
-def _write_sample_sheet(path, matrix, sheet_name, startrow=0, startcol=0,
-                        **kws):
+def _write_sample_sheet(path, matrix, sheet_name, **kws):
     df = pd.DataFrame(matrix)
     with pd.ExcelWriter(path) as w:
         if isinstance(sheet_name, tuple):
             for s in sheet_name:
-                df.to_excel(w, s, startrow=startrow, startcol=startcol, **kws)
+                df.to_excel(w, s, **kws)
         else:
-            df.to_excel(w, sheet_name,
-                        startrow=startrow, startcol=startcol, **kws)
+            df.to_excel(w, sheet_name, **kws)
 
 
 def _make_local_url(fname, fragment=''):
@@ -64,12 +63,16 @@ def _make_local_url(fname, fragment=''):
     return 'file:///{}#{}'.format(fpath, fragment)
 
 
-def _read_rect_values(sheet, st_edge, nd_edge, dims):
+def _read_rect_values(sheet, st_edge, nd_edge, dims, scream=True):
     states_matrix = sheet.get_states_matrix()
     up, dn = sheet.get_margin_coords()
     st, nd = xr.resolve_capture_rect(states_matrix, up, dn,
                                      st_edge, nd_edge)  # or Edge(None, None))
-    return xr.read_capture_rect(sheet, st, nd, dims)
+    v = sheet.read_rect(st, nd)
+    if dims is not None:
+        v = xr._redim(v, dims, scream=scream)
+
+    return v
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
@@ -804,7 +807,7 @@ class Redim(unittest.TestCase):
         (None,              ()),
     )
     def test_shape(self, case):
-        self.assertEqual(np.array(case[0]).shape, case[1])
+        self.assertEqual(xr._shape(case[0]), case[1])
 
     def check_redim_array(self, case):
         arr, dim, exp = case
@@ -857,48 +860,64 @@ class Redim(unittest.TestCase):
         self.check_redim_array(case)
 
     @data(
-        ([[1, 2], [3, 4]], (None, 1),
-         r"Cannot reduce dimensions of \(2, 2\) from 2-->\[None, 1\]!"),
-        ([[1, 2], [3, 4]], (0, 1),
-         r"Cannot reduce dimensions of \(2, 2\) from 2-->\[0, 1\]!"),
-        ([[1, 2], [3, 4]], (1, 1),
-         r"Cannot reduce dimensions of \(2, 2\) from 2-->\[1, 1\]!"),
-
-        ([[[1, 1]], [[2, 2]]], (None, 1),
-         r"Cannot reduce dimensions of \(2, 1, 2\) from 3-->\[None, 1\]!"),
-        ([[[1, 1]], [[2, 2]]], (0, 1),
-         r"Cannot reduce dimensions of \(2, 1, 2\) from 3-->\[0, 1\]!"),
-        ([[[1, 1]], [[2, 2]]], (1, 1),
-         r"Cannot reduce dimensions of \(2, 1, 2\) from 3-->\[1, 1\]!"),
+        ([[], []], 1,
+         r"Cannot reduce shape\(2, 0\) from 2-->1!"),
+        ([[1, 2], [3, 4]], 1,
+         r"Cannot reduce shape\(2, 2\) from 2-->1!"),
+        ([[[1, 1]], [[2, 2]]], 1,
+         r"Cannot reduce shape\(2, 1, 2\) from 3-->1!"),
     )
     def test_cannot_downscale(self, case):
-        arr, dims, err = case
-        with assertRaisesRegex(self, ValueError, err, msg=str((arr, dims))):
-            res = xr._redim(arr, *dims)
+        arr, ndim, err = case
+        with assertRaisesRegex(self, ValueError, err, msg=str((arr, ndim))):
+            res = xr._redim(arr, ndim, True)
             print(res)
 
     @data(
-        ([1, 2, 3], (0, 0),
-         r"Cannot reduce dimensions of \(3,\) from 1-->\[0, 0\]!"),
-        ([1, 2, 3], (None, 0),
-         r"Cannot reduce dimensions of \(3,\) from 1-->\[None, 0\]!"),
-
-        ([[1, 2], [3, 4]], (0, 0),
-         r"Cannot reduce dimensions of \(2, 2\) from 2-->\[0, 0\]!"),
-        ([[1, 2]], (0, 0),
-         r"Cannot reduce dimensions of \(1, 2\) from 2-->\[0, 0\]!"),
-        ([1, 2], (0, 0),
-         r"Cannot reduce dimensions of \(2,\) from 1-->\[0, 0\]!"),
-        ([], (0, 0),
-         r"Cannot reduce dimensions of \(0,\) from 1-->\[0, 0\]!"),
-        ([[]], (0, 0),
-         r"Cannot reduce dimensions of \(1, 0\) from 2-->\[0, 0\]!"),
+        ([1, 2, 3], 0,
+         r"Cannot reduce shape\(3,\) from 1-->0!"),
+        ([[1, 2], [3, 4]], 0,
+         r"Cannot reduce shape\(2, 2\) from 2-->0!"),
+        ([[1, 2]], 0,
+         r"Cannot reduce shape\(1, 2\) from 2-->0!"),
+        ([1, 2], 0,
+         r"Cannot reduce shape\(2,\) from 1-->0!"),
+        ([], 0,
+         r"Cannot reduce shape\(0,\) from 1-->0!"),
+        ([[]], 0,
+         r"Cannot reduce shape\(1, 0\) from 2-->0!"),
     )
     def test_unreducableZero(self, case):
-        arr, dims, err = case
-        with assertRaisesRegex(self, ValueError, err, msg=str((arr, dims))):
-            res = xr._redim(arr, *dims)
+        arr, ndim, err = case
+        with assertRaisesRegex(self, ValueError, err, msg=str((arr, ndim))):
+            res = xr._redim(arr, ndim, True)
             print(res)
+
+    @data(
+        (dict(),                        (None, False)),
+        (dict(dims=None),               (None, False)),
+        (dict(dims=[0, 1, 1, 1, 4]),        ((0, 1, 1, 1, 4), False)),
+        (dict(dims=[0, 1, 1, 1, 4, True]),  ((0, 1, 1, 1, 4), True)),
+
+        (dict(dims=[0, 1, 1, 1, 4, 5]),     ((0, 1, 1, 1, 4), True)),
+    )
+    def test_json_extract_dims(self, case):
+        json, exp = case
+        log = MagicMock()
+        res = xr._json_extract_dims(json, log)
+        self.assertEqual(res, exp)
+        self.assertEqual(len(log.mock_calls), 0, log.mock_calls)
+
+    @data(
+        (dict(dims=[0, 1, 1, 1, 4, 5, 6]),     ((0, 1, 1, 1, 4), True), 1),
+        (dict(dims=[0, 1, 1, 1, 4, 5, 6, 7]), ((0, 1, 1, 1, 4), True), 1),
+    )
+    def test_json_extract_dims_ExtraArgs(self, case):
+        json, exp, mock_calls = case
+        log = MagicMock()
+        res = xr._json_extract_dims(json, log)
+        self.assertEqual(res, exp)
+        self.assertEqual(len(log.mock_calls), mock_calls, log.mock_calls)
 
 
 @ddt
@@ -1033,15 +1052,17 @@ class ReadRect(unittest.TestCase):
 class VsPandas(unittest.TestCase, CustomAssertions):
 
     @contextlib.contextmanager
-    def sample_xl_file(self, matrix):
-        import tempfile
+    def sample_xl_file(self, matrix, **df_write_kws):
         try:
             tmp_file = '%s.xlsx' % tempfile.mktemp()
-            _write_sample_sheet(tmp_file, matrix, 'Sheet1')
+            _write_sample_sheet(tmp_file, matrix, 'Sheet1', **df_write_kws)
 
             yield tmp_file
         finally:
-            os.unlink(tmp_file)
+            try:
+                os.unlink(tmp_file)
+            except:
+                log.warning("Failed deleting %s!", tmp_file, exc_info=1)
 
     dt = datetime(1900, 8, 2)
     m1 = np.array([
@@ -1052,49 +1073,62 @@ class VsPandas(unittest.TestCase, CustomAssertions):
         [9,    True,   43,    'str',  dt],    # 4
     ])
 
-    def check_vs_read_df(self, matrix, st, nd, dims,
-                         header=None):
-        with self.sample_xl_file(matrix.tolist()) as xl_file:
+    def test_pandas_can_write_multicolumn(self):
+        df = pd.DataFrame([1, 2])
+        df.columns = pd.MultiIndex.from_arrays([list('A'), list('a')])
+        err = "Writing as Excel with a MultiIndex is not yet implemented."
+        msg = ("\n\nTIP: Pandas-%s probably saves DFs with MultiIndex columns now. \n"
+               "     Update _xlref._to_df() accordingly!")
+        with assertRaisesRegex(self, NotImplementedError, err,
+                               msg=msg % pd.__version__):
+            try:
+                tmp_file = '%s.xlsx' % tempfile.mktemp()
+                df.to_excel(tmp_file)
+            finally:
+                try:
+                    os.unlink(tmp_file)
+                except:
+                    pass
+
+    def check_vs_read_df(self, table, st, nd, write_df_kws={}, parse_df_kws={}):
+        with self.sample_xl_file(table, **write_df_kws) as xl_file:
             pd_df = pd.read_excel(xl_file, 'Sheet1')
             xlrd_wb = xlrd.open_workbook(xl_file)
             self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
-            xlref_res = xr.read_capture_rect(self.sheet, st, nd, dims)
-            if header is not None:
-                xlref_res[header] = pdexcel._trim_excel_header(
-                    xlref_res[header])
-            xlref_df = parsers.TextParser(xlref_res,
-                                          header=header, parse_dates=False,
-                                          convert_float=True,
-                                          ).read()
+            xlref_res = xr.read_capture_rect(self.sheet, st, nd)
+            xlref_df = xr._to_df(xlref_res, **parse_df_kws)
+
             msg = '\n---\n%s\n--\n%s\n-\n%s' % (xlref_res, xlref_df, pd_df)
             self.assertTrue(xlref_df.equals(pd_df), msg=msg)
 
     def test_vs_read_df(self):
-        self.check_vs_read_df(
-            self.m1, xr.Coords(0, 0), xr.Coords(4, 5), None, header=0)
+        self.check_vs_read_df(self.m1.tolist(),
+                              xr.Coords(0, 0), xr.Coords(4, 5),
+                              parse_df_kws=dict(header=0))
 
     @unittest.expectedFailure  # Dims mismatch.
     @data(
         *range(m1.shape[0])
     )
     def test_vs_read_df_Row(self, i):
-        self.check_vs_read_df(
-            self.m1[i, :], xr.Coords(1, 1), xr.Coords(1, 5), 2)
+        self.check_vs_read_df(self.m1[i, :].tolist(),
+                              xr.Coords(1, 1), xr.Coords(1, 5),
+                              parse_df_kws=dict(header=None))
 
     @data(
         *range(m1.shape[1])
     )
     def test_vs_read_df_Col(self, i):
-        self.check_vs_read_df(
-            self.m1[:, i], xr.Coords(1, 1), xr.Coords(4, 1), 2)
+        self.check_vs_read_df(self.m1[:, i].tolist(),
+                              xr.Coords(1, 1), xr.Coords(4, 1),
+                              parse_df_kws=dict(header=None))
 
 
 @unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
 class VsXlwings(unittest.TestCase):
 
     def setUp(self):
-        from tempfile import mkstemp
-        self.tmp = '%s.xlsx' % mkstemp()[1]
+        self.tmp = '%s.xlsx' % tempfile.mktemp()[1]
         xl = [
             [1, 2, None],
             [None, 6.1, 7.1]

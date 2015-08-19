@@ -1111,35 +1111,170 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
     return st, nd
 
 
-def _updim(matrix, dims):
-    """Append trivial dimensions to the left."""
-    new_shape = (1,) * (dims - matrix.ndim) + matrix.shape
-    return matrix.reshape(new_shape)
-
-
-def _downdim(matrix, dims):
-    matrix = matrix.squeeze()
-
-    if matrix.ndim > dims:
-        raise
-    elif matrix.ndim < dims:
-        matrix = _updim(matrix, dims)
-
-    return matrix
-
-
-def _redim(matrix, min_ndims=None, max_ndims=None):
+def _json_extract_dims(json, log=log):
     """
-    Reshapes the output matrix of :func:`read_capture_rect()`.
+    :param json: i.e. ``{'dims': [0,1, True]}`` or ``{'dims': {'max': 1}}``
+    :return:    a 3-tuple ``(min_ndims, max_ndims, scream)``
+    :rtype:    tuple
+    """
+    def _parse_dims(nd0, nd1, nd2, nd3, nd4, scream=False, *args, **kws):
+        if args:
+            log.warning("Unknown `dims` arg(%s) ignored!", args)
+        if kws:
+            log.warning("Unknown `dims` kws(%s) ignored!", kws)
+        return tuple(int(i) for i in (nd0, nd1, nd2, nd3, nd4)), bool(scream)
 
-    If `max` < `min`, the bahavior is undefined.
+    dims = json.pop('dims', None)
+    if not dims:
+        return None, False
+    try:
+        if isinstance(dims, dict):
+            return _parse_dims(**dims)
+        else:
+            return _parse_dims(*dims)
+    except (ValueError, TypeError):
+        msg = ("Invalid dims(%s)! \n  "
+               "Expected 5 int-ndims(scalar,cell,row,col,2d) followed by optional bool(scream=False)")
+    raise ValueError(msg % dims)
 
-    :param matrix: what to redim
-    :type matrix: (nested) list, *
-    :param int, None min_ndims: minimum dimension of the result
-    :param int, None max_ndims: maximum dimension of the result
 
-    :return: reshaped matrix
+def _classify_rect_shape(st, nd):
+    """
+    Identifies rect from its edge-coordinates (row, col, 2d-table)..
+
+    :param Coords st:
+            the top-left edge of capture-rect, inclusive
+    :param Coords or None nd:
+            the bottom-right edge of capture-rect, inclusive
+    :return: 
+            in int based on the input like that:
+
+            - 0: only `st` given 
+            - 1: `st` and `nd` point the same cell 
+            - 2: row 
+            - 3: col 
+            - 4: 2d-table 
+
+    Examples::
+
+        >>> _classify_rect_shape((1,1), None)
+        0
+        >>> _classify_rect_shape((2,2), (2,2))
+        1
+        >>> _classify_rect_shape((2,2), (2,20))
+        2
+        >>> _classify_rect_shape((2,2), (20,2))
+        3
+        >>> _classify_rect_shape((2,2), (20,20))
+        4
+    """
+    if nd is None:
+        return 0
+    rows = nd[0] - st[0]
+    cols = nd[1] - st[1]
+    return 1 + bool(cols) + 2 * bool(rows)
+
+
+def _decide_ndim_by_rect_shape(shape_idx, ndims_list):
+    return ndims_list[shape_idx]
+
+
+def _shape(values):
+    """
+    :param values: 
+            any object or nested listed with the same number of elements 
+            on every dimension
+
+    Examples::
+
+        >>> _shape([[]])
+        (1, 0)
+
+        >>> _shape([[[1,2], [3,4]]])
+        (1, 2, 2)
+
+        >>> _shape(3.14)
+        ()
+
+        >>> _shape(None)
+        ()
+    """
+    try:
+        if isinstance(values, list):
+            return (len(values),) + _shape(values[0])
+    except IndexError:
+        return (0,)  # empty list
+    return ()
+
+
+def _updim(values, offset):
+    """
+    Append trivial dimensions to the left.
+
+    :param values:      The scalar ot 2D-results of :meth:`Sheet.read_rect()`
+    :param int offset:  How many new dimension to add to the left.
+    """
+    for _ in range(offset):
+        values = [values]
+    return values
+
+
+def _squeeze(values, vshape=None, offset=None):
+    """
+    Reduce dimensions of table as possible.
+
+    :param values:      The scalar ot 2D-results of :meth:`Sheet.read_rect()`
+    :param tuple vshape: the vshape of the values, from :func:`_shape()`
+    :param int or None offset: 
+            A non-positive increamented on each recurse, 
+            stop squeezing when 0, ignored if `None`.
+    """
+    if vshape is None:
+        vshape = _shape(values)
+    elif not vshape or offset == 0:
+        return values
+
+    d, *sub_shape = vshape
+    if d == 1:
+        values = _squeeze(values[0], sub_shape, offset and offset + 1)
+    else:
+        values = [_squeeze(v, sub_shape, offset) for v in values]
+
+    return values
+
+
+def _downdim(values, new_ndim, scream=False, vshape=None):
+    """
+    Append trivial dimensions to the left.
+
+    :param values:       The scalar ot 2D-results of :meth:`Sheet.read_rect()`
+    :param int new_ndim: the new dimension
+    """
+    if not vshape:
+        vshape = _shape(values)
+    ndim = len(vshape)
+
+    ndim_offset = new_ndim - len(_shape(values))
+    values = _squeeze(values, vshape, ndim_offset)
+    ndim_offset = new_ndim - len(_shape(values))
+    if ndim_offset < 0 and scream:
+        msg = "Cannot reduce shape{} from {}-->{}!"
+        raise ValueError(msg.format(vshape, ndim, new_ndim))
+    if ndim_offset > 0:
+        values = _updim(values, ndim_offset)
+
+    return values
+
+
+def _redim(values, new_ndim, scream=False):
+    """
+    Reshapes the :term:`capture-rect` values of :func:`read_capture_rect()`.
+
+    :param values:      The scalar ot 2D-results of :meth:`Sheet.read_rect()`
+    :type values: (nested) list, *
+    :param int or None new_ndim: 
+
+    :return: reshaped values
     :rtype: list of lists, list, *
 
 
@@ -1148,71 +1283,52 @@ def _redim(matrix, min_ndims=None, max_ndims=None):
         >>> _redim([1, 2], 2)
         [[1, 2]]
 
-        >>> _redim([[1, 2]], None, 1)
+        >>> _redim([[1, 2]], 1)
         [1, 2]
 
         >>> _redim([], 2)
         [[]]
 
-        >>> _redim([[3.14]], None, 0)
+        >>> _redim([[3.14]], 0)
         3.14
 
-        >>> _redim([[1, 2]], None, 0)
+        >>> _redim([[11, 22]], 0)
+        [11, 22]
+
+        >>> _redim([[11, 22]], 0, True)
         Traceback (most recent call last):
-        ValueError: Cannot reduce dimensions of (1, 2) from 2-->[None, 0]!
+        ValueError: Cannot reduce shape(1, 2) from 2-->0!
 
-    Note that it can squeeze in-between dimensions::
-
-        >>> _redim([[[1, 2]], [[3, 4]]], None, 2)
-        [[1, 2], [3, 4]]
-        
     """
-    matrix = np.asarray(matrix)
-    ndims = matrix.ndim
-    try:
-        if min_ndims is not None and ndims < min_ndims:
-            matrix = _updim(matrix, min_ndims)
-        elif max_ndims is not None and ndims > max_ndims:
-            matrix = _downdim(matrix, max_ndims)
-            
-        return matrix.tolist()
-    except:
-        msg = "Cannot reduce dimensions of {} from {}-->[{}, {}]!"
-        raise ValueError(msg.format(matrix.shape, ndims, min_ndims, max_ndims))
+    vshape = _shape(values)
+    ndim = len(vshape)
+    ndim_offset = new_ndim - ndim
+    if ndim_offset > 0:
+        values = _updim(values, ndim_offset)
+    elif ndim_offset < 0:
+        values = _downdim(values, new_ndim, scream, vshape)
+
+    return values
 
 
-def read_capture_rect(sheet, st, nd, dims=None):
+def read_capture_rect(sheet, st, nd, json=None):
     """
     Extracts and process :term:`capture-rect` values from excel-sheet by applying :term:`filters`.
 
     :param sheet:
             anything supporting the :func:`read_rect(states_matrix, rect)`
-            such as the the :class:`_Spreadsheet` which can hide away
+            such as the :class:`_Spreadsheet` which can hide away
             the backend-module .
     :param Coords st:
-            the the top-left edge of capture-rect, inclusive
+            the top-left edge of capture-rect, inclusive
     :param Coords or None nd:
-            the the bottom-right edge of capture-rect, inclusive
-    :param int dims:    
-            when 1-int, the minimum AND desired num of dimensions, 
-            otherwise [min, max].
-            Negatives do not raise in unscaleable cases (denoted with 'R').
-            The following matrices describe the affect of this parameter 
-            on the result's num-of-dimensions, dependent on the shape of 
-            the rect-edges (header-column):
-
-            ========  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==
-            min_dim:  NN  0N  01  02  1N  11  12  2N  22  N0  N1  N2
-            ========  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==
-            1 coord:   0   0   0   0   1   1   1   2   2   0   0   0
-               cell:   1   1   1   1   1   1   1   2   2   0   1   1
-                row:   1   1   1   1   1   1   1   2   2  R1   1   1
-                col:   2   1   1   2   1   1   2   2   2  R1   1   2
-              table:   2   2  R2   2   2  R2   2   2   2  R2  R2   2
-            ========  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==  ==
+            the bottom-right edge of capture-rect, inclusive
+    :param json:    
+            Where to extract ndims from. See also :func:`_redim_table()`.
 
     :return: 
-            The rect values appropriately dimensioned.
+            The rect's values appropriately dimensioned as (nested-)list;
+            they might be empty when beuond bounds or a scalar value.
 
     Examples::
 
@@ -1239,24 +1355,15 @@ def read_capture_rect(sheet, st, nd, dims=None):
     """
     assert not CHECK_CELLTYPE or isinstance(st, Coords), st
     assert not CHECK_CELLTYPE or nd is None or isinstance(nd, Coords), nd
-    assert dims is None or dims >= 0, dims
 
     res = sheet.read_rect(st, nd)
 
-    if nd is None and not dims:
-        return res
-
-    if dims is None:
-        # Calculate dims implied by CaptureRect,
-        #    preserving cells as 1D & cols as 2D.
-        #
-        rect = np.array([st, nd])
-        coord_dims = (rect[0] - rect[1]).astype(bool)
-        rect_dims = coord_dims.sum()
-        col_dims = 2 * coord_dims[0]
-        dims = max(1, rect_dims, col_dims)
-
-    res = _redim(res, dims, dims)
+    if json:
+        ndims_list, scream = _json_extract_dims(json)
+        if ndims_list:
+            shape_idx = _classify_rect_shape(st, nd)
+            new_ndim = _decide_ndim_by_rect_shape(shape_idx, ndims_list)
+            res = _redim(res, new_ndim, scream)
 
     return res
 
@@ -1269,12 +1376,18 @@ _default_filters = {
 }
 try:
     import pandas as pd
+    from pandas.io import parsers, excel as pdexcel
 
-    def _type_df_with_numeric_conversion(df, args, kws):
-        df = pd.DataFrame(args, kws)
-        return df.convert_objects(convert_numeric=True)
+    def _to_df(matrix, *args, **kws):
+        header = kws.get('header', 'infer')
+        if header == 'infer':
+            header = kws['header'] = 0 if kws.get('names') is None else None
+        if header is not None:
+            matrix[header] = pdexcel._trim_excel_header(matrix[header])
+        parser = parsers.TextParser(matrix, **kws)  # , convert_float=True,
+        return parser.read()
+
     _default_filters['df'] = {'fun': pd.DataFrame}
-    _default_filters['df_num'] = {'fun': _type_df_with_numeric_conversion}
 except ImportError:
     pass
 
