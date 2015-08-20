@@ -77,7 +77,7 @@ API
       Cell
       Edge
       coords2Cell
-      parse_xl_ref
+      _parse_xl_ref
       parse_xl_url
       resolve_capture_rect
       read_capture_rect
@@ -538,6 +538,6 @@ TODOs
 
 from ._xlref import (
     Cell, coords2Cell, Edge,
-    parse_xl_url, parse_xl_ref, resolve_capture_rect,
-    read_capture_rect, _Spreadsheet
+    parse_xl_url, resolve_capture_rect,
+    read_capture_rect
 )

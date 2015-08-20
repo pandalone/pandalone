@@ -12,13 +12,15 @@ Prefer accessing the public members from the parent module.
 """
 
 from abc import abstractmethod, ABCMeta
-from collections import namedtuple, Iterable
+from collections import namedtuple, Iterable, OrderedDict, ChainMap
+import functools
 import json
 import logging
 import re
 from string import ascii_uppercase
 
 import six
+from toolz import dicttoolz as dtz
 
 import itertools as itt
 import numpy as np
@@ -182,8 +184,8 @@ _re_xl_ref_parser = re.compile(
     )?
     \s*
     (?::?
-        (?P<json>\{.*\})?                                # any json object [opt]
-    )\s*$""",
+        (?P<json>.*)                                   #  [opt] json
+    )$""",
     re.IGNORECASE | re.X)
 """
 This regex produces the following capture-groups:
@@ -282,7 +284,7 @@ def _parse_expansion_moves(exp_moves):
         raise ValueError(msg.format(exp_moves, ex))
 
 
-def parse_xl_ref(xl_ref):
+def _parse_xl_ref(xl_ref):
     """
     Parses a :term:`xl-ref` and splits it in its "ingredients".
 
@@ -312,49 +314,43 @@ def parse_xl_ref(xl_ref):
 
     Examples::
 
-        >>> res = parse_xl_ref('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"json":"..."}')
+        >>> res = _parse_xl_ref('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"json":"..."}')
         >>> sorted(res.items())
         [('exp_moves', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
          ('json', {'json': '...'}),
          ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None)),
          ('sheet', 'Sheet1'),
          ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'))]
-        >>> parse_xl_ref('A1(DR)Z20(UL)')
+        >>> _parse_xl_ref('A1(DR)Z20(UL)')
         Traceback (most recent call last):
         ValueError: Invalid xl-ref(A1(DR)Z20(UL)) due to: not an `xl-ref` syntax.
     """
 
-    try:
-        m = _re_xl_ref_parser.match(xl_ref)
-        if not m:
-            raise ValueError('not an `xl-ref` syntax.')
-        gs = m.groupdict()
+    m = _re_xl_ref_parser.match(xl_ref)
+    if not m:
+        raise ValueError('Not an `xl-ref` syntax.')
+    gs = m.groupdict()
 
-        # Replace coords of 1st and 2nd cells
-        #     with "uncooked" edge.
-        #
-        p = gs.pop
-        gs['st_edge'] = _uncooked_Edge(p('st_row'), p('st_col'),
-                                       p('st_mov'), p('st_mod'))
-        gs['nd_edge'] = _uncooked_Edge(p('nd_row'), p('nd_col'),
-                                       p('nd_mov'), p('nd_mod'))
+    # Replace coords of 1st and 2nd cells
+    #     with "uncooked" edge.
+    #
+    p = gs.pop
+    gs['st_edge'] = _uncooked_Edge(p('st_row'), p('st_col'),
+                                   p('st_mov'), p('st_mod'))
+    gs['nd_edge'] = _uncooked_Edge(p('nd_row'), p('nd_col'),
+                                   p('nd_mov'), p('nd_mod'))
 
-        js = gs['json']
-        gs['json'] = json.loads(js) if js else None
+    js = gs['json']
+    gs['json'] = json.loads(js) if js else None
 
-        exp_moves = gs['exp_moves']
-        gs['exp_moves'] = _parse_expansion_moves(
-            exp_moves) if exp_moves else None
+    exp_moves = gs['exp_moves']
+    gs['exp_moves'] = _parse_expansion_moves(
+        exp_moves) if exp_moves else None
 
-        return gs
-
-    except Exception as ex:
-        msg = "Invalid xl-ref(%s) due to: %s"
-        log.debug(msg, xl_ref, ex, exc_info=1)
-        raise ValueError(msg % (xl_ref, ex))
+    return gs
 
 
-def parse_xl_url(url, base_url=None, backend=None):
+def parse_xl_url(url):
     """
     Parses a :term:`xl-url`.
 
@@ -367,11 +363,8 @@ def parse_xl_url(url, base_url=None, backend=None):
 
             file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
 
-    :param XlUrl base_url:
-    :param module backend: one of :mod:`_xlrd` or mod:`_xlwings`
-
     :return:
-        the dictionary returned by :func:`parse_xl_ref()`  augmented 
+        the dictionary returned by :func:`_parse_xl_ref()`  augmented 
         with the following:
 
         - url_file: i.e. ``path/to/file.xls``
@@ -394,13 +387,16 @@ def parse_xl_url(url, base_url=None, backend=None):
 
     try:
         url_file, frag = urldefrag(url)
-        res = parse_xl_ref(frag)
+        print(frag)
+        res = _parse_xl_ref(frag)
         res['url_file'] = url_file
 
         return res
 
     except Exception as ex:
-        raise ValueError("Invalid xl-url({}) due to: {}".format(url, ex))
+        msg = "Invalid xl-ref(%s) due to: %s"
+        log.debug(msg, url, ex, exc_info=1)
+        raise ValueError(msg % (url, ex))
 
 
 def _margin_coords_from_states_matrix(states_matrix):
@@ -999,8 +995,8 @@ def _expand_rect(states_matrix, r1, r2, exp_moves):
     return Coords(*rect[[0, 2]]), Coords(*rect[[1, 3]])
 
 
-def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
-                         nd_edge=None, exp_moves=None):
+def resolve_capture_rect(states_matrix, up_coords, dn_coords,
+                         st_edge, nd_edge=None, exp_moves=None):
     """
     Performs :term:`targeting`, :term:`capturing` and :term:`expansions` based on the :term:`states-matrix`.
 
@@ -1111,33 +1107,6 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords, st_edge,
     return st, nd
 
 
-def _json_extract_dims(json, log=log):
-    """
-    :param json: i.e. ``{'dims': [0,1, True]}`` or ``{'dims': {'max': 1}}``
-    :return:    a 3-tuple ``(min_ndims, max_ndims, scream)``
-    :rtype:    tuple
-    """
-    def _parse_dims(nd0, nd1, nd2, nd3, nd4, scream=False, *args, **kws):
-        if args:
-            log.warning("Unknown `dims` arg(%s) ignored!", args)
-        if kws:
-            log.warning("Unknown `dims` kws(%s) ignored!", kws)
-        return tuple(int(i) for i in (nd0, nd1, nd2, nd3, nd4)), bool(scream)
-
-    dims = json.pop('dims', None)
-    if not dims:
-        return None, False
-    try:
-        if isinstance(dims, dict):
-            return _parse_dims(**dims)
-        else:
-            return _parse_dims(*dims)
-    except (ValueError, TypeError):
-        msg = ("Invalid dims(%s)! \n  "
-               "Expected 5 int-ndims(scalar,cell,row,col,2d) followed by optional bool(scream=False)")
-    raise ValueError(msg % dims)
-
-
 def _classify_rect_shape(st, nd):
     """
     Identifies rect from its edge-coordinates (row, col, 2d-table)..
@@ -1219,6 +1188,23 @@ def _updim(values, offset):
     return values
 
 
+def _flatten(values, vshape=None, _list=None):
+    def _append_flat(values, vshape):
+        if len(vshape) == 1:
+            _list.extend(values)
+        else:
+            sub_shape = vshape[1:]
+            for v in values:
+                _append_flat(v, sub_shape)
+
+    if _list == None:
+        _list = []
+    if vshape is None:
+        vshape = _shape(values)
+    _append_flat(values, vshape)
+    return _list
+
+
 def _squeeze(values, vshape=None, offset=None):
     """
     Reduce dimensions of table as possible.
@@ -1234,7 +1220,7 @@ def _squeeze(values, vshape=None, offset=None):
     elif not vshape or offset == 0:
         return values
 
-    d, *sub_shape = vshape
+    d, sub_shape = vshape[0], vshape[1:]
     if d == 1:
         values = _squeeze(values[0], sub_shape, offset and offset + 1)
     else:
@@ -1243,7 +1229,7 @@ def _squeeze(values, vshape=None, offset=None):
     return values
 
 
-def _downdim(values, new_ndim, scream=False, vshape=None):
+def _downdim(values, new_ndim, vshape=None):
     """
     Append trivial dimensions to the left.
 
@@ -1252,21 +1238,22 @@ def _downdim(values, new_ndim, scream=False, vshape=None):
     """
     if not vshape:
         vshape = _shape(values)
-    ndim = len(vshape)
 
-    ndim_offset = new_ndim - len(_shape(values))
+    ndim_offset = new_ndim - len(vshape)
     values = _squeeze(values, vshape, ndim_offset)
-    ndim_offset = new_ndim - len(_shape(values))
-    if ndim_offset < 0 and scream:
-        msg = "Cannot reduce shape{} from {}-->{}!"
-        raise ValueError(msg.format(vshape, ndim, new_ndim))
+
+    vshape = _shape(values)
+    ndim_offset = new_ndim - len(vshape)
+    if ndim_offset < 0:
+        _flatten(values, vshape)
+
     if ndim_offset > 0:
         values = _updim(values, ndim_offset)
 
     return values
 
 
-def _redim(values, new_ndim, scream=False):
+def _redim(values, new_ndim):
     """
     Reshapes the :term:`capture-rect` values of :func:`read_capture_rect()`.
 
@@ -1306,14 +1293,144 @@ def _redim(values, new_ndim, scream=False):
     if ndim_offset > 0:
         values = _updim(values, ndim_offset)
     elif ndim_offset < 0:
-        values = _downdim(values, new_ndim, scream, vshape)
+        values = _downdim(values, new_ndim, vshape)
 
     return values
+
+
+def _redim_filter(lash,
+                  scalar=None, cell=None, row=None, col=None, table=None):
+    ndims_list = (scalar, cell, row, col, table)
+    for i in ndims_list:
+        if i is not None:
+            int(i)
+    shape_idx = _classify_rect_shape(lash.st, lash.nd)
+    new_ndim = _decide_ndim_by_rect_shape(shape_idx, ndims_list)
+    values = lash.values
+    if new_ndim is not None:
+        values = _redim(values, new_ndim)
+
+    return values
+
+_default_filters = {
+    'redim': {
+        'fun': _redim_filter},
+    'nparray': {
+        'fun': lambda lash, args, kws: np.array(lash.values, *args, **kws),
+        'desc': np.array.__doc__},
+    'dict': {
+        'fun': lambda lash, args, kws: dict(lash.values, *args, **kws),
+        'desc': dict.__doc__},
+    'odict': {
+        'fun': lambda lash, args, kws: OrderedDict(lash.values, *args, **kws),
+        'desc': OrderedDict.__doc__},
+    'sorted': {
+        'fun': lambda lash, args, kws: sorted(lash.values, *args, **kws),
+        'desc': sorted.__doc__},
+}
+try:
+    import pandas as pd
+    from pandas.io import parsers, excel as pdexcel
+
+    def _df_filter(lash, *args, **kws):
+        values, _, _ = lash
+        header = kws.get('header', 'infer')
+        if header == 'infer':
+            header = kws['header'] = 0 if kws.get('names') is None else None
+        if header is not None:
+            values[header] = pdexcel._trim_excel_header(values[header])
+        parser = parsers.TextParser(values, **kws)  # , convert_float=True,
+        return parser.read()
+
+    _default_filters['df'] = {
+        'fun': _df_filter,
+        'desc': parsers.TextParser.__doc__},
+    _default_filters['series'] = {
+        'fun': lambda lash, args, kws: pd.Series(OrderedDict(lash.values),
+                                                 *args, **kws),
+        'desc': ("Makes a pd.Series from a 2 columns.\n" +
+                 pd.Series.__doc__)}
+
+
+except ImportError:
+    pass
+
+Lash = namedtuple('_Lash', ('values', 'st', 'nd'))
+"""The values of :term:`capture-rect` along with its resolved coords, passed to filters."""
+
+
+def _apply_filters(lash, json, available_filters=_default_filters):
+    """
+    Processes the output value of :func:`read_capture_rect()` function.
+
+    :param Lash lash: 
+            what to transform; 
+            the values (and coords) fetched by :func:`read_capture_rect()`.
+    :param json:
+            The 1st-filter to apply, if missing, applies the mapping found in
+            the ``None --> <filter`` entry of the `available_filters` dict.
+    :param dict, None kws:  keyword arguments for the filter function
+
+    :return: processed rect-values
+    :rtype: given type, or list of lists, list, value
+
+
+    Examples::
+
+        >>> value = [[1, 2], [3, 4], [5, 6]]
+        >>> res = _apply_filters(value, func='dict')
+        >>> sorted(res.items())
+        [(1, 2),
+         (3, 4),
+         (5, 6)]
+
+        >>> value = [[1, 9], [8, 10], [5, 11]]
+        >>> _apply_filters(value,
+        ...     filters=[{'func':'sorted', 'kws':{'reverse': True}}])
+        [[8, 10],
+         [5, 11],
+         [1, 9]]
+    """
+    def parse_filter_tuple(func, args=(), kws=None):
+        if kws is None:
+            kws = {}
+        return func, args, kws
+
+    if isinstance(json, list):
+        pipe = json
+        opts = {}
+    elif isinstance(json, six.string_types):
+        pipe = [json]
+        opts = {}
+    else:  # Assume dict
+        opts = json.get('opts', {})
+        pipe = json.get('pipe', ())
+    scream = opts.get('scream', True)
+    for filt in pipe:
+        try:
+            if isinstance(filt, six.string_types):
+                func_name, args, kws = filt, (), {}
+            elif isinstance(filt, list):
+                func_name, args, kws = parse_filter_tuple(*filt)
+            else:  # Assume dict
+                func_name, args, kws = parse_filter_tuple(**filt)
+            func_rec = available_filters[func_name]
+            values = func_rec['fun'](lash, *args, **kws)
+            lash = lash._replace(values=values)
+        except Exception as ex:
+            if not scream:
+                log.warning("Error in filter(%s): %s",
+                            filt, ex, exc_info=1)
+            else:
+                raise
+
+    return lash.values
 
 
 def read_capture_rect(sheet, st, nd, json=None):
     """
     Extracts and process :term:`capture-rect` values from excel-sheet by applying :term:`filters`.
+    TODO: DELETE
 
     :param sheet:
             anything supporting the :func:`read_rect(states_matrix, rect)`
@@ -1356,93 +1473,49 @@ def read_capture_rect(sheet, st, nd, json=None):
     assert not CHECK_CELLTYPE or isinstance(st, Coords), st
     assert not CHECK_CELLTYPE or nd is None or isinstance(nd, Coords), nd
 
-    res = sheet.read_rect(st, nd)
+    values = sheet.read_rect(st, nd)
 
     if json:
-        ndims_list, scream = _json_extract_dims(json)
-        if ndims_list:
-            shape_idx = _classify_rect_shape(st, nd)
-            new_ndim = _decide_ndim_by_rect_shape(shape_idx, ndims_list)
-            res = _redim(res, new_ndim, scream)
+        rect = Lash(values, st, nd)
+        values = _apply_filters(rect)
 
-    return res
+    return values
 
 
-_default_filters = {
-    None: {'fun': lambda x: x},
-    'nparray': {'fun': np.array},
-    'dict': {'fun': dict},
-    'sorted': {'fun': sorted}
-}
-try:
-    import pandas as pd
-    from pandas.io import parsers, excel as pdexcel
-
-    def _to_df(matrix, *args, **kws):
-        header = kws.get('header', 'infer')
-        if header == 'infer':
-            header = kws['header'] = 0 if kws.get('names') is None else None
-        if header is not None:
-            matrix[header] = pdexcel._trim_excel_header(matrix[header])
-        parser = parsers.TextParser(matrix, **kws)  # , convert_float=True,
-        return parser.read()
-
-    _default_filters['df'] = {'fun': pd.DataFrame}
-except ImportError:
-    pass
-
-
-def _process_captured_values(value, func=None, args=(), kws=None, filters=None,
-                             available_filters=_default_filters):
+def read(xlref, sheets=None):
     """
-    Processes the output value of :func:`read_capture_rect()` function.
-
-    FIXME: Actually use _process_captured_values()!
-
-    :param value: matrix or vector or a scalar-value
-    :type value: list of lists, list, value
-
-    :param str, None type:
-            The 1st-filter to apply, if missing, applies the mapping found in
-            the ``None --> <filter`` entry of the `available_filters` dict.
-    :param dict, None kws:  keyword arguments for the filter function
-    :param sequence, None args:
-            arguments for the type-function
-    :param list filters:
-            A list of 3-tuples ``(filter_callable, *args, **kws)``
-            to further process rect-values.
-    :param dict available_filters:
-            Entries of ``<fun_names> --> <callables>`` for pre-configured
-            filters available to post-process rect-values.
-            The callable for `None` key will be always called
-            to the original values to ensure correct dimensionality
-    :return: processed rect-values
-    :rtype: given type, or list of lists, list, value
-
-
-    Examples::
-
-        >>> value = [[1, 2], [3, 4], [5, 6]]
-        >>> res = _process_captured_values(value, func='dict')
-        >>> sorted(res.items())
-        [(1, 2),
-         (3, 4),
-         (5, 6)]
-
-        >>> value = [[1, 9], [8, 10], [5, 11]]
-        >>> _process_captured_values(value,
-        ...     filters=[{'func':'sorted', 'kws':{'reverse': True}}])
-        [[8, 10],
-         [5, 11],
-         [1, 9]]
+    Context[None] = current-sheet 
     """
-    if not kws:
-        kws = {}
-    val = available_filters[func]['fun'](value, *args, **kws)
-    if filters:
-        for v in filters:
-            val = _process_captured_values(val, **v)
-    return val
+    fields = parse_xl_url(xlref)
+    # if not fields['url_file' and not fields['sheet']:
+    #     sheet_key = '{url_file}![{sheet}]'.format(**fields)
+    # sheet_key = '{url_file}![{sheet}]'.format(**fields)
+    sheet_key = None
+    if sheets:
+        if sheet_key not in sheets:
+            if sheet_key is None:
+                msg = "Cannot resolve xlref(%s) without a current-sheet!"
+                raise ValueError(msg % xlref)
+        else:
+            sheet = sheets[sheet_key]
+
+    else:
+        pass  # TODO: Read and cache sheet
+
+    assert sheet
+    args = (sheet.get_states_matrix(),) + sheet.get_margin_coords()
+    fields_to_keep = ['st_edge', 'nd_edge', 'exp_moves']
+    kws = dtz.keyfilter(lambda k: k in fields_to_keep, fields)
+    st, nd = resolve_capture_rect(*args, **kws)
+
+    values = sheet.read_rect(st, nd)
+
+    json = fields.get('json')
+    if json:
+        lash = Lash(values, st, nd)
+        values = _apply_filters(lash, json)
+
+    return values
 
 
 class _Spreadsheet(object):

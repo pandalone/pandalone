@@ -20,6 +20,7 @@ from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
 import xlrd
 
 import numpy as np
+from pandalone.xlref._xlref import Coords
 
 from ._xlref import _Spreadsheet
 
@@ -120,6 +121,9 @@ class XlrdSheet(_Spreadsheet):
         """See super-method. """
         types = np.asarray(self._sheet._cell_types)
         return (types != XL_CELL_EMPTY) & (types != XL_CELL_BLANK)
+
+    def _read_margin_coords(self):
+        return None, Coords(self._sheet.nrows, self._sheet.ncols)
 
     def read_rect(self, st, nd):
         """See super-method. """

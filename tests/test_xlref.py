@@ -102,7 +102,7 @@ class Parse(unittest.TestCase):
 
     def test_parse_xl_ref_Cell_types(self):
         xl_ref = 'b1:C2'
-        res = xr.parse_xl_ref(xl_ref)
+        res = xr._parse_xl_ref(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         self.assertIsInstance(st_edge.land.row, six.string_types)
@@ -112,7 +112,7 @@ class Parse(unittest.TestCase):
 
     def test_parse_xl_ref_Cell_col_row_order(self):
         xl_ref = 'b1:C2'
-        res = xr.parse_xl_ref(xl_ref)
+        res = xr._parse_xl_ref(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         self.assertTrue(st_edge.land.row.isalnum())
@@ -122,7 +122,7 @@ class Parse(unittest.TestCase):
 
     def test_parse_xl_ref_all_upper(self):
         xl_ref = 'b1(uL):C2(Dr):Lur2D'
-        res = xr.parse_xl_ref(xl_ref)
+        res = xr._parse_xl_ref(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         items = [
@@ -137,7 +137,7 @@ class Parse(unittest.TestCase):
 
     def test_basic_parse_xl_ref(self):
         xl_ref = 'Sheet1!a1(L):C2(UL)'
-        res = xr.parse_xl_ref(xl_ref)
+        res = xr._parse_xl_ref(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         self.assertEquals(res['sheet'], 'Sheet1')
@@ -147,12 +147,12 @@ class Parse(unittest.TestCase):
         self.assertEquals(nd_edge.mov, 'UL')
 
         xl_ref = 'Sheet1!A1'
-        res = xr.parse_xl_ref(xl_ref)
+        res = xr._parse_xl_ref(xl_ref)
         self.assertEquals(res['st_edge'].land, xr.Cell(col='A', row='1'))
         self.assertEquals(res['nd_edge'], None)
 
         xl_ref = 'Sheet1!a1(l):c2(ul){"1":4,"2":"ciao"}'
-        res = xr.parse_xl_ref(xl_ref)
+        res = xr._parse_xl_ref(xl_ref)
         self.assertEquals(res['json'], {'2': 'ciao', '1': 4})
         self.assertEquals(res['st_edge'].land, xr.Cell(col='A', row='1'))
         self.assertEquals(res['nd_edge'].land, xr.Cell(col='C', row='2'))
@@ -161,7 +161,7 @@ class Parse(unittest.TestCase):
 
     @data('s![[]', 's!{}[]', 's!A', 's!A1:!', 's!1:2', 's!A0:B1', )
     def test_errors_parse_xl_ref(self, case):
-        self.assertRaises(ValueError, xr.parse_xl_ref, case)
+        self.assertRaises(ValueError, xr._parse_xl_ref, case)
 
     def test_uncooked_Edge_good(self):
         self.assertIsNone(xr._uncooked_Edge(None, None, None))
