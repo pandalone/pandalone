@@ -1048,6 +1048,10 @@ class ReadRect(unittest.TestCase):
         self.check_read_capture_rect(case)
 
 
+_xlref.read(
+    'A1:..(D):{"pipe":[{"func": "redim", "kws":{"col": [null, 1]}}, "numpy" ], "opts":{"show_help": 1}}', sheets)
+
+
 @ddt
 class VsPandas(unittest.TestCase, CustomAssertions):
 

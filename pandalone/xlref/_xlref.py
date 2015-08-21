@@ -13,15 +13,17 @@ Prefer accessing the public members from the parent module.
 
 from abc import abstractmethod, ABCMeta
 from collections import namedtuple, Iterable, OrderedDict, ChainMap
-import functools
+import inspect
 import json
 import logging
 import re
 from string import ascii_uppercase
+import textwrap
 
 import six
 from toolz import dicttoolz as dtz
 
+import functools as ftt
 import itertools as itt
 import numpy as np
 from six.moves.urllib.parse import urldefrag  # @UnresolvedImport
@@ -387,7 +389,9 @@ def parse_xl_url(url):
 
     try:
         url_file, frag = urldefrag(url)
-        print(frag)
+        if not frag:
+            frag = url_file
+            url_file = ''
         res = _parse_xl_ref(frag)
         res['url_file'] = url_file
 
@@ -1148,107 +1152,29 @@ def _decide_ndim_by_rect_shape(shape_idx, ndims_list):
     return ndims_list[shape_idx]
 
 
-def _shape(values):
-    """
-    :param values: 
-            any object or nested listed with the same number of elements 
-            on every dimension
-
-    Examples::
-
-        >>> _shape([[]])
-        (1, 0)
-
-        >>> _shape([[[1,2], [3,4]]])
-        (1, 2, 2)
-
-        >>> _shape(3.14)
-        ()
-
-        >>> _shape(None)
-        ()
-    """
-    try:
-        if isinstance(values, list):
-            return (len(values),) + _shape(values[0])
-    except IndexError:
-        return (0,)  # empty list
-    return ()
-
-
-def _updim(values, offset):
+def _updim(values, new_ndim):
     """
     Append trivial dimensions to the left.
 
     :param values:      The scalar ot 2D-results of :meth:`Sheet.read_rect()`
-    :param int offset:  How many new dimension to add to the left.
+    :param int new_dim: The new dimension the result should have
     """
-    for _ in range(offset):
-        values = [values]
-    return values
+    new_shape = (1,) * (new_ndim - values.ndim) + values.shape
+    return values.reshape(new_shape)
 
 
-def _flatten(values, vshape=None, _list=None):
-    def _append_flat(values, vshape):
-        if len(vshape) == 1:
-            _list.extend(values)
-        else:
-            sub_shape = vshape[1:]
-            for v in values:
-                _append_flat(v, sub_shape)
-
-    if _list == None:
-        _list = []
-    if vshape is None:
-        vshape = _shape(values)
-    _append_flat(values, vshape)
-    return _list
-
-
-def _squeeze(values, vshape=None, offset=None):
+def _downdim(values, new_ndim):
     """
-    Reduce dimensions of table as possible.
-
-    :param values:      The scalar ot 2D-results of :meth:`Sheet.read_rect()`
-    :param tuple vshape: the vshape of the values, from :func:`_shape()`
-    :param int or None offset: 
-            A non-positive increamented on each recurse, 
-            stop squeezing when 0, ignored if `None`.
-    """
-    if vshape is None:
-        vshape = _shape(values)
-    elif not vshape or offset == 0:
-        return values
-
-    d, sub_shape = vshape[0], vshape[1:]
-    if d == 1:
-        values = _squeeze(values[0], sub_shape, offset and offset + 1)
-    else:
-        values = [_squeeze(v, sub_shape, offset) for v in values]
-
-    return values
-
-
-def _downdim(values, new_ndim, vshape=None):
-    """
-    Append trivial dimensions to the left.
+    Squeeze it, and then flatten it, before inflating it.
 
     :param values:       The scalar ot 2D-results of :meth:`Sheet.read_rect()`
-    :param int new_ndim: the new dimension
+    :param int new_dim: The new dimension the result should have
     """
-    if not vshape:
-        vshape = _shape(values)
-
-    ndim_offset = new_ndim - len(vshape)
-    values = _squeeze(values, vshape, ndim_offset)
-
-    vshape = _shape(values)
-    ndim_offset = new_ndim - len(vshape)
-    if ndim_offset < 0:
-        _flatten(values, vshape)
-
-    if ndim_offset > 0:
-        values = _updim(values, ndim_offset)
+    values = values.squeeze()
+    if values.ndim > new_ndim:
+        values = values.flatten()
+    if values.ndim > new_ndim:
+        values = _updim(values, new_ndim)
 
     return values
 
@@ -1259,7 +1185,8 @@ def _redim(values, new_ndim):
 
     :param values:      The scalar ot 2D-results of :meth:`Sheet.read_rect()`
     :type values: (nested) list, *
-    :param int or None new_ndim: 
+    :param new_ndim: 
+    :type int, (int, bool) or None new_ndim: 
 
     :return: reshaped values
     :rtype: list of lists, list, *
@@ -1282,28 +1209,42 @@ def _redim(values, new_ndim):
         >>> _redim([[11, 22]], 0)
         [11, 22]
 
+        >>> arr = [[[11], [22]]]
+        >>> arr == _redim(arr, None)
+        True
+
         >>> _redim([[11, 22]], 0, True)
         Traceback (most recent call last):
         ValueError: Cannot reduce shape(1, 2) from 2-->0!
 
     """
-    vshape = _shape(values)
-    ndim = len(vshape)
-    ndim_offset = new_ndim - ndim
-    if ndim_offset > 0:
-        values = _updim(values, ndim_offset)
-    elif ndim_offset < 0:
-        values = _downdim(values, new_ndim, vshape)
+    if new_ndim is None:
+        return values
 
-    return values
+    values = np.asarray(values)
+    try:
+        new_ndim, transpose = new_ndim
+        if transpose:
+            values = values.T
+    except:
+        pass
+    if new_ndim is not None:
+        if values.ndim < new_ndim:
+            values = _updim(values, new_ndim)
+        elif values.ndim > new_ndim:
+            values = _downdim(values, new_ndim)
+
+    return values.tolist()
 
 
 def _redim_filter(lash,
                   scalar=None, cell=None, row=None, col=None, table=None):
+    """
+    Reshape and/or transpose captured values, depending on rect's shape.
+
+    Each dimension might be a single int or None, or a pair [dim, transpose].  
+    """
     ndims_list = (scalar, cell, row, col, table)
-    for i in ndims_list:
-        if i is not None:
-            int(i)
     shape_idx = _classify_rect_shape(lash.st, lash.nd)
     new_ndim = _decide_ndim_by_rect_shape(shape_idx, ndims_list)
     values = lash.values
@@ -1313,20 +1254,26 @@ def _redim_filter(lash,
     return values
 
 _default_filters = {
-    'redim': {
-        'fun': _redim_filter},
-    'nparray': {
-        'fun': lambda lash, args, kws: np.array(lash.values, *args, **kws),
-        'desc': np.array.__doc__},
-    'dict': {
-        'fun': lambda lash, args, kws: dict(lash.values, *args, **kws),
-        'desc': dict.__doc__},
-    'odict': {
-        'fun': lambda lash, args, kws: OrderedDict(lash.values, *args, **kws),
-        'desc': OrderedDict.__doc__},
-    'sorted': {
-        'fun': lambda lash, args, kws: sorted(lash.values, *args, **kws),
-        'desc': sorted.__doc__},
+    'redim': [
+        _redim_filter,
+        _redim_filter.__doc__,
+    ],
+    'numpy': [
+        lambda lash, *args, **kws: np.array(lash.values, *args, **kws),
+        np.array.__doc__,
+    ],
+    'dict': [
+        lambda lash, *args, **kws: dict(lash.values, *args, **kws),
+        dict.__doc__,
+    ],
+    'odict': [
+        lambda lash, *args, **kws: OrderedDict(lash.values, *args, **kws),
+        OrderedDict.__doc__,
+    ],
+    'sorted': [
+        lambda lash, *args, **kws: sorted(lash.values, *args, **kws),
+        sorted.__doc__,
+    ],
 }
 try:
     import pandas as pd
@@ -1342,14 +1289,15 @@ try:
         parser = parsers.TextParser(values, **kws)  # , convert_float=True,
         return parser.read()
 
-    _default_filters['df'] = {
-        'fun': _df_filter,
-        'desc': parsers.TextParser.__doc__},
-    _default_filters['series'] = {
-        'fun': lambda lash, args, kws: pd.Series(OrderedDict(lash.values),
-                                                 *args, **kws),
-        'desc': ("Makes a pd.Series from a 2 columns.\n" +
-                 pd.Series.__doc__)}
+    _default_filters['df'] = [
+        _df_filter,
+        parsers.TextParser.__doc__,
+    ]
+    _default_filters['series'] = [
+        lambda lash, *args, **kws: pd.Series(OrderedDict(lash.values),
+                                             *args, **kws),
+        ("Makes a pd.Series from a 2 columns.\n" + pd.Series.__doc__),
+    ]
 
 
 except ImportError:
@@ -1357,6 +1305,12 @@ except ImportError:
 
 Lash = namedtuple('_Lash', ('values', 'st', 'nd'))
 """The values of :term:`capture-rect` along with its resolved coords, passed to filters."""
+
+
+def _build_filter_desc(name, func, desc):
+    sig = inspect.formatargspec(*inspect.getfullargspec(func))
+    desc = textwrap.indent(textwrap.dedent(desc), '    ')
+    return '\n\nFilter: %s%s:\n%s' % (name, sig, desc)
 
 
 def _apply_filters(lash, json, available_filters=_default_filters):
@@ -1396,17 +1350,19 @@ def _apply_filters(lash, json, available_filters=_default_filters):
             kws = {}
         return func, args, kws
 
-    if isinstance(json, list):
-        pipe = json
-        opts = {}
-    elif isinstance(json, six.string_types):
+    if isinstance(json, six.string_types):
         pipe = [json]
+        opts = {}
+    elif isinstance(json, list):
+        pipe = json
         opts = {}
     else:  # Assume dict
         opts = json.get('opts', {})
         pipe = json.get('pipe', ())
     scream = opts.get('scream', True)
+    show_help = opts.get('show_help', False)
     for filt in pipe:
+        func_desc = ''
         try:
             if isinstance(filt, six.string_types):
                 func_name, args, kws = filt, (), {}
@@ -1415,14 +1371,19 @@ def _apply_filters(lash, json, available_filters=_default_filters):
             else:  # Assume dict
                 func_name, args, kws = parse_filter_tuple(**filt)
             func_rec = available_filters[func_name]
-            values = func_rec['fun'](lash, *args, **kws)
+            func, func_desc = func_rec
+            values = func(lash, *args, **kws)
             lash = lash._replace(values=values)
         except Exception as ex:
-            if not scream:
-                log.warning("Error in filter(%s): %s",
-                            filt, ex, exc_info=1)
+            if func_desc and show_help:
+                func_desc = _build_filter_desc(func_name, func, func_desc)
             else:
-                raise
+                func_desc = ''
+            msg = "Error in json-filter(%r): %s%s"
+            if scream:
+                raise ValueError(msg % (filt, ex, func_desc))
+            else:
+                log.warning(msg, filt, ex, func_desc, exc_info=1)
 
     return lash.values
 
