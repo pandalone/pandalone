@@ -342,9 +342,19 @@ Definitions
     filter
     filters
     filter-function
-        Predefined functions to apply for transforming the cell-values of
-        `capture-rect` specified as nested **json** objects.
+        The last part of the `xl-ref` specifying predefined functions to 
+        apply for transforming the cell-values of `capture-rect`, 
+        abiding to the  **json** syntax.
 
+    call-descriptor
+        The structure to specify some function call in the `filter` part;
+        it can either be a json *string*, *list* or *object* like that:
+        
+        - string: ``"func_name"`` 
+        - list:   ``["func_name", ["arg1", "arg2"], {"k1": "v1"}]``
+          where the last 2 parts are optional and can be given in any order;
+        - object: ``{"func": "func_name", "args": ["arg1"], "kws": {"k":"v"}}`` 
+          where the ``args`` and ``kws`` are optional.
 
 Details
 =======

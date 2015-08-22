@@ -1173,7 +1173,7 @@ def _downdim(values, new_ndim):
     values = values.squeeze()
     if values.ndim > new_ndim:
         values = values.flatten()
-    if values.ndim > new_ndim:
+    if values.ndim < new_ndim:
         values = _updim(values, new_ndim)
 
     return values
@@ -1259,19 +1259,19 @@ _default_filters = {
         _redim_filter.__doc__,
     ],
     'numpy': [
-        lambda lash, *args, **kws: np.array(lash.values, *args, **kws),
+        lambda lash, *args, **kwds: np.array(lash.values, *args, **kwds),
         np.array.__doc__,
     ],
     'dict': [
-        lambda lash, *args, **kws: dict(lash.values, *args, **kws),
+        lambda lash, *args, **kwds: dict(lash.values, *args, **kwds),
         dict.__doc__,
     ],
     'odict': [
-        lambda lash, *args, **kws: OrderedDict(lash.values, *args, **kws),
+        lambda lash, *args, **kwds: OrderedDict(lash.values, *args, **kwds),
         OrderedDict.__doc__,
     ],
     'sorted': [
-        lambda lash, *args, **kws: sorted(lash.values, *args, **kws),
+        lambda lash, *args, **kwds: sorted(lash.values, *args, **kwds),
         sorted.__doc__,
     ],
 }
@@ -1279,14 +1279,14 @@ try:
     import pandas as pd
     from pandas.io import parsers, excel as pdexcel
 
-    def _df_filter(lash, *args, **kws):
+    def _df_filter(lash, *args, **kwds):
         values, _, _ = lash
-        header = kws.get('header', 'infer')
+        header = kwds.get('header', 'infer')
         if header == 'infer':
-            header = kws['header'] = 0 if kws.get('names') is None else None
+            header = kwds['header'] = 0 if kwds.get('names') is None else None
         if header is not None:
             values[header] = pdexcel._trim_excel_header(values[header])
-        parser = parsers.TextParser(values, **kws)  # , convert_float=True,
+        parser = parsers.TextParser(values, **kwds)  # , convert_float=True,
         return parser.read()
 
     _default_filters['df'] = [
@@ -1294,8 +1294,8 @@ try:
         parsers.TextParser.__doc__,
     ]
     _default_filters['series'] = [
-        lambda lash, *args, **kws: pd.Series(OrderedDict(lash.values),
-                                             *args, **kws),
+        lambda lash, *args, **kwds: pd.Series(OrderedDict(lash.values),
+                                              *args, **kwds),
         ("Makes a pd.Series from a 2 columns.\n" + pd.Series.__doc__),
     ]
 
@@ -1313,6 +1313,79 @@ def _build_filter_desc(name, func, desc):
     return '\n\nFilter: %s%s:\n%s' % (name, sig, desc)
 
 
+def parse_call_desc(call_desc):
+    """
+    Parse :term:`call-descriptor` from json.
+
+    :param call_desc:
+        This is a *non-null* structure specifying some function call 
+        in the `filter` part, which it can be either:
+
+        - string: ``"func_name"`` 
+        - list:   ``["func_name", ["arg1", "arg2"], {"k1": "v1"}]``
+          where the last 2 parts are optional and can be given in any order;
+        - object: ``{"func": "func_name", "args": ["arg1"], "kwds": {"k":"v"}}`` 
+          where the `args` and `kwds` are optional.
+
+    :return: 
+        the 3-tuple ``func, args=(), kwds={}`` with the defaults as shown 
+        when missing. 
+    """
+    def boolarr(l):
+        return np.fromiter(l, dtype=bool)
+
+    def parse_list(func, item1=None, item2=None):
+        items = (item1, item2)
+        isargs = boolarr(isinstance(a, list) for a in items)
+        iskwds = boolarr(isinstance(a, dict) for a in items)
+        isnull = boolarr(a is None for a in items)
+
+        if isargs.all() or iskwds.all() or not (
+                isargs ^ iskwds ^ isnull).all():
+            msg = "Cannot decide `args`/`kwds` for call-descriptor({})!"
+            raise ValueError(msg.format(call_desc))
+        args, kwds = None, None
+        if isargs.any():
+            args = items[isargs.nonzero()[0][0]]
+        if iskwds.any():
+            kwds = items[iskwds.nonzero()[0][0]]
+        return func, args, kwds
+
+    def parse_object(func, args=None, kwds=None):
+        return func, args, kwds
+
+    try:
+        if isinstance(call_desc, six.string_types):
+            func, args, kwds = call_desc, None, None
+        elif isinstance(call_desc, list):
+            func, args, kwds = parse_list(*call_desc)
+        elif isinstance(call_desc, dict):
+            func, args, kwds = parse_object(**call_desc)
+        else:
+            msg = "The call-descriptor({}) is neither str, list or dict!"
+            raise ValueError(msg.format(call_desc))
+    except ValueError:
+        raise
+    except Exception as ex:
+        msg = "Cannot parse call-descriptor({}) due to: {}!"
+        raise ValueError(msg.format(call_desc, ex))
+
+    if not isinstance(func, six.string_types):
+        msg = "Expected a `string` for func-name({}) of call-descriptor({})!"
+        raise ValueError(msg.format(func, call_desc))
+    if args is None:
+        args = []
+    elif not isinstance(args, list):
+        msg = "Expected a `list` for args({}) of call-descriptor({})!"
+        raise ValueError(msg.format(args, call_desc))
+    if kwds is None:
+        kwds = {}
+    elif not isinstance(kwds, dict):
+        msg = "Expected a `dict` for kwds({}) of call-descriptor({})!"
+        raise ValueError(msg.format(kwds, call_desc))
+    return func, args, kwds
+
+
 def _apply_filters(lash, json, available_filters=_default_filters):
     """
     Processes the output value of :func:`read_capture_rect()` function.
@@ -1323,7 +1396,7 @@ def _apply_filters(lash, json, available_filters=_default_filters):
     :param json:
             The 1st-filter to apply, if missing, applies the mapping found in
             the ``None --> <filter`` entry of the `available_filters` dict.
-    :param dict, None kws:  keyword arguments for the filter function
+    :param dict, None kwds:  keyword arguments for the filter function
 
     :return: processed rect-values
     :rtype: given type, or list of lists, list, value
@@ -1340,16 +1413,11 @@ def _apply_filters(lash, json, available_filters=_default_filters):
 
         >>> value = [[1, 9], [8, 10], [5, 11]]
         >>> _apply_filters(value,
-        ...     filters=[{'func':'sorted', 'kws':{'reverse': True}}])
+        ...     filters=[{'func':'sorted', 'kwds':{'reverse': True}}])
         [[8, 10],
          [5, 11],
          [1, 9]]
     """
-    def parse_filter_tuple(func, args=(), kws=None):
-        if kws is None:
-            kws = {}
-        return func, args, kws
-
     if isinstance(json, six.string_types):
         pipe = [json]
         opts = {}
@@ -1364,15 +1432,10 @@ def _apply_filters(lash, json, available_filters=_default_filters):
     for filt in pipe:
         func_desc = ''
         try:
-            if isinstance(filt, six.string_types):
-                func_name, args, kws = filt, (), {}
-            elif isinstance(filt, list):
-                func_name, args, kws = parse_filter_tuple(*filt)
-            else:  # Assume dict
-                func_name, args, kws = parse_filter_tuple(**filt)
+            func_name, args, kwds = parse_call_desc(filt)
             func_rec = available_filters[func_name]
             func, func_desc = func_rec
-            values = func(lash, *args, **kws)
+            values = func(lash, *args, **kwds)
             lash = lash._replace(values=values)
         except Exception as ex:
             if func_desc and show_help:
@@ -1466,8 +1529,9 @@ def read(xlref, sheets=None):
     assert sheet
     args = (sheet.get_states_matrix(),) + sheet.get_margin_coords()
     fields_to_keep = ['st_edge', 'nd_edge', 'exp_moves']
-    kws = dtz.keyfilter(lambda k: k in fields_to_keep, fields)
-    st, nd = resolve_capture_rect(*args, **kws)
+    kwds = dtz.keyfilter(lambda k: k in fields_to_keep, fields)
+    st, nd = resolve_capture_rect(*args, **kwds)
+    log.debug("Resolved to [%s, %s] <-- %s", st, nd, xlref)
 
     values = sheet.read_rect(st, nd)
 

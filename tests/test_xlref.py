@@ -48,14 +48,14 @@ def _make_xl_margins(sheet):
     return states_matrix, up, dn
 
 
-def _write_sample_sheet(path, matrix, sheet_name, **kws):
+def _write_sample_sheet(path, matrix, sheet_name, **kwds):
     df = pd.DataFrame(matrix)
     with pd.ExcelWriter(path) as w:
         if isinstance(sheet_name, tuple):
             for s in sheet_name:
-                df.to_excel(w, s, **kws)
+                df.to_excel(w, s, **kwds)
         else:
-            df.to_excel(w, sheet_name, **kws)
+            df.to_excel(w, sheet_name, **kwds)
 
 
 def _make_local_url(fname, fragment=''):
@@ -63,14 +63,14 @@ def _make_local_url(fname, fragment=''):
     return 'file:///{}#{}'.format(fpath, fragment)
 
 
-def _read_rect_values(sheet, st_edge, nd_edge, dims, scream=True):
+def _read_rect_values(sheet, st_edge, nd_edge, dims):
     states_matrix = sheet.get_states_matrix()
     up, dn = sheet.get_margin_coords()
     st, nd = xr.resolve_capture_rect(states_matrix, up, dn,
                                      st_edge, nd_edge)  # or Edge(None, None))
     v = sheet.read_rect(st, nd)
     if dims is not None:
-        v = xr._redim(v, dims, scream=scream)
+        v = xr._redim(v, dims)
 
     return v
 
@@ -796,22 +796,9 @@ class Capture(unittest.TestCase):
 @ddt
 class Redim(unittest.TestCase):
 
-    @data(
-        ([],                (0,)),
-        ([[[]]],            (1, 1, 0)),
-        ([[1, 2, 3]],       (1, 3)),
-        ([[[1, 2], [3, 4]]], (1, 2, 2)),
-        ([[[[1, 2]], [[3, 4]]]], (1, 2, 1, 2)),
-        (3.14,              ()),
-        ('ff',              ()),
-        (None,              ()),
-    )
-    def test_shape(self, case):
-        self.assertEqual(xr._shape(case[0]), case[1])
-
-    def check_redim_array(self, case):
+    def check_redim(self, case):
         arr, dim, exp = case
-        res = xr._redim(arr, dim, dim)
+        res = xr._redim(arr, dim)
 
         self.assertEqual(res, exp)
 #         if isinstance(exp, list):
@@ -827,15 +814,18 @@ class Redim(unittest.TestCase):
         ([1, 2],    3,  [[[1, 2]]]),
     )
     def test_upscale(self, case):
-        self.check_redim_array(case)
+        self.check_redim(case)
 
     @data(
         ([[1, 2]],   1,  [1, 2]),
         ([[[1, 2]]], 2,  [[1, 2]]),
         ([[[1, 2]]], 1,  [1, 2]),
+        ([[[1], [2]]], 2,  [[1], [2]]),
+        ([[[1], [2]]], 1,  [1, 2]),
+        ([[[1], [2]]], 0,  [1, 2]),
     )
     def test_downscale(self, case):
-        self.check_redim_array(case)
+        self.check_redim(case)
 
     @data(
         ([None],    0,  None),
@@ -846,7 +836,7 @@ class Redim(unittest.TestCase):
         (5.1,       0,  5.1),
     )
     def test_zero(self, case):
-        self.check_redim_array(case)
+        self.check_redim(case)
 
     @data(
         ([],        3,  [[[]]]),
@@ -857,67 +847,131 @@ class Redim(unittest.TestCase):
         ([[]],      1,  []),
     )
     def test_empty(self, case):
-        self.check_redim_array(case)
+        self.check_redim(case)
 
     @data(
-        ([[], []], 1,
-         r"Cannot reduce shape\(2, 0\) from 2-->1!"),
-        ([[1, 2], [3, 4]], 1,
-         r"Cannot reduce shape\(2, 2\) from 2-->1!"),
-        ([[[1, 1]], [[2, 2]]], 1,
-         r"Cannot reduce shape\(2, 1, 2\) from 3-->1!"),
+        ([[], []], 1,               []),
+        ([[1, 2], [3, 4]], 1,       [1, 2, 3, 4]),
+        ([[[1, 1]], [[2, 2]]], 1,   [1, 1, 2, 2]),
+
+        ([[], []], 0,               []),
+        ([[1, 2], [3, 4]], 0,       [1, 2, 3, 4]),
+        ([[[1, 1]], [[2, 2]]], 0,   [1, 1, 2, 2]),
     )
-    def test_cannot_downscale(self, case):
-        arr, ndim, err = case
-        with assertRaisesRegex(self, ValueError, err, msg=str((arr, ndim))):
-            res = xr._redim(arr, ndim, True)
-            print(res)
+    def test_flatten(self, case):
+        self.check_redim(case)
 
     @data(
-        ([1, 2, 3], 0,
-         r"Cannot reduce shape\(3,\) from 1-->0!"),
-        ([[1, 2], [3, 4]], 0,
-         r"Cannot reduce shape\(2, 2\) from 2-->0!"),
-        ([[1, 2]], 0,
-         r"Cannot reduce shape\(1, 2\) from 2-->0!"),
-        ([1, 2], 0,
-         r"Cannot reduce shape\(2,\) from 1-->0!"),
-        ([], 0,
-         r"Cannot reduce shape\(0,\) from 1-->0!"),
-        ([[]], 0,
-         r"Cannot reduce shape\(1, 0\) from 2-->0!"),
+        ([1, 2, 3], 0,          [1, 2, 3]),
+        ([[1, 2], [3, 4]], 0,   [1, 2, 3, 4]),
+        ([[1, 2]], 0,           [1, 2]),
+        ([1, 2], 0,             [1, 2]),
+        ([], 0,                 []),
+        ([[]], 0,               []),
     )
     def test_unreducableZero(self, case):
-        arr, ndim, err = case
-        with assertRaisesRegex(self, ValueError, err, msg=str((arr, ndim))):
-            res = xr._redim(arr, ndim, True)
-            print(res)
+        self.check_redim(case)
+
+
+@ddt
+class Json(unittest.TestCase):
 
     @data(
-        (dict(),                        (None, False)),
-        (dict(dims=None),               (None, False)),
-        (dict(dims=[0, 1, 1, 1, 4]),        ((0, 1, 1, 1, 4), False)),
-        (dict(dims=[0, 1, 1, 1, 4, True]),  ((0, 1, 1, 1, 4), True)),
+        ('func',                ('func', [], {})),
+        ('',                    ('', [], {})),
 
-        (dict(dims=[0, 1, 1, 1, 4, 5]),     ((0, 1, 1, 1, 4), True)),
+        (['f', [], {}],         ('f', [], {})),
+        (['f', None, None],     ('f', [], {})),
+        (['f', [1], {2: 2}],    ('f', [1], {2: 2})),
+        (['f', [2], {3: 3}],    ('f', [2], {3: 3})),
+        (['f', {}, []],         ('f', [], {})),
+        (['f', {2: 3}, [1]],    ('f', [1], {2: 3})),
+        (['f', []],             ('f', [], {})),
+        (['f', [1, 2]],         ('f', [1, 2], {})),
+        (['f', {}],             ('f', [], {})),
+        (['f', {1: 1, 2: 2}],   ('f', [], {1: 1, 2: 2})),
+
+        ({'func': 'f', 'args': [], 'kwds': {}},     ('f', [], {})),
+        ({'func': 'f', 'args': None, 'kwds': None}, ('f', [], {})),
+        ({'func': 'f', 'args': [1], 'kwds': {1: 2}}, ('f', [1], {1: 2})),
+        ({'func': 'f', 'args': [], },               ('f', [], {})),
+        ({'func': 'f', 'args': [1, 2], },            ('f', [1, 2], {})),
+        ({'func': 'f', 'kwds': {}},                 ('f', [], {})),
+        ({'func': 'f', 'kwds': {2: 3, 3: 4}},         ('f', [], {2: 3, 3: 4})),
     )
-    def test_json_extract_dims(self, case):
-        json, exp = case
-        log = MagicMock()
-        res = xr._json_extract_dims(json, log)
-        self.assertEqual(res, exp)
-        self.assertEqual(len(log.mock_calls), 0, log.mock_calls)
+    def test_parse_call_desc_OK(self, case):
+        call_desc, exp = case
+        self.assertEqual(xr.parse_call_desc(call_desc), exp)
+
+    _bad_struct = "is neither str, list or dict"
+    _func_not_str = "Expected a `string`"
+    _func_missing = "missing 1 required positional argument: 'func'"
+    _cannot_decide = "Cannot decide `args`/`kwds`"
+    _more_args = "takes from 1 to 3 positional arguments"
+    _more_kwds = "unexpected keyword argument"
+    _args_not_list = "Expected a `list`"
+    _kwds_not_dict = "Expected a `dict`"
 
     @data(
-        (dict(dims=[0, 1, 1, 1, 4, 5, 6]),     ((0, 1, 1, 1, 4), True), 1),
-        (dict(dims=[0, 1, 1, 1, 4, 5, 6, 7]), ((0, 1, 1, 1, 4), True), 1),
+        (1,                     _bad_struct),
+        (True,                  _bad_struct),
+        (None,                  _bad_struct),
+        ([],                    _func_missing),
+        ({},                    _func_missing),
     )
-    def test_json_extract_dims_ExtraArgs(self, case):
-        json, exp, mock_calls = case
-        log = MagicMock()
-        res = xr._json_extract_dims(json, log)
-        self.assertEqual(res, exp)
-        self.assertEqual(len(log.mock_calls), mock_calls, log.mock_calls)
+    def test_parse_call_desc_Fail_base(self, case):
+        call_desc, err = case
+        with assertRaisesRegex(self, ValueError, err):
+            xr.parse_call_desc(call_desc)
+
+    @data(
+        ([1, [], {}],           _func_not_str),
+        ([[], 'f', {}],         _cannot_decide),
+        ([[], {}, 'f'],         _cannot_decide),
+
+        (['f', [], []],         _cannot_decide),
+        (['f', [], {}, []],     _more_args),  # 5
+        (['f', {}, {}],         _cannot_decide),
+        (['f', [], {}, {}],     _more_args),
+
+        (['f', {}, 33],         _cannot_decide),
+        (['f', [], 33],         _cannot_decide),
+
+        (['f', [], {}, 33],     _more_args),  # 10
+        (['f', [], {}, 33],     _more_args),
+
+    )
+    def test_parse_call_desc_Fail_List(self, case):
+        call_desc, err = case
+        with assertRaisesRegex(self, ValueError, err):
+            xr.parse_call_desc(call_desc)
+
+    @data(
+        ({'args': [], 'kwds': {}},                      _func_missing),
+        ({'args': []},                                  _func_missing),
+        ({'kwds': {}},                                  _func_missing),
+
+        ({'gg': 1, 'args': [], 'kwds': {}},              _more_kwds),
+        ({'func': 'f', 'args': [], 'y': 5},              _more_kwds),
+        ({'func': 'f', 'kwds': {}, 'y': 5},              _more_kwds),
+
+        ({'func': None, 'args': [], 'kwds': {}},        _func_not_str),
+        ({'func': 1, 'args': [], 'kwds': {}},           _func_not_str),
+        ({'func': True, 'args': [1], 'kwds': {}},       _func_not_str),
+        ({'func': [], 'args': [1], 'kwds': {}},         _func_not_str),
+
+        ({'func': 'f', 'args': 1, 'kwds': {}},          _args_not_list),
+        ({'func': 'f', 'args': True, 'kwds': {}},       _args_not_list),
+        ({'func': 'f', 'args': {}, 'kwds': {}},         _args_not_list),
+
+        ({'func': 'f', 'args': [], 'kwds': 1},          _kwds_not_dict),
+        ({'func': 'f', 'args': [], 'kwds': True},       _kwds_not_dict),
+        ({'func': 'f', 'args': [], 'kwds': []},         _kwds_not_dict),
+    )
+    def test_parse_call_desc_Fail_Object(self, case):
+        call_desc, err = case
+        with assertRaisesRegex(self, ValueError, err):
+            xr.parse_call_desc(call_desc)
 
 
 @ddt
@@ -1048,18 +1102,20 @@ class ReadRect(unittest.TestCase):
         self.check_read_capture_rect(case)
 
 
-_xlref.read(
-    'A1:..(D):{"pipe":[{"func": "redim", "kws":{"col": [null, 1]}}, "numpy" ], "opts":{"show_help": 1}}', sheets)
+class Read(unittest.TestCase):
+    pass
+# _xlref.read(
+#     'A1:..(D):{"pipe":[{"func": "redim", "kwds":{"col": [null, 1]}}, "numpy" ], "opts":{"show_help": 1}}', sheets)
 
 
 @ddt
 class VsPandas(unittest.TestCase, CustomAssertions):
 
     @contextlib.contextmanager
-    def sample_xl_file(self, matrix, **df_write_kws):
+    def sample_xl_file(self, matrix, **df_write_kwds):
         try:
             tmp_file = '%s.xlsx' % tempfile.mktemp()
-            _write_sample_sheet(tmp_file, matrix, 'Sheet1', **df_write_kws)
+            _write_sample_sheet(tmp_file, matrix, 'Sheet1', **df_write_kwds)
 
             yield tmp_file
         finally:
@@ -1094,13 +1150,13 @@ class VsPandas(unittest.TestCase, CustomAssertions):
                 except:
                     pass
 
-    def check_vs_read_df(self, table, st, nd, write_df_kws={}, parse_df_kws={}):
-        with self.sample_xl_file(table, **write_df_kws) as xl_file:
+    def check_vs_read_df(self, table, st, nd, write_df_kwds={}, parse_df_kwds={}):
+        with self.sample_xl_file(table, **write_df_kwds) as xl_file:
             pd_df = pd.read_excel(xl_file, 'Sheet1')
             xlrd_wb = xlrd.open_workbook(xl_file)
             self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
             xlref_res = xr.read_capture_rect(self.sheet, st, nd)
-            xlref_df = xr._to_df(xlref_res, **parse_df_kws)
+            xlref_df = xr._df_filter(xr.Lash(xlref_res, 0, 0), **parse_df_kwds)
 
             msg = '\n---\n%s\n--\n%s\n-\n%s' % (xlref_res, xlref_df, pd_df)
             self.assertTrue(xlref_df.equals(pd_df), msg=msg)
@@ -1108,7 +1164,7 @@ class VsPandas(unittest.TestCase, CustomAssertions):
     def test_vs_read_df(self):
         self.check_vs_read_df(self.m1.tolist(),
                               xr.Coords(0, 0), xr.Coords(4, 5),
-                              parse_df_kws=dict(header=0))
+                              parse_df_kwds=dict(header=0))
 
     @unittest.expectedFailure  # Dims mismatch.
     @data(
@@ -1117,7 +1173,7 @@ class VsPandas(unittest.TestCase, CustomAssertions):
     def test_vs_read_df_Row(self, i):
         self.check_vs_read_df(self.m1[i, :].tolist(),
                               xr.Coords(1, 1), xr.Coords(1, 5),
-                              parse_df_kws=dict(header=None))
+                              parse_df_kwds=dict(header=None))
 
     @data(
         *range(m1.shape[1])
@@ -1125,7 +1181,7 @@ class VsPandas(unittest.TestCase, CustomAssertions):
     def test_vs_read_df_Col(self, i):
         self.check_vs_read_df(self.m1[:, i].tolist(),
                               xr.Coords(1, 1), xr.Coords(4, 1),
-                              parse_df_kws=dict(header=None))
+                              parse_df_kwds=dict(header=None))
 
 
 @unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
