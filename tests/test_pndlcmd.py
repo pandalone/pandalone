@@ -9,14 +9,16 @@
 from __future__ import division, print_function, unicode_literals
 
 import doctest
+import io
 import os
-from pandalone import __main__, pndlcmd
 import sys
-from tests._tutils import (CustomAssertions, TemporaryDirectory, chdir)
 import unittest
 
 from doit.reporter import JsonReporter
-import six
+from future import utils as fututils
+
+from pandalone import __main__, pndlcmd
+from tests._tutils import (CustomAssertions, TemporaryDirectory, chdir)
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
@@ -42,7 +44,7 @@ class CaptureDodo(object):
 
     def run(self, cmdline, pndlcmd=pndlcmd):
         self.out = '<not_run>'
-        outfile = six.StringIO()
+        outfile = io.StringIO()
         pndlcmd.DOIT_CONFIG['reporter'] = JsonReporter(outfile)
         try:
             args = cmdline.split()
@@ -55,6 +57,7 @@ def_sample = '%s.pndl' % pndlcmd.opt_sample['default']
 _doitdb_files = '.doit.db.dat'
 
 
+@unittest.skipIf(fututils.PY2, "ConfigParser has different sig in PY2!")
 class TestMakeSamples(unittest.TestCase, CustomAssertions):
 
     def assertGoodSample(self, targetdir, dodo_out, user_msg=None):

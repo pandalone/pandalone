@@ -10,9 +10,10 @@ The user-facing implementation of *xlref*.
 
 Prefer accessing the public members from the parent module.
 """
+from __future__ import unicode_literals
 
 from abc import abstractmethod, ABCMeta
-from collections import namedtuple, Iterable, OrderedDict
+from collections import namedtuple, OrderedDict
 import inspect
 import json
 import logging
@@ -20,14 +21,15 @@ import re
 from string import ascii_uppercase
 import textwrap
 
-import six
+from future import utils as fututils  # @UnresolvedImport
+from future.backports import ChainMap  # @UnresolvedImport
+from future.moves.urllib.parse import urldefrag  # @UnresolvedImport
+from future.utils import with_metaclass
+from past.builtins import basestring
 from toolz import dicttoolz as dtz
 
-import functools as ftt
-from future.backports import ChainMap
 import itertools as itt
 import numpy as np
-from six.moves.urllib.parse import urldefrag  # @UnresolvedImport
 
 
 log = logging.getLogger(__name__)
@@ -622,7 +624,7 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
         return rcoord
     except Exception as ex:
         msg = 'invalid {}({!r}) due to: {}'
-        six.raise_from(ValueError(msg.format(cname, coord, ex)), ex)
+        fututils.raise_from(ValueError(msg.format(cname, coord, ex)), ex)
 
 
 def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
@@ -698,8 +700,8 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
     except Exception as ex:
         msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  base_cords(%s)"
         log.debug(msg, cell, ex, (up_coords, dn_coords), base_cords)
-        six.raise_from(ValueError("invalid cell(%s) due to: %s" % (cell, ex)),
-                       ex)
+        msg = "invalid cell(%s) due to: %s"
+        fututils.raise_from(ValueError(msg % (cell, ex)), ex)
 
 
 _mov_vector_slices = {
@@ -1312,7 +1314,7 @@ def _parse_call_spec(call_spec):
         return func, args, kwds
 
     try:
-        if isinstance(call_spec, six.string_types):
+        if isinstance(call_spec, basestring):
             func, args, kwds = call_spec, None, None
         elif isinstance(call_spec, list):
             func, args, kwds = parse_list(*call_spec)
@@ -1327,7 +1329,7 @@ def _parse_call_spec(call_spec):
         msg = "Cannot parse due to: {}!"
         raise ValueError(msg.format(ex))
 
-    if not isinstance(func, six.string_types):
+    if not isinstance(func, basestring):
         msg = "Expected a `string` for func-name({})!"
         raise ValueError(msg.format(func))
     if args is None:
@@ -1575,7 +1577,7 @@ def read_capture_rect(sheet, st, nd, json=None):
     return values
 
 
-class _Spreadsheet(object):
+class _Spreadsheet(with_metaclass(ABCMeta, object)):
     """
     An abstract  delegating to backends excel-worksheets wrapper that is utilized by this module.
 
@@ -1602,7 +1604,6 @@ class _Spreadsheet(object):
         ...     sheet = xlref.win32Sheet(wb.sheet['Sheet1'])
         TODO
     """
-    __metaclass__ = ABCMeta
 
     _states_matrix = None
     _margin_coords = None
@@ -1656,19 +1657,6 @@ class _Spreadsheet(object):
 
         :return:    the resolved top-left and bottom-right :class:`Coords`
         :rtype:     tuple
-
-
-        Examples::
-
-            >>> sheet = _Spreadsheet()
-            >>> sheet._states_matrix = np.asarray([       ## Mock states_matrix.
-            ...    [0, 0, 0, 0],
-            ...    [1, 1, 0, 0],
-            ...    [0, 1, 1, 0],
-            ...    [0, 0, 1, 0],
-            ... ])
-            >>> sheet.get_margin_coords()
-            (Coords(row=1, col=0), Coords(row=3, col=2))
 
         """
         if not self._margin_coords:

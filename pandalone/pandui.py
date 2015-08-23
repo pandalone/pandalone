@@ -40,13 +40,21 @@ _sunken = dict(relief=tk.SUNKEN, padx=_pad, pady=_pad, borderwidth=_bw)
 _ridge = dict(relief=tk.RIDGE, padx=_pad, pady=_pad, borderwidth=_bw)
 _courier_font = "courier 8"
 
+try:
+    _levelsMap = logging._levelToName
+except AttributeError:
+    _levelsMap = {k: v for k, v
+                  in logging._levelNames.items()  # @UndefinedVariable PY2-only
+                  if isinstance(k, int)}
+
 
 class LogPanel(tk.LabelFrame):
 
     """
     Instantiate only once(!), or logging and Tk's ex-handling will get borged.
     """
-    LEVELS_MAP = sorted(logging._levelToName.items(), reverse=True)
+
+    LEVELS_MAP = sorted(_levelsMap.items(), reverse=True)
 
     TAG_META = 'meta'
     TAG_LOGS = 'logs'

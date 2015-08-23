@@ -132,7 +132,6 @@ download_url = 'https://github.com/%s/%s/tarball/v%s' % (
     proj_name, proj_name, proj_ver)
 
 install_requires = [
-    'six',
     'future >= 0.15.0',
     'toolz',
     'jsonschema > 2.4',  # TODO: Upgrade jsonschema to +>= 2.5.
@@ -209,6 +208,7 @@ setup(
         ],
     },
     run_requires=[
+        
         {
             "requires": ["pywin32 > 1.0", "xlwings", "easygui"],
             "environment": "sys_platform == 'win32'"

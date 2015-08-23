@@ -7,13 +7,12 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 
 from contextlib import contextmanager
+from io import StringIO
 import logging
 import os
 import sys
 from tempfile import mkdtemp
 import unittest
-
-import six
 
 
 log = logging.getLogger(__name__)
@@ -247,8 +246,8 @@ except ImportError:
 @contextmanager
 def capture(command, *args, **kwargs):
     # Unused
-    out, sys.stdout = sys.stdout, six.StringIO()
-    err, sys.stderr = sys.stderr, six.StringIO()
+    out, sys.stdout = sys.stdout, StringIO()
+    err, sys.stderr = sys.stderr, StringIO()
     try:
         command(*args, **kwargs)
         sys.stdout.seek(0)

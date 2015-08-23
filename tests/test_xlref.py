@@ -15,11 +15,11 @@ import os
 import sys
 import tempfile
 import unittest
-from unittest.mock import MagicMock
 
 from ddt import ddt, data
+from future import utils as fututis  # @UnresolvedImport
 from numpy import testing as npt
-import six
+from past.builtins import basestring
 import xlrd
 
 import numpy as np
@@ -31,6 +31,12 @@ from tests import _tutils
 from tests._tutils import check_xl_installed, xw_Workbook
 
 from ._tutils import assertRaisesRegex, CustomAssertions
+
+
+try:
+    from unittest.mock import MagicMock
+except ImportError:
+    from mock import MagicMock
 
 
 log = _tutils._init_logging(__name__)
@@ -105,10 +111,10 @@ class Parse(unittest.TestCase):
         res = xr._parse_xl_ref(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
-        self.assertIsInstance(st_edge.land.row, six.string_types)
-        self.assertIsInstance(st_edge.land.col, six.string_types)
-        self.assertIsInstance(nd_edge.land.row, six.string_types)
-        self.assertIsInstance(nd_edge.land.col, six.string_types)
+        self.assertIsInstance(st_edge.land.row, basestring)
+        self.assertIsInstance(st_edge.land.col, basestring)
+        self.assertIsInstance(nd_edge.land.row, basestring)
+        self.assertIsInstance(nd_edge.land.col, basestring)
 
     def test_parse_xl_ref_Cell_col_row_order(self):
         xl_ref = 'b1:C2'
@@ -907,9 +913,13 @@ class Json(unittest.TestCase):
 
     _bad_struct = "One of str, list or dict expected!"
     _func_not_str = "Expected a `string`"
-    _func_missing = "missing 1 required positional argument: 'func'"
+    _func_missing = ("missing 1 required positional argument: 'func'"
+                     if fututis.PY3 else
+                     'takes at least 1 argument')
     _cannot_decide = "Cannot decide `args`/`kwds`"
-    _more_args = "takes from 1 to 3 positional arguments"
+    _more_args = ("takes from 1 to 3 positional arguments"
+                  if fututis.PY3 else
+                  'takes at most 3 arguments')
     _more_kwds = "unexpected keyword argument"
     _args_not_list = "Expected a `list`"
     _kwds_not_dict = "Expected a `dict`"
@@ -1113,7 +1123,7 @@ class Read(unittest.TestCase):
             [1,    True,   None, False,  None],   # 1
             [5,    True,   dt,    u'',    3.14],  # 2
             [7,    False,  5.1,   7.1,    ''],    # 3
-            [9,    True,   43,    'str',  dt],    # 4
+            [9,    True,   43,    b'str', dt],    # 4
         ])
 
     def test_read(self):
@@ -1153,7 +1163,7 @@ class VsPandas(unittest.TestCase, CustomAssertions):
         [1,    True,   None, False,  None],   # 1
         [5,    True,   dt,    u'',    3.14],  # 2
         [7,    False,  5.1,   7.1,    ''],    # 3
-        [9,    True,   43,    'str',  dt],    # 4
+        [9,    True,   43,    b'str', dt],    # 4
     ])
 
     def test_pandas_can_write_multicolumn(self):
@@ -1337,20 +1347,28 @@ class VsXlwings(unittest.TestCase):
 
 class _Spreadsheet(unittest.TestCase):
 
+    class MySheet(xr._Spreadsheet):
+
+        def read_rect(self, st, nd):
+            return [[]]
+
+        def _read_states_matrix(self):
+            return [[]]
+
     def test_get_states_matrix_Caching(self):
-        sheet = xr._Spreadsheet()
+        sheet = self.MySheet()
         obj = object()
         sheet._states_matrix = obj
         self.assertEqual(sheet.get_states_matrix(), obj)
 
     def test_get_margin_coords_Cached(self):
-        sheet = xr._Spreadsheet()
+        sheet = self.MySheet()
         obj = object()
         sheet._margin_coords = obj
         self.assertEqual(sheet.get_margin_coords(), obj)
 
     def test_get_margin_coords_Extracted_from_states_matrix(self):
-        sheet = xr._Spreadsheet()
+        sheet = self.MySheet()
         sheet._states_matrix = np.array([
             [0, 1, 1, 0]
         ])

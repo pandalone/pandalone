@@ -12,10 +12,6 @@ import argparse
 import os
 import re
 import sys
-import unittest
-
-import itertools as itt
-
 
 __commit__ = ""
 
@@ -27,10 +23,6 @@ except NameError:  # pragma: no cover
     FileNotFoundError = IOError  # @ReservedAssignment
 else:  # pragma: no cover
     FileNotFoundError = OSError  # @ReservedAssignment
-
-
-def raise_ex_from(ex_class, chained_ex, *args, **kwds):  # pragma: no cover
-    from six import reraise  # @UnusedImport
 
 
 def fullmatch_py2(regex, string, flags=0):
@@ -128,7 +120,7 @@ def open_file_with_os(fpath):  # pragma: no cover
     #     and http://www.dwheeler.com/essays/open-files-urls.html
     import subprocess
     try:
-        os.startfile(fpath)
+        os.startfile(fpath)  # @UndefinedVariable
     except AttributeError:
         if sys.platform.startswith('darwin'):
             subprocess.call(('open', fpath))

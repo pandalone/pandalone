@@ -37,15 +37,15 @@ from __future__ import division, unicode_literals
 from collections import OrderedDict
 from copy import copy
 import logging
+import re
+
+from past.builtins import basestring
+
+import functools as ft
 from pandalone import utils
 from pandalone.pandata import (
     iter_jsonpointer_parts_relaxed, JSchema, unescape_jsonpointer_part,
     escape_jsonpointer_part)
-import re
-
-import six
-
-import functools as ft
 
 
 __commit__ = ""
@@ -748,7 +748,7 @@ def _append_step(steps, step):
 
     """
     assert isinstance(steps, tuple), (steps, step)
-    assert not step or isinstance(step, six.string_types), (steps, step)
+    assert not step or isinstance(step, basestring), (steps, step)
 
     if step == '':
         return ('',)
@@ -1085,7 +1085,7 @@ class Pstep(str):
             str.__setattr__(self, attr, value)
         elif isinstance(value, Pstep):
             self.__make_cstep(attr, existing_cstep=value)
-        elif isinstance(value, six.string_types):
+        elif isinstance(value, basestring):
             self.__make_cstep(attr, alias=value)
         else:
             raise self._ex_invalid_assignment(attr, value)

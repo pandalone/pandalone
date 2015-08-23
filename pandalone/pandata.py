@@ -26,7 +26,7 @@ from jsonschema import Draft3Validator, Draft4Validator, ValidationError
 import jsonschema
 from jsonschema.exceptions import SchemaError, RefResolutionError
 from pandas.core.generic import NDFrame
-from six import string_types
+from past.builtins import basestring
 
 import numpy as np
 import pandas as pd
@@ -900,8 +900,8 @@ class Pandel(object):
                     val = b_val
                 a[key] = val
 
-        elif (isinstance(a, Sequence) and not isinstance(a, string_types)) or \
-                (isinstance(b, Sequence) and not isinstance(b, string_types)):
+        elif (isinstance(a, Sequence) and not isinstance(a, basestring)) or \
+                (isinstance(b, Sequence) and not isinstance(b, basestring)):
             if b is not None:
                 val = b
             else:
@@ -1032,11 +1032,11 @@ class Pandel(object):
 
 
 def escape_jsonpointer_part(part):
-    return part.replace(u"~", u"~0").replace(u"/", u"~1")
+    return part.replace("~", "~0").replace("/", "~1")
 
 
 def unescape_jsonpointer_part(part):
-    return part.replace(u"~1", u"/").replace(u"~0", u"~")
+    return part.replace("~1", "/").replace("~0", "~")
 
 
 def iter_jsonpointer_parts(jsonpath):
@@ -1083,7 +1083,7 @@ def iter_jsonpointer_parts(jsonpath):
 #     if jsonpath.endswith('/'):
 #         msg = "Jsonpointer-path({}) must NOT finish with '/'!"
 #         raise RefResolutionError(msg.format(jsonpath))
-    parts = jsonpath.split(u"/")
+    parts = jsonpath.split("/")
     if parts.pop(0) != '':
         msg = "Jsonpointer-path({}) must start with '/'!"
         raise RefResolutionError(msg.format(jsonpath))
@@ -1121,7 +1121,7 @@ def iter_jsonpointer_parts_relaxed(jsonpointer):
         ['']
 
     """
-    for part in jsonpointer.split(u"/"):
+    for part in jsonpointer.split("/"):
         yield unescape_jsonpointer_part(part)
 
 _scream = object()
@@ -1193,7 +1193,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=OrderedDict):
     pdoc = None
     ppart = None
     for i, part in enumerate(parts):
-        if isinstance(doc, Sequence) and not isinstance(doc, string_types):
+        if isinstance(doc, Sequence) and not isinstance(doc, basestring):
             # Array indexes should be turned into integers
             #
             doclen = len(doc)

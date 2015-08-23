@@ -10,8 +10,7 @@ from __future__ import division, unicode_literals
 
 import unittest
 
-import six
-
+from future import utils as fututils  # @UnresolvedImport
 from pandalone import utils
 from tests._tutils import _init_logging
 
@@ -29,7 +28,7 @@ log = _init_logging(__name__)
 @unittest.skip("Development paused temporarily.")
 class TkUiTest(unittest.TestCase):
 
-    @unittest.skipIf(utils.is_travis() or six.PY2, "TravisCI has no XServer!")
+    @unittest.skipIf(utils.is_travis() or fututils.PY2, "TravisCI has no XServer!")
     def test_smoke_test_no_event_loop(self):
         root = tk.Tk()
         try:
@@ -38,7 +37,7 @@ class TkUiTest(unittest.TestCase):
         finally:
             root.destroy()
 
-    @unittest.skipIf(utils.is_travis() or six.PY2, "TravisCI has no XServer!")
+    @unittest.skipIf(utils.is_travis() or fututils.PY2, "TravisCI has no XServer!")
     def test_smoke_test_with_event_loop(self):
         root = tk.Tk()
         try:
