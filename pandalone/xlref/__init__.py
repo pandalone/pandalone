@@ -346,7 +346,8 @@ Definitions
         apply for transforming the cell-values of `capture-rect`, 
         abiding to the  **json** syntax.
 
-    call-descriptor
+    call-specifier
+    call-spec
         The structure to specify some function call in the `filter` part;
         it can either be a json *string*, *list* or *object* like that:
         

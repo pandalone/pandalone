@@ -821,6 +821,8 @@ class Redim(unittest.TestCase):
         ([[[1, 2]]], 2,  [[1, 2]]),
         ([[[1, 2]]], 1,  [1, 2]),
         ([[[1], [2]]], 2,  [[1], [2]]),
+        ([[[[1]], [[2]]]], 2,  [[1], [2]]),
+        ([[[[1]], [[2]]]], 3,  [[[1]], [[2]]]),
         ([[[1], [2]]], 1,  [1, 2]),
         ([[[1], [2]]], 0,  [1, 2]),
     )
@@ -899,11 +901,11 @@ class Json(unittest.TestCase):
         ({'func': 'f', 'kwds': {}},                 ('f', [], {})),
         ({'func': 'f', 'kwds': {2: 3, 3: 4}},         ('f', [], {2: 3, 3: 4})),
     )
-    def test_parse_call_desc_OK(self, case):
+    def test_parse_call_spec_OK(self, case):
         call_desc, exp = case
-        self.assertEqual(xr.parse_call_desc(call_desc), exp)
+        self.assertEqual(xr._parse_call_spec(call_desc), exp)
 
-    _bad_struct = "is neither str, list or dict"
+    _bad_struct = "One of str, list or dict expected!"
     _func_not_str = "Expected a `string`"
     _func_missing = "missing 1 required positional argument: 'func'"
     _cannot_decide = "Cannot decide `args`/`kwds`"
@@ -919,10 +921,10 @@ class Json(unittest.TestCase):
         ([],                    _func_missing),
         ({},                    _func_missing),
     )
-    def test_parse_call_desc_Fail_base(self, case):
+    def test_parse_call_spec_Fail_base(self, case):
         call_desc, err = case
         with assertRaisesRegex(self, ValueError, err):
-            xr.parse_call_desc(call_desc)
+            xr._parse_call_spec(call_desc)
 
     @data(
         ([1, [], {}],           _func_not_str),
@@ -941,10 +943,10 @@ class Json(unittest.TestCase):
         (['f', [], {}, 33],     _more_args),
 
     )
-    def test_parse_call_desc_Fail_List(self, case):
+    def test_parse_call_spec_Fail_List(self, case):
         call_desc, err = case
         with assertRaisesRegex(self, ValueError, err):
-            xr.parse_call_desc(call_desc)
+            xr._parse_call_spec(call_desc)
 
     @data(
         ({'args': [], 'kwds': {}},                      _func_missing),
@@ -968,10 +970,10 @@ class Json(unittest.TestCase):
         ({'func': 'f', 'args': [], 'kwds': True},       _kwds_not_dict),
         ({'func': 'f', 'args': [], 'kwds': []},         _kwds_not_dict),
     )
-    def test_parse_call_desc_Fail_Object(self, case):
+    def test_parse_call_spec_Fail_Object(self, case):
         call_desc, err = case
         with assertRaisesRegex(self, ValueError, err):
-            xr.parse_call_desc(call_desc)
+            xr._parse_call_spec(call_desc)
 
 
 @ddt
@@ -1103,9 +1105,30 @@ class ReadRect(unittest.TestCase):
 
 
 class Read(unittest.TestCase):
-    pass
-# _xlref.read(
-#     'A1:..(D):{"pipe":[{"func": "redim", "kwds":{"col": [null, 1]}}, "numpy" ], "opts":{"show_help": 1}}', sheets)
+
+    def m1(self):
+        dt = datetime(1900, 8, 2)
+        return np.array([
+            # A     B       C      D       E
+            [1,    True,   None, False,  None],   # 1
+            [5,    True,   dt,    u'',    3.14],  # 2
+            [7,    False,  5.1,   7.1,    ''],    # 3
+            [9,    True,   43,    'str',  dt],    # 4
+        ])
+
+    def test_read(self):
+        sheets = {None: ArraySheet(self.m1())}
+        res = xr.read('''A1:..(D):
+            [
+                "pipe", [
+                    ["redim", {"col": [2, 1]}], 
+                    "numpy"
+                ], {"opts":
+                    {"show_help": true}
+                }
+            ]''',
+                      sheets)
+        print(res)
 
 
 @ddt
@@ -1153,10 +1176,15 @@ class VsPandas(unittest.TestCase, CustomAssertions):
     def check_vs_read_df(self, table, st, nd, write_df_kwds={}, parse_df_kwds={}):
         with self.sample_xl_file(table, **write_df_kwds) as xl_file:
             pd_df = pd.read_excel(xl_file, 'Sheet1')
+            pd_df = pd_df.iloc[
+                slice(st[0], nd[0] + 1), slice(st[1], nd[1] + 1)]
             xlrd_wb = xlrd.open_workbook(xl_file)
             self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
             xlref_res = xr.read_capture_rect(self.sheet, st, nd)
-            xlref_df = xr._df_filter(xr.Lash(xlref_res, 0, 0), **parse_df_kwds)
+            lash = xr.Lash({}, st, nd, xlref_res, {})
+            lash1 = xr._redim_filter(lash, row=[2, True])
+            lash2 = xr._df_filter(lash1, **parse_df_kwds)
+            xlref_df = lash2.values
 
             msg = '\n---\n%s\n--\n%s\n-\n%s' % (xlref_res, xlref_df, pd_df)
             self.assertTrue(xlref_df.equals(pd_df), msg=msg)
@@ -1165,23 +1193,6 @@ class VsPandas(unittest.TestCase, CustomAssertions):
         self.check_vs_read_df(self.m1.tolist(),
                               xr.Coords(0, 0), xr.Coords(4, 5),
                               parse_df_kwds=dict(header=0))
-
-    @unittest.expectedFailure  # Dims mismatch.
-    @data(
-        *range(m1.shape[0])
-    )
-    def test_vs_read_df_Row(self, i):
-        self.check_vs_read_df(self.m1[i, :].tolist(),
-                              xr.Coords(1, 1), xr.Coords(1, 5),
-                              parse_df_kwds=dict(header=None))
-
-    @data(
-        *range(m1.shape[1])
-    )
-    def test_vs_read_df_Col(self, i):
-        self.check_vs_read_df(self.m1[:, i].tolist(),
-                              xr.Coords(1, 1), xr.Coords(4, 1),
-                              parse_df_kwds=dict(header=None))
 
 
 @unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
