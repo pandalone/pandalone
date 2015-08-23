@@ -19,14 +19,6 @@ import itertools as itt
 
 __commit__ = ""
 
-##############
-#  Compatibility
-#
-try:  # pragma: no cover
-    assertRaisesRegex = unittest.TestCase.assertRaisesRegex
-except:  # pragma: no cover
-    assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
-
 # Python-2 compatibility
 #
 try:  # pragma: no cover
@@ -54,6 +46,8 @@ except ImportError:  # pragma: no cover
 ##############
 #  Utilities
 #
+
+
 def str2bool(v):
     """
     Utility for parsing cmd-line args.

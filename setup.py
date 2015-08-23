@@ -27,10 +27,10 @@ Or get it directly from the github repository::
 #    http://www.jeffknupp.com/blog/2013/08/16/open-sourcing-a-python-project-the-right-way/
 #    http://python-packaging-user-guide.readthedocs.org/en/latest/current.html
 
-import os
-import sys
 import io
+import os
 import re
+import sys
 
 from setuptools import setup
 
@@ -133,6 +133,8 @@ download_url = 'https://github.com/%s/%s/tarball/v%s' % (
 
 install_requires = [
     'six',
+    'future >= 0.15.0',
+    'toolz',
     'jsonschema > 2.4',  # TODO: Upgrade jsonschema to +>= 2.5.
     'numpy >= 1.7',
     'pandas >= 0.15.0',
@@ -196,6 +198,7 @@ setup(
     ],
     tests_require=[
         'nose',
+        'ddt',
         'coverage',
     ],
     test_suite='nose.collector',

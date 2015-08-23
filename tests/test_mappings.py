@@ -32,7 +32,7 @@ def pmod2regexstrs(pmod):
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
-class TestDoctest(unittest.TestCase):
+class Doctest(unittest.TestCase):
 
     def test_doctests(self):
         failure_count, test_count = doctest.testmod(
