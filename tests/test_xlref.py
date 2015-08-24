@@ -911,7 +911,7 @@ class Json(unittest.TestCase):
         call_desc, exp = case
         self.assertEqual(xr._parse_call_spec(call_desc), exp)
 
-    _bad_struct = "One of str, list or dict expected!"
+    _bad_struct = "One of str, list or dict expected"
     _func_not_str = "Expected a `string`"
     _func_missing = ("missing 1 required positional argument: 'func'"
                      if fututis.PY3 else

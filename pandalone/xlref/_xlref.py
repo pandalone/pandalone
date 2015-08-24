@@ -1301,28 +1301,17 @@ def _redim(values, new_ndim):
 _Lash = namedtuple('Lash', ('xl_ref', 'st', 'nd', 'values', 'opts'))
 """
 The `xl-ref` fields, the resolved :term:`capture-rect` and the read values along with `opts` passed between filters.
+
+:param ChainMap opts:
+        stacked dictionaries with options from previoues invocations 
 """
 
 
 def Lash(xl_ref, st, nd, values, opts):
-    return _Lash(xl_ref, st, nd, values,  opts)
-
-
-def _redim_filter(lash,
-                  scalar=None, cell=None, row=None, col=None, table=None):
-    """
-    Reshape and/or transpose captured values, depending on rect's shape.
-
-    Each dimension might be a single int or None, or a pair [dim, transpose].  
-    """
-    ndims_list = (scalar, cell, row, col, table)
-    shape_idx = _classify_rect_shape(lash.st, lash.nd)
-    new_ndim = _decide_ndim_by_rect_shape(shape_idx, ndims_list)
-    values = lash.values
-    if new_ndim is not None:
-        lash = lash._replace(values=_redim(values, new_ndim))
-
-    return lash
+    chain_opts = ChainMap()
+    if opts:
+        chain_opts.maps.append(opts)
+    return _Lash(xl_ref, st, nd, values, chain_opts)
 
 
 def _parse_call_spec(call_spec):
@@ -1354,7 +1343,7 @@ def _parse_call_spec(call_spec):
 
         if isargs.all() or iskwds.all() or not (
                 isargs ^ iskwds ^ isnull).all():
-            msg = "Cannot decide `args`/`kwds`!"
+            msg = "Cannot decide `args`/`kwds` for call_spec(%s)!"
             raise ValueError(msg.format(call_spec))
         args, kwds = None, None
         if isargs.any():
@@ -1374,27 +1363,28 @@ def _parse_call_spec(call_spec):
         elif isinstance(call_spec, dict):
             func, args, kwds = parse_object(**call_spec)
         else:
-            msg = "One of str, list or dict expected!"
+            msg = "One of str, list or dict expected for call-spec(%s)!"
             raise ValueError(msg.format(call_spec))
     except ValueError:
         raise
     except Exception as ex:
-        msg = "Cannot parse due to: {}!"
-        raise ValueError(msg.format(ex))
+        msg = "Cannot parse call-spec({}) due to: {}"
+        raise ValueError(msg.format(call_spec, ex))
 
     if not isinstance(func, basestring):
-        msg = "Expected a `string` for func-name({})!"
-        raise ValueError(msg.format(func))
+        msg = "Expected a `string` for func-name({}) for call-spec({})!"
+        raise ValueError(msg.format(func, call_spec))
     if args is None:
         args = []
     elif not isinstance(args, list):
-        msg = "Expected a `list` for args({})!"
-        raise ValueError(msg.format(args))
+        msg = "Expected a `list` for args({}) for call-spec({})!"
+        raise ValueError(msg.format(args, call_spec))
     if kwds is None:
         kwds = {}
     elif not isinstance(kwds, dict):
-        msg = "Expected a `dict` for kwds({})!"
-        raise ValueError(msg.format(kwds))
+        msg = "Expected a `dict` for kwds({}) for call-spec({})!"
+        raise ValueError(msg.format(kwds, call_spec))
+
     return func, args, kwds
 
 
@@ -1404,17 +1394,17 @@ def _build_call_help(name, func, desc):
     return '\n\nFilter: %s%s:\n%s' % (name, sig, desc)
 
 
-def _make_call(lash, call_spec):
-    lax = lash.opts['lax']
-    verbose = lash.opts['verbose']
+def _make_call(lash, func_name, args, kwds):
+    opts = lash.opts
+    new_opts = kwds.pop('opts', None)
+    if new_opts:
+        opts.maps.append(new_opts)
+
+    lax = opts['lax']
+    verbose = opts['verbose']
+    available_funcs = opts['available_funcs']
     func_desc = '<YET_UNSET>'
     try:
-        func_name, args, kwds = _parse_call_spec(call_spec)
-        opts = ChainMap(kwds.pop('opts', {}))
-        opts.maps.append(lash.opts)
-        lax = opts['lax']
-        verbose = opts['verbose']
-        available_funcs = opts['available_funcs']
 
         func_rec = available_funcs[func_name]
         func, func_desc = func_rec
@@ -1425,11 +1415,57 @@ def _make_call(lash, call_spec):
             func_desc = _build_call_help(func_name, func, func_desc)
         else:
             func_desc = ''
-        msg = "Error in call-specifier(%r): %s%s"
+        msg = "Error in call-specifier(%s, %s, %s): %s%s"
         if lax:
-            log.warning(msg, call_spec, ex, func_desc, exc_info=1)
+            log.warning(msg, func_name, args, kwds, ex, func_desc, exc_info=1)
         else:
-            raise ValueError(msg % (call_spec, ex, func_desc))
+            raise ValueError(msg % (func_name, args, kwds, ex, func_desc))
+    return lash
+
+
+def _apply_filters(lash):
+    """
+    Invokes json's :term:`call-specifier` to process the values of :func:`read_capture_rect()`.
+
+    :param Lash lash: 
+            what to transform; 
+            contains the values fetched by :func:`read_capture_rect()` 
+            along with input and resolved coordinates, and pother parsed fields
+    :param json:
+            The 1st-filter to apply, if missing, applies the mapping found in
+            the ``None --> <filter`` entry of the `available_funcs` dict.
+    :param dict, None kwds:  
+            keyword arguments for the filter function
+
+    :return: processed rect-values
+    :rtype: given type, or list of lists, list, value
+
+    """
+    json = lash.xl_ref['json']
+    if json:
+        func_name, args, kwds = _parse_call_spec(json)
+        lash = _make_call(lash, func_name, args, kwds)
+    return lash.values
+
+
+###############
+# FILTER-DEFS
+###############
+
+def _redim_filter(lash,
+                  scalar=None, cell=None, row=None, col=None, table=None):
+    """
+    Reshape and/or transpose captured values, depending on rect's shape.
+
+    Each dimension might be a single int or None, or a pair [dim, transpose].  
+    """
+    ndims_list = (scalar, cell, row, col, table)
+    shape_idx = _classify_rect_shape(lash.st, lash.nd)
+    new_ndim = _decide_ndim_by_rect_shape(shape_idx, ndims_list)
+    values = lash.values
+    if new_ndim is not None:
+        lash = lash._replace(values=_redim(values, new_ndim))
+
     return lash
 
 
@@ -1439,14 +1475,14 @@ def _pipe_filter(lash, *pipe):
 
     :param list pipe: the call-specifiers
     """
+    orig_opts = lash.opts.copy()
     for call_spec in pipe:
-        lash = _make_call(lash, call_spec)
+        func_name, args, kwds = _parse_call_spec(call_spec)
+        lash = _make_call(lash, func_name, args, kwds)
+    lash = lash._replace(opts=orig_opts)
 
     return lash
 
-###############
-# FILTER-DEFS
-###############
 _default_filters = {
     'pipe': [
         _pipe_filter,
@@ -1471,7 +1507,8 @@ _default_filters = {
     'odict': [
         lambda lash, *
         args, **kwds: lash._replace(
-            values=OrderedDict(lash.values, *args, **kwds)), OrderedDict.__doc__,
+            values=OrderedDict(lash.values, *args, **kwds)),
+        OrderedDict.__doc__,
     ],
     'sorted': [
         lambda lash, *
@@ -1518,29 +1555,8 @@ _default_opts = {
 }
 
 
-def _apply_filters(lash):
-    """
-    Processes the output value of :func:`read_capture_rect()` function.
-
-    :param Lash lash: 
-            what to transform; 
-            the values (and coords) fetched by :func:`read_capture_rect()`.
-    :param json:
-            The 1st-filter to apply, if missing, applies the mapping found in
-            the ``None --> <filter`` entry of the `available_funcs` dict.
-    :param dict, None kwds:  keyword arguments for the filter function
-
-    :return: processed rect-values
-    :rtype: given type, or list of lists, list, value
-
-    """
-    json = lash.xl_ref['json']
-    if json:
-        lash = _make_call(lash, json)
-    return lash.values
-
-
-def read(xlref, sheets, available_funcs=_default_filters):
+def read(xlref, sheets,
+         available_funcs=_default_filters, default_opts=_default_opts):
     """
     Context[None] = current-sheet 
     """
@@ -1569,7 +1585,7 @@ def read(xlref, sheets, available_funcs=_default_filters):
 
     values = sheet.read_rect(st, nd)
 
-    lash = Lash(fields, st, nd, values, _default_opts)
+    lash = Lash(fields, st, nd, values, default_opts)
     values = _apply_filters(lash)
 
     return values
