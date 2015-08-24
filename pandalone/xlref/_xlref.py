@@ -167,8 +167,15 @@ _re_xl_ref_parser = re.compile(
     r"""
     ^\s*(?:(?P<sheet>[^!]+)?!)?                          # xl sheet name
     (?:                                                  # 1st-edge
-        (?P<st_col>[A-Z]+|_|\^)                          # col
-        (?P<st_row>[123456789]\d*|_|\^)                  # row
+        (?:
+            (?:
+            (?P<st_col>[A-Z]+|[_^])                      # col
+            (?P<st_row>[123456789]\d*|[_^])              # row
+            ) | (?:
+            R(?P<st_row2>-?[123456789]\d*|[_^])
+            C(?P<st_col2>-?[123456789]\d*|[_^])
+            )
+        )
         (?:\(
             (?P<st_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves
             (?P<st_mod>[+-])?                            # move modifiers
@@ -176,8 +183,15 @@ _re_xl_ref_parser = re.compile(
         )?
     )
     (?::                                                 # 2nd-edge [opt]
-        (?P<nd_col>[A-Z]+|_|\^|\.)                       # col
-        (?P<nd_row>[123456789]\d*|_|\^|\.)               # row
+        (?:
+            (?:
+            (?P<nd_col>[A-Z]+|[_^.])                     # col
+            (?P<nd_row>[123456789]\d*|[_^.])             # row
+            ) | (?:
+            R(?P<nd_row2>-?[123456789]\d*|[_^.])
+            C(?P<nd_col2>-?[123456789]\d*|[_^.])
+            )
+        )
         (?:\(
             (?P<nd_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves
             (?P<nd_mod>[+-])?                            # move-modifiers
@@ -188,9 +202,10 @@ _re_xl_ref_parser = re.compile(
         )?
     )?
     \s*
-    (?::?
-        (?P<json>.*)                                   #  [opt] json
-    )$""",
+    (?::?\s*
+        (?P<json>[[{"].*)?                                #  [opt] json
+    )$
+    """,
     re.IGNORECASE | re.X | re.DOTALL)
 """
 This regex produces the following capture-groups:
@@ -328,7 +343,7 @@ def _parse_xl_ref(xl_ref):
          ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'))]
         >>> _parse_xl_ref('A1(DR)Z20(UL)')
         Traceback (most recent call last):
-        ValueError: json error: Expecting value: line 1 column 1 (char 0)
+        ValueError: Not an `xl-ref` syntax.
     """
 
     m = _re_xl_ref_parser.match(xl_ref)
@@ -340,16 +355,24 @@ def _parse_xl_ref(xl_ref):
     #     with "uncooked" edge.
     #
     p = gs.pop
-    gs['st_edge'] = _uncooked_Edge(p('st_row'), p('st_col'),
+    r, c = p('st_row'), p('st_col')
+    r2, c2 = p('st_row2'), p('st_col2')
+    if r2 is not None:
+        r, c = r2, c2
+    gs['st_edge'] = _uncooked_Edge(r, c,
                                    p('st_mov'), p('st_mod'))
-    gs['nd_edge'] = _uncooked_Edge(p('nd_row'), p('nd_col'),
+    r, c = p('nd_row'), p('nd_col')
+    r2, c2 = p('nd_row2'), p('nd_col2')
+    if r2 is not None:
+        r, c = r2, c2
+    gs['nd_edge'] = _uncooked_Edge(r, c,
                                    p('nd_mov'), p('nd_mod'))
 
     js = gs['json']
     try:
         gs['json'] = json.loads(js) if js else None
     except ValueError as ex:
-        raise ValueError('json error: %s' % ex)
+        raise ValueError('%s, json:\n %s' % (ex, js))
 
     exp_moves = gs['exp_moves']
     gs['exp_moves'] = _parse_expansion_moves(
@@ -472,8 +495,11 @@ def _row2num(coord):
         0
         >>> row == _row2num(1)
         True
+
+    Negatives (from bottom) are preserved::
+
         >>> _row2num('-1')
-        -2
+        -1
 
     Fails ugly::
 
@@ -481,7 +507,14 @@ def _row2num(coord):
         Traceback (most recent call last):
         ValueError: invalid literal for int() with base 10: '.'
     """
-    return int(coord) - 1
+    rcoord = int(coord)
+    if rcoord == 0:
+        msg = 'Uncooked-coord cannot be zero!'
+        raise ValueError(msg.format(coord))
+    if rcoord > 0:
+        rcoord -= 1
+
+    return rcoord
 
 
 def _col2num(coord):
@@ -501,23 +534,42 @@ def _col2num(coord):
         True
         >>> _col2num('AaZ')
         727
+        >>> _col2num('10')
+        9
+        >>> _col2num(9)
+        8
+
+    Negatives (from left-end) are preserved::
+
+        >>> _col2num('AaZ')
+        727
 
     Fails ugly::
 
-        >>> _col2num('12')
+        >>> _col2num('%$')
         Traceback (most recent call last):
         ValueError: substring not found
 
-        >>> _col2num(1)
+        >>> _col2num([])
         Traceback (most recent call last):
-        TypeError: 'int' object is not iterable
+        TypeError: int() argument must be a string, a bytes-like object or 
+                    a number, not 'list'
+
     """
+    try:
+        rcoord = int(coord)
+    except ValueError:
+        rcoord = 0
+        for c in coord:
+            rcoord = rcoord * 26 + ascii_uppercase.rindex(c.upper()) + 1
 
-    rcoord = 0
-    for c in coord:
-        rcoord = rcoord * 26 + ascii_uppercase.rindex(c.upper()) + 1
-
-    rcoord -= 1
+        rcoord -= 1
+    else:
+        if rcoord == 0:
+            msg = 'Uncooked-coord cannot be zero!'
+            raise ValueError(msg.format(coord))
+        elif rcoord > 0:
+            rcoord -= 1
 
     return rcoord
 
@@ -526,14 +578,18 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
     """
     Translates special coords or converts Excel string 1-based rows/cols to zero-based, reporting invalids.
 
-    :param str        cname:  the coord-name, one of 'row', 'column'
-    :param function   cfunc:  the function to convert coord ``str --> int``
-    :param int, str   coord:  the "A1" coord to translate
+    :param str cname:  
+            the coord-name, one of 'row', 'column'
+    :param function cfunc:  
+            the function to convert coord ``str --> int``
+    :param int, str coord:  
+            the "A1" coord to translate
     :param int up_coord:
-            the resolved *top* or *left* margin coordinate
-    :param int up_coord:
-            the resolved *bottom* or *right* margin coordinate
-    :param int, None base_coord:  the resolved basis for dependent coord, if any
+            the resolved *top* or *left* margin zero-based coordinate
+    :param int dn_coord:
+            the resolved *bottom* or *right* margin zero-based coordinate 
+    :param int, None base_coord:  
+            the resolved basis for dependent coord, if any
 
     :return: the resolved coord or `None` if it were not a special coord.
 
@@ -553,7 +609,8 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
         10
         >>> _resolve_coord(cname, _row2num, '.', 1, 10, 13)
         13
-
+        >>> _resolve_coord(cname, _row2num, '-3', 0, 10)
+        8
 
     But notice when base-cell missing::
 
@@ -565,7 +622,7 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
 
         >>> _resolve_coord(cname, _row2num, '0', 0, 10)
         Traceback (most recent call last):
-        ValueError: invalid row('0') due to: resolved to negative(-1)!
+        ValueError: invalid row('0') due to: Uncooked-coord cannot be zero!
 
         >>> _resolve_coord(cname, _row2num, 'a', 0, 10)
         Traceback (most recent call last):
@@ -588,21 +645,19 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
         71084
         >>> _resolve_coord(cname, _col2num, '.', 1, 10, 13)
         13
+        >>> _resolve_coord(cname, _col2num, '-4', 0, 10)
+        7
 
     And COLUMN error-checks::
 
         >>> _resolve_coord(cname, _col2num, None, 0, 10)
         Traceback (most recent call last):
-        ValueError: invalid column(None) due to: 'NoneType' object is not iterable
+        ValueError: invalid column(None) due to: int() argument must be a string, 
+                    a bytes-like object or a number, not 'NoneType'
 
-        >>> _resolve_coord(cname, _col2num, '4', 0, 10)
+        >>> _resolve_coord(cname, _col2num, 0, 0, 10)
         Traceback (most recent call last):
-        ValueError: invalid column('4') due to: substring not found
-
-        >>> _resolve_coord(cname, _col2num, 4, 0, 10)
-        Traceback (most recent call last):
-        ValueError: invalid column(4) due to: 'int' object is not iterable
-
+        ValueError: invalid column(0) due to: Uncooked-coord cannot be zero!
 
     """
     try:
@@ -617,9 +672,9 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
         else:
             rcoord = cfunc(coord)
 
+        # Resolve negatives as from the end.
         if rcoord < 0:
-            msg = 'resolved to negative(%s)!'
-            raise ValueError(msg % rcoord)
+            rcoord = dn_coord + rcoord + 1
 
         return rcoord
     except Exception as ex:
@@ -666,10 +721,8 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
         >>> base == _resolve_cell(Cell('.', '.'), up, dn, base)
         True
 
-        >>> _resolve_cell(Cell('1', '5'), up, dn)
-        Traceback (most recent call last):
-        ValueError: invalid cell(Cell(row='1', col='5')) due to:
-                invalid col('5') due to: substring not found
+        >>> _resolve_cell(Cell('-1', '-2'), up, dn)
+        Coords(row=10, col=5)
 
         >>> _resolve_cell(Cell('A', 'B'), up, dn)
         Traceback (most recent call last):
@@ -1352,15 +1405,15 @@ def _build_call_help(name, func, desc):
 
 
 def _make_call(lash, call_spec):
-    scream = lash.opts['scream']
-    show_help = lash.opts['show_help']
+    lax = lash.opts['lax']
+    verbose = lash.opts['verbose']
     func_desc = '<YET_UNSET>'
     try:
         func_name, args, kwds = _parse_call_spec(call_spec)
         opts = ChainMap(kwds.pop('opts', {}))
         opts.maps.append(lash.opts)
-        scream = opts['scream']
-        show_help = opts['show_help']
+        lax = opts['lax']
+        verbose = opts['verbose']
         available_funcs = opts['available_funcs']
 
         func_rec = available_funcs[func_name]
@@ -1368,15 +1421,15 @@ def _make_call(lash, call_spec):
         lash = func(lash, *args, **kwds)
         assert isinstance(lash, _Lash), (func_name, lash)
     except Exception as ex:
-        if func_desc and show_help:
+        if func_desc and verbose:
             func_desc = _build_call_help(func_name, func, func_desc)
         else:
             func_desc = ''
         msg = "Error in call-specifier(%r): %s%s"
-        if scream:
-            raise ValueError(msg % (call_spec, ex, func_desc))
-        else:
+        if lax:
             log.warning(msg, call_spec, ex, func_desc, exc_info=1)
+        else:
+            raise ValueError(msg % (call_spec, ex, func_desc))
     return lash
 
 
@@ -1459,8 +1512,8 @@ except ImportError:
     pass
 
 _default_opts = {
-    'scream': True,
-    'show_help': False,
+    'lax': False,
+    'verbose': False,
     'available_funcs': _default_filters,
 }
 

@@ -1121,12 +1121,12 @@ class Read(unittest.TestCase):
         return np.array([
             # A     B       C      D       E
             [1,    True,   None, False,  None],   # 1
-            [5,    True,   dt,    u'',    3.14],  # 2
+            [5,    True,   dt,    '',    3.14],  # 2
             [7,    False,  5.1,   7.1,    ''],    # 3
-            [9,    True,   43,    b'str', dt],    # 4
+            [9,    True,   43,    'str', dt],    # 4
         ])
 
-    def test_read(self):
+    def test_read_A1(self):
         sheets = {None: ArraySheet(self.m1())}
         res = xr.read('''A1:..(D):
             [
@@ -1134,11 +1134,27 @@ class Read(unittest.TestCase):
                     ["redim", {"col": [2, 1]}], 
                     "numpy"
                 ], {"opts":
-                    {"show_help": true}
+                    {"verbose": true}
                 }
             ]''',
                       sheets)
-        print(res)
+        self.assertIsInstance(res, np.ndarray)
+        npt.assert_array_equal(res, [[1, 5, 7, 9]])
+
+    def test_read_RC(self):
+        m1 = self.m1()
+        sheets = {None: ArraySheet(m1)}
+        res = xr.read('R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
+                      sheets)
+        self.assertIsInstance(res, list)
+        npt.assert_array_equal(res, m1[:, 0].reshape((1, -1)))
+
+    def test_read_RC_negative(self):
+        m1 = self.m1()
+        sheets = {None: ArraySheet(m1)}
+        res = xr.read('R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
+                      sheets)
+        npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
 
 
 @ddt
