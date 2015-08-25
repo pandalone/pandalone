@@ -45,6 +45,9 @@ except ImportError:
 CHECK_CELLTYPE = False
 """When `True`, most coord-functions accept any 2-tuples."""
 
+OPTS = 'opts'
+"""The key for specifying options within :term:`filters`."""
+
 Cell = namedtuple('Cell', ['row', 'col'])
 """
 A pair of 1-based strings, denoting the "A1" coordinates of a cell.
@@ -1299,7 +1302,7 @@ def _redim(values, new_ndim):
 
     return values.tolist()
 
-Lash = namedtuple('Lash', ('xl_ref', 'st', 'nd', 'values', 'opts'))
+Lash = namedtuple('Lash', ('xl_ref', 'st', 'nd', 'values', OPTS))
 """
 The `xl-ref` fields, the resolved :term:`capture-rect` and the read values along with `opts` passed between filters.
 
@@ -1352,12 +1355,18 @@ def _parse_call_spec(call_spec_values):
     def parse_object(func, args=None, kwds=None):
         return func, args, kwds
 
+    opts = None
     try:
         if isinstance(call_spec_values, basestring):
             func, args, kwds = call_spec_values, None, None
         elif isinstance(call_spec_values, list):
             func, args, kwds = parse_list(*call_spec_values)
         elif isinstance(call_spec_values, dict):
+            # Parse a lone OPTS.
+            #
+            opts = call_spec_values.pop(OPTS, None)
+            if not call_spec_values:
+                return None, opts
             func, args, kwds = parse_object(**call_spec_values)
         else:
             msg = "One of str, list or dict expected for call-spec(%s)!"
@@ -1369,7 +1378,7 @@ def _parse_call_spec(call_spec_values):
         raise ValueError(msg.format(call_spec_values, ex))
 
     if not isinstance(func, basestring):
-        msg = "Expected a `string` for func-name({}) for call-spec({})!"
+        msg = "Expected a `string` for func({}) for call-spec({})!"
         raise ValueError(msg.format(func, call_spec_values))
     if args is None:
         args = []
@@ -1382,7 +1391,12 @@ def _parse_call_spec(call_spec_values):
         msg = "Expected a `dict` for kwds({}) for call-spec({})!"
         raise ValueError(msg.format(kwds, call_spec_values))
 
-    opts = kwds.pop('opts', None)
+    # Extract any OPTS kewd from func-kwds,
+    #     and merge it with base opts.
+    if opts:
+        opts.update(kwds.pop(OPTS, {}))
+    else:
+        opts = kwds.pop(OPTS, None)
 
     return CallSpec(func, args, kwds), opts
 
