@@ -909,7 +909,9 @@ class Json(unittest.TestCase):
     )
     def test_parse_call_spec_OK(self, case):
         call_desc, exp = case
-        self.assertEqual(xr._parse_call_spec(call_desc), exp)
+        cspec, opts = xr._parse_call_spec(call_desc)
+        self.assertEqual(cspec, exp)
+        self.assertIsNone(opts)
 
     _bad_struct = "One of str, list or dict expected"
     _func_not_str = "Expected a `string`"
@@ -1138,23 +1140,23 @@ class Read(unittest.TestCase):
                 }
             ]''',
                       sheets)
-        self.assertIsInstance(res, np.ndarray)
-        npt.assert_array_equal(res, [[1, 5, 7, 9]])
+        self.assertIsInstance(res.values, np.ndarray)
+        npt.assert_array_equal(res.values, [[1, 5, 7, 9]])
 
     def test_read_RC(self):
         m1 = self.m1()
         sheets = {None: ArraySheet(m1)}
         res = xr.read('R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
                       sheets)
-        self.assertIsInstance(res, list)
-        npt.assert_array_equal(res, m1[:, 0].reshape((1, -1)))
+        self.assertIsInstance(res.values, list)
+        npt.assert_array_equal(res.values, m1[:, 0].reshape((1, -1)))
 
     def test_read_RC_negative(self):
         m1 = self.m1()
         sheets = {None: ArraySheet(m1)}
         res = xr.read('R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
                       sheets)
-        npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
+        npt.assert_array_equal(res.values, m1[:, -2].astype('<U5'))
 
 
 @ddt
@@ -1206,7 +1208,7 @@ class VsPandas(unittest.TestCase, CustomAssertions):
                 slice(st[0], nd[0] + 1), slice(st[1], nd[1] + 1)]
             xlrd_wb = xlrd.open_workbook(xl_file)
             self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
-            xlref_res = xr.read_capture_rect(self.sheet, st, nd)
+            xlref_res = self.sheet.read_rect(st, nd)
             lash = xr.Lash({}, st, nd, xlref_res, {})
             lash1 = xr._redim_filter(lash, row=[2, True])
             lash2 = xr._df_filter(lash1, **parse_df_kwds)

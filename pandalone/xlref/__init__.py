@@ -549,6 +549,5 @@ TODOs
 
 from ._xlref import (
     Cell, coords2Cell, Edge,
-    parse_xl_url, resolve_capture_rect,
-    read_capture_rect
+    parse_xl_url, resolve_capture_rect
 )

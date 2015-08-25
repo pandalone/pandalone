@@ -368,15 +368,16 @@ def _parse_xl_ref(xl_ref):
     gs['nd_edge'] = _uncooked_Edge(r, c,
                                    p('nd_mov'), p('nd_mod'))
 
-    js = gs['json']
-    try:
-        gs['json'] = json.loads(js) if js else None
-    except ValueError as ex:
-        raise ValueError('%s, json:\n %s' % (ex, js))
-
     exp_moves = gs['exp_moves']
     gs['exp_moves'] = _parse_expansion_moves(
         exp_moves) if exp_moves else None
+
+    js = gs['json']
+    if js:
+        try:
+            gs['json'] = json.loads(js) if js else None
+        except ValueError as ex:
+            raise ValueError('%s, json:\n %s' % (ex, js))
 
     return gs
 
@@ -1298,7 +1299,7 @@ def _redim(values, new_ndim):
 
     return values.tolist()
 
-_Lash = namedtuple('Lash', ('xl_ref', 'st', 'nd', 'values', 'opts'))
+Lash = namedtuple('Lash', ('xl_ref', 'st', 'nd', 'values', 'opts'))
 """
 The `xl-ref` fields, the resolved :term:`capture-rect` and the read values along with `opts` passed between filters.
 
@@ -1306,19 +1307,15 @@ The `xl-ref` fields, the resolved :term:`capture-rect` and the read values along
         stacked dictionaries with options from previoues invocations 
 """
 
-
-def Lash(xl_ref, st, nd, values, opts):
-    chain_opts = ChainMap()
-    if opts:
-        chain_opts.maps.append(opts)
-    return _Lash(xl_ref, st, nd, values, chain_opts)
+CallSpec = namedtuple('CallSpec', ('func', 'args', 'kwds'))
+"""The :term:`call-specifier` for holding the parsed json-values."""
 
 
-def _parse_call_spec(call_spec):
+def _parse_call_spec(call_spec_values):
     """
-    Parse :term:`call-specifier` from json.
+    Parse :term:`call-specifier` from json-parsed values.
 
-    :param call_spec:
+    :param call_spec_values:
         This is a *non-null* structure specifying some function call 
         in the `filter` part, which it can be either:
 
@@ -1344,7 +1341,7 @@ def _parse_call_spec(call_spec):
         if isargs.all() or iskwds.all() or not (
                 isargs ^ iskwds ^ isnull).all():
             msg = "Cannot decide `args`/`kwds` for call_spec(%s)!"
-            raise ValueError(msg.format(call_spec))
+            raise ValueError(msg.format(call_spec_values))
         args, kwds = None, None
         if isargs.any():
             args = items[isargs.nonzero()[0][0]]
@@ -1356,36 +1353,38 @@ def _parse_call_spec(call_spec):
         return func, args, kwds
 
     try:
-        if isinstance(call_spec, basestring):
-            func, args, kwds = call_spec, None, None
-        elif isinstance(call_spec, list):
-            func, args, kwds = parse_list(*call_spec)
-        elif isinstance(call_spec, dict):
-            func, args, kwds = parse_object(**call_spec)
+        if isinstance(call_spec_values, basestring):
+            func, args, kwds = call_spec_values, None, None
+        elif isinstance(call_spec_values, list):
+            func, args, kwds = parse_list(*call_spec_values)
+        elif isinstance(call_spec_values, dict):
+            func, args, kwds = parse_object(**call_spec_values)
         else:
             msg = "One of str, list or dict expected for call-spec(%s)!"
-            raise ValueError(msg.format(call_spec))
+            raise ValueError(msg.format(call_spec_values))
     except ValueError:
         raise
     except Exception as ex:
         msg = "Cannot parse call-spec({}) due to: {}"
-        raise ValueError(msg.format(call_spec, ex))
+        raise ValueError(msg.format(call_spec_values, ex))
 
     if not isinstance(func, basestring):
         msg = "Expected a `string` for func-name({}) for call-spec({})!"
-        raise ValueError(msg.format(func, call_spec))
+        raise ValueError(msg.format(func, call_spec_values))
     if args is None:
         args = []
     elif not isinstance(args, list):
         msg = "Expected a `list` for args({}) for call-spec({})!"
-        raise ValueError(msg.format(args, call_spec))
+        raise ValueError(msg.format(args, call_spec_values))
     if kwds is None:
         kwds = {}
     elif not isinstance(kwds, dict):
         msg = "Expected a `dict` for kwds({}) for call-spec({})!"
-        raise ValueError(msg.format(kwds, call_spec))
+        raise ValueError(msg.format(kwds, call_spec_values))
 
-    return func, args, kwds
+    opts = kwds.pop('opts', None)
+
+    return CallSpec(func, args, kwds), opts
 
 
 def _build_call_help(name, func, desc):
@@ -1396,56 +1395,24 @@ def _build_call_help(name, func, desc):
 
 def _make_call(lash, func_name, args, kwds):
     opts = lash.opts
-    new_opts = kwds.pop('opts', None)
-    if new_opts:
-        opts.maps.append(new_opts)
-
     lax = opts['lax']
     verbose = opts['verbose']
     available_funcs = opts['available_funcs']
-    func_desc = '<YET_UNSET>'
+    func_desc = ''
     try:
-
         func_rec = available_funcs[func_name]
         func, func_desc = func_rec
         lash = func(lash, *args, **kwds)
-        assert isinstance(lash, _Lash), (func_name, lash)
+        assert isinstance(lash, Lash), (func_name, lash)
     except Exception as ex:
         if func_desc and verbose:
             func_desc = _build_call_help(func_name, func, func_desc)
-        else:
-            func_desc = ''
         msg = "Error in call-specifier(%s, %s, %s): %s%s"
         if lax:
             log.warning(msg, func_name, args, kwds, ex, func_desc, exc_info=1)
         else:
             raise ValueError(msg % (func_name, args, kwds, ex, func_desc))
     return lash
-
-
-def _apply_filters(lash):
-    """
-    Invokes json's :term:`call-specifier` to process the values of :func:`read_capture_rect()`.
-
-    :param Lash lash: 
-            what to transform; 
-            contains the values fetched by :func:`read_capture_rect()` 
-            along with input and resolved coordinates, and pother parsed fields
-    :param json:
-            The 1st-filter to apply, if missing, applies the mapping found in
-            the ``None --> <filter`` entry of the `available_funcs` dict.
-    :param dict, None kwds:  
-            keyword arguments for the filter function
-
-    :return: processed rect-values
-    :rtype: given type, or list of lists, list, value
-
-    """
-    json = lash.xl_ref['json']
-    if json:
-        func_name, args, kwds = _parse_call_spec(json)
-        lash = _make_call(lash, func_name, args, kwds)
-    return lash.values
 
 
 ###############
@@ -1476,9 +1443,11 @@ def _pipe_filter(lash, *pipe):
     :param list pipe: the call-specifiers
     """
     orig_opts = lash.opts.copy()
-    for call_spec in pipe:
-        func_name, args, kwds = _parse_call_spec(call_spec)
-        lash = _make_call(lash, func_name, args, kwds)
+    for call_spec_values in pipe:
+        call_spec, opts = _parse_call_spec(call_spec_values)
+        if opts:
+            lash.maps.append(opts)
+        lash = _make_call(lash, *call_spec)
     lash = lash._replace(opts=orig_opts)
 
     return lash
@@ -1560,10 +1529,18 @@ def read(xlref, sheets,
     """
     Context[None] = current-sheet 
     """
+    opts = ChainMap()
+    opts.maps.append(default_opts)
+
     fields = parse_xl_url(xlref)
-    # if not fields['url_file' and not fields['sheet']:
-    #     sheet_key = '{url_file}![{sheet}]'.format(**fields)
-    # sheet_key = '{url_file}![{sheet}]'.format(**fields)
+
+    call_spec = None
+    js = fields.get('json', None)
+    if json:
+        call_spec, user_opts = _parse_call_spec(js)
+        if user_opts:
+            opts.maps.append(user_opts)
+
     sheet_key = None
     if sheets:
         if sheet_key not in sheets:
@@ -1577,73 +1554,20 @@ def read(xlref, sheets,
         pass  # TODO: Read and cache sheet
 
     assert sheet
-    args = (sheet.get_states_matrix(),) + sheet.get_margin_coords()
+    capture_args = (sheet.get_states_matrix(),) + sheet.get_margin_coords()
     fields_to_keep = ['st_edge', 'nd_edge', 'exp_moves']
     kwds = dtz.keyfilter(lambda k: k in fields_to_keep, fields)
-    st, nd = resolve_capture_rect(*args, **kwds)
+    st, nd = resolve_capture_rect(*capture_args, **kwds)
     log.info("Resolved to [%s, %s] <-- %s", st, nd, xlref)
 
     values = sheet.read_rect(st, nd)
 
-    lash = Lash(fields, st, nd, values, default_opts)
-    values = _apply_filters(lash)
+    lash = Lash(fields, st, nd, values, opts)
 
-    return values
+    if call_spec:
+        lash = _make_call(lash, *call_spec)
 
-
-def read_capture_rect(sheet, st, nd, json=None):
-    """
-    Extracts and process :term:`capture-rect` values from excel-sheet by applying :term:`filters`.
-    TODO: DELETE
-
-    :param sheet:
-            anything supporting the :func:`read_rect(states_matrix, rect)`
-            such as the :class:`_Spreadsheet` which can hide away
-            the backend-module .
-    :param Coords st:
-            the top-left edge of capture-rect, inclusive
-    :param Coords or None nd:
-            the bottom-right edge of capture-rect, inclusive
-    :param json:    
-            Where to extract ndims from. See also :func:`_redim_table()`.
-
-    :return: 
-            The rect's values appropriately dimensioned as (nested-)list;
-            they might be empty when beuond bounds or a scalar value.
-
-    Examples::
-
-        import numpy as np
-        from pandalone import xref
-
-        ## A mockup sheet.
-        #
-        class ArraySheet(xref._Spreadsheet):
-            def __init__(self, arr):
-                self._arr = np.asarray(arr)
-
-            def get_states_matrix(self):
-                return ~np.equal(self._arr, None)
-
-            def read_rect(self, st, nd):
-                if nd is None:
-                    return self._arr[st]
-                rect = np.array([st, nd]) + [[0, 0], [1, 1]]
-                return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])]
-
-
-
-    """
-    assert not CHECK_CELLTYPE or isinstance(st, Coords), st
-    assert not CHECK_CELLTYPE or nd is None or isinstance(nd, Coords), nd
-
-    values = sheet.read_rect(st, nd)
-
-    if json:
-        rect = Lash(values, st, nd)
-        values = _apply_filters(rect)
-
-    return values
+    return lash
 
 
 class _Spreadsheet(with_metaclass(ABCMeta, object)):
