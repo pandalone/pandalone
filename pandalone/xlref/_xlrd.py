@@ -15,14 +15,17 @@ import datetime
 from distutils.version import LooseVersion
 import logging
 
+from future.moves.urllib import request
+from future.moves.urllib import request as urlreq
+from future.moves.urllib.parse import urlsplit
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
                   XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER)
 import xlrd
 
 import numpy as np
-from pandalone.xlref._xlref import Coords
 
-from ._xlref import _Spreadsheet
+from .. import utils
+from ._xlref import Coords, ABCSheet
 
 
 log = logging.getLogger(__name__)
@@ -109,13 +112,48 @@ def _parse_cell(xcell, epoch1904=False):
                      (xcell.ctype, xcell.value))
 
 
-class XlrdSheet(_Spreadsheet):
+def open_sheet(wb_url, sheet_id, opts):
+    assert wb_url, (wb_url, sheet_id, opts)
+    ropts = opts.get('read', {})
+    if ropts:
+        ropts = ropts.copy()
+    if not 'logfile' in ropts:
+        level = logging.INFO if opts['verbose'] else logging.DEBUG
+        ropts['logfile'] = utils.LoggerWriter(log, level)
+    parts = filename = urlsplit(wb_url)
+    if parts.scheme == 'file':
+        wb = xlrd.open_workbook(parts.path, **ropts)
+    else:
+        ropts.pop('on_demand', None)
+        http_opts = ropts.get('http_opts', {})
+        with request.urlopen('http://python.org/', **http_opts) as response:
+            wb = xlrd.open_workbook(filename, file_contents=response, **ropts)
+
+    return wb
+
+
+class XlrdSheet(ABCSheet):
 
     def __init__(self, sheet, epoch1904=False):
         if not isinstance(sheet, xlrd.sheet.Sheet):
             raise ValueError("Invalid xlrd-sheet({})".format(sheet))
         self._sheet = sheet
         self._epoch1904 = epoch1904
+
+    def _close(self):
+        """ Override it to release resources for this sheet."""
+        self._sheet.book.unload_sheet(self._sheet.name)
+
+    def _close_all(self):
+        """ Override it to release resources this and all sibling sheets."""
+        self._sheet.book.release_resources()
+
+    def get_sheet_ids(self, sheet_id):
+        sh = self._sheet
+        return sh.book.filestr,  [sh.name, sh.number]
+
+    def sibling_sheet(self, sheet_id):
+        return XlrdSheet(self._sheet.book.get_sheet(sheet_id))
 
     def _read_states_matrix(self):
         """See super-method. """

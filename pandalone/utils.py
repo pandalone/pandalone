@@ -129,5 +129,22 @@ def open_file_with_os(fpath):  # pragma: no cover
     return
 
 
+class LoggerWriter:
+    """From http://plumberjack.blogspot.gr/2009/09/how-to-treat-logger-like-output-stream.html"""
+
+    def __init__(self, logger, level):
+        self.logger = logger
+        self.level = level
+
+    def write(self, msg):
+        if msg:
+            line_endings = ['\r\n', '\n\r', '\n']
+            for le in line_endings:
+                if msg.endswith(le):
+                    msg = msg[:-len(le)]
+            if msg:
+                self.logger.log(self.level, msg)
+
+
 if __name__ == '__main__':
     raise NotImplementedError

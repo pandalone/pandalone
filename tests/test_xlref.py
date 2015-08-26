@@ -34,9 +34,9 @@ from ._tutils import assertRaisesRegex, CustomAssertions
 
 
 try:
-    from unittest.mock import MagicMock
+    from unittest.mock import MagicMock, patch
 except ImportError:
-    from mock import MagicMock
+    from mock import MagicMock, patch
 
 
 log = _tutils._init_logging(__name__)
@@ -800,7 +800,7 @@ class Capture(unittest.TestCase):
 
 
 @ddt
-class Redim(unittest.TestCase):
+class TRedim(unittest.TestCase):
 
     def check_redim(self, case):
         arr, dim, exp = case
@@ -882,7 +882,7 @@ class Redim(unittest.TestCase):
 
 
 @ddt
-class Json(unittest.TestCase):
+class TCallSpec(unittest.TestCase):
 
     @data(
         ('func',                ('func', [], {})),
@@ -1010,7 +1010,7 @@ class Json(unittest.TestCase):
 
 
 @ddt
-class ReadRect(unittest.TestCase):
+class TReadRect(unittest.TestCase):
 
     def setUp(self):
         arr = np.array([
@@ -1384,9 +1384,15 @@ class VsXlwings(unittest.TestCase):
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
 
 
-class _Spreadsheet(unittest.TestCase):
+class TSheet(unittest.TestCase):
 
-    class MySheet(xr._Spreadsheet):
+    class MySheet(xr.ABCSheet):
+
+        def sibling_sheet(self, sheet_id):
+            raise NotImplementedError()
+
+        def get_sheet_ids(self, sheet_id):
+            raise NotImplementedError()
 
         def read_rect(self, st, nd):
             return [[]]
@@ -1432,10 +1438,170 @@ class _Spreadsheet(unittest.TestCase):
         self.assertEqual(sheet.get_margin_coords(), margins)
 
 
-class ArraySheet(xr._Spreadsheet):
+@ddt
+class TSheetFactory(unittest.TestCase):
 
-    def __init__(self, arr):
+    @data(
+        (('wb1', ['sh1', 0]), None, None,     [('wb1', 'sh1'), ('wb1', 0),
+                                               ('wb1', None)]),
+        (('wb1', [None, 0]), None, None,      [('wb1', None), ('wb1', 0)]),
+        (('wb1', ['sh1', 0]), 'wb2', None,    [('wb1', 'sh1'), ('wb1', 0),
+                                               ('wb1', None), ('wb2', 'sh1'),
+                                               ('wb2', 0), ('wb2', None)]),
+        (('wb1', ['sh1', 0]), 'wb2', 'sh2',   [('wb1', 'sh1'), ('wb1', 0),
+                                               ('wb1', 'sh2'), ('wb2', 'sh1'),
+                                               ('wb2', 'sh2'), ('wb2', 0)]),
+        (('wb1', ['sh1', 0]), None, 'sh2',   [('wb1', 'sh1'), ('wb1', 0),
+                                              ('wb1', 'sh2')]),
+    )
+    def test_derive_keys(self, case):
+        sh_ids, wb_id, sheet_ids, exp = case
+        sf = xr.SheetFactory()
+        sheet = MagicMock()
+        sheet.get_sheet_ids.return_value = sh_ids
+        keys = sf._derive_sheet_keys(sheet, wb_id, sheet_ids)
+        self.assertEqual(sorted(keys, key=str),
+                         sorted(exp, key=str))
+
+    cache_keys = [
+        [('w1', ['s1'])],
+        [('w1', ['s1', None])],
+        [('w1', ['s1', 0, None])],
+        [('w1', ['s1', 0])],
+        [('wb', ['s1']), ('w1', [0])],
+        [('w1', ['s1', 0, None]), ('w2', ['s1', 0, None])],
+
+    ]
+
+    @data(
+        *cache_keys
+    )
+    def test_cache_sheet(self, extra_ids):
+        k1 = ('wb', 'sh')
+        k2 = ('wb',  0)
+        sheet = MagicMock()
+        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
+        sf = xr.SheetFactory()
+        for wb_id, sh_ids in extra_ids:
+            for sh_id in sh_ids:
+                sf.add_sheet(sheet, wb_id, sh_id)
+
+        self.assertIs(sf._cache_get(k1), sheet)
+        self.assertIs(sf._cache_get(k2), sheet)
+        for wb_id, sh_ids in extra_ids:
+            for sh_id in sh_ids:
+                self.assertIs(sf._cache_get((wb_id, sh_id)), sheet)
+        self.assertIsNone(sf._cache_get(('no', 'key')))
+
+    @data(
+        *cache_keys
+    )
+    def test_close_sheet(self, extra_ids):
+        # Try closings by all keys.
+        #
+        extra_ids = extra_ids + [('wb', ['sh', 0])]
+        for wb_id1, sh_ids1 in extra_ids:
+            for sh_id1 in sh_ids1:
+
+                sheet = MagicMock()
+                sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
+
+                # Populate cache
+                sf = xr.SheetFactory()
+                for wb_id, sh_ids in extra_ids:
+                    for sh_id in sh_ids:
+                        sf.add_sheet(sheet, wb_id, sh_id)
+
+                # Close the key
+                sf._close_sheet((wb_id1, sh_id1))
+                sheet._close.assert_called_once_with()
+
+                # Expect to be empty.
+                for k, sh_dict in sf._cached_sheets.items():
+                    self.assertIsNot(sh_dict, k)
+
+                # Check cache returns no value.
+                for wb_id, sh_ids in extra_ids:
+                    for sh_id in sh_ids:
+                        self.assertIsNone(sf._cache_get((wb_id, sh_id)))
+
+    @data(
+        *cache_keys
+    )
+    def test_fetch_sheet(self, extra_ids):
+        sheet = MagicMock()
+        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
+
+        sf = xr.SheetFactory()
+        sf._open_sheet = MagicMock(side_effect=AssertionError("OPENED!"))
+        for wb_id, sh_ids in extra_ids:
+            for sh_id in sh_ids:
+                sf.add_sheet(sheet, wb_id, sh_id)
+
+        extra_ids = extra_ids + [('wb', ['sh', 0])]
+        for wb_id, sh_ids in extra_ids:
+            for sh_id in sh_ids:
+                self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
+                self.assertIs(sf.fetch_sheet(None, None), sheet)
+                self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
+
+    @data(
+        *cache_keys
+    )
+    def test_fetch_sheet_populateWithoutNones(self, extra_ids):
+        sheet = MagicMock()
+        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
+
+        sf = xr.SheetFactory()
+        sf._open_sheet = MagicMock(name='open_sheet', return_value=sheet)
+        for wb_id, sh_ids in extra_ids:
+            for sh_id in sh_ids:
+                if sh_id is not None:
+                    sf.add_sheet(sheet, wb_id, sh_id)
+
+        extra_ids = extra_ids + [('wb', ['sh', 0])]
+        for wb_id, sh_ids in extra_ids:
+            for sh_id in sh_ids:
+                self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
+                self.assertIs(sf.fetch_sheet(None, None), sheet)
+                self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
+
+        open_call_count = sum(not all(k) for k in extra_ids)
+        self.assertEqual(sf._open_sheet.call_count, open_call_count,
+                         sf._open_sheet.mock_calls)
+
+    @data(
+        *cache_keys
+    )
+    def test_fetch_sheet_andOpen(self, extra_ids):
+        sheet = MagicMock(name='sheet')
+        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
+
+        sf = xr.SheetFactory()
+        sf._open_sheet = MagicMock(name='open_sheet', return_value=sheet)
+
+        extra_ids = extra_ids + [('wb', ['sh', 0])]
+        for wb_id, sh_ids in extra_ids:
+            for sh_id in sh_ids:
+                self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
+                self.assertIs(sf.fetch_sheet(None, None), sheet)
+                self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
+
+        self.assertEqual(sf._open_sheet.call_count, len(extra_ids),
+                         sf._open_sheet.mock_calls)
+
+
+class ArraySheet(xr.ABCSheet):
+
+    def __init__(self, arr, ids=('wb', 'sh', 0)):
         self._arr = np.asarray(arr)
+        self._ids = ids
+
+    def sibling_sheet(self, sheet_id):
+        raise NotImplementedError()
+
+    def get_sheet_ids(self, sheet_id):
+        return self._ids
 
     def _read_states_matrix(self):
         return ~np.equal(self._arr, None)
