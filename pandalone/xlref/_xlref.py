@@ -424,7 +424,7 @@ def parse_xl_url(url):
         url_file, frag = urldefrag(url)
         if not frag:
             frag = url_file
-            url_file = ''
+            url_file = None
         res = _parse_xl_ref(frag)
         res['url_file'] = url_file
 
@@ -1539,55 +1539,6 @@ _default_opts = {
 }
 
 
-def read(xlref, sheets,
-         available_funcs=_default_filters, default_opts=_default_opts):
-    """
-    Context[None] = current-sheet 
-    """
-    opts = ChainMap()
-    opts.maps.append(default_opts)
-
-    fields = parse_xl_url(xlref)
-
-    call_spec = None
-    js = fields.get('json', None)
-    if json:
-        call_spec, user_opts = _parse_call_spec(js)
-        if user_opts:
-            opts.maps.append(user_opts)
-
-    sheet_key = None
-    if sheets:
-        if sheet_key not in sheets:
-            if sheet_key is None:
-                msg = "Cannot resolve xlref(%s) without a current-sheet!"
-                raise ValueError(msg % xlref)
-        else:
-            sheet = sheets[sheet_key]
-
-    else:
-        pass  # TODO: Read and cache sheet
-
-    assert sheet
-    capture_args = (sheet.get_states_matrix(),) + sheet.get_margin_coords()
-    fields_to_keep = ['st_edge', 'nd_edge', 'exp_moves']
-    kwds = dtz.keyfilter(lambda k: k in fields_to_keep, fields)
-    st, nd = resolve_capture_rect(*capture_args, **kwds)
-    log.info("Resolved to [%s, %s] <-- %s", st, nd, xlref)
-
-    values = sheet.read_rect(st, nd)
-
-    lash = Lash(fields, st, nd, values, opts)
-
-    if call_spec:
-        lash = _make_call(lash, *call_spec)
-
-    return lash
-
-
-_SheetRec = namedtuple('_SheetRec',  ('sheet', 'ctime'))
-
-
 class SheetFactory(object):
     """"
     Creates and caches sheets from backends.
@@ -1656,7 +1607,7 @@ class SheetFactory(object):
         return _xlrd.open_sheet(wb_id, sheet_id, opts)
 
     def add_sheet(self, sheet, wb_id=None, sheet_id=None, no_current=False):
-        assert sheet and wb_id, (sheet, wb_id, sheet_id)
+        assert sheet, (sheet, wb_id, sheet_id)
 
         keys = self._derive_sheet_keys(sheet, wb_id, sheet_id)
         for k in keys:
@@ -1697,6 +1648,47 @@ class SheetFactory(object):
 
         return sheet
 
+def read(xlref, sheets_fact=None,
+         available_funcs=_default_filters, default_opts=_default_opts):
+    """
+    Parses xlref, resolves rect and fetches values from spreadsheet, and filters them,
+    """
+    opts = ChainMap()
+    opts.maps.append(default_opts)
+
+    fields = parse_xl_url(xlref)
+
+    call_spec = None
+    js = fields.get('json', None)
+    if json:
+        call_spec, user_opts = _parse_call_spec(js)
+        if user_opts:
+            opts.maps.append(user_opts)
+
+    if not sheets_fact:
+        sheets_fact = SheetFactory()
+    wb, sh = fields['url_file'],fields['sheet']
+    try:
+        sheet = sheets_fact.fetch_sheet(wb, sh)
+    except Exception as ex:
+        msg = "Loading sheet(%s:%s) failed due to: %s"
+        raise ValueError(msg % (wb, sh, ex))
+        
+    capture_args = (sheet.get_states_matrix(),) + sheet.get_margin_coords()
+    fields_to_keep = ['st_edge', 'nd_edge', 'exp_moves']
+    kwds = dtz.keyfilter(lambda k: k in fields_to_keep, fields)
+    st, nd = resolve_capture_rect(*capture_args, **kwds)
+    log.info("Resolved to [%s, %s] <-- %s", st, nd, xlref)
+
+    values = sheet.read_rect(st, nd)
+
+    lash = Lash(fields, st, nd, values, opts)
+
+    if call_spec:
+        lash = _make_call(lash, *call_spec)
+
+    return lash
+
 
 class ABCSheet(with_metaclass(ABCMeta, object)):
     """
@@ -1736,7 +1728,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
         """ Override it to release resources this and all sibling sheets."""
 
     @abstractmethod
-    def get_sheet_ids(self, sheet_id):
+    def get_sheet_ids(self):
         """
         :return: a 2-tuple of its wb-name and a sheet-ids of this sheet i.e. name & indx
         :rtype: ([str or None, [str or int or None])

@@ -148,7 +148,7 @@ class XlrdSheet(ABCSheet):
         """ Override it to release resources this and all sibling sheets."""
         self._sheet.book.release_resources()
 
-    def get_sheet_ids(self, sheet_id):
+    def get_sheet_ids(self):
         sh = self._sheet
         return sh.book.filestr,  [sh.name, sh.number]
 

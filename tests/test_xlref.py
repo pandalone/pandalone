@@ -1150,7 +1150,8 @@ class Read(unittest.TestCase):
         ])
 
     def test_read_A1(self):
-        sheets = {None: ArraySheet(self.m1())}
+        sf = xr.SheetFactory()
+        sf.add_sheet(ArraySheet(self.m1()))
         res = xr.read('''A1:..(D):
             [
                 "pipe", [
@@ -1160,23 +1161,25 @@ class Read(unittest.TestCase):
                     {"verbose": true}
                 }
             ]''',
-                      sheets)
+                      sf)
         self.assertIsInstance(res.values, np.ndarray)
         npt.assert_array_equal(res.values, [[1, 5, 7, 9]])
 
     def test_read_RC(self):
         m1 = self.m1()
-        sheets = {None: ArraySheet(m1)}
+        sf = xr.SheetFactory()
+        sf.add_sheet(ArraySheet(self.m1()))
         res = xr.read('R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
-                      sheets)
+                      sf)
         self.assertIsInstance(res.values, list)
         npt.assert_array_equal(res.values, m1[:, 0].reshape((1, -1)))
 
     def test_read_RC_negative(self):
         m1 = self.m1()
-        sheets = {None: ArraySheet(m1)}
+        sf = xr.SheetFactory()
+        sf.add_sheet(ArraySheet(self.m1()))
         res = xr.read('R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
-                      sheets)
+                      sf)
         npt.assert_array_equal(res.values, m1[:, -2].astype('<U5'))
 
 
@@ -1391,7 +1394,7 @@ class TSheet(unittest.TestCase):
         def sibling_sheet(self, sheet_id):
             raise NotImplementedError()
 
-        def get_sheet_ids(self, sheet_id):
+        def get_sheet_ids(self):
             raise NotImplementedError()
 
         def read_rect(self, st, nd):
@@ -1464,19 +1467,20 @@ class TSheetFactory(unittest.TestCase):
                          sorted(exp, key=str))
 
     cache_keys = [
-        [('w1', ['s1'])],
-        [('w1', ['s1', None])],
-        [('w1', ['s1', 0, None])],
-        [('w1', ['s1', 0])],
-        [('wb', ['s1']), ('w1', [0])],
-        [('w1', ['s1', 0, None]), ('w2', ['s1', 0, None])],
+        ([('w1', ['s1'])],                                      1),
+        ([('w1', ['s1', None])],                                2),
+        ([('w1', ['s1', 0, 1])],                                2),
+        ([('w1', ['s1', 0, 1, None])],                          3),
+        ([('wb', ['s1']), ('w1', [0])],                         2),
+        ([('w1', ['s1', 0, None]), ('w2', ['s1', 0, None])],    4),
 
     ]
 
     @data(
         *cache_keys
     )
-    def test_cache_sheet(self, extra_ids):
+    def test_cache_sheet(self, case):
+        extra_ids, open_calls = case
         k1 = ('wb', 'sh')
         k2 = ('wb',  0)
         sheet = MagicMock()
@@ -1496,7 +1500,8 @@ class TSheetFactory(unittest.TestCase):
     @data(
         *cache_keys
     )
-    def test_close_sheet(self, extra_ids):
+    def test_close_sheet(self, case):
+        extra_ids, open_calls = case
         # Try closings by all keys.
         #
         extra_ids = extra_ids + [('wb', ['sh', 0])]
@@ -1528,7 +1533,10 @@ class TSheetFactory(unittest.TestCase):
     @data(
         *cache_keys
     )
-    def test_fetch_sheet(self, extra_ids):
+    def test_fetch_sheet_prePopulated(self, case):
+        extra_ids, open_calls = case
+        k1 = ('wb', 'sh')
+        k2 = ('wb',  0)
         sheet = MagicMock()
         sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
 
@@ -1544,36 +1552,16 @@ class TSheetFactory(unittest.TestCase):
                 self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
                 self.assertIs(sf.fetch_sheet(None, None), sheet)
                 self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
+                self.assertIs(sf.fetch_sheet(*k1), sheet)
+                self.assertIs(sf.fetch_sheet(*k2), sheet)
 
     @data(
         *cache_keys
     )
-    def test_fetch_sheet_populateWithoutNones(self, extra_ids):
-        sheet = MagicMock()
-        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
-
-        sf = xr.SheetFactory()
-        sf._open_sheet = MagicMock(name='open_sheet', return_value=sheet)
-        for wb_id, sh_ids in extra_ids:
-            for sh_id in sh_ids:
-                if sh_id is not None:
-                    sf.add_sheet(sheet, wb_id, sh_id)
-
-        extra_ids = extra_ids + [('wb', ['sh', 0])]
-        for wb_id, sh_ids in extra_ids:
-            for sh_id in sh_ids:
-                self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
-                self.assertIs(sf.fetch_sheet(None, None), sheet)
-                self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
-
-        open_call_count = sum(not all(k) for k in extra_ids)
-        self.assertEqual(sf._open_sheet.call_count, open_call_count,
-                         sf._open_sheet.mock_calls)
-
-    @data(
-        *cache_keys
-    )
-    def test_fetch_sheet_andOpen(self, extra_ids):
+    def test_fetch_sheet_andOpen(self, case):
+        k1 = ('wb', 'sh')
+        k2 = ('wb',  0)
+        extra_ids, open_calls = case
         sheet = MagicMock(name='sheet')
         sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
 
@@ -1586,21 +1574,23 @@ class TSheetFactory(unittest.TestCase):
                 self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
                 self.assertIs(sf.fetch_sheet(None, None), sheet)
                 self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
+                self.assertIs(sf.fetch_sheet(*k1), sheet)
+                self.assertIs(sf.fetch_sheet(*k2), sheet)
 
-        self.assertEqual(sf._open_sheet.call_count, len(extra_ids),
+        self.assertEqual(sf._open_sheet.call_count, open_calls,
                          sf._open_sheet.mock_calls)
 
 
 class ArraySheet(xr.ABCSheet):
 
-    def __init__(self, arr, ids=('wb', 'sh', 0)):
+    def __init__(self, arr, ids=('wb', ['sh', 0])):
         self._arr = np.asarray(arr)
         self._ids = ids
 
     def sibling_sheet(self, sheet_id):
         raise NotImplementedError()
 
-    def get_sheet_ids(self, sheet_id):
+    def get_sheet_ids(self):
         return self._ids
 
     def _read_states_matrix(self):
