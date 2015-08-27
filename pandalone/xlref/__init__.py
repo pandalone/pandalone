@@ -16,7 +16,12 @@ Introduction
 This modules defines a url-fragment notation for `capturing` rectangular areas
 from excel-sheets when their exact position is not known beforehand.
 The notation extends the ordinary excel `coordinates`, and provides for
-`traversing` conditionally the cells based on their `state`.
+`traversing` conditionally the cells based on their `state`, with expressions
+like that::
+
+    from pandalone import xlref
+    
+    df = xlref.lash('A1(DR):..(DR):LU:["df"]')
 
 The goal is to make the extraction of data-tables from excel-workbooks
 as practical as reading CSVs, while keeping it as "cheap" as possible.
@@ -74,13 +79,14 @@ API
   .. currentmodule:: pandalone.xlref._xlref
   .. autosummary::
 
+      lash
+      Lash
       Cell
       Edge
       coords2Cell
-      _parse_xl_ref
-      parse_xl_url
+      parse_xlref
       resolve_capture_rect
-      read_capture_rect
+      do_lash
 
 - **xlrd** back-end functionality:
 
@@ -548,6 +554,6 @@ TODOs
 """
 
 from ._xlref import (
-    Cell, coords2Cell, Edge,
-    parse_xl_url, resolve_capture_rect
+    Cell, coords2Cell, Edge, Lash, SheetFactory,
+    parse_xlref, resolve_capture_rect, do_lash, lash
 )

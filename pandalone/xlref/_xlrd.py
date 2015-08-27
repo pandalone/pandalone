@@ -112,24 +112,48 @@ def _parse_cell(xcell, epoch1904=False):
                      (xcell.ctype, xcell.value))
 
 
+def _open_sheet_by_name_or_index(wb, sheet_id, opts=None):
+    """
+    :param int or str or None sheet_id:
+            If `None`, opens 1st sheet.
+    :param dict opts: 
+            does nothing with them
+    """
+    if sheet_id is None:
+        sheet_id = 0
+    if isinstance(sheet_id, int):
+        xl_sh = wb.sheet_by_index(sheet_id)
+    else:
+        try:
+            xl_sh = wb.sheet_by_name(sheet_id)
+        except Exception as xl_ex:
+            try:
+                sheet_id = int(sheet_id)
+            except ValueError:
+                raise xl_ex
+            else:
+                xl_sh = wb.sheet_by_index(sheet_id)
+    return XlrdSheet(xl_sh)
+
+
 def open_sheet(wb_url, sheet_id, opts):
     assert wb_url, (wb_url, sheet_id, opts)
     ropts = opts.get('read', {})
     if ropts:
         ropts = ropts.copy()
     if not 'logfile' in ropts:
-        level = logging.INFO if opts['verbose'] else logging.DEBUG
+        level = logging.INFO if opts.get('verbose', None) else logging.DEBUG
         ropts['logfile'] = utils.LoggerWriter(log, level)
     parts = filename = urlsplit(wb_url)
-    if parts.scheme == 'file':
+    if not parts.scheme or parts.scheme == 'file':
         wb = xlrd.open_workbook(parts.path, **ropts)
     else:
         ropts.pop('on_demand', None)
         http_opts = ropts.get('http_opts', {})
-        with request.urlopen('http://python.org/', **http_opts) as response:
+        with request.urlopen(wb_url, **http_opts) as response:
             wb = xlrd.open_workbook(filename, file_contents=response, **ropts)
 
-    return wb
+    return _open_sheet_by_name_or_index(wb, sheet_id, opts)
 
 
 class XlrdSheet(ABCSheet):
@@ -152,8 +176,10 @@ class XlrdSheet(ABCSheet):
         sh = self._sheet
         return sh.book.filestr,  [sh.name, sh.number]
 
-    def sibling_sheet(self, sheet_id):
-        return XlrdSheet(self._sheet.book.get_sheet(sheet_id))
+    def open_sibling_sheet(self, sheet_id, opts=None):
+        """Gets by-index only if `sheet_id` is `int`, otherwise tries both by name and index."""
+        return _open_sheet_by_name_or_index(self._sheet.book, sheet_id,
+                                            opts)
 
     def _read_states_matrix(self):
         """See super-method. """

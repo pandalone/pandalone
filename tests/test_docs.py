@@ -8,11 +8,11 @@
 
 import doctest
 import os
+import re
 import sys
 import unittest
 
 import pandalone
-import re
 
 
 mydir = os.path.dirname(__file__)

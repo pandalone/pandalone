@@ -18,10 +18,12 @@ import unittest
 
 from ddt import ddt, data
 from future import utils as fututis  # @UnresolvedImport
+from future.backports import ChainMap
 from numpy import testing as npt
 from past.builtins import basestring
 import xlrd
 
+import itertools as itt
 import numpy as np
 from pandalone.xlref import _xlrd as xd
 from pandalone.xlref import _xlref as xr
@@ -44,14 +46,8 @@ xl_installed = check_xl_installed()
 xr.CHECK_CELLTYPE = True
 
 
-def _make_xl_margins(sheet):
-    states_matrix = sheet.get_states_matrix()
-
-    up = (0, 0)
-
-    dn = (sheet.nrows - 1, sheet.ncols - 1)
-
-    return states_matrix, up, dn
+def make_Lash(**kwds):
+    return xr.Lash._make([None] * len(xr.Lash._fields))._replace(**kwds)
 
 
 def _write_sample_sheet(path, matrix, sheet_name, **kwds):
@@ -71,8 +67,8 @@ def _make_local_url(fname, fragment=''):
 
 def _read_rect_values(sheet, st_edge, nd_edge, dims):
     states_matrix = sheet.get_states_matrix()
-    up, dn = sheet.get_margin_coords()
-    st, nd = xr.resolve_capture_rect(states_matrix, up, dn,
+    margin_coords = sheet.get_margin_coords()
+    st, nd = xr.resolve_capture_rect(states_matrix, margin_coords,
                                      st_edge, nd_edge)  # or Edge(None, None))
     v = sheet.read_rect(st, nd)
     if dims is not None:
@@ -108,7 +104,7 @@ class Parse(unittest.TestCase):
 
     def test_parse_xl_ref_Cell_types(self):
         xl_ref = 'b1:C2'
-        res = xr._parse_xl_ref(xl_ref)
+        res = xr._parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         self.assertIsInstance(st_edge.land.row, basestring)
@@ -118,7 +114,7 @@ class Parse(unittest.TestCase):
 
     def test_parse_xl_ref_Cell_col_row_order(self):
         xl_ref = 'b1:C2'
-        res = xr._parse_xl_ref(xl_ref)
+        res = xr._parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         self.assertTrue(st_edge.land.row.isalnum())
@@ -128,7 +124,7 @@ class Parse(unittest.TestCase):
 
     def test_parse_xl_ref_all_upper(self):
         xl_ref = 'b1(uL):C2(Dr):Lur2D'
-        res = xr._parse_xl_ref(xl_ref)
+        res = xr._parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         items = [
@@ -143,7 +139,7 @@ class Parse(unittest.TestCase):
 
     def test_basic_parse_xl_ref(self):
         xl_ref = 'Sheet1!a1(L):C2(UL)'
-        res = xr._parse_xl_ref(xl_ref)
+        res = xr._parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         self.assertEquals(res['sheet'], 'Sheet1')
@@ -153,13 +149,13 @@ class Parse(unittest.TestCase):
         self.assertEquals(nd_edge.mov, 'UL')
 
         xl_ref = 'Sheet1!A1'
-        res = xr._parse_xl_ref(xl_ref)
+        res = xr._parse_xlref_fragment(xl_ref)
         self.assertEquals(res['st_edge'].land, xr.Cell(col='A', row='1'))
         self.assertEquals(res['nd_edge'], None)
 
         xl_ref = 'Sheet1!a1(l):c2(ul){"1":4,"2":"ciao"}'
-        res = xr._parse_xl_ref(xl_ref)
-        self.assertEquals(res['json'], {'2': 'ciao', '1': 4})
+        res = xr._parse_xlref_fragment(xl_ref)
+        self.assertEquals(res['js_filt'], {'2': 'ciao', '1': 4})
         self.assertEquals(res['st_edge'].land, xr.Cell(col='A', row='1'))
         self.assertEquals(res['nd_edge'].land, xr.Cell(col='C', row='2'))
         self.assertEquals(res['st_edge'].mov, 'L')
@@ -167,7 +163,7 @@ class Parse(unittest.TestCase):
 
     @data('s![[]', 's!{}[]', 's!A', 's!A1:!', 's!1:2', 's!A0:B1', )
     def test_errors_parse_xl_ref(self, case):
-        self.assertRaises(ValueError, xr._parse_xl_ref, case)
+        self.assertRaises(ValueError, xr._parse_xlref_fragment, case)
 
     def test_uncooked_Edge_good(self):
         self.assertIsNone(xr._uncooked_Edge(None, None, None))
@@ -207,21 +203,21 @@ class Parse(unittest.TestCase):
 
     def test_parse_xl_url_Ok(self):
         url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D){"json":"..."}'
-        res = xr.parse_xl_url(url)
+        res = xr.parse_xlref(url)
 
-        self.assertEquals(res['url_file'], 'file://path/to/file.xlsx')
-        self.assertEquals(res['sheet'], 'Sheet1')
-        self.assertEquals(res['json'], {"json": "..."})
-        self.assertEquals(res['st_edge'], xr.Edge(xr.Cell('10', 'U'), 'L'))
-        self.assertEquals(res['nd_edge'], xr.Edge(xr.Cell('20', 'D'), 'D'))
+        self.assertEquals(res.url_file, 'file://path/to/file.xlsx')
+        self.assertEquals(res.sheet, 'Sheet1')
+        self.assertEquals(res.js_filt, {"json": "..."})
+        self.assertEquals(res.st_edge, xr.Edge(xr.Cell('10', 'U'), 'L'))
+        self.assertEquals(res.nd_edge, xr.Edge(xr.Cell('20', 'D'), 'D'))
 
     def test_parse_xl_url_Bad(self):
-        self.assertRaises(ValueError, xr.parse_xl_url, *('#!:{"json":"..."', ))
+        self.assertRaises(ValueError, xr.parse_xlref, *('#!:{"json":"..."', ))
 
     def test_parse_xl_url_Only_fragment(self):
         url = '#sheet_name!UP10:DOWN20{"json":"..."}'
-        res = xr.parse_xl_url(url)
-        self.assertEquals(res['url_file'], '')
+        res = xr.parse_xlref(url)
+        self.assertEquals(res.url_file, '')
 
 
 def make_sample_matrix():
@@ -690,8 +686,8 @@ class Capture(unittest.TestCase):
             [0, 0, 1, 0, 0, 1],  # '4'
             [0, 0, 1, 1, 0, 1],  # '5'
         ], dtype=bool)
-        up, dn = xr._margin_coords_from_states_matrix(states_matrix)
-        args = (states_matrix, up, dn)
+        margin_coords = xr._margin_coords_from_states_matrix(states_matrix)
+        args = (states_matrix, margin_coords)
 
         return args
 
@@ -1152,7 +1148,7 @@ class Read(unittest.TestCase):
     def test_read_A1(self):
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.read('''A1:..(D):
+        res = xr.lash('''A1:..(D):
             [
                 "pipe", [
                     ["redim", {"col": [2, 1]}], 
@@ -1162,25 +1158,31 @@ class Read(unittest.TestCase):
                 }
             ]''',
                       sf)
-        self.assertIsInstance(res.values, np.ndarray)
-        npt.assert_array_equal(res.values, [[1, 5, 7, 9]])
+        self.assertIsInstance(res, np.ndarray)
+        npt.assert_array_equal(res, [[1, 5, 7, 9]])
 
     def test_read_RC(self):
         m1 = self.m1()
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.read('R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
+        res = xr.lash('R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
                       sf)
-        self.assertIsInstance(res.values, list)
-        npt.assert_array_equal(res.values, m1[:, 0].reshape((1, -1)))
+        self.assertIsInstance(res, list)
+        npt.assert_array_equal(res, m1[:, 0].reshape((1, -1)))
 
     def test_read_RC_negative(self):
         m1 = self.m1()
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.read('R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
+        res = xr.lash('R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
                       sf)
-        npt.assert_array_equal(res.values, m1[:, -2].astype('<U5'))
+        npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
+
+    def test_read_asLash(self):
+        sf = xr.SheetFactory()
+        sf.add_sheet(ArraySheet(self.m1()))
+        res = xr.lash('''A1:..(D)''', sf, True)
+        self.assertIsInstance(res, xr.Lash)
 
 
 @ddt
@@ -1233,7 +1235,7 @@ class VsPandas(unittest.TestCase, CustomAssertions):
             xlrd_wb = xlrd.open_workbook(xl_file)
             self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
             xlref_res = self.sheet.read_rect(st, nd)
-            lash = xr.Lash({}, st, nd, xlref_res, {})
+            lash = make_Lash(st=st, nd=nd, values=xlref_res, opts=ChainMap())
             lash1 = xr._redim_filter(lash, row=[2, True])
             lash2 = xr._df_filter(lash1, **parse_df_kwds)
             xlref_df = lash2.values
@@ -1282,66 +1284,66 @@ class VsXlwings(unittest.TestCase):
 
         sheet = self.sheet
         states_matrix = sheet.get_states_matrix()
-        up, dn = xr._margin_coords_from_states_matrix(states_matrix)
+        margin_coords = xr._margin_coords_from_states_matrix(states_matrix)
 
         # minimum delimited column in the sheet [D7:D.(D)]
         st = xr.Edge(xr.coords2Cell(6, 3), None)
         nd = xr.Edge(xr.coords2Cell('.', '.'), 'D')
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         args = (sheet, ) + rect
         self.assertEqual(xr.read_capture_rect(sheet, *rect), resTarget)
 
         # minimum delimited column in the sheet [E6:E.(D)]
         st = xr.Edge(xr.coords2Cell(5, 4), None)
         nd = xr.Edge(xr.coords2Cell('.', '.'), 'D')
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res[1])
 
         # minimum delimited row in the sheet [E6:.6(R)]
         st = xr.Edge(xr.coords2Cell(5, 4), None)
         nd = xr.Edge(xr.coords2Cell('.', '.'), 'R')
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res[2])
 
         # minimum delimited matrix in the sheet [E6:..(RD)]
         st = xr.Edge(xr.coords2Cell(5, 4), None)
         nd = xr.Edge(xr.coords2Cell('.', '.'), 'RD')
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res[3])
 
         st = xr.Edge(xr.coords2Cell(5, 4), None)
         nd = xr.Edge(xr.coords2Cell('.', '.'), 'DR')
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res[3])
 
         # delimited matrix in the sheet [D6:F8]
         st = xr.Edge(xr.coords2Cell(7, 5), None)
         nd = xr.Edge(xr.coords2Cell(5, 3), None)
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res[4])
 
         # delimited matrix in the sheet [A1:F8]
         st = xr.Edge(xr.coords2Cell(7, 5), None)
         nd = xr.Edge(xr.coords2Cell(0, 0), None)
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res[5])
 
         # delimited row in the sheet [A7:D7]
         st = xr.Edge(xr.coords2Cell(6, 0), None)
         nd = xr.Edge(xr.coords2Cell(6, 3), None)
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res[6])
 
         # delimited column in the sheet [D3:D9]
         st = xr.Edge(xr.coords2Cell(8, 3), None)
         nd = xr.Edge(xr.coords2Cell(2, 3), None)
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res[7])
 
         # minimum delimited matrix in the sheet [F7:..(UL)]
         st = xr.Edge(xr.coords2Cell(6, 5), None)
         nd = xr.Edge(xr.coords2Cell('.', '.'), 'UL')
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         res = [[None, 0, 1],
                [0, 1, 2]]
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
@@ -1351,7 +1353,7 @@ class VsXlwings(unittest.TestCase):
         nd = xr.Edge(xr.coords2Cell(6, 5), None)
         exp_moves = xr._parse_expansion_moves('LURD')
         rect = xr.resolve_capture_rect(
-            states_matrix, up, dn, st, nd, exp_moves)
+            states_matrix, margin_coords, st, nd, exp_moves)
         res = [[None, 0, 1, 2],
                [0, 1, 2, None],
                [1, None, 6.1, 7.1]]
@@ -1360,7 +1362,7 @@ class VsXlwings(unittest.TestCase):
         # minimum delimited matrix in the sheet [F7:A1(RD)]
         st = xr.Edge(xr.coords2Cell(6, 5), None)
         nd = xr.Edge(xr.coords2Cell(0, 0), 'RD')
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         res = [[0, 1],
                [1, 2]]
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
@@ -1368,21 +1370,21 @@ class VsXlwings(unittest.TestCase):
         # minimum delimited row in the sheet [_8:G8]
         st = xr.Edge(xr.coords2Cell(7, 6), None, '+')
         nd = xr.Edge(xr.coords2Cell(7, '.'), 'L', '+')
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         res = [6.1, 7.1]
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
 
         # minimum delimited column in the sheet [D_:D8]
         st = xr.Edge(xr.coords2Cell(7, 3), None, '+')
         nd = xr.Edge(xr.coords2Cell('.', 3), 'U', '+')
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         res = [0, 1]
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
 
         # single value [D8]
         st = xr.Edge(xr.coords2Cell(7, 3), None, '+')
         nd = None
-        rect = xr.resolve_capture_rect(states_matrix, up, dn, st, nd)
+        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
         res = [1]
         self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
 
@@ -1391,7 +1393,7 @@ class TSheet(unittest.TestCase):
 
     class MySheet(xr.ABCSheet):
 
-        def sibling_sheet(self, sheet_id):
+        def open_sibling_sheet(self, sheet_id):
             raise NotImplementedError()
 
         def get_sheet_ids(self):
@@ -1587,7 +1589,7 @@ class ArraySheet(xr.ABCSheet):
         self._arr = np.asarray(arr)
         self._ids = ids
 
-    def sibling_sheet(self, sheet_id):
+    def open_sibling_sheet(self, sheet_id):
         raise NotImplementedError()
 
     def get_sheet_ids(self):

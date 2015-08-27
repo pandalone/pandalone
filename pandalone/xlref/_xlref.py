@@ -10,10 +10,12 @@ The user-facing implementation of *xlref*.
 
 Prefer accessing the public members from the parent module.
 """
+
 from __future__ import unicode_literals
 
 from abc import abstractmethod, ABCMeta
-from collections import namedtuple, OrderedDict, defaultdict
+from collections import namedtuple, OrderedDict, defaultdict, Sequence
+from copy import deepcopy
 import inspect
 import json
 import logging
@@ -157,6 +159,31 @@ def _uncooked_Edge(row, col, mov, mod=None):
     return Edge(land=Cell(col=col and col.upper(), row=row),
                 mov=mov and mov.upper(), mod=mod)
 
+Lash = namedtuple('Lash',
+                  ('xl_ref', 'url_file', 'sheet',
+                   'st_edge', 'nd_edge', 'exp_moves', 'js_filt', 'call_spec',
+                   'st', 'nd', 'values',
+                   OPTS))
+"""
+All the intermediate fields of the algorithm, populated stage-by-stage.
+
+:param ChainMap opts:
+        Stacked dictionaries with options from previoues invocations, 
+        extracted from :term:`filters`. 
+"""
+
+
+def _Lash_from_parsing(xl_ref, url_file, sheet,
+                       st_edge, nd_edge, exp_moves, js_filt, opts,
+                       ):
+    lash_opts = ChainMap()
+    if opts:
+        lash_opts.maps.append(opts)
+    return Lash(xl_ref, url_file, sheet,
+                st_edge, nd_edge, exp_moves, js_filt, None,
+                None, None, None,
+                lash_opts)
+
 _special_coord_symbols = {'^', '_', '.'}
 
 _primitive_dir_vectors = {
@@ -201,12 +228,12 @@ _re_xl_ref_parser = re.compile(
             \)
         )?
         (?::
-            (?P<exp_moves>[LURD?123456789]+)              # expansion moves [opt]
+            (?P<exp_moves>[LURD?123456789]+)             #  [opt] expansion moves
         )?
     )?
     \s*
     (?::?\s*
-        (?P<json>[[{"].*)?                                #  [opt] json
+        (?P<js_filt>[[{"].*)?                            #  [opt] filters
     )$
     """,
     re.IGNORECASE | re.X | re.DOTALL)
@@ -307,14 +334,14 @@ def _parse_expansion_moves(exp_moves):
         raise ValueError(msg.format(exp_moves, ex))
 
 
-def _parse_xl_ref(xl_ref):
+def _parse_xlref_fragment(xlref_fragment):
     """
     Parses a :term:`xl-ref` and splits it in its "ingredients".
 
-    :param str xl_ref:
+    :param str xlref_fragment:
             a string with the following format::
 
-                <sheet>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):<exp_moves>{<json>}
+                <sheet>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):<exp_moves>{<js_filt>}
 
             i.e.::
 
@@ -330,26 +357,27 @@ def _parse_xl_ref(xl_ref):
           i.e. ``Edge(land=Cell(row='_', col='.'), mov='D', mod='+')``
         - exp_moves: (sequence, None), as i.e. ``LDL1`` parsed by 
           :func:`_parse_expansion_moves()`
-        - json: dict i.e. ``{"dims: 1}``
+        - js_filt: dict i.e. ``{"dims: 1}``
 
     :rtype: dict
 
 
     Examples::
 
-        >>> res = _parse_xl_ref('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"json":"..."}')
+        >>> res = _parse_xlref_fragment('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}')
         >>> sorted(res.items())
         [('exp_moves', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
-         ('json', {'json': '...'}),
+         ('js_filt', {'func': 'foo'}),
          ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None)),
+         ('opts', '...'),
          ('sheet', 'Sheet1'),
          ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'))]
-        >>> _parse_xl_ref('A1(DR)Z20(UL)')
+        >>> _parse_xlref_fragment('A1(DR)Z20(UL)')
         Traceback (most recent call last):
         ValueError: Not an `xl-ref` syntax.
     """
 
-    m = _re_xl_ref_parser.match(xl_ref)
+    m = _re_xl_ref_parser.match(xlref_fragment)
     if not m:
         raise ValueError('Not an `xl-ref` syntax.')
     gs = m.groupdict()
@@ -375,65 +403,84 @@ def _parse_xl_ref(xl_ref):
     gs['exp_moves'] = _parse_expansion_moves(
         exp_moves) if exp_moves else None
 
-    js = gs['json']
+    js = gs['js_filt']
+    opts = None
     if js:
         try:
-            gs['json'] = json.loads(js) if js else None
+            js = gs['js_filt'] = json.loads(js) if js else None
         except ValueError as ex:
-            raise ValueError('%s, json:\n %s' % (ex, js))
+            raise ValueError('%s\n  JSON: \n%s' % (ex, js))
+        else:
+            if isinstance(js, dict):
+                opts = js.pop('opts', None)
+    gs['opts'] = opts
 
     return gs
 
 
-def parse_xl_url(url):
+def parse_xlref(xlref, default_opts=None):
     """
-    Parses a :term:`xl-url`.
+    Parse a :term:`xl-ref` into a :class:`Lash`.
 
-    :param str url:
+    :param str xlref:
         a string with the following format::
 
-            <url_file>#<sheet>!<1st_edge>:<2nd_edge>:<expand><json>
+            <url_file>#<sheet>!<1st_edge>:<2nd_edge>:<expand><js_filt>
 
         i.e.::
 
             file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
 
-    :return:
-        the dictionary returned by :func:`_parse_xl_ref()`  augmented 
-        with the following:
-
-        - url_file: i.e. ``path/to/file.xls``
-
-    :rtype: dict
+    :param dict or None opts: 
+            Default opts to affect the lashing; read the code to be sure 
+            what are the available choices.
+    :return: a Lash with any unused fields as `None`
+    :rtype: Lash
 
 
     Examples::
 
-        >>> url = 'file:///sample.xlsx#Sheet1!A1(UL):.^(DR):LU?:{"2": "ciao"}'
-        >>> res = parse_xl_url(url)
-        >>> sorted(res.items())
-        [('exp_moves', [repeat('L'), repeat('U', 1)]),
-         ('json', {'2': 'ciao'}),
-         ('nd_edge', Edge(land=Cell(row='^', col='.'), mov='DR', mod=None)),
-         ('sheet', 'Sheet1'),
-         ('st_edge', Edge(land=Cell(row='1', col='A'), mov='UL', mod=None)),
-         ('url_file', 'file:///sample.xlsx')]
+        >>> url = 'Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}'
+        >>> res = parse_xlref(url)
+        >>> res
+        Lash(xl_ref='Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}', 
+            url_file=None, 
+            sheet='Sheet1', 
+            st_edge=Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'), 
+            nd_edge=Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None), 
+            exp_moves=[repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)], 
+            js_filt={'func': 'foo'}, 
+            call_spec=None, 
+            st=None, 
+            nd=None, 
+            values=None, 
+            opts=ChainMap({}, '...'))
     """
 
     try:
-        url_file, frag = urldefrag(url)
+        url_file, frag = urldefrag(xlref)
         if not frag:
             frag = url_file
             url_file = None
-        res = _parse_xl_ref(frag)
+        res = _parse_xlref_fragment(frag)
         res['url_file'] = url_file
 
-        return res
+        lash = _Lash_from_parsing(xlref, **res)
 
+        if default_opts:
+            lash.opts.maps.insert(0, default_opts)
     except Exception as ex:
-        msg = "Invalid xl-ref(%s) due to: %s"
-        log.debug(msg, url, ex, exc_info=1)
-        raise ValueError(msg % (url, ex))
+        msg = "Parsing xl-ref(%s) failed due to: %s"
+        log.debug(msg, xlref, ex, exc_info=1)
+        # raise fututils.raise_from(ValueError(msg % (xlref, ex)), ex) see GH
+        # 141
+        raise ValueError(msg % (xlref, ex))
+    except ValueError as ex:
+        msg = "Invalid xl-ref(%s): %s"
+        log.debug(msg, xlref, ex, exc_info=1)
+        raise ValueError(msg % (xlref, ex))
+
+    return lash
 
 
 def _margin_coords_from_states_matrix(states_matrix):
@@ -901,7 +948,7 @@ def _target_same(states_matrix, dn_coords, land, moves):
     """
     Scan term:`exterior` row and column on specified `moves` and stop on the last full-cell.
 
-    :param Coords states_matrix:
+    :param np.ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`ABCSheet.get_states_matrix()` to derrive it.
     :param Coords dn_coords:
@@ -985,7 +1032,7 @@ def _expand_rect(states_matrix, r1, r2, exp_moves):
               any vertice of the rect to expand
     :param Coords r2:
               any vertice of the rect to expand
-    :param Coords states_matrix:
+    :param np.ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`ABCSheet.get_states_matrix()` to derrive it.
     :param exp_moves:
@@ -1062,7 +1109,7 @@ def _expand_rect(states_matrix, r1, r2, exp_moves):
     return Coords(*rect[[0, 2]]), Coords(*rect[[1, 3]])
 
 
-def resolve_capture_rect(states_matrix, up_coords, dn_coords,
+def resolve_capture_rect(states_matrix, up_dn_margins,
                          st_edge, nd_edge=None, exp_moves=None):
     """
     Performs :term:`targeting`, :term:`capturing` and :term:`expansions` based on the :term:`states-matrix`.
@@ -1074,13 +1121,11 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords,
 
     Its results can be fed into :func:`read_capture_values()`.
 
-    :param Coords states_matrix:
+    :param np.ndarray states_matrix:
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`ABCSheet.get_states_matrix()` to derrive it.
-    :param Coords up_coords:
-            the top-left coords with full-cells
-    :param Coords dn_coords:
-            the bottom-right coords with full-cells
+    :param (Coords, Coords) up_dn_margins:
+            the top-left/bottom-right coords with full-cells
     :param Edge st_edge: "uncooked" as matched by regex
     :param Edge nd_edge: "uncooked" as matched by regex
     :param list or none exp_moves:
@@ -1103,14 +1148,14 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords,
 
         >>> st_edge = Edge(Cell('1', 'A'), 'DR')
         >>> nd_edge = Edge(Cell('.', '.'), 'DR')
-        >>> resolve_capture_rect(states_matrix, up, dn, st_edge, nd_edge)
+        >>> resolve_capture_rect(states_matrix, (up, dn), st_edge, nd_edge)
         (Coords(row=3, col=2), Coords(row=4, col=2))
 
     Using dependenent coordinates for the 2nd edge::
 
         >>> st_edge = Edge(Cell('_', '_'), None)
         >>> nd_edge = Edge(Cell('.', '.'), 'UL')
-        >>> rect = resolve_capture_rect(states_matrix, up, dn, st_edge, nd_edge)
+        >>> rect = resolve_capture_rect(states_matrix, (up, dn), st_edge, nd_edge)
         >>> rect
         (Coords(row=2, col=2), Coords(row=4, col=5))
 
@@ -1118,21 +1163,22 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords,
 
         >>> st_edge = Edge(Cell('^', '_'), None)
         >>> nd_edge = Edge(Cell('_', '^'), None)
-        >>> rect == resolve_capture_rect(states_matrix, up, dn, st_edge, nd_edge)
+        >>> rect == resolve_capture_rect(states_matrix, (up, dn), st_edge, nd_edge)
         True
 
     Walking backwards::
 
         >>> st_edge = Edge(Cell('^', '_'), 'L')          # Landing is full, so 'L' ignored.
         >>> nd_edge = Edge(Cell('_', '_'), 'L', '+')    # '+' or would also stop.
-        >>> rect == resolve_capture_rect(states_matrix, up, dn, st_edge, nd_edge)
+        >>> rect == resolve_capture_rect(states_matrix, (up, dn), st_edge, nd_edge)
         True
 
     """
-    assert not CHECK_CELLTYPE or isinstance(up_coords, Coords), up_coords
-    assert not CHECK_CELLTYPE or isinstance(dn_coords, Coords), dn_coords
+    up_margin, dn_margin = up_dn_margins
+    assert not CHECK_CELLTYPE or isinstance(up_margin, Coords), up_margin
+    assert not CHECK_CELLTYPE or isinstance(dn_margin, Coords), dn_margin
 
-    st = _resolve_cell(st_edge.land, up_coords, dn_coords)
+    st = _resolve_cell(st_edge.land, up_margin, dn_margin)
     try:
         st_state = states_matrix[st]
     except IndexError:
@@ -1141,14 +1187,14 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords,
     if st_edge.mov is not None:
         if st_state:
             if st_edge.mod == '+':
-                st = _target_same(states_matrix, dn_coords, st, st_edge.mov)
+                st = _target_same(states_matrix, dn_margin, st, st_edge.mov)
         else:
-            st = _target_opposite(states_matrix, dn_coords, st, st_edge.mov)
+            st = _target_opposite(states_matrix, dn_margin, st, st_edge.mov)
 
     if nd_edge is None:
         nd = None
     else:
-        nd = _resolve_cell(nd_edge.land, up_coords, dn_coords, st)
+        nd = _resolve_cell(nd_edge.land, up_margin, dn_margin, st)
 
         if nd_edge.mov is not None:
             try:
@@ -1160,9 +1206,9 @@ def resolve_capture_rect(states_matrix, up_coords, dn_coords,
             if nd_state:
                 if (nd_edge.mod == '+' or
                         nd_edge.land == Cell('.', '.') and nd_edge.mod != '-'):
-                    nd = _target_same(states_matrix, dn_coords, nd, mov)
+                    nd = _target_same(states_matrix, dn_margin, nd, mov)
             else:
-                nd = _target_opposite(states_matrix, dn_coords, nd, mov)
+                nd = _target_opposite(states_matrix, dn_margin, nd, mov)
 
     if exp_moves:
         st, nd = _expand_rect(states_matrix, st, nd or st, exp_moves)
@@ -1302,21 +1348,14 @@ def _redim(values, new_ndim):
 
     return values.tolist()
 
-Lash = namedtuple('Lash', ('xl_ref', 'st', 'nd', 'values', OPTS))
-"""
-The `xl-ref` fields, the resolved :term:`capture-rect` and the read values along with `opts` passed between filters.
-
-:param ChainMap opts:
-        stacked dictionaries with options from previoues invocations 
-"""
 
 CallSpec = namedtuple('CallSpec', ('func', 'args', 'kwds'))
-"""The :term:`call-specifier` for holding the parsed json-values."""
+"""The :term:`call-specifier` for holding the parsed json-filters."""
 
 
 def _parse_call_spec(call_spec_values):
     """
-    Parse :term:`call-specifier` from json-parsed values.
+    Parse :term:`call-specifier` from json-filters.
 
     :param call_spec_values:
         This is a *non-null* structure specifying some function call 
@@ -1402,7 +1441,7 @@ def _parse_call_spec(call_spec_values):
 
 
 def _build_call_help(name, func, desc):
-    sig = inspect.formatargspec(*inspect.getfullargspec(func))
+    sig = func and inspect.formatargspec(*inspect.getfullargspec(func))
     desc = textwrap.indent(textwrap.dedent(desc), '    ')
     return '\n\nFilter: %s%s:\n%s' % (name, sig, desc)
 
@@ -1412,20 +1451,23 @@ def _make_call(lash, func_name, args, kwds):
     lax = opts['lax']
     verbose = opts['verbose']
     available_funcs = opts['available_funcs']
-    func_desc = ''
+    func, func_desc = '', ''
     try:
         func_rec = available_funcs[func_name]
         func, func_desc = func_rec
         lash = func(lash, *args, **kwds)
         assert isinstance(lash, Lash), (func_name, lash)
     except Exception as ex:
-        if func_desc and verbose:
+        if verbose:
             func_desc = _build_call_help(func_name, func, func_desc)
         msg = "Error in call-specifier(%s, %s, %s): %s%s"
         if lax:
             log.warning(msg, func_name, args, kwds, ex, func_desc, exc_info=1)
         else:
             raise ValueError(msg % (func_name, args, kwds, ex, func_desc))
+
+    lash = _relash(lash, func_name)  # Just to update intermediate_lashes.
+
     return lash
 
 
@@ -1452,17 +1494,16 @@ def _redim_filter(lash,
 
 def _pipe_filter(lash, *pipe):
     """
-    Apply all call-specifiers one after another on the captured values, and updates options.
+    Apply all call-specifiers one after another on the captured values.
 
     :param list pipe: the call-specifiers
     """
-    orig_opts = lash.opts.copy()
+
     for call_spec_values in pipe:
         call_spec, opts = _parse_call_spec(call_spec_values)
         if opts:
             lash.maps.append(opts)
         lash = _make_call(lash, *call_spec)
-    lash = lash._replace(opts=orig_opts)
 
     return lash
 
@@ -1536,18 +1577,49 @@ _default_opts = {
     'verbose': False,
     'available_funcs': _default_filters,
     'read': {'on_demand': False, },
+    'intermediate_lashes': {
+        'enable': None,
+        'lash_list': None,
+    },
 }
+"""
+:ivar dict intermediate_lashes:
+        Whether to appended all intermediate (and final) `Lash` 
+        instances created during the run of this function, 
+        for inspecting when debuging. 
+"""
 
 
 class SheetFactory(object):
     """"
-    Creates and caches sheets from backends.
+    Serves :class:`ABCSheet` instances based on (workbook, sheet) IDs, optionally creating them from backends.
 
     :ivar dict _cached_sheets: 
             A cache of all _Spreadsheets accessed so far, 
             keyed by multiple keys generated by :meth:`_derive_sheet_keys`.
     :ivar ABCSheet _current_sheet:
             The last used sheet, used when unspecified by the xlref.
+
+    - To avoid opening non-trivial workbooks, use the :meth:`add_sheet()` 
+      to pre-populate this cache with them.
+
+    - The last sheet added becomes the *current-sheet*, and will be  
+      served when :term:`xl-ref` does not specify any workbook and sheet.
+
+      .. Tip::
+          For the simplest API usage, try this::
+
+              >>> sf = SheetFactory()
+              >>> sf.add_sheet(some_sheet)              # doctest: +SKIP
+              >>> lash('A1:C3(U)', sf)                  # doctest: +SKIP
+
+    - The *current-sheet* is served only when wokbook-id is `None`, that is,
+      the id-pair ``('foo.xlsx', None)`` does not hit it, so those ids 
+      are send to the cache as they are.
+
+    - To add another backend, modify the opening-sheets logic (ie clipboard), 
+      override :meth:`_open_sheet()`.
+
     """
 
     def __init__(self, current_sheet=None):
@@ -1572,15 +1644,31 @@ class SheetFactory(object):
         assert wb is not None, (wb, sh)
         return (wb, sh)
 
-    def _derive_sheet_keys(self, sheet,  new_wb_id=None, new_sheet_id=None):
+    def _derive_sheet_keys(self, sheet,  extra_wb_ids=None, extra_sh_ids=None):
+        """
+        Retuns the product of user-specified and sheet-internal keys.
+
+        :param extra_wb_ids:
+                a single or a sequence of extra workbook-ids (ie: file, url)
+        :param extra_sh_ids:
+                a single or sequence of extra sheet-ids (ie: name, index, None)
+        """
+        def as_list(o):
+            if isinstance(o, Sequence) and not isinstance(o, basestring):
+                o = list(o)
+            else:
+                o = [o]
+            return o
         wb_id, sh_ids = sheet.get_sheet_ids()
         assert wb_id is not None, (wb_id, sh_ids)
+        wb_ids = [wb_id] + as_list(extra_wb_ids)
+        sh_ids = sh_ids + as_list(extra_sh_ids)
 
-        key_pairs = itt.product([wb_id, new_wb_id], sh_ids + [new_sheet_id])
+        key_pairs = itt.product(wb_ids, sh_ids)
         keys = list(set(self._build_sheet_key(*p)
                         for p in key_pairs
                         if p[0] is not None))
-        assert keys, (sheet,  new_wb_id, new_sheet_id)
+        assert keys, (sheet,  extra_wb_ids, extra_sh_ids)
 
         return keys
 
@@ -1602,14 +1690,19 @@ class SheetFactory(object):
         self._cached_sheets = {}
         self._current_sheet = None
 
-    def _open_sheet(self, wb_id, sheet_id, opts):
-        from .import _xlrd
-        return _xlrd.open_sheet(wb_id, sheet_id, opts)
+    def add_sheet(self, sheet, extra_wb_ids=None, extra_sh_ids=None,
+                  no_current=False):
+        """
+        Updates cache and (optionally) `_current_sheet`.
 
-    def add_sheet(self, sheet, wb_id=None, sheet_id=None, no_current=False):
-        assert sheet, (sheet, wb_id, sheet_id)
+        :param extra_wb_ids:
+                a single or sequence of extra workbook-ids (ie: file, url)
+        :param extra_sh_ids:
+                a single or sequence of extra sheet-ids (ie: name, index, None)
+        """
+        assert sheet, (sheet, extra_wb_ids, extra_sh_ids)
 
-        keys = self._derive_sheet_keys(sheet, wb_id, sheet_id)
+        keys = self._derive_sheet_keys(sheet, extra_wb_ids, extra_sh_ids)
         for k in keys:
             old_sheet = self._cache_get(k)
             if old_sheet and old_sheet is not sheet:
@@ -1618,7 +1711,7 @@ class SheetFactory(object):
         if not no_current:
             self._current_sheet = sheet
 
-    def fetch_sheet(self, wb_id, sheet_id, read_opts={}):
+    def fetch_sheet(self, wb_id, sheet_id, opts={}):
         csheet = self._current_sheet
         if wb_id is None:
             if not csheet:
@@ -1635,66 +1728,137 @@ class SheetFactory(object):
             sheet = self._cache_get(key)
 
             if not sheet:
-                sheet = csheet.sibling_sheet(sheet_id)
-                assert sheet, (wb_id, sheet_id, read_opts)
+                sheet = csheet.open_sibling_sheet(sheet_id, opts)
+                assert sheet, (wb_id, sheet_id, opts)
                 self.add_sheet(sheet, wb_id, sheet_id)
         else:
             key = self._build_sheet_key(wb_id, sheet_id)
             sheet = self._cache_get(key)
             if not sheet:
-                sheet = self._open_sheet(wb_id, sheet_id, read_opts)
-                assert sheet, (wb_id, sheet_id, read_opts)
+                sheet = self._open_sheet(wb_id, sheet_id, opts)
+                assert sheet, (wb_id, sheet_id, opts)
                 self.add_sheet(sheet, wb_id, sheet_id)
 
         return sheet
 
-def read(xlref, sheets_fact=None,
-         available_funcs=_default_filters, default_opts=_default_opts):
+    def _open_sheet(self, wb_id, sheet_id, opts):
+        """OVERRIDE THIS to change backend."""
+        from .import _xlrd
+        return _xlrd.open_sheet(wb_id, sheet_id, opts)
+
+
+def _relash(lash, stage, **kwds):
+    """Replace lash-values and optionally adds it in the option's `intermediate_lashes`."""
+    lash = lash._replace(**kwds)
+
+    try:
+        intermediate_lashes = lash.opts['intermediate_lashes']
+        if intermediate_lashes['enable']:
+            lash_list = intermediate_lashes['lash_list']
+            try:
+                lash_list.append((stage, lash))
+            except Exception:
+                lash_list = intermediate_lashes['lash_list'] = [(stage, lash)]
+    except Exception as ex:
+        msg = ("Failed updating 'intermediate_lashes' due to: %s "
+               "\n  Have you properly set the defaults `opts`?")
+        log.warning(msg, ex)
+    return lash
+
+
+def do_lash(lash, sheets_fact=None):
     """
-    Parses xlref, resolves rect and fetches values from spreadsheet, and filters them,
+    Invoke after parsing to resolve capture-rect, load and fetch values from sheets, and filter them.
+
+    :param Lash lash:
+            A :class:`Lash` from which those fields are used as input:
+
+            - `st_edge`: (:class:`Edge`)
+            - `nd_edge`: (:class:`Edge` or `None`
+            - `exp_moves`: (`None`)
+            - `js_filt`: (`None`)
+            - `url_file`: (`None`) the result of :func:`_parse_expansion_moves()`
+            - `sheet`: (`str` or `int` or `None`)
+
+    :param sheets_fact:
+            Factory of sheets from where to parse rect-values; if unspecified, 
+            a new :class:`SheetFactory` is created.
+    :return: 
+            The final `Lash` updated with captured & filtered values, and all 
+            intermediate results.
     """
-    opts = ChainMap()
-    opts.maps.append(default_opts)
-
-    fields = parse_xl_url(xlref)
-
-    call_spec = None
-    js = fields.get('json', None)
-    if json:
-        call_spec, user_opts = _parse_call_spec(js)
-        if user_opts:
-            opts.maps.append(user_opts)
-
+    mine_factory = False
     if not sheets_fact:
         sheets_fact = SheetFactory()
-    wb, sh = fields['url_file'],fields['sheet']
+        mine_factory = True
+
     try:
-        sheet = sheets_fact.fetch_sheet(wb, sh)
-    except Exception as ex:
-        msg = "Loading sheet(%s:%s) failed due to: %s"
-        raise ValueError(msg % (wb, sh, ex))
-        
-    capture_args = (sheet.get_states_matrix(),) + sheet.get_margin_coords()
-    fields_to_keep = ['st_edge', 'nd_edge', 'exp_moves']
-    kwds = dtz.keyfilter(lambda k: k in fields_to_keep, fields)
-    st, nd = resolve_capture_rect(*capture_args, **kwds)
-    log.info("Resolved to [%s, %s] <-- %s", st, nd, xlref)
+        call_spec = None
+        if lash.js_filt:
+            call_spec, user_opts = _parse_call_spec(lash.js_filt)
+            if user_opts:
+                lash.opts.maps.append(user_opts)
+        lash = _relash(lash, 'call_spec', call_spec=call_spec)
 
-    values = sheet.read_rect(st, nd)
+        try:
+            sheet = sheets_fact.fetch_sheet(
+                lash.url_file, lash.sheet, lash.opts)
+        except Exception as ex:
+            msg = "Loading sheet([%s]%s) failed due to: %s"
+            raise ValueError(msg % (lash.url_file, lash.sheet, ex))
 
-    lash = Lash(fields, st, nd, values, opts)
+        st, nd = resolve_capture_rect(sheet.get_states_matrix(),
+                                      sheet.get_margin_coords(),
+                                      lash.st_edge, lash.nd_edge, lash.exp_moves)
+        lash = _relash(lash, 'resolve_capture_rect', st=st, nd=nd)
 
-    if call_spec:
-        lash = _make_call(lash, *call_spec)
+        values = sheet.read_rect(st, nd)
+        lash = _relash(lash, 'read_rect', values=values)
+
+        if call_spec:
+            lash = _make_call(lash, *call_spec)  # relash() internally
+    finally:
+        if mine_factory:
+            sheets_fact.close_all()
 
     return lash
+
+
+def lash(xlref, sheets_fact=None, return_lash=False,
+         available_funcs=_default_filters, default_opts=_default_opts):
+    """
+    The main function that parses xlref, resolves rect and fetches values from spreadsheet, and filters them,
+
+    :param str xlref:
+        a string with the following format::
+
+            <url_file>#<sheet>!<1st_edge>:<2nd_edge>:<expand><js_filt>
+
+        i.e.::
+
+            file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
+    :param sheets_fact:
+            Factory of sheets from where to parse rect-values; if unspecified, 
+            a new :class:`SheetFactory` is created.
+    :param dict or None opts: 
+            Default opts to affect the lashing; read the code to be sure 
+            what are the available choices.
+
+    """
+
+    lash = parse_xlref(xlref, default_opts)
+    lash = _relash(lash, 'parse')  # Just to update intermediate_lashes.
+
+    lash = do_lash(lash, sheets_fact)
+
+    return lash if return_lash else lash.values
 
 
 class ABCSheet(with_metaclass(ABCMeta, object)):
     """
     A delegating to backend factory and sheet-wrapper with utility methods.
 
-    :param np.array _states_matrix:
+    :param np.ndarray _states_matrix:
             The :term:`states-matrix` cached, so recreate object
             to refresh it.
     :param dict _margin_coords:
@@ -1735,7 +1899,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
         """
 
     @abstractmethod
-    def sibling_sheet(self, sheet_id):
+    def open_sibling_sheet(self, sheet_id, opts=None):
         """Return a sibling sheet by the given index or name"""
 
     @abstractmethod
