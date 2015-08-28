@@ -1349,6 +1349,11 @@ def _redim(values, new_ndim):
     return values.tolist()
 
 
+def xlwings_dims_call_spec():
+    """Returns a :term:`call-spec` for the `redim` :term:`filter` that imitates *xlwings* library."""
+    return '["redim", [0, 1, 1, 1, 2]]'
+
+
 CallSpec = namedtuple('CallSpec', ('func', 'args', 'kwds'))
 """The :term:`call-specifier` for holding the parsed json-filters."""
 

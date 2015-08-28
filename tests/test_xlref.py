@@ -1133,7 +1133,8 @@ class TReadRect(unittest.TestCase):
         self.check_read_capture_rect(case)
 
 
-class Read(unittest.TestCase):
+@ddt
+class TLash(unittest.TestCase):
 
     def m1(self):
         dt = datetime(1900, 8, 2)
@@ -1183,6 +1184,36 @@ class Read(unittest.TestCase):
         sf.add_sheet(ArraySheet(self.m1()))
         res = xr.lash('''A1:..(D)''', sf, True)
         self.assertIsInstance(res, xr.Lash)
+
+    @data(
+        ('R5C4:..(UL):%s',      [[None, 0, 1], [0, 1, 2]]),
+        ('R5C4:R5C4:LURD:%s',   [
+            [None, 0,    1,   2],
+            [0,    1,    2,   None],
+            [1,    None, 6.1, 7.1]
+        ]),
+        ('R5C_(LU):A1(RD):%s',      [[0, 1], [1, 2]]),
+        ('__(LU+):^^(RD):%s',       [[0, 1], [1, 2], [None, 6.1]]),
+        ('R_C5:R6C.(L+):%s',        [6.1, 7.1]),  # 5
+        ('R^C3(U+):..(D+):%s',      [0, 1]),
+        ('D6:%s',                   6.1),
+    )
+    def test_read_xlwings_dims(self, case):
+        xlref, res = case
+        table = np.array([
+            # A(1)  B(2)   C(3)  D(4)  E(5)
+            [None, None,  None, None, None],  # 1
+            [None, None,  None, None, None],  # 2
+            [None, None,  None, None, None],  # 3
+            [None, None,  0.,   1.,   2.],    # 4
+            [None, 0.,    1.,   2.,   None],  # 5
+            [None, 1.,    None, 6.1,  7.1]    # 6
+        ])
+        sheetsFact = xr.SheetFactory()
+        sheetsFact.add_sheet(ArraySheet(table), 'wb', 'sheet1')
+
+        dims = xr.xlwings_dims_call_spec()
+        self.assertEqual(xr.lash(xlref % dims, sheetsFact), res)
 
 
 @ddt
@@ -1250,143 +1281,46 @@ class VsPandas(unittest.TestCase, CustomAssertions):
 
 
 @unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
+@ddt
 class VsXlwings(unittest.TestCase):
 
     def setUp(self):
-        self.tmp = '%s.xlsx' % tempfile.mktemp()[1]
-        xl = [
+        self.tmp = '%s.xlsx' % tempfile.mktemp()
+        table = [
             [1, 2, None],
             [None, 6.1, 7.1]
         ]
-        _write_sample_sheet(self.tmp, xl, 'Sheet1', startrow=5, startcol=3)
+        _write_sample_sheet(self.tmp, table, 'Sheet1', startrow=5, startcol=3)
 
         xlrd_wb = xlrd.open_workbook(self.tmp)
         self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
+        self.sheetsFact = xr.SheetFactory()
+        self.sheetsFact.add_sheet(self.sheet, 'wb', 'sheet1')
 
     def tearDown(self):
         del self.sheet
         os.remove(self.tmp)
 
-    def test_xlwings_vs_get_xl_table(self):
-        import xlwings as xw  # @UnresolvedImport
+    @data(
+        ('R7C4:..(D):%s', lambda xw: xw.Range("Sheet1", "D7").vertical.value),
+        ('R6C5:..(D):%s', lambda xw: xw.Range("Sheet1", "E6").vertical.value),
+        ('R6C5:..(R):%s', lambda xw: xw.Range("Sheet1",
+                                              "E6").horizontal.value),
+        ('R6C5:..(RD):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
+        ('R6C5:..(DR):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
+        ('R8C6:R6R4:%s', lambda xw: xw.Range("Sheet1", "D6:F8").value),
+        ('R8C6:R1C1:%s', lambda xw: xw.Range("Sheet1", "A1:F8").value),
+        ('R7C1:R7C4:%s', lambda xw: xw.Range("Sheet1", "A7:D7").value),
+        ('R9C4:R3C4:%s', lambda xw: xw.Range("Sheet1", "D3:D9").value),
+    )
+    def test_vs_xlwings(self, case):
+        xlref, res = case
         # load Workbook for --> xlwings
-        with xw_Workbook(self.tmp):
-            resTarget = xw.Range("Sheet1", "D7").vertical.value
-            res = [None,
-                   xw.Range("Sheet1", "E6").vertical.value,
-                   xw.Range("Sheet1", "E6").horizontal.value,
-                   xw.Range("Sheet1", "E6").table.value,
-                   xw.Range("Sheet1", "D6:F8").value,
-                   xw.Range("Sheet1", "A1:F8").value,
-                   xw.Range("Sheet1", "A7:D7").value,
-                   xw.Range("Sheet1", "D3:D9").value,
-                   ]
+        with xw_Workbook(self.tmp) as xw:
+            res = res(xw)
 
-        sheet = self.sheet
-        states_matrix = sheet.get_states_matrix()
-        margin_coords = xr._margin_coords_from_states_matrix(states_matrix)
-
-        # minimum delimited column in the sheet [D7:D.(D)]
-        st = xr.Edge(xr.coords2Cell(6, 3), None)
-        nd = xr.Edge(xr.coords2Cell('.', '.'), 'D')
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        args = (sheet, ) + rect
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), resTarget)
-
-        # minimum delimited column in the sheet [E6:E.(D)]
-        st = xr.Edge(xr.coords2Cell(5, 4), None)
-        nd = xr.Edge(xr.coords2Cell('.', '.'), 'D')
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res[1])
-
-        # minimum delimited row in the sheet [E6:.6(R)]
-        st = xr.Edge(xr.coords2Cell(5, 4), None)
-        nd = xr.Edge(xr.coords2Cell('.', '.'), 'R')
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res[2])
-
-        # minimum delimited matrix in the sheet [E6:..(RD)]
-        st = xr.Edge(xr.coords2Cell(5, 4), None)
-        nd = xr.Edge(xr.coords2Cell('.', '.'), 'RD')
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res[3])
-
-        st = xr.Edge(xr.coords2Cell(5, 4), None)
-        nd = xr.Edge(xr.coords2Cell('.', '.'), 'DR')
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res[3])
-
-        # delimited matrix in the sheet [D6:F8]
-        st = xr.Edge(xr.coords2Cell(7, 5), None)
-        nd = xr.Edge(xr.coords2Cell(5, 3), None)
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res[4])
-
-        # delimited matrix in the sheet [A1:F8]
-        st = xr.Edge(xr.coords2Cell(7, 5), None)
-        nd = xr.Edge(xr.coords2Cell(0, 0), None)
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res[5])
-
-        # delimited row in the sheet [A7:D7]
-        st = xr.Edge(xr.coords2Cell(6, 0), None)
-        nd = xr.Edge(xr.coords2Cell(6, 3), None)
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res[6])
-
-        # delimited column in the sheet [D3:D9]
-        st = xr.Edge(xr.coords2Cell(8, 3), None)
-        nd = xr.Edge(xr.coords2Cell(2, 3), None)
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res[7])
-
-        # minimum delimited matrix in the sheet [F7:..(UL)]
-        st = xr.Edge(xr.coords2Cell(6, 5), None)
-        nd = xr.Edge(xr.coords2Cell('.', '.'), 'UL')
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        res = [[None, 0, 1],
-               [0, 1, 2]]
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
-
-        # minimum delimited matrix in the sheet [F7:F7:LURD]
-        st = xr.Edge(xr.coords2Cell(6, 5), None)
-        nd = xr.Edge(xr.coords2Cell(6, 5), None)
-        exp_moves = xr._parse_expansion_moves('LURD')
-        rect = xr.resolve_capture_rect(
-            states_matrix, margin_coords, st, nd, exp_moves)
-        res = [[None, 0, 1, 2],
-               [0, 1, 2, None],
-               [1, None, 6.1, 7.1]]
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
-
-        # minimum delimited matrix in the sheet [F7:A1(RD)]
-        st = xr.Edge(xr.coords2Cell(6, 5), None)
-        nd = xr.Edge(xr.coords2Cell(0, 0), 'RD')
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        res = [[0, 1],
-               [1, 2]]
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
-
-        # minimum delimited row in the sheet [_8:G8]
-        st = xr.Edge(xr.coords2Cell(7, 6), None, '+')
-        nd = xr.Edge(xr.coords2Cell(7, '.'), 'L', '+')
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        res = [6.1, 7.1]
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
-
-        # minimum delimited column in the sheet [D_:D8]
-        st = xr.Edge(xr.coords2Cell(7, 3), None, '+')
-        nd = xr.Edge(xr.coords2Cell('.', 3), 'U', '+')
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        res = [0, 1]
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
-
-        # single value [D8]
-        st = xr.Edge(xr.coords2Cell(7, 3), None, '+')
-        nd = None
-        rect = xr.resolve_capture_rect(states_matrix, margin_coords, st, nd)
-        res = [1]
-        self.assertEqual(xr.read_capture_rect(sheet, *rect), res, str(args))
+        dims = xr.xlwings_dims_call_spec()
+        self.assertEqual(xr.lash(xlref % dims, self.sheetsFact), res)
 
 
 class TSheet(unittest.TestCase):
@@ -1584,6 +1518,7 @@ class TSheetFactory(unittest.TestCase):
 
 
 class ArraySheet(xr.ABCSheet):
+    """A utility-sheet for facilitating tests."""
 
     def __init__(self, arr, ids=('wb', ['sh', 0])):
         self._arr = np.asarray(arr)

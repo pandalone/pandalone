@@ -555,5 +555,6 @@ TODOs
 
 from ._xlref import (
     Cell, coords2Cell, Edge, Lash, SheetFactory,
-    parse_xlref, resolve_capture_rect, do_lash, lash
+    parse_xlref, resolve_capture_rect, do_lash, lash,
+    xlwings_dims_call_spec,
 )
