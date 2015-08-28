@@ -30,7 +30,7 @@ from pandalone.xlref import _xlref as xr
 from pandalone.xlref._xlrd import XlrdSheet
 import pandas as pd
 from tests import _tutils
-from tests._tutils import check_xl_installed, xw_Workbook
+from tests._tutils import (check_xl_installed, xw_Workbook)
 
 from ._tutils import assertRaisesRegex, CustomAssertions
 
@@ -1182,7 +1182,7 @@ class TLasso(unittest.TestCase):
     def test_read_asLasso(self):
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.lasso('''A1:..(D)''', sf, True)
+        res = xr.lasso('''A1:..(D)''', sf, return_lasso=True)
         self.assertIsInstance(res, xr.Lasso)
 
     @data(
@@ -1267,8 +1267,12 @@ class VsPandas(unittest.TestCase, CustomAssertions):
             self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
             xlref_res = self.sheet.read_rect(st, nd)
             lasso = make_Lasso(st=st, nd=nd, values=xlref_res, opts=ChainMap())
-            lasso1 = xr._redim_filter(lasso, row=[2, True])
-            lasso2 = xr._df_filter(lasso1, **parse_df_kwds)
+
+            lasso1 = xr._redim_filter(None, lasso, row=[2, True])
+
+            df_filter = xr.get_default_filters()['df']['func']
+            lasso2 = df_filter(None, lasso1, **parse_df_kwds)
+
             xlref_df = lasso2.values
 
             msg = '\n---\n%s\n--\n%s\n-\n%s' % (xlref_res, xlref_df, pd_df)

@@ -432,8 +432,8 @@ def parse_xlref(xlref, default_opts=None):
             file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
 
     :param dict or None opts: 
-            Default opts to affect the lassoing; read the code to be sure 
-            what are the available choices.
+            Default opts to affect the :term:`lassoing`, inserted below any
+            opts specified in the :term:`filter` part. 
     :return: a Lasso with any unused fields as `None`
     :rtype: Lasso
 
@@ -1353,6 +1353,127 @@ def xlwings_dims_call_spec():
     """Returns a :term:`call-spec` for the `redim` :term:`filter` that imitates *xlwings* library."""
     return '["redim", [0, 1, 1, 1, 2]]'
 
+###############
+# FILTER-DEFS
+###############
+
+
+def _redim_filter(ranger, lasso,
+                  scalar=None, cell=None, row=None, col=None, table=None):
+    """
+    Reshape and/or transpose captured values, depending on rect's shape.
+
+    Each dimension might be a single int or None, or a pair [dim, transpose].  
+    """
+    ndims_list = (scalar, cell, row, col, table)
+    shape_idx = _classify_rect_shape(lasso.st, lasso.nd)
+    new_ndim = _decide_ndim_by_rect_shape(shape_idx, ndims_list)
+    values = lasso.values
+    if new_ndim is not None:
+        lasso = lasso._replace(values=_redim(values, new_ndim))
+
+    return lasso
+
+
+def get_default_filters(overrides=None):
+    """
+    Returns the available :term:`filter-function`.
+
+    :param dict or None overrides:
+            Any items to update the default ones.
+
+    :return: 
+            a dict-of-dicts with 2 items: 
+
+            - *func*: a function with args: ``(Ranger, Lasso, *args, **kwds)``
+            - *desc*:  help-text replaced by ``func.__doc__`` if missing.
+
+    :rtype: 
+            dict
+    """
+    filters = {
+        'pipe': {
+            'func': Ranger._pipe_filter,
+        },
+        'redim': {
+            'func': _redim_filter,
+        },
+        'numpy': {
+            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
+                values=np.array(lasso.values, *args, **kwds)),
+            'desc': np.array.__doc__,
+        },
+        'dict': {
+            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
+                values=dict(lasso.values, *args, **kwds)),
+            'desc': dict.__doc__,
+        },
+        'odict': {
+            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
+                values=OrderedDict(lasso.values, *args, **kwds)),
+            'desc': OrderedDict.__doc__,
+        },
+        'sorted': {
+            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
+                values=sorted(lasso.values, *args, **kwds)),
+            'desc': sorted.__doc__,
+        },
+    }
+
+    try:
+        import pandas as pd
+        from pandas.io import parsers, excel as pdexcel
+
+        def _df_filter(ranger, lasso, *args, **kwds):
+            values = lasso.values
+            header = kwds.get('header', 'infer')
+            if header == 'infer':
+                header = kwds['header'] = 0 if kwds.get(
+                    'names') is None else None
+            if header is not None:
+                values[header] = pdexcel._trim_excel_header(values[header])
+            # , convert_float=True,
+            parser = parsers.TextParser(values, **kwds)
+            lasso = lasso._replace(values=parser.read())
+
+            return lasso
+
+        filters.update({
+            'df': {
+                'func': _df_filter,
+                'desc': parsers.TextParser.__doc__,
+            },
+            'series': {
+                'func': lambda ranger, lasso, *args, **kwds: pd.Series(OrderedDict(lasso.values),
+                                                                       *args, **kwds),
+                'desc': ("Converts a 2-columns list-of-lists into pd.Series.\n" +
+                         pd.Series.__doc__),
+            }
+        })
+    except ImportError:
+        pass
+
+    if overrides:
+        filters.update(overrides)
+
+    return filters
+
+
+def get_default_opts(overrides=None):
+    """
+    :param dict or None overrides:
+            Any items to update the default ones.
+    """
+    opts = {
+        'lax': False,
+        'verbose': False,
+        'read': {'on_demand': False, },
+    }
+
+    if overrides:
+        opts.update(overrides)
+    return opts
+
 
 CallSpec = namedtuple('CallSpec', ('func', 'args', 'kwds'))
 """The :term:`call-specifier` for holding the parsed json-filters."""
@@ -1445,156 +1566,6 @@ def _parse_call_spec(call_spec_values):
     return CallSpec(func, args, kwds), opts
 
 
-def _build_call_help(name, func, desc):
-    sig = func and inspect.formatargspec(*inspect.getfullargspec(func))
-    desc = textwrap.indent(textwrap.dedent(desc), '    ')
-    return '\n\nFilter: %s%s:\n%s' % (name, sig, desc)
-
-
-def _make_call(lasso, func_name, args, kwds):
-    opts = lasso.opts
-    lax = opts['lax']
-    verbose = opts['verbose']
-    available_funcs = opts['available_funcs']
-    func, func_desc = '', ''
-    try:
-        func_rec = available_funcs[func_name]
-        func, func_desc = func_rec
-        lasso = func(lasso, *args, **kwds)
-        assert isinstance(lasso, Lasso), (func_name, lasso)
-    except Exception as ex:
-        if verbose:
-            func_desc = _build_call_help(func_name, func, func_desc)
-        msg = "Error in call-specifier(%s, %s, %s): %s%s"
-        if lax:
-            log.warning(msg, func_name, args, kwds, ex, func_desc, exc_info=1)
-        else:
-            raise ValueError(msg % (func_name, args, kwds, ex, func_desc))
-
-    lasso = _relasso(lasso, func_name)  # Just to update intermediate_lassos.
-
-    return lasso
-
-
-###############
-# FILTER-DEFS
-###############
-
-def _redim_filter(lasso,
-                  scalar=None, cell=None, row=None, col=None, table=None):
-    """
-    Reshape and/or transpose captured values, depending on rect's shape.
-
-    Each dimension might be a single int or None, or a pair [dim, transpose].  
-    """
-    ndims_list = (scalar, cell, row, col, table)
-    shape_idx = _classify_rect_shape(lasso.st, lasso.nd)
-    new_ndim = _decide_ndim_by_rect_shape(shape_idx, ndims_list)
-    values = lasso.values
-    if new_ndim is not None:
-        lasso = lasso._replace(values=_redim(values, new_ndim))
-
-    return lasso
-
-
-def _pipe_filter(lasso, *pipe):
-    """
-    Apply all call-specifiers one after another on the captured values.
-
-    :param list pipe: the call-specifiers
-    """
-
-    for call_spec_values in pipe:
-        call_spec, opts = _parse_call_spec(call_spec_values)
-        if opts:
-            lasso.maps.append(opts)
-        lasso = _make_call(lasso, *call_spec)
-
-    return lasso
-
-_default_filters = {
-    'pipe': [
-        _pipe_filter,
-        _pipe_filter.__doc__,
-    ],
-    'redim': [
-        _redim_filter,
-        _redim_filter.__doc__,
-    ],
-    'numpy': [
-        lambda lasso, *
-        args, **kwds: lasso._replace(
-            values=np.array(lasso.values, *args, **kwds)),
-        np.array.__doc__,
-    ],
-    'dict': [
-        lambda lasso, *
-        args, **kwds: lasso._replace(
-            values=dict(lasso.values, *args, **kwds)),
-        dict.__doc__,
-    ],
-    'odict': [
-        lambda lasso, *
-        args, **kwds: lasso._replace(
-            values=OrderedDict(lasso.values, *args, **kwds)),
-        OrderedDict.__doc__,
-    ],
-    'sorted': [
-        lambda lasso, *
-        args, **kwds: lasso._replace(
-            values=sorted(lasso.values, *args, **kwds)),
-        sorted.__doc__,
-    ],
-}
-
-try:
-    import pandas as pd
-    from pandas.io import parsers, excel as pdexcel
-
-    def _df_filter(lasso, *args, **kwds):
-        values = lasso.values
-        header = kwds.get('header', 'infer')
-        if header == 'infer':
-            header = kwds['header'] = 0 if kwds.get('names') is None else None
-        if header is not None:
-            values[header] = pdexcel._trim_excel_header(values[header])
-        parser = parsers.TextParser(values, **kwds)  # , convert_float=True,
-        lasso = lasso._replace(values=parser.read())
-
-        return lasso
-
-    _default_filters['df'] = [
-        _df_filter,
-        parsers.TextParser.__doc__,
-    ]
-    _default_filters['series'] = [
-        lambda lasso, *args, **kwds: pd.Series(OrderedDict(lasso.values),
-                                               *args, **kwds),
-        ("Makes a pd.Series from a 2 columns.\n" + pd.Series.__doc__),
-    ]
-
-
-except ImportError:
-    pass
-
-_default_opts = {
-    'lax': False,
-    'verbose': False,
-    'available_funcs': _default_filters,
-    'read': {'on_demand': False, },
-    'intermediate_lassos': {
-        'enable': None,
-        'lasso_list': None,
-    },
-}
-"""
-:ivar dict intermediate_lassos:
-        Whether to appended all intermediate (and final) `Lasso` 
-        instances created during the run of this function, 
-        for inspecting when debuging. 
-"""
-
-
 class SheetFactory(object):
     """"
     Serves :class:`ABCSheet` instances based on (workbook, sheet) IDs, optionally creating them from backends.
@@ -1624,6 +1595,9 @@ class SheetFactory(object):
 
     - To add another backend, modify the opening-sheets logic (ie clipboard), 
       override :meth:`_open_sheet()`.
+
+    - It is a resource-manager for contained sheets, wo it can be used wth 
+      a `with` statement.
 
     """
 
@@ -1688,7 +1662,8 @@ class SheetFactory(object):
             if self._current_sheet is sheet:
                 self._current_sheet = None
 
-    def close_all(self):
+    def close(self):
+        """Closes all contained sheets and empties cache."""
         for sh_dict in self._cached_sheets.values():
             for sh in sh_dict.values():
                 sh._close_all()
@@ -1751,64 +1726,147 @@ class SheetFactory(object):
         from .import _xlrd
         return _xlrd.open_sheet(wb_id, sheet_id, opts)
 
+    def __enter__(self):
+        pass
 
-def _relasso(lasso, stage, **kwds):
-    """Replace lasso-values and optionally adds it in the option's `intermediate_lassos`."""
-    lasso = lasso._replace(**kwds)
-
-    try:
-        intermediate_lassos = lasso.opts['intermediate_lassos']
-        if intermediate_lassos['enable']:
-            lasso_list = intermediate_lassos['lasso_list']
-            try:
-                lasso_list.append((stage, lasso))
-            except Exception:
-                lasso_list = intermediate_lassos[
-                    'lasso_list'] = [(stage, lasso)]
-    except Exception as ex:
-        msg = ("Failed updating 'intermediate_lassos' due to: %s "
-               "\n  Have you properly set the defaults `opts`?")
-        log.warning(msg, ex)
-    return lasso
+    def __exit__(self):
+        self.close()
 
 
-def do_lasso(lasso, sheets_fact=None):
+def _build_call_help(name, func, desc):
+    sig = func and inspect.formatargspec(*inspect.getfullargspec(func))
+    desc = textwrap.indent(textwrap.dedent(desc), '    ')
+    return '\n\nFilter: %s%s:\n%s' % (name, sig, desc)
+
+
+class Ranger(object):
     """
-    Invoke after parsing to resolve capture-rect, load and fetch values from sheets, and filter them.
+    The director-class that performs all stages required for "throwing the lasso" around rect-values.
 
-    :param Lasso lasso:
-            A :class:`Lasso` from which those fields are used as input:
+    The :meth:`lasso()` does the job.
 
-            - `st_edge`: (:class:`Edge`)
-            - `nd_edge`: (:class:`Edge` or `None`
-            - `exp_moves`: (`None`)
-            - `js_filt`: (`None`)
-            - `url_file`: (`None`) the result of :func:`_parse_expansion_moves()`
-            - `sheet`: (`str` or `int` or `None`)
-
-    :param sheets_fact:
-            Factory of sheets from where to parse rect-values; if unspecified, 
-            a new :class:`SheetFactory` is created.
-    :return: 
-            The final `Lasso` updated with captured & filtered values, and all 
-            intermediate results.
+    :param sheets_factory:
+            Factory of sheets from where to parse rect-values; does not 
+            close it in the end.
+    :param dict or None opts: 
+            Default opts to affect the lassoing; read the code to be sure 
+            what are the available choices. No opts applied if unspecified.
+            See :func:`get_default_opts()`.
+    :param dict or None available_filters: 
+            No filters exists if unspecified. 
+            See :func:`get_default_filters()`.
+    :ivar list intermediate_lassos:
+            A list of ``('stage', Lasso)`` pairs with :class:`Lasso` instances 
+            created during the last execution of the :meth:`lasso()` function,
+            for inspecting when debuging. 
     """
-    mine_factory = False
-    if not sheets_fact:
-        sheets_fact = SheetFactory()
-        mine_factory = True
 
-    try:
+    def __init__(self, sheets_factory,
+                 default_opts=None, available_filters=None):
+        self.sheets_factory = sheets_factory
+        self.default_opts = default_opts
+        self.available_filters = available_filters
+
+    def _make_call(self, lasso, func_name, args, kwds):
+        def parse_avail_func_rec(func, desc=None):
+            if not desc:
+                desc = func.__doc__
+            return func, desc
+
+        opts = lasso.opts
+        lax = opts['lax']
+        verbose = opts['verbose']
+        func, func_desc = '', ''
+        try:
+            func_rec = self.available_filters[func_name]
+            func, func_desc = parse_avail_func_rec(**func_rec)
+            lasso = func(self, lasso, *args, **kwds)
+            assert isinstance(lasso, Lasso), (func_name, lasso)
+        except Exception as ex:
+            if verbose:
+                func_desc = _build_call_help(func_name, func, func_desc)
+            msg = "Error in call-specifier(%s, %s, %s): %s%s"
+            if lax:
+                log.warning(
+                    msg, func_name, args, kwds, ex, func_desc, exc_info=1)
+            else:
+                raise ValueError(msg % (func_name, args, kwds, ex, func_desc))
+
+        # Just to update intermediate_lassos.
+        lasso = self._relasso(lasso, func_name)
+
+        return lasso
+
+    def _pipe_filter(self, lasso, *pipe):
+        """
+        Apply all call-specifiers one after another on the captured values.
+
+        :param list pipe: the call-specifiers
+        """
+
+        for call_spec_values in pipe:
+            call_spec, opts = _parse_call_spec(call_spec_values)
+            if opts:
+                lasso.maps.append(opts)
+            lasso = self._make_call(lasso, *call_spec)
+
+        return lasso
+
+    def _recurse_filter(self, lasso, search_include_items, exnclude_items):
+        pass  # TODO Implement recursive lassoing!
+
+    def _relasso(self, lasso, stage, **kwds):
+        """Replace lasso-values and optionally adds it in the option's `intermediate_lassos`."""
+        lasso = lasso._replace(**kwds)
+
+        try:
+            intermediate_lassos = lasso.opts['intermediate_lassos']
+            if intermediate_lassos['enable']:
+                lasso = lasso._replace(OPTS=deepcopy(lasso.opts))
+                lasso_list = intermediate_lassos['lasso_list']
+                try:
+                    lasso_list.append((stage, lasso))
+                except Exception:
+                    lasso_list = intermediate_lassos[
+                        'lasso_list'] = [(stage, lasso)]
+        except Exception as ex:
+            msg = ("Failed updating 'intermediate_lassos' due to: %s "
+                   "\n  Have you properly set the defaults `opts`?")
+            log.warning(msg, ex)
+        return lasso
+
+    def lasso(self, xlref, keep_all_lassos=None):
+        """
+        The director-method that does all the job of hrowing a :term:`lasso`
+        around spreadsheet's rect-regions according to :term:`xl-ref`.
+
+        :param str xlref:
+            a string with the :term:`xl-ref` format::
+
+                <url_file>#<sheet>!<1st_edge>:<2nd_edge>:<expand><js_filt>
+
+            i.e.::
+
+                file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
+
+        :return: 
+                The final :class:`Lasso` with captured & filtered values.
+        :rtype: Lasso
+        """
+        lasso = parse_xlref(xlref, deepcopy(self.default_opts))
+        lasso = self._relasso(lasso, 'parse')  # Just for intermediate_lassos.
+
         call_spec = None
         if lasso.js_filt:
             call_spec, user_opts = _parse_call_spec(lasso.js_filt)
             if user_opts:
                 lasso.opts.maps.append(user_opts)
-        lasso = _relasso(lasso, 'call_spec', call_spec=call_spec)
+        lasso = self._relasso(lasso, 'call_spec', call_spec=call_spec)
 
         try:
-            sheet = sheets_fact.fetch_sheet(
-                lasso.url_file, lasso.sheet, lasso.opts)
+            sheet = self.sheets_factory.fetch_sheet(
+                lasso.url_file, lasso.sheet,
+                lasso.opts)
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
             raise ValueError(msg % (lasso.url_file, lasso.sheet, ex))
@@ -1816,46 +1874,96 @@ def do_lasso(lasso, sheets_fact=None):
         st, nd = resolve_capture_rect(sheet.get_states_matrix(),
                                       sheet.get_margin_coords(),
                                       lasso.st_edge, lasso.nd_edge, lasso.exp_moves)
-        lasso = _relasso(lasso, 'resolve_capture_rect', st=st, nd=nd)
+        lasso = self._relasso(lasso, 'resolve_capture_rect', st=st, nd=nd)
 
         values = sheet.read_rect(st, nd)
-        lasso = _relasso(lasso, 'read_rect', values=values)
+        lasso = self._relasso(lasso, 'read_rect', values=values)
 
         if call_spec:
-            lasso = _make_call(lasso, *call_spec)  # relasso() internally
-    finally:
-        if mine_factory:
-            sheets_fact.close_all()
+            # relasso() internally
+            lasso = self._make_call(lasso, *call_spec)
 
-    return lasso
+        return lasso
 
 
-def lasso(xlref, sheets_fact=None, return_lasso=False,
-          available_funcs=_default_filters, default_opts=_default_opts):
+def make_default_Ranger(sheets_factory=None,
+                        opts=None,
+                        available_filters=None):
     """
-    The main function that parses xlref, resolves rect and fetches values from spreadsheet, and filters them,
+    Makes a defaulted :class:`Ranger`.
+
+    :param sheets_factory:
+            Factory of sheets from where to parse rect-values; if unspecified, 
+            a new :class:`SheetFactory` is created.
+            Remember to invoke its :meth:`SheetFactory.close()` to clear
+            resources from any opened sheets. 
+    :param dict or None opts: 
+            Default opts to affect the lassoing, to be merged with defaults; 
+            uses :func:`get_default_opts()`.
+
+            Read the code to be sure what are the available choices :-(. 
+    :param dict or None available_filters: 
+            The :term:`filters` available to xlrefs, to be merged with defaults;.
+            Uses :func:`get_default_filters()` if unspecified.
+
+    """
+    return Ranger(sheets_factory or SheetFactory(),
+                  opts or get_default_opts(),
+                  available_filters or get_default_filters())
+
+
+def lasso(xlref,
+          sheets_factory=None,
+          opts=get_default_opts(),
+          available_filters=get_default_filters(),
+          return_lasso=False):
+    """
+    High-level function to :term:`lasso` around spreadsheet's rect-regions 
+    according to :term:`xl-ref` strings by using internally a :class:`Ranger` .
 
     :param str xlref:
-        a string with the following format::
+        a string with the :term:`xl-ref` format::
 
             <url_file>#<sheet>!<1st_edge>:<2nd_edge>:<expand><js_filt>
 
         i.e.::
 
             file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
-    :param sheets_fact:
+
+    :param sheets_factory:
             Factory of sheets from where to parse rect-values; if unspecified, 
-            a new :class:`SheetFactory` is created.
+            the new :class:`SheetFactory` created is closed afterwards.
+            Delegated to :func:`make_default_Ranger()`, so items override
+            default ones; use a new :class:`Ranger` if that is not desired.
     :param dict or None opts: 
             Default opts to affect the lassoing; read the code to be sure 
-            what are the available choices.
+            what are the available choices. 
+            Delegated to :func:`make_default_Ranger()`, so items override
+            default ones; use a new :class:`Ranger` if that is not desired.
+    :param dict or None available_filters: 
+            Delegated to :func:`make_default_Ranger()`, so items override
+            default ones; use a new :class:`Ranger` if that is not desired.
+    :param bool return_lasso:
+            If `True`, values are contained in the returned Lasso instance,
+            along with all other artifacts of the :term:`lassoing` procedure.
 
+            For more debugging help, create a :class:`Range` yourself and set 
+            `keep_lassos` to `True` to gather also intermediate artifacts.
+
+    :return: 
+            Either the captured & filtered values or the final :class:`Lasso`,
+            depending on the `return_lassos` arg.
     """
+    factory_is_mine = not sheets_factory
 
-    lasso = parse_xlref(xlref, default_opts)
-    lasso = _relasso(lasso, 'parse')  # Just to update intermediate_lassos.
-
-    lasso = do_lasso(lasso, sheets_fact)
+    try:
+        ranger = make_default_Ranger(sheets_factory=sheets_factory,
+                                     opts=opts,
+                                     available_filters=available_filters)
+        lasso = ranger.lasso(xlref)
+    finally:
+        if factory_is_mine:
+            ranger.sheets_factory.close()
 
     return lasso if return_lasso else lasso.values
 

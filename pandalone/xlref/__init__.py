@@ -86,7 +86,6 @@ API
       coords2Cell
       parse_xlref
       resolve_capture_rect
-      do_lasso
 
 - **xlrd** back-end functionality:
 
@@ -100,7 +99,7 @@ API
 Examples
 --------
 .. ToDo::
-    Provide example python-code for reading a `xl-ref`/`xl-url`.
+    Provide example python-code for reading a `xl-ref`.
     Till then, read the sources: :file:`tests/test_xlsreader.py`.
 
 A typical case is when a sheet contains a single table with a "header"-row and
@@ -177,16 +176,23 @@ Definitions
 
 .. glossary::
 
-    xl-url
-        Any url with its fragment abiding to the `xl-ref` syntax.
-        Its file-part should resolve to an excel-file.
+    lasso
+    lassoing
+        It may denote:
+        
+        - either the whole procedure of parsing the `xl-ref` syntax,
+          `capturing` values 'spreadsheet rect-regions and sending them 
+          through any `filter-function` specified in the xl-ref;
+        - or the :func:`lasso()` and :meth:`Ranger.lasso()` functions 
+          performing the above job.
 
     xl-ref
-        A string describing how to `capture` rects from excel-sheets.
+        Any url with its fragment abiding to the syntax defined herein.
 
-        It is composed of 2 `edge` references followed by `expansions` and
-        `filters`.
-        It is the fragment-part of a `xl-url`.
+        - The *fragment* describes how to `capture` rects from excel-sheets, and
+          it is composed of 2 `edge` references followed by `expansions` and
+          `filters`.
+        - The *file-part* should resolve to an excel-file.
 
     edge
         An *edge* might signify:
@@ -555,6 +561,7 @@ TODOs
 
 from ._xlref import (
     Cell, coords2Cell, Edge, Lasso, SheetFactory,
-    parse_xlref, resolve_capture_rect, do_lasso, lasso,
+    parse_xlref, resolve_capture_rect, Ranger, lasso,
+    make_default_Ranger, get_default_opts, get_default_filters,
     xlwings_dims_call_spec,
 )
