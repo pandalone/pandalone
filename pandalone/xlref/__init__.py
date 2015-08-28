@@ -21,7 +21,7 @@ like that::
 
     from pandalone import xlref
     
-    df = xlref.lash('A1(DR):..(DR):LU:["df"]')
+    df = xlref.lasso('A1(DR):..(DR):LU:["df"]')
 
 The goal is to make the extraction of data-tables from excel-workbooks
 as practical as reading CSVs, while keeping it as "cheap" as possible.
@@ -79,14 +79,14 @@ API
   .. currentmodule:: pandalone.xlref._xlref
   .. autosummary::
 
-      lash
-      Lash
+      lasso
+      Lasso
       Cell
       Edge
       coords2Cell
       parse_xlref
       resolve_capture_rect
-      do_lash
+      do_lasso
 
 - **xlrd** back-end functionality:
 
@@ -554,7 +554,7 @@ TODOs
 """
 
 from ._xlref import (
-    Cell, coords2Cell, Edge, Lash, SheetFactory,
-    parse_xlref, resolve_capture_rect, do_lash, lash,
+    Cell, coords2Cell, Edge, Lasso, SheetFactory,
+    parse_xlref, resolve_capture_rect, do_lasso, lasso,
     xlwings_dims_call_spec,
 )

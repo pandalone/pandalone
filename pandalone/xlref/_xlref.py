@@ -159,11 +159,11 @@ def _uncooked_Edge(row, col, mov, mod=None):
     return Edge(land=Cell(col=col and col.upper(), row=row),
                 mov=mov and mov.upper(), mod=mod)
 
-Lash = namedtuple('Lash',
-                  ('xl_ref', 'url_file', 'sheet',
-                   'st_edge', 'nd_edge', 'exp_moves', 'js_filt', 'call_spec',
-                   'st', 'nd', 'values',
-                   OPTS))
+Lasso = namedtuple('Lasso',
+                   ('xl_ref', 'url_file', 'sheet',
+                    'st_edge', 'nd_edge', 'exp_moves', 'js_filt', 'call_spec',
+                    'st', 'nd', 'values',
+                    OPTS))
 """
 All the intermediate fields of the algorithm, populated stage-by-stage.
 
@@ -173,16 +173,16 @@ All the intermediate fields of the algorithm, populated stage-by-stage.
 """
 
 
-def _Lash_from_parsing(xl_ref, url_file, sheet,
-                       st_edge, nd_edge, exp_moves, js_filt, opts,
-                       ):
-    lash_opts = ChainMap()
+def _Lasso_from_parsing(xl_ref, url_file, sheet,
+                        st_edge, nd_edge, exp_moves, js_filt, opts,
+                        ):
+    lasso_opts = ChainMap()
     if opts:
-        lash_opts.maps.append(opts)
-    return Lash(xl_ref, url_file, sheet,
-                st_edge, nd_edge, exp_moves, js_filt, None,
-                None, None, None,
-                lash_opts)
+        lasso_opts.maps.append(opts)
+    return Lasso(xl_ref, url_file, sheet,
+                 st_edge, nd_edge, exp_moves, js_filt, None,
+                 None, None, None,
+                 lasso_opts)
 
 _special_coord_symbols = {'^', '_', '.'}
 
@@ -420,7 +420,7 @@ def _parse_xlref_fragment(xlref_fragment):
 
 def parse_xlref(xlref, default_opts=None):
     """
-    Parse a :term:`xl-ref` into a :class:`Lash`.
+    Parse a :term:`xl-ref` into a :class:`Lasso`.
 
     :param str xlref:
         a string with the following format::
@@ -432,10 +432,10 @@ def parse_xlref(xlref, default_opts=None):
             file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
 
     :param dict or None opts: 
-            Default opts to affect the lashing; read the code to be sure 
+            Default opts to affect the lassoing; read the code to be sure 
             what are the available choices.
-    :return: a Lash with any unused fields as `None`
-    :rtype: Lash
+    :return: a Lasso with any unused fields as `None`
+    :rtype: Lasso
 
 
     Examples::
@@ -443,7 +443,7 @@ def parse_xlref(xlref, default_opts=None):
         >>> url = 'Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}'
         >>> res = parse_xlref(url)
         >>> res
-        Lash(xl_ref='Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}', 
+        Lasso(xl_ref='Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}', 
             url_file=None, 
             sheet='Sheet1', 
             st_edge=Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'), 
@@ -465,10 +465,10 @@ def parse_xlref(xlref, default_opts=None):
         res = _parse_xlref_fragment(frag)
         res['url_file'] = url_file
 
-        lash = _Lash_from_parsing(xlref, **res)
+        lasso = _Lasso_from_parsing(xlref, **res)
 
         if default_opts:
-            lash.opts.maps.insert(0, default_opts)
+            lasso.opts.maps.insert(0, default_opts)
     except Exception as ex:
         msg = "Parsing xl-ref(%s) failed due to: %s"
         log.debug(msg, xlref, ex, exc_info=1)
@@ -480,7 +480,7 @@ def parse_xlref(xlref, default_opts=None):
         log.debug(msg, xlref, ex, exc_info=1)
         raise ValueError(msg % (xlref, ex))
 
-    return lash
+    return lasso
 
 
 def _margin_coords_from_states_matrix(states_matrix):
@@ -1451,8 +1451,8 @@ def _build_call_help(name, func, desc):
     return '\n\nFilter: %s%s:\n%s' % (name, sig, desc)
 
 
-def _make_call(lash, func_name, args, kwds):
-    opts = lash.opts
+def _make_call(lasso, func_name, args, kwds):
+    opts = lasso.opts
     lax = opts['lax']
     verbose = opts['verbose']
     available_funcs = opts['available_funcs']
@@ -1460,8 +1460,8 @@ def _make_call(lash, func_name, args, kwds):
     try:
         func_rec = available_funcs[func_name]
         func, func_desc = func_rec
-        lash = func(lash, *args, **kwds)
-        assert isinstance(lash, Lash), (func_name, lash)
+        lasso = func(lasso, *args, **kwds)
+        assert isinstance(lasso, Lasso), (func_name, lasso)
     except Exception as ex:
         if verbose:
             func_desc = _build_call_help(func_name, func, func_desc)
@@ -1471,16 +1471,16 @@ def _make_call(lash, func_name, args, kwds):
         else:
             raise ValueError(msg % (func_name, args, kwds, ex, func_desc))
 
-    lash = _relash(lash, func_name)  # Just to update intermediate_lashes.
+    lasso = _relasso(lasso, func_name)  # Just to update intermediate_lassos.
 
-    return lash
+    return lasso
 
 
 ###############
 # FILTER-DEFS
 ###############
 
-def _redim_filter(lash,
+def _redim_filter(lasso,
                   scalar=None, cell=None, row=None, col=None, table=None):
     """
     Reshape and/or transpose captured values, depending on rect's shape.
@@ -1488,16 +1488,16 @@ def _redim_filter(lash,
     Each dimension might be a single int or None, or a pair [dim, transpose].  
     """
     ndims_list = (scalar, cell, row, col, table)
-    shape_idx = _classify_rect_shape(lash.st, lash.nd)
+    shape_idx = _classify_rect_shape(lasso.st, lasso.nd)
     new_ndim = _decide_ndim_by_rect_shape(shape_idx, ndims_list)
-    values = lash.values
+    values = lasso.values
     if new_ndim is not None:
-        lash = lash._replace(values=_redim(values, new_ndim))
+        lasso = lasso._replace(values=_redim(values, new_ndim))
 
-    return lash
+    return lasso
 
 
-def _pipe_filter(lash, *pipe):
+def _pipe_filter(lasso, *pipe):
     """
     Apply all call-specifiers one after another on the captured values.
 
@@ -1507,10 +1507,10 @@ def _pipe_filter(lash, *pipe):
     for call_spec_values in pipe:
         call_spec, opts = _parse_call_spec(call_spec_values)
         if opts:
-            lash.maps.append(opts)
-        lash = _make_call(lash, *call_spec)
+            lasso.maps.append(opts)
+        lasso = _make_call(lasso, *call_spec)
 
-    return lash
+    return lasso
 
 _default_filters = {
     'pipe': [
@@ -1522,27 +1522,27 @@ _default_filters = {
         _redim_filter.__doc__,
     ],
     'numpy': [
-        lambda lash, *
-        args, **kwds: lash._replace(
-            values=np.array(lash.values, *args, **kwds)),
+        lambda lasso, *
+        args, **kwds: lasso._replace(
+            values=np.array(lasso.values, *args, **kwds)),
         np.array.__doc__,
     ],
     'dict': [
-        lambda lash, *
-        args, **kwds: lash._replace(
-            values=dict(lash.values, *args, **kwds)),
+        lambda lasso, *
+        args, **kwds: lasso._replace(
+            values=dict(lasso.values, *args, **kwds)),
         dict.__doc__,
     ],
     'odict': [
-        lambda lash, *
-        args, **kwds: lash._replace(
-            values=OrderedDict(lash.values, *args, **kwds)),
+        lambda lasso, *
+        args, **kwds: lasso._replace(
+            values=OrderedDict(lasso.values, *args, **kwds)),
         OrderedDict.__doc__,
     ],
     'sorted': [
-        lambda lash, *
-        args, **kwds: lash._replace(
-            values=sorted(lash.values, *args, **kwds)),
+        lambda lasso, *
+        args, **kwds: lasso._replace(
+            values=sorted(lasso.values, *args, **kwds)),
         sorted.__doc__,
     ],
 }
@@ -1551,25 +1551,25 @@ try:
     import pandas as pd
     from pandas.io import parsers, excel as pdexcel
 
-    def _df_filter(lash, *args, **kwds):
-        values = lash.values
+    def _df_filter(lasso, *args, **kwds):
+        values = lasso.values
         header = kwds.get('header', 'infer')
         if header == 'infer':
             header = kwds['header'] = 0 if kwds.get('names') is None else None
         if header is not None:
             values[header] = pdexcel._trim_excel_header(values[header])
         parser = parsers.TextParser(values, **kwds)  # , convert_float=True,
-        lash = lash._replace(values=parser.read())
+        lasso = lasso._replace(values=parser.read())
 
-        return lash
+        return lasso
 
     _default_filters['df'] = [
         _df_filter,
         parsers.TextParser.__doc__,
     ]
     _default_filters['series'] = [
-        lambda lash, *args, **kwds: pd.Series(OrderedDict(lash.values),
-                                              *args, **kwds),
+        lambda lasso, *args, **kwds: pd.Series(OrderedDict(lasso.values),
+                                               *args, **kwds),
         ("Makes a pd.Series from a 2 columns.\n" + pd.Series.__doc__),
     ]
 
@@ -1582,14 +1582,14 @@ _default_opts = {
     'verbose': False,
     'available_funcs': _default_filters,
     'read': {'on_demand': False, },
-    'intermediate_lashes': {
+    'intermediate_lassos': {
         'enable': None,
-        'lash_list': None,
+        'lasso_list': None,
     },
 }
 """
-:ivar dict intermediate_lashes:
-        Whether to appended all intermediate (and final) `Lash` 
+:ivar dict intermediate_lassos:
+        Whether to appended all intermediate (and final) `Lasso` 
         instances created during the run of this function, 
         for inspecting when debuging. 
 """
@@ -1616,7 +1616,7 @@ class SheetFactory(object):
 
               >>> sf = SheetFactory()
               >>> sf.add_sheet(some_sheet)              # doctest: +SKIP
-              >>> lash('A1:C3(U)', sf)                  # doctest: +SKIP
+              >>> lasso('A1:C3(U)', sf)                 # doctest: +SKIP
 
     - The *current-sheet* is served only when wokbook-id is `None`, that is,
       the id-pair ``('foo.xlsx', None)`` does not hit it, so those ids 
@@ -1752,31 +1752,32 @@ class SheetFactory(object):
         return _xlrd.open_sheet(wb_id, sheet_id, opts)
 
 
-def _relash(lash, stage, **kwds):
-    """Replace lash-values and optionally adds it in the option's `intermediate_lashes`."""
-    lash = lash._replace(**kwds)
+def _relasso(lasso, stage, **kwds):
+    """Replace lasso-values and optionally adds it in the option's `intermediate_lassos`."""
+    lasso = lasso._replace(**kwds)
 
     try:
-        intermediate_lashes = lash.opts['intermediate_lashes']
-        if intermediate_lashes['enable']:
-            lash_list = intermediate_lashes['lash_list']
+        intermediate_lassos = lasso.opts['intermediate_lassos']
+        if intermediate_lassos['enable']:
+            lasso_list = intermediate_lassos['lasso_list']
             try:
-                lash_list.append((stage, lash))
+                lasso_list.append((stage, lasso))
             except Exception:
-                lash_list = intermediate_lashes['lash_list'] = [(stage, lash)]
+                lasso_list = intermediate_lassos[
+                    'lasso_list'] = [(stage, lasso)]
     except Exception as ex:
-        msg = ("Failed updating 'intermediate_lashes' due to: %s "
+        msg = ("Failed updating 'intermediate_lassos' due to: %s "
                "\n  Have you properly set the defaults `opts`?")
         log.warning(msg, ex)
-    return lash
+    return lasso
 
 
-def do_lash(lash, sheets_fact=None):
+def do_lasso(lasso, sheets_fact=None):
     """
     Invoke after parsing to resolve capture-rect, load and fetch values from sheets, and filter them.
 
-    :param Lash lash:
-            A :class:`Lash` from which those fields are used as input:
+    :param Lasso lasso:
+            A :class:`Lasso` from which those fields are used as input:
 
             - `st_edge`: (:class:`Edge`)
             - `nd_edge`: (:class:`Edge` or `None`
@@ -1789,7 +1790,7 @@ def do_lash(lash, sheets_fact=None):
             Factory of sheets from where to parse rect-values; if unspecified, 
             a new :class:`SheetFactory` is created.
     :return: 
-            The final `Lash` updated with captured & filtered values, and all 
+            The final `Lasso` updated with captured & filtered values, and all 
             intermediate results.
     """
     mine_factory = False
@@ -1799,38 +1800,38 @@ def do_lash(lash, sheets_fact=None):
 
     try:
         call_spec = None
-        if lash.js_filt:
-            call_spec, user_opts = _parse_call_spec(lash.js_filt)
+        if lasso.js_filt:
+            call_spec, user_opts = _parse_call_spec(lasso.js_filt)
             if user_opts:
-                lash.opts.maps.append(user_opts)
-        lash = _relash(lash, 'call_spec', call_spec=call_spec)
+                lasso.opts.maps.append(user_opts)
+        lasso = _relasso(lasso, 'call_spec', call_spec=call_spec)
 
         try:
             sheet = sheets_fact.fetch_sheet(
-                lash.url_file, lash.sheet, lash.opts)
+                lasso.url_file, lasso.sheet, lasso.opts)
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
-            raise ValueError(msg % (lash.url_file, lash.sheet, ex))
+            raise ValueError(msg % (lasso.url_file, lasso.sheet, ex))
 
         st, nd = resolve_capture_rect(sheet.get_states_matrix(),
                                       sheet.get_margin_coords(),
-                                      lash.st_edge, lash.nd_edge, lash.exp_moves)
-        lash = _relash(lash, 'resolve_capture_rect', st=st, nd=nd)
+                                      lasso.st_edge, lasso.nd_edge, lasso.exp_moves)
+        lasso = _relasso(lasso, 'resolve_capture_rect', st=st, nd=nd)
 
         values = sheet.read_rect(st, nd)
-        lash = _relash(lash, 'read_rect', values=values)
+        lasso = _relasso(lasso, 'read_rect', values=values)
 
         if call_spec:
-            lash = _make_call(lash, *call_spec)  # relash() internally
+            lasso = _make_call(lasso, *call_spec)  # relasso() internally
     finally:
         if mine_factory:
             sheets_fact.close_all()
 
-    return lash
+    return lasso
 
 
-def lash(xlref, sheets_fact=None, return_lash=False,
-         available_funcs=_default_filters, default_opts=_default_opts):
+def lasso(xlref, sheets_fact=None, return_lasso=False,
+          available_funcs=_default_filters, default_opts=_default_opts):
     """
     The main function that parses xlref, resolves rect and fetches values from spreadsheet, and filters them,
 
@@ -1846,17 +1847,17 @@ def lash(xlref, sheets_fact=None, return_lash=False,
             Factory of sheets from where to parse rect-values; if unspecified, 
             a new :class:`SheetFactory` is created.
     :param dict or None opts: 
-            Default opts to affect the lashing; read the code to be sure 
+            Default opts to affect the lassoing; read the code to be sure 
             what are the available choices.
 
     """
 
-    lash = parse_xlref(xlref, default_opts)
-    lash = _relash(lash, 'parse')  # Just to update intermediate_lashes.
+    lasso = parse_xlref(xlref, default_opts)
+    lasso = _relasso(lasso, 'parse')  # Just to update intermediate_lassos.
 
-    lash = do_lash(lash, sheets_fact)
+    lasso = do_lasso(lasso, sheets_fact)
 
-    return lash if return_lash else lash.values
+    return lasso if return_lasso else lasso.values
 
 
 class ABCSheet(with_metaclass(ABCMeta, object)):

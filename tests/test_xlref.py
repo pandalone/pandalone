@@ -46,8 +46,8 @@ xl_installed = check_xl_installed()
 xr.CHECK_CELLTYPE = True
 
 
-def make_Lash(**kwds):
-    return xr.Lash._make([None] * len(xr.Lash._fields))._replace(**kwds)
+def make_Lasso(**kwds):
+    return xr.Lasso._make([None] * len(xr.Lasso._fields))._replace(**kwds)
 
 
 def _write_sample_sheet(path, matrix, sheet_name, **kwds):
@@ -1134,7 +1134,7 @@ class TReadRect(unittest.TestCase):
 
 
 @ddt
-class TLash(unittest.TestCase):
+class TLasso(unittest.TestCase):
 
     def m1(self):
         dt = datetime(1900, 8, 2)
@@ -1149,7 +1149,7 @@ class TLash(unittest.TestCase):
     def test_read_A1(self):
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.lash('''A1:..(D):
+        res = xr.lasso('''A1:..(D):
             [
                 "pipe", [
                     ["redim", {"col": [2, 1]}], 
@@ -1158,7 +1158,7 @@ class TLash(unittest.TestCase):
                     {"verbose": true}
                 }
             ]''',
-                      sf)
+                       sf)
         self.assertIsInstance(res, np.ndarray)
         npt.assert_array_equal(res, [[1, 5, 7, 9]])
 
@@ -1166,8 +1166,8 @@ class TLash(unittest.TestCase):
         m1 = self.m1()
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.lash('R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
-                      sf)
+        res = xr.lasso('R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
+                       sf)
         self.assertIsInstance(res, list)
         npt.assert_array_equal(res, m1[:, 0].reshape((1, -1)))
 
@@ -1175,15 +1175,15 @@ class TLash(unittest.TestCase):
         m1 = self.m1()
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.lash('R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
-                      sf)
+        res = xr.lasso('R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
+                       sf)
         npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
 
-    def test_read_asLash(self):
+    def test_read_asLasso(self):
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.lash('''A1:..(D)''', sf, True)
-        self.assertIsInstance(res, xr.Lash)
+        res = xr.lasso('''A1:..(D)''', sf, True)
+        self.assertIsInstance(res, xr.Lasso)
 
     @data(
         ('R5C4:..(UL):%s',      [[None, 0, 1], [0, 1, 2]]),
@@ -1213,7 +1213,7 @@ class TLash(unittest.TestCase):
         sheetsFact.add_sheet(ArraySheet(table), 'wb', 'sheet1')
 
         dims = xr.xlwings_dims_call_spec()
-        self.assertEqual(xr.lash(xlref % dims, sheetsFact), res)
+        self.assertEqual(xr.lasso(xlref % dims, sheetsFact), res)
 
 
 @ddt
@@ -1266,10 +1266,10 @@ class VsPandas(unittest.TestCase, CustomAssertions):
             xlrd_wb = xlrd.open_workbook(xl_file)
             self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
             xlref_res = self.sheet.read_rect(st, nd)
-            lash = make_Lash(st=st, nd=nd, values=xlref_res, opts=ChainMap())
-            lash1 = xr._redim_filter(lash, row=[2, True])
-            lash2 = xr._df_filter(lash1, **parse_df_kwds)
-            xlref_df = lash2.values
+            lasso = make_Lasso(st=st, nd=nd, values=xlref_res, opts=ChainMap())
+            lasso1 = xr._redim_filter(lasso, row=[2, True])
+            lasso2 = xr._df_filter(lasso1, **parse_df_kwds)
+            xlref_df = lasso2.values
 
             msg = '\n---\n%s\n--\n%s\n-\n%s' % (xlref_res, xlref_df, pd_df)
             self.assertTrue(xlref_df.equals(pd_df), msg=msg)
@@ -1320,7 +1320,7 @@ class VsXlwings(unittest.TestCase):
             res = res(xw)
 
         dims = xr.xlwings_dims_call_spec()
-        self.assertEqual(xr.lash(xlref % dims, self.sheetsFact), res)
+        self.assertEqual(xr.lasso(xlref % dims, self.sheetsFact), res)
 
 
 class TSheet(unittest.TestCase):
