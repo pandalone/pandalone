@@ -26,7 +26,7 @@ TODOs
                 - Edge +/?(instead of -)
                 - Expand 5+/5?
             - Xlrd-read with slices.
-            - DEL keep_lasos from Ranger.
+            + Keep only single Lasso-stage in Ranger.
         - Struct:
             - split lassos from xlref.
             - plugin backends (& syntax?)

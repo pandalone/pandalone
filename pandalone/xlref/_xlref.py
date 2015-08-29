@@ -1617,8 +1617,8 @@ class Ranger(object):
     """
     The director-class that performs all stages required for "throwing the lasso" around rect-values.
 
-    Use it when you nneed to have total control of the procedure and 
-    configuration. parameters (no defaults assumed).
+    Use it when you need to have total control of the procedure and 
+    configuration parameters (no defaults assumed).
     The :meth:`lasso()` does the job.
 
     :ivar sheets_factory:
@@ -1631,33 +1631,23 @@ class Ranger(object):
     :ivar dict or None available_filters: 
             No filters exists if unspecified. 
             See :func:`get_default_filters()`.
-    :ivar bool keep_lassos:
-            If `True`, :meth:`lasso()` collects all :class:`Lasso` instances 
-            produced during various stages in :attr:`intermediate_lassos` list
-            as ``('stage', Lasso)`` pairs.
-            Used for inspecting/debuging.
-    :ivar list intermediate_lassos:
-            A list of ``('stage', Lasso)`` pairs with :class:`Lasso` instances 
-            created during the last execution of the :meth:`lasso()` function.
+    :ivar Lasso intermediate_lasso:
+            A ``('stage', Lasso)`` pair with the last :class:`Lasso` instance 
+            produced during the last execution of the :meth:`lasso()` function.
             Used for inspecting/debuging.
     """
 
     def __init__(self, sheets_factory,
-                 default_opts=None, available_filters=None,
-                 keep_lassos=False):
+                 default_opts=None, available_filters=None):
         self.sheets_factory = sheets_factory
         self.default_opts = default_opts
         self.available_filters = available_filters
-        self.intermediate_lassos = []
-        self.keep_lassos = keep_lassos
+        self.intermediate_lasso = None
 
     def _relasso(self, lasso, stage, **kwds):
-        """Replace lasso-values and optionally adds it in the :attr:`intermediate_lassos` list."""
+        """Replace lasso-values and updated :attr:`intermediate_lasso`."""
         lasso = lasso._replace(**kwds)
-
-        if self.keep_lassos:
-            lasso = lasso._replace(opts=deepcopy(lasso.opts))
-            self.intermediate_lassos.append((stage, lasso))
+        self.intermediate_lasso = (stage, lasso)
 
         return lasso
 
@@ -1666,6 +1656,9 @@ class Ranger(object):
             if not desc:
                 desc = func.__doc__
             return func, desc
+
+        # Just to update intermediate_lasso.
+        lasso = self._relasso(lasso, func_name)
 
         opts = lasso.opts
         lax = opts['lax']
@@ -1686,9 +1679,6 @@ class Ranger(object):
             else:
                 raise ValueError(msg % (func_name, args, kwds, ex, func_desc))
 
-        # Just to update intermediate_lassos.
-        lasso = self._relasso(lasso, func_name)
-
         return lasso
 
     def _pipe_filter(self, lasso, *pipe):
@@ -1706,10 +1696,22 @@ class Ranger(object):
 
         return lasso
 
-    def _recurse_filter(self, lasso, search_include_items, exnclude_items):
+    def _recurse_filter(self, lasso, include=[], exclude=[]):
+        """
+
+        :param list include:
+                Items to include in the recursive-search.
+                It might be dict & series keys, or df-columns.
+        :param list exclude:
+                Items to include in the recursive-search.
+                It might be dict & series keys, or df-columns.
+                Takes precendance over `include`. 
+                If no `include` exists, assumes all included. 
+        """
+        # values =
         pass  # TODO Implement recursive lassoing!
 
-    def lasso(self, xlref, keep_lassos=None):
+    def lasso(self, xlref):
         """
         The director-method that does all the job of hrowing a :term:`lasso`
         around spreadsheet's rect-regions according to :term:`xl-ref`.
@@ -1722,18 +1724,13 @@ class Ranger(object):
             i.e.::
 
                 file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
-        :param keep_lassos:
-            Overrides :attr:`keep_lassos`.
-
         :return: 
                 The final :class:`Lasso` with captured & filtered values.
         :rtype: Lasso
         """
-        if keep_lassos is not None:
-            self.keep_lassos = bool(keep_lassos)
-        self.intermediate_lassos = []
+        self.intermediate_lasso = None
         lasso = parse_xlref(xlref, deepcopy(self.default_opts))
-        lasso = self._relasso(lasso, 'parse')  # Just for intermediate_lassos.
+        lasso = self._relasso(lasso, 'parse')  # Just for intermediate_lasso.
 
         call_spec = None
         if lasso.js_filt:
@@ -1956,8 +1953,8 @@ def lasso(xlref,
             If `True`, values are contained in the returned Lasso instance,
             along with all other artifacts of the :term:`lassoing` procedure.
 
-            For more debugging help, create a :class:`Range` yourself and set 
-            `keep_lassos` to `True` to gather also intermediate artifacts.
+            For more debugging help, create a :class:`Range` yourself and 
+            inspect the :attr:`Ranger.intermediate_lasso`.
 
     :return: 
             Either the captured & filtered values or the final :class:`Lasso`,
