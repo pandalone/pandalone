@@ -13,6 +13,10 @@ import os
 import re
 import sys
 
+from future.moves.collections import Sequence
+from past.types import basestring
+
+
 __commit__ = ""
 
 # Python-2 compatibility
@@ -80,6 +84,14 @@ def str2bool(v):
 
 def is_travis():  # pragma: no cover
     return 'TRAVIS' in os.environ
+
+
+def as_list(o):
+    if isinstance(o, Sequence) and not isinstance(o, basestring):
+        o = list(o)
+    else:
+        o = [o]
+    return o
 
 
 def generate_filenames(filename):

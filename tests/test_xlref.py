@@ -36,9 +36,9 @@ from ._tutils import assertRaisesRegex, CustomAssertions
 
 
 try:
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import MagicMock, patch, sentinel
 except ImportError:
-    from mock import MagicMock, patch
+    from mock import MagicMock, patch, sentinel
 
 
 log = _tutils._init_logging(__name__)
@@ -1140,6 +1140,149 @@ class TReadRect(unittest.TestCase):
 
 
 @ddt
+class TRecursive(unittest.TestCase):
+
+    @data(
+        1,
+        [1, 2],
+        'str',
+        [],
+        [1],
+        [[1, 2], [3, 4]],
+        [[], [1, 'a', 'b'], [11, list('abc')]],
+    )
+    def test_dontExpand_nonDicts(self, vals):
+        ranger = xr.Ranger(None)
+        ranger.lasso = MagicMock(name='lasso()', side_effect=lambda x: x)
+        lasso = make_Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso).values
+        self.assertEqual(res, vals)
+
+    @data(
+        'str',
+        (1, 'str', []),
+        (1, 'str', [[1, 2]]),
+        [[], set([1, 'a', 'b']), [11, list('abc')]],
+    )
+    def test_expandNestedStrings(self, vals):
+        ranger = xr.Ranger(None)
+        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
+        lasso = make_Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso).values
+        self.assertIn(sentinel.BINGO.name, str(res))
+        self.assertNotIn("'", str(res))
+
+    @data(
+        {1: 'str'},
+        [{2: 'str'}],
+        [{3: 'str'}],
+        [{4: ['str', 'a', {4: [list('ab')]}]}],
+    )
+    def test_expandDicts_nonStrKeys(self, vals):
+        ranger = xr.Ranger(None)
+        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
+        lasso = make_Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso).values
+        self.assertIn(sentinel.BINGO.name, str(res))
+        self.assertNotIn("'", str(res))
+
+    @data(
+        {'key': 'str'},
+        [{'key': 'str'}],
+        [{'key': ['str', 'a', {'key': [list('ab')]}]}],
+        [{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
+    )
+    def test_expandDicts_preservingKeys(self, vals):
+        ranger = xr.Ranger(None)
+        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
+        lasso = make_Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso).values
+        # print(res)
+        self.assertIn(sentinel.BINGO.name, str(res))
+        self.assertIn('key', str(res))
+
+        # Mask all str-keys, and check
+        #    no other strings left.
+        #
+        res = str(res)
+        for k in ['key', 'key1', 'key2', 'k3']:
+            res = res.replace("'%s'" % k, 'OFF')
+        self.assertNotIn("'", str(res))
+
+    @data(
+        (0, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
+        (1, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
+        (2, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
+        (3, ['str', 'foo', 'abc', 'bar', '123'], ['bang']),
+        (4, ['abc', 'bar', '123'], ['bang', 'str', 'foo']),
+        (5, ['abc', 'bar'], ['bang', 'str', 'foo', '123']),
+        (6, [], ['bang', 'str', 'foo', 'abc', 'bar', '123']),
+    )
+    def test_expandDicts_depth(self, case):
+        depth, exists, missing = case
+        vals = [{
+            'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}],
+            'key11': 'bang'}]
+        ranger = xr.Ranger(None)
+        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
+        lasso = make_Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso, depth=depth).values
+        print(res)
+        if missing:
+            self.assertIn(sentinel.BINGO.name, str(res))
+        self.assertIn("key", str(res))
+        for v in exists:
+            self.assertIn(v, str(res))
+        for v in missing:
+            self.assertNotIn(v, str(res))
+
+    @data(
+        pd.DataFrame({'key1': list('abc'), 'key2': list('def')}),
+        [pd.DataFrame({'key1': list('abc'), 'key2': list('def')})],
+    )
+    def test_expandDFs(self, vals):
+        ranger = xr.Ranger(None)
+        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
+        lasso = make_Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso).values
+        print(res)
+        self.assertIn(sentinel.BINGO.name, str(res))
+        self.assertIn("key", str(res))
+
+    @data(
+        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
+         ('key1', None),
+         ['abc', 'bar', '123'], ['str', 'foo']),
+
+        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
+         (None, ['key2', 'k3']),
+         ['abc', 'bar', '123'], ['str', 'foo']),
+
+        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
+         (['key1', 'key2'], None),
+         ['123'], ['str', 'foo', 'abc', 'bar']),
+
+        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
+         (None, ['key2', 'k3']),
+         ['abc', 'bar', '123'], ['str', 'foo']),
+    )
+    def test_expandDicts_IncExcFilters(self, case):
+        vals, incexc, exist, missing = case
+        ranger = xr.Ranger(None)
+        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
+        lasso = make_Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso, *incexc).values
+        print(res)
+        self.assertIn(sentinel.BINGO.name, str(res))
+        for k in ['key1', 'key2', 'k3']:
+            self.assertIn(k, str(res))
+        for v in exist:
+            self.assertIn(v, str(res))
+        for v in missing:
+            self.assertNotIn(v, str(res))
+
+
+@ddt
 class TLasso(unittest.TestCase):
 
     def m1(self):
@@ -1289,7 +1432,7 @@ class VsPandas(unittest.TestCase, CustomAssertions):
             xlref_res = self.sheet.read_rect(st, nd)
             lasso = make_Lasso(st=st, nd=nd, values=xlref_res, opts=ChainMap())
 
-            lasso1 = xr._redim_filter(None, lasso, row=[2, True])
+            lasso1 = xr.redim_filter(None, lasso, row=[2, True])
 
             df_filter = xr.get_default_filters()['df']['func']
             lasso2 = df_filter(None, lasso1, **parse_df_kwds)

@@ -14,7 +14,7 @@ Prefer accessing the public members from the parent module.
 from __future__ import unicode_literals
 
 from abc import abstractmethod, ABCMeta
-from collections import namedtuple, OrderedDict, defaultdict, Sequence
+from collections import namedtuple, OrderedDict, defaultdict
 from copy import deepcopy
 import inspect
 import json
@@ -26,12 +26,14 @@ import textwrap
 from future import utils as fututils  # @UnresolvedImport
 from future.backports import ChainMap  # @UnresolvedImport
 from future.moves.urllib.parse import urldefrag  # @UnresolvedImport
+from future.utils import iteritems
 from future.utils import with_metaclass
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
 
 import itertools as itt
 import numpy as np
+from pandalone.utils import as_list
 
 
 log = logging.getLogger(__name__)
@@ -1505,12 +1507,6 @@ class SheetFactory(object):
         :param extra_sh_ids:
                 a single or sequence of extra sheet-ids (ie: name, index, None)
         """
-        def as_list(o):
-            if isinstance(o, Sequence) and not isinstance(o, basestring):
-                o = list(o)
-            else:
-                o = [o]
-            return o
         wb_id, sh_ids = sheet.get_sheet_ids()
         assert wb_id is not None, (wb_id, sh_ids)
         wb_ids = [wb_id] + as_list(extra_wb_ids)
@@ -1529,7 +1525,7 @@ class SheetFactory(object):
         if sheet:
             sheet._close()
             for sh_dict in self._cached_sheets.values():
-                for sh_id, sh in list(sh_dict.items()):
+                for sh_id, sh in list(iteritems(sh_dict)):
                     if sh is sheet:
                         del sh_dict[sh_id]
             if self._current_sheet is sheet:
@@ -1680,7 +1676,7 @@ class Ranger(object):
 
         return lasso
 
-    def _pipe_filter(self, lasso, *pipe):
+    def pipe_filter(self, lasso, *pipe):
         """
         Apply all call-specifiers one after another on the captured values.
 
@@ -1695,20 +1691,64 @@ class Ranger(object):
 
         return lasso
 
-    def _recurse_filter(self, lasso, include=[], exclude=[]):
+    def recursive_filter(self, lasso, include=None, exclude=None, depth=-1):
         """
+        Recurively expand any :term:`xl-ref' strings found by treating values as mappings (dicts, df, series) and/or nested lists.
 
-        :param list include:
+        The `include`/`exclude` filter args work only for dict-like objects
+        with ``items()`` or ``iteritems()`` and indexing methods, 
+        i.e. Mappings, series and dataframes.
+
+        - If no filter arg specified, expands for all keys. 
+        - If only `include` specified, rejects all keys not explicitly 
+          contained in this filter arg.
+        - If only `exclude` specified, expands all keys not explicitly 
+          contained in this filter arg.
+        - When both `include`/`exclude` exist, only those explicitely included 
+          are accepted, unless also excluded.
+
+        :param list or str include:
                 Items to include in the recursive-search.
-                It might be dict & series keys, or df-columns.
-        :param list exclude:
+                See descritpion above.
+        :param list or str exclude:
                 Items to include in the recursive-search.
-                It might be dict & series keys, or df-columns.
-                Takes precendance over `include`. 
-                If no `include` exists, assumes all included. 
+                See descritpion above.
+        :param int or None depth:
+                How deep to dive into nested structures for parsing xl-refs.
+                If `< 0`, no limit. If 0, stops completely.
         """
-        # values =
-        pass  # TODO Implement recursive lassoing!
+        include = include and as_list(include)
+        exclude = exclude and as_list(exclude)
+
+        def is_included(key):
+            ok = not include or key in include
+            ok &= not exclude or key not in exclude
+            return ok
+
+        def dive(vals, cdepth):
+            try:
+                if isinstance(vals, basestring):
+                    vals = self.lasso(vals)
+                else:
+                    vals = [expand(v, cdepth + 1) for v in vals]
+            except:
+                pass
+            return vals
+
+        def expand(vals, cdepth):
+            if cdepth != depth:
+                try:
+                    for k, v in iteritems(vals):
+                        if is_included(k):
+                            vals[k] = expand(v, cdepth + 1)
+                except:
+                    vals = dive(vals, cdepth)
+
+            return vals
+
+        values = expand(lasso.values, cdepth=0)
+
+        return lasso._replace(values=values)
 
     def lasso(self, xlref):
         """
@@ -1770,8 +1810,8 @@ def xlwings_dims_call_spec():
     return '["redim", [0, 1, 1, 1, 2]]'
 
 
-def _redim_filter(ranger, lasso,
-                  scalar=None, cell=None, row=None, col=None, table=None):
+def redim_filter(ranger, lasso,
+                 scalar=None, cell=None, row=None, col=None, table=None):
     """
     Reshape and/or transpose captured values, depending on rect's shape.
 
@@ -1805,10 +1845,13 @@ def get_default_filters(overrides=None):
     """
     filters = {
         'pipe': {
-            'func': Ranger._pipe_filter,
+            'func': Ranger.pipe_filter,
+        },
+        'recurse': {
+            'func': Ranger.recursive_filter,
         },
         'redim': {
-            'func': _redim_filter,
+            'func': redim_filter,
         },
         'numpy': {
             'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
