@@ -1185,6 +1185,28 @@ class TLasso(unittest.TestCase):
         res = xr.lasso('''A1:..(D)''', sf, return_lasso=True)
         self.assertIsInstance(res, xr.Lasso)
 
+    def test_Ranger_keepLasos(self):
+        sf = xr.SheetFactory()
+        sf.add_sheet(ArraySheet(self.m1()))
+        ranger = xr.make_default_Ranger(sheets_factory=sf, keep_lassos=False)
+        ranger.lasso(
+            '''A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]''')
+        self.assertEqual(len(ranger.intermediate_lassos), 0,
+                         ranger.intermediate_lassos)
+
+        ranger = xr.make_default_Ranger(sheets_factory=sf, keep_lassos=True)
+        ranger.lasso(
+            '''A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]''')
+        self.assertEqual(len(ranger.intermediate_lassos), 7,
+                         ranger.intermediate_lassos, )
+
+        ranger = xr.make_default_Ranger(sheets_factory=sf, keep_lassos=False)
+        ranger.keep_lassos = True
+        ranger.lasso(
+            '''A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]''')
+        self.assertEqual(len(ranger.intermediate_lassos), 7,
+                         ranger.intermediate_lassos, )
+
     @data(
         ('R5C4:..(UL):%s',      [[None, 0, 1], [0, 1, 2]]),
         ('R5C4:R5C4:LURD:%s',   [

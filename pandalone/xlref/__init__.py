@@ -178,13 +178,15 @@ Definitions
 
     lasso
     lassoing
-        It may denote:
+        It may denote 3 things:
         
-        - either the whole procedure of parsing the `xl-ref` syntax,
+        - the whole procedure of parsing the `xl-ref` syntax,
           `capturing` values 'spreadsheet rect-regions and sending them 
           through any `filter-function` specified in the xl-ref;
-        - or the :func:`lasso()` and :meth:`Ranger.lasso()` functions 
-          performing the above job.
+        - the :func:`lasso()` and :meth:`Ranger.lasso()` functions 
+          performing the above job;
+        - the :class:`Lasso` storing intermediate and final results of the 
+          above algorithm.
 
     xl-ref
         Any url with its fragment abiding to the syntax defined herein.

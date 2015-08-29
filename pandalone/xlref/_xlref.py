@@ -1349,132 +1349,6 @@ def _redim(values, new_ndim):
     return values.tolist()
 
 
-def xlwings_dims_call_spec():
-    """Returns a :term:`call-spec` for the `redim` :term:`filter` that imitates *xlwings* library."""
-    return '["redim", [0, 1, 1, 1, 2]]'
-
-###############
-# FILTER-DEFS
-###############
-
-
-def _redim_filter(ranger, lasso,
-                  scalar=None, cell=None, row=None, col=None, table=None):
-    """
-    Reshape and/or transpose captured values, depending on rect's shape.
-
-    Each dimension might be a single int or None, or a pair [dim, transpose].  
-    """
-    ndims_list = (scalar, cell, row, col, table)
-    shape_idx = _classify_rect_shape(lasso.st, lasso.nd)
-    new_ndim = _decide_ndim_by_rect_shape(shape_idx, ndims_list)
-    values = lasso.values
-    if new_ndim is not None:
-        lasso = lasso._replace(values=_redim(values, new_ndim))
-
-    return lasso
-
-
-def get_default_filters(overrides=None):
-    """
-    Returns the available :term:`filter-function`.
-
-    :param dict or None overrides:
-            Any items to update the default ones.
-
-    :return: 
-            a dict-of-dicts with 2 items: 
-
-            - *func*: a function with args: ``(Ranger, Lasso, *args, **kwds)``
-            - *desc*:  help-text replaced by ``func.__doc__`` if missing.
-
-    :rtype: 
-            dict
-    """
-    filters = {
-        'pipe': {
-            'func': Ranger._pipe_filter,
-        },
-        'redim': {
-            'func': _redim_filter,
-        },
-        'numpy': {
-            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
-                values=np.array(lasso.values, *args, **kwds)),
-            'desc': np.array.__doc__,
-        },
-        'dict': {
-            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
-                values=dict(lasso.values, *args, **kwds)),
-            'desc': dict.__doc__,
-        },
-        'odict': {
-            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
-                values=OrderedDict(lasso.values, *args, **kwds)),
-            'desc': OrderedDict.__doc__,
-        },
-        'sorted': {
-            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
-                values=sorted(lasso.values, *args, **kwds)),
-            'desc': sorted.__doc__,
-        },
-    }
-
-    try:
-        import pandas as pd
-        from pandas.io import parsers, excel as pdexcel
-
-        def _df_filter(ranger, lasso, *args, **kwds):
-            values = lasso.values
-            header = kwds.get('header', 'infer')
-            if header == 'infer':
-                header = kwds['header'] = 0 if kwds.get(
-                    'names') is None else None
-            if header is not None:
-                values[header] = pdexcel._trim_excel_header(values[header])
-            # , convert_float=True,
-            parser = parsers.TextParser(values, **kwds)
-            lasso = lasso._replace(values=parser.read())
-
-            return lasso
-
-        filters.update({
-            'df': {
-                'func': _df_filter,
-                'desc': parsers.TextParser.__doc__,
-            },
-            'series': {
-                'func': lambda ranger, lasso, *args, **kwds: pd.Series(OrderedDict(lasso.values),
-                                                                       *args, **kwds),
-                'desc': ("Converts a 2-columns list-of-lists into pd.Series.\n" +
-                         pd.Series.__doc__),
-            }
-        })
-    except ImportError:
-        pass
-
-    if overrides:
-        filters.update(overrides)
-
-    return filters
-
-
-def get_default_opts(overrides=None):
-    """
-    :param dict or None overrides:
-            Any items to update the default ones.
-    """
-    opts = {
-        'lax': False,
-        'verbose': False,
-        'read': {'on_demand': False, },
-    }
-
-    if overrides:
-        opts.update(overrides)
-    return opts
-
-
 CallSpec = namedtuple('CallSpec', ('func', 'args', 'kwds'))
 """The :term:`call-specifier` for holding the parsed json-filters."""
 
@@ -1743,29 +1617,49 @@ class Ranger(object):
     """
     The director-class that performs all stages required for "throwing the lasso" around rect-values.
 
+    Use it when you nneed to have total control of the procedure and 
+    configuration. parameters (no defaults assumed).
     The :meth:`lasso()` does the job.
 
-    :param sheets_factory:
+    :ivar sheets_factory:
             Factory of sheets from where to parse rect-values; does not 
             close it in the end.
-    :param dict or None opts: 
+    :ivar dict or None opts: 
             Default opts to affect the lassoing; read the code to be sure 
             what are the available choices. No opts applied if unspecified.
             See :func:`get_default_opts()`.
-    :param dict or None available_filters: 
+    :ivar dict or None available_filters: 
             No filters exists if unspecified. 
             See :func:`get_default_filters()`.
+    :ivar bool keep_lassos:
+            If `True`, :meth:`lasso()` collects all :class:`Lasso` instances 
+            produced during various stages in :attr:`intermediate_lassos` list
+            as ``('stage', Lasso)`` pairs.
+            Used for inspecting/debuging.
     :ivar list intermediate_lassos:
             A list of ``('stage', Lasso)`` pairs with :class:`Lasso` instances 
-            created during the last execution of the :meth:`lasso()` function,
-            for inspecting when debuging. 
+            created during the last execution of the :meth:`lasso()` function.
+            Used for inspecting/debuging.
     """
 
     def __init__(self, sheets_factory,
-                 default_opts=None, available_filters=None):
+                 default_opts=None, available_filters=None,
+                 keep_lassos=False):
         self.sheets_factory = sheets_factory
         self.default_opts = default_opts
         self.available_filters = available_filters
+        self.intermediate_lassos = []
+        self.keep_lassos = keep_lassos
+
+    def _relasso(self, lasso, stage, **kwds):
+        """Replace lasso-values and optionally adds it in the :attr:`intermediate_lassos` list."""
+        lasso = lasso._replace(**kwds)
+
+        if self.keep_lassos:
+            lasso = lasso._replace(opts=deepcopy(lasso.opts))
+            self.intermediate_lassos.append((stage, lasso))
+
+        return lasso
 
     def _make_call(self, lasso, func_name, args, kwds):
         def parse_avail_func_rec(func, desc=None):
@@ -1815,27 +1709,7 @@ class Ranger(object):
     def _recurse_filter(self, lasso, search_include_items, exnclude_items):
         pass  # TODO Implement recursive lassoing!
 
-    def _relasso(self, lasso, stage, **kwds):
-        """Replace lasso-values and optionally adds it in the option's `intermediate_lassos`."""
-        lasso = lasso._replace(**kwds)
-
-        try:
-            intermediate_lassos = lasso.opts['intermediate_lassos']
-            if intermediate_lassos['enable']:
-                lasso = lasso._replace(OPTS=deepcopy(lasso.opts))
-                lasso_list = intermediate_lassos['lasso_list']
-                try:
-                    lasso_list.append((stage, lasso))
-                except Exception:
-                    lasso_list = intermediate_lassos[
-                        'lasso_list'] = [(stage, lasso)]
-        except Exception as ex:
-            msg = ("Failed updating 'intermediate_lassos' due to: %s "
-                   "\n  Have you properly set the defaults `opts`?")
-            log.warning(msg, ex)
-        return lasso
-
-    def lasso(self, xlref, keep_all_lassos=None):
+    def lasso(self, xlref, keep_lassos=None):
         """
         The director-method that does all the job of hrowing a :term:`lasso`
         around spreadsheet's rect-regions according to :term:`xl-ref`.
@@ -1848,11 +1722,16 @@ class Ranger(object):
             i.e.::
 
                 file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
+        :param keep_lassos:
+            Overrides :attr:`keep_lassos`.
 
         :return: 
                 The final :class:`Lasso` with captured & filtered values.
         :rtype: Lasso
         """
+        if keep_lassos is not None:
+            self.keep_lassos = bool(keep_lassos)
+        self.intermediate_lassos = []
         lasso = parse_xlref(xlref, deepcopy(self.default_opts))
         lasso = self._relasso(lasso, 'parse')  # Just for intermediate_lassos.
 
@@ -1885,10 +1764,139 @@ class Ranger(object):
 
         return lasso
 
+###############
+# FILTER-DEFS
+###############
+
+
+def xlwings_dims_call_spec():
+    """Returns a list :term:`call-spec` for the `redim` :term:`filter` that imitates results of *xlwings* library."""
+    return '["redim", [0, 1, 1, 1, 2]]'
+
+
+def _redim_filter(ranger, lasso,
+                  scalar=None, cell=None, row=None, col=None, table=None):
+    """
+    Reshape and/or transpose captured values, depending on rect's shape.
+
+    Each dimension might be a single int or None, or a pair [dim, transpose].  
+    """
+    ndims_list = (scalar, cell, row, col, table)
+    shape_idx = _classify_rect_shape(lasso.st, lasso.nd)
+    new_ndim = _decide_ndim_by_rect_shape(shape_idx, ndims_list)
+    values = lasso.values
+    if new_ndim is not None:
+        lasso = lasso._replace(values=_redim(values, new_ndim))
+
+    return lasso
+
+
+def get_default_filters(overrides=None):
+    """
+    Returns the available :term:`filter-function`.
+
+    :param dict or None overrides:
+            Any items to update the default ones.
+
+    :return: 
+            a dict-of-dicts with 2 items: 
+
+            - *func*: a function with args: ``(Ranger, Lasso, *args, **kwds)``
+            - *desc*:  help-text replaced by ``func.__doc__`` if missing.
+
+    :rtype: 
+            dict
+    """
+    filters = {
+        'pipe': {
+            'func': Ranger._pipe_filter,
+        },
+        'redim': {
+            'func': _redim_filter,
+        },
+        'numpy': {
+            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
+                values=np.array(lasso.values, *args, **kwds)),
+            'desc': np.array.__doc__,
+        },
+        'dict': {
+            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
+                values=dict(lasso.values, *args, **kwds)),
+            'desc': dict.__doc__,
+        },
+        'odict': {
+            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
+                values=OrderedDict(lasso.values, *args, **kwds)),
+            'desc': OrderedDict.__doc__,
+        },
+        'sorted': {
+            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
+                values=sorted(lasso.values, *args, **kwds)),
+            'desc': sorted.__doc__,
+        },
+    }
+
+    try:
+        import pandas as pd
+        from pandas.io import parsers, excel as pdexcel
+
+        def _df_filter(ranger, lasso, *args, **kwds):
+            values = lasso.values
+            header = kwds.get('header', 'infer')
+            if header == 'infer':
+                header = kwds['header'] = 0 if kwds.get(
+                    'names') is None else None
+            if header is not None:
+                values[header] = pdexcel._trim_excel_header(values[header])
+            # , convert_float=True,
+            parser = parsers.TextParser(values, **kwds)
+            lasso = lasso._replace(values=parser.read())
+
+            return lasso
+
+        filters.update({
+            'df': {
+                'func': _df_filter,
+                'desc': parsers.TextParser.__doc__,
+            },
+            'series': {
+                'func': lambda ranger, lasso, *args, **kwds: pd.Series(OrderedDict(lasso.values),
+                                                                       *args, **kwds),
+                'desc': ("Converts a 2-columns list-of-lists into pd.Series.\n" +
+                         pd.Series.__doc__),
+            }
+        })
+    except ImportError as ex:
+        msg = "The 'df' and 'series' filters were notinstalled, due to: %s"
+        log.info(msg, ex)
+
+    if overrides:
+        filters.update(overrides)
+
+    return filters
+
+
+def get_default_opts(overrides=None):
+    """
+    :param dict or None overrides:
+            Any items to update the default ones.
+    """
+    opts = {
+        'lax': False,
+        'verbose': False,
+        'read': {'on_demand': False, },
+    }
+
+    if overrides:
+        opts.update(overrides)
+
+    return opts
+
 
 def make_default_Ranger(sheets_factory=None,
                         opts=None,
-                        available_filters=None):
+                        available_filters=None,
+                        **kwds):
     """
     Makes a defaulted :class:`Ranger`.
 
@@ -1909,7 +1917,8 @@ def make_default_Ranger(sheets_factory=None,
     """
     return Ranger(sheets_factory or SheetFactory(),
                   opts or get_default_opts(),
-                  available_filters or get_default_filters())
+                  available_filters or get_default_filters(),
+                  **kwds)
 
 
 def lasso(xlref,
