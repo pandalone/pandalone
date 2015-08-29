@@ -7,13 +7,14 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 
 import glob
-from jsonschema._utils import URIDict
-from jsonschema.compat import urlsplit, urljoin
 import logging
 import operator
 import os
 import re
 from textwrap import dedent
+
+from jsonschema._utils import URIDict
+from jsonschema.compat import urlsplit, urljoin
 
 import pandas as pd
 
@@ -231,94 +232,19 @@ def import_files_into_excel_workbook(infiles_wildcard, wrkb_fname=None, new_fnam
     return wb
 
 
+def normalize_local_url(self, urlparts):
+    """As fetched from :func:`urlsplit()`."""
+    if 'file' == urlparts.scheme:
+        urlparts = urlparts._replace(path=os.path.abspath(urlparts.path))
+    return urlparts.geturl()
+
+
 #############################
 # Excel-refs
 #############################
 
-# TODO: Convert Excel-ref RC-notation to A1
-_excel_ref_specifier_regex = re.compile(r'''^\s*
-            @
-            (?:(?P<sheet>.+)!)?             # Sheet-name optional-group
-            (?P<ref>                        # start Cell-ref 
-                (?:[A-Z]+\d+ | R\d+C\d+ | \(\d+,\d+\))        # FROM-ref, RC/A1 notation, or tuple
-                (?:                             # start TO-Cell-ref optional-group
-                    :
-                    (?:[A-Z]+\d+ | R\d+C\d+ | \(\d+,\d+\))        # RC/A1 notation, or tuple
-                )?                              # end TO-Cell-ref optional-group
-            )                               # end Cell-ref
-            (?:                             # start Shape-specifier optional-group
-                \.
-                (?P<shape>table|vertical|horizontal)     # See respective xw.Range attributes
-            )?                              # end Shape-specifier
-            (?:\((?P<range_kws>                   # start RANGE-kws expression
-                [^)]*
-            )\))?                            # end RANGE-kws
-            (?:{(?P<pandas_kws>                   # start PANDAS-kws expression
-                [^)]*
-            )})?                            # end PANDAS-kws
-            \s*$''', re.X + re.IGNORECASE)
-_undefined = object()
 
-
-def _parse_kws(kws_str):
-    if kws_str:
-        local_vars = {}
-        exec('kws = dict(%s)' % kws_str, None, local_vars)
-        return local_vars['kws']
-    return {}
-
-
-class _AbsURIDict(URIDict):
-
-    """Takes the absolute-path of local-urls (when schema is `file`)."""
-
-    def normalize(self, uri):
-        parts = urlsplit(uri)
-        if 'file' == parts.scheme:
-            parts = parts._replace(path=os.path.abspath(parts.path))
-        return parts.geturl()
-
-
-class _ExcelCntxt:
-
-    """
-    Needed to resolve `excel_urls` for detecting ref-cycles. 
-
-    :ivar str     _wb_url:      the current workbook
-    :ivar set     _visited:     (wb_abs_urls, excel_ref)
-    :ivar URIDict _wb_cache:    wb_fpaths --> wb_abs_urls
-    """
-
-    def __init__(self, my_wb_url, wb_cache=None):
-        """
-        :param dict wb_cache:   optimization to avoid rebuilding cache when multiple resolutions
-        """
-        self._wb_cache = wb_cache or _AbsURIDict()
-        self._wb_url = self._wb_id(my_wb_url)
-        self._visited = set()
-
-    def _wb_id(self, wb_url):
-        wb_id = self._wb_cache.get(wb_url, None)
-        if not wb_id:
-            wb_id = os.path
-            self._wb_cache[wb_url] = wb_id
-        return wb_id
-
-    def add_ref(self, excel_ref, wb_fpath=None):
-        self._visited.append((wb_fpath, excel_ref))
-
-
-def resolve_excel_url(url_str, default=_undefined, _cntxtx=None):
-    """
-    Parses and fetches the contents of an `excel_url`.
-
-    Excel-url examples::
-
-        file://wbook.xlsx#<excel_ref>
-"""
-    pass
-
-
+# TODO Transform resolve_excel_ref() code into xlwings xlasso-backend.
 def resolve_excel_ref(ref_str, default=_undefined, _cntxtx=None):
     """
     Parses and fetches the contents of an `excel_ref` (the hash-part of the `excel_url`).
@@ -400,6 +326,61 @@ def resolve_excel_ref(ref_str, default=_undefined, _cntxtx=None):
             raise ValueError("Invalid excel-ref(%s)!" % ref_str)
         else:
             return default
+
+
+def test_excel_refs(self):
+    from pandalone.xlsutils import resolve_excel_ref
+    sheetname = 'Input'
+    addr = 'd2'
+    table = pd.DataFrame(
+        {'a': [1, 2, 3], 'b': ['s', 't', 'u'], 'c': [True, False, True]})
+    table.index.name = 'id'
+
+    cases = [
+        ("@d2",                         'id'),
+        ("@e2",                         'a'),
+        ("@e3",                         1),
+        ("@e3:g3",
+         table.iloc[0, :].values.reshape((3, 1))),
+        ("@1!e2.horizontal",
+         table.columns.values.reshape((3, 1))),
+        ("@1!d3.vertical",
+         table.index.values.reshape((3, 1))),
+        ("@e4.horizontal",
+         table.iloc[1, :].values.reshape((3, 1))),
+        ("@1!e3:g3.vertical",           table.values),
+        ("@{sheet}!E2:F2.table(strict=True, header=True)".format(sheet=sheetname),
+         table),
+    ]
+
+    errors = []
+    with xw_Workbook() as wb:
+        _make_sample_sheet(wb, sheetname, addr, table)
+        for i, (inp, exp) in enumerate(cases):
+            out = None
+            try:
+                out = resolve_excel_ref(inp)
+                log.debug(
+                    '%i: INP(%s), OUT(%s), EXP(%s)', i, inp, out, exp)
+                if exp is not None:
+                    if isinstance(out, NDFrame):
+                        out = out.values
+                    if isinstance(exp, NDFrame):
+                        exp = exp.values
+                    if isinstance(out, np.ndarray) or isinstance(exp, np.ndarray):
+                        npt.assert_array_equal(
+                            out, exp, '%i: INP(%s), OUT(%s), EXP(%s)' % (i, inp, out, exp))
+                    else:
+                        self.assertEqual(
+                            out, exp, '%i: INP(%s), OUT(%s), EXP(%s)' % (i, inp, out, exp))
+            except Exception as ex:
+                log.exception(
+                    '%i: INP(%s), OUT(%s), EXP(%s), FAIL: %s' % (i, inp, out, exp, ex))
+                errors.append(ex)
+
+    if errors:
+        raise Exception('There are %i out of %i errors!' %
+                        (len(errors), len(cases)))
 
 
 def main(*argv):

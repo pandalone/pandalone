@@ -16,25 +16,31 @@ TODOs
 =====
 .. todolist::
 
-    - Syntax & Algo:
-        - Recursive filter
-        - Coord: RC, ^-1,_-6
-        - Edge +/?(instead of -)
-        - Expand 5+/5?
-        - Slice xlrd-read
-    - Struct:
-        - split lassos from xlref.
-        - plugin backends (& syntax?)
-    - More TCs
-        - test XlWings in Windows indeed OK.
-    - Backends:
-        - Clipboard
-        - xlwings
-        - OpenPyXl
-    - Check TODOs in code
-    - README
-    - Split own project
-        - Rename XLasso
+    - XLasso
+        - Core:
+            - filters:
+                - Recursive filter
+                - Slices and Index args on 'numpy' and 'df' filters.
+            - Syntax:
+                - Coord: RC, ^-1,_-6
+                - Edge +/?(instead of -)
+                - Expand 5+/5?
+            - Xlrd-read with slices.
+            - DEL keep_lasos from Ranger.
+        - Struct:
+            - split lassos from xlref.
+            - plugin backends (& syntax?)
+        - TCs
+            - More
+            - test XlWings in Windows indeed OK.
+        - Backends:
+            - Clipboard
+            - xlwings
+            - openpyxll
+        - Check TODOs in code
+        - README
+        - Split own project
+            - Rename XLasso
 
 Changelog
 =========

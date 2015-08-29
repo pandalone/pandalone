@@ -7,9 +7,6 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 import os
 import sys
-from tests._tutils import (
-    _init_logging, TemporaryDirectory, check_xl_installed, xw_Workbook,
-    xw_close_workbook)
 import unittest
 
 from numpy import testing as npt
@@ -17,6 +14,9 @@ from pandas.core.generic import NDFrame
 
 import numpy as np
 import pandas as pd
+from tests._tutils import (
+    _init_logging, TemporaryDirectory, check_xl_installed, xw_Workbook,
+    xw_close_workbook)
 
 
 log = _init_logging(__name__)
@@ -59,61 +59,6 @@ class TestExcel(unittest.TestCase):
         with xw_Workbook() as wb:  # FIXME: Ugrade xlwings, Leaves exel open.
             xw.Sheet(1).name = sheetname
             xw.Range(addr).value = table
-
-    @unittest.skip("Will use xlreader instead.")
-    def test_excel_refs(self):
-        from pandalone.xlsutils import resolve_excel_ref
-        sheetname = 'Input'
-        addr = 'd2'
-        table = pd.DataFrame(
-            {'a': [1, 2, 3], 'b': ['s', 't', 'u'], 'c': [True, False, True]})
-        table.index.name = 'id'
-
-        cases = [
-            ("@d2",                         'id'),
-            ("@e2",                         'a'),
-            ("@e3",                         1),
-            ("@e3:g3",
-             table.iloc[0, :].values.reshape((3, 1))),
-            ("@1!e2.horizontal",
-             table.columns.values.reshape((3, 1))),
-            ("@1!d3.vertical",
-             table.index.values.reshape((3, 1))),
-            ("@e4.horizontal",
-             table.iloc[1, :].values.reshape((3, 1))),
-            ("@1!e3:g3.vertical",           table.values),
-            ("@{sheet}!E2:F2.table(strict=True, header=True)".format(sheet=sheetname),
-             table),
-        ]
-
-        errors = []
-        with xw_Workbook() as wb:
-            _make_sample_sheet(wb, sheetname, addr, table)
-            for i, (inp, exp) in enumerate(cases):
-                out = None
-                try:
-                    out = resolve_excel_ref(inp)
-                    log.debug(
-                        '%i: INP(%s), OUT(%s), EXP(%s)', i, inp, out, exp)
-                    if exp is not None:
-                        if isinstance(out, NDFrame):
-                            out = out.values
-                        if isinstance(exp, NDFrame):
-                            exp = exp.values
-                        if isinstance(out, np.ndarray) or isinstance(exp, np.ndarray):
-                            npt.assert_array_equal(
-                                out, exp, '%i: INP(%s), OUT(%s), EXP(%s)' % (i, inp, out, exp))
-                        else:
-                            self.assertEqual(
-                                out, exp, '%i: INP(%s), OUT(%s), EXP(%s)' % (i, inp, out, exp))
-                except Exception as ex:
-                    log.exception(
-                        '%i: INP(%s), OUT(%s), EXP(%s), FAIL: %s' % (i, inp, out, exp, ex))
-                    errors.append(ex)
-
-        if errors:
-            raise Exception('There are %i out of %i errors!' %
-                            (len(errors), len(cases)))
 
 
 if __name__ == "__main__":
