@@ -245,7 +245,7 @@ def normalize_local_url(self, urlparts):
 
 
 # TODO Transform resolve_excel_ref() code into xlwings xlasso-backend.
-def resolve_excel_ref(ref_str, default=_undefined, _cntxtx=None):
+def resolve_excel_ref(ref_str, default=None, _cntxtx=None):
     """
     Parses and fetches the contents of an `excel_ref` (the hash-part of the `excel_url`).
     if `ref_str` is an *excel-ref*, it returns the referred-contents as DataFrame or a scalar, `None` otherwise.

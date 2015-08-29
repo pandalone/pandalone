@@ -440,10 +440,10 @@ def parse_xlref(xlref, default_opts=None):
 
     Examples::
 
-        >>> url = 'Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}'
+        >>> url = '#Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}'
         >>> res = parse_xlref(url)
         >>> res
-        Lasso(xl_ref='Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}', 
+        Lasso(xl_ref='#Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}', 
             url_file=None, 
             sheet='Sheet1', 
             st_edge=Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'), 
@@ -460,10 +460,9 @@ def parse_xlref(xlref, default_opts=None):
     try:
         url_file, frag = urldefrag(xlref)
         if not frag:
-            frag = url_file
-            url_file = None
+            raise ValueError("No fragment-part (starting with '#')!")
         res = _parse_xlref_fragment(frag)
-        res['url_file'] = url_file
+        res['url_file'] = url_file or None
 
         lasso = _Lasso_from_parsing(xlref, **res)
 

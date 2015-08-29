@@ -217,7 +217,13 @@ class Parse(unittest.TestCase):
     def test_parse_xl_url_Only_fragment(self):
         url = '#sheet_name!UP10:DOWN20{"json":"..."}'
         res = xr.parse_xlref(url)
-        self.assertEquals(res.url_file, '')
+        self.assertEquals(res.url_file, None)
+
+    def test_parse_xl_url_No_fragment(self):
+        url = 'sdadsggfds'
+        err_text = "failed due to: No fragment-part"
+        with assertRaisesRegex(self, ValueError, err_text):
+            xr.parse_xlref(url)
 
 
 def make_sample_matrix():
@@ -1149,7 +1155,7 @@ class TLasso(unittest.TestCase):
     def test_read_A1(self):
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.lasso('''A1:..(D):
+        res = xr.lasso('''#A1:..(D):
             [
                 "pipe", [
                     ["redim", {"col": [2, 1]}], 
@@ -1166,7 +1172,7 @@ class TLasso(unittest.TestCase):
         m1 = self.m1()
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.lasso('R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
+        res = xr.lasso('#R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
                        sf)
         self.assertIsInstance(res, list)
         npt.assert_array_equal(res, m1[:, 0].reshape((1, -1)))
@@ -1175,14 +1181,14 @@ class TLasso(unittest.TestCase):
         m1 = self.m1()
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.lasso('R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
+        res = xr.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
                        sf)
         npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
 
     def test_read_asLasso(self):
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))
-        res = xr.lasso('''A1:..(D)''', sf, return_lasso=True)
+        res = xr.lasso('''#A1:..(D)''', sf, return_lasso=True)
         self.assertIsInstance(res, xr.Lasso)
 
     def test_Ranger_intermediateLaso(self):
@@ -1190,28 +1196,28 @@ class TLasso(unittest.TestCase):
         sf.add_sheet(ArraySheet(self.m1()))
         ranger = xr.make_default_Ranger(sheets_factory=sf)
         ranger.lasso(
-            '''A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]''')
+            '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]''')
         self.assertEqual(ranger.intermediate_lasso[0], 'numpy',
                          ranger.intermediate_lasso)
 
         ranger = xr.make_default_Ranger(sheets_factory=sf)
         self.assertRaises(ValueError, ranger.lasso,
-                          '''A1(DR):__(UL+):RULD:["pipe", [["redim"], ["dab_func"]]]''')
+                          '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["dab_func"]]]''')
         self.assertEqual(ranger.intermediate_lasso[0], 'dab_func',
                          ranger.intermediate_lasso, )
 
     @data(
-        ('R5C4:..(UL):%s',      [[None, 0, 1], [0, 1, 2]]),
-        ('R5C4:R5C4:LURD:%s',   [
+        ('#R5C4:..(UL):%s',      [[None, 0, 1], [0, 1, 2]]),
+        ('#R5C4:R5C4:LURD:%s',   [
             [None, 0,    1,   2],
             [0,    1,    2,   None],
             [1,    None, 6.1, 7.1]
         ]),
-        ('R5C_(LU):A1(RD):%s',      [[0, 1], [1, 2]]),
-        ('__(LU+):^^(RD):%s',       [[0, 1], [1, 2], [None, 6.1]]),
-        ('R_C5:R6C.(L+):%s',        [6.1, 7.1]),  # 5
-        ('R^C3(U+):..(D+):%s',      [0, 1]),
-        ('D6:%s',                   6.1),
+        ('#R5C_(LU):A1(RD):%s',      [[0, 1], [1, 2]]),
+        ('#__(LU+):^^(RD):%s',       [[0, 1], [1, 2], [None, 6.1]]),
+        ('#R_C5:R6C.(L+):%s',        [6.1, 7.1]),  # 5
+        ('#R^C3(U+):..(D+):%s',      [0, 1]),
+        ('#D6:%s',                   6.1),
     )
     def test_read_xlwings_dims(self, case):
         xlref, res = case
@@ -1321,16 +1327,16 @@ class VsXlwings(unittest.TestCase):
         os.remove(self.tmp)
 
     @data(
-        ('R7C4:..(D):%s', lambda xw: xw.Range("Sheet1", "D7").vertical.value),
-        ('R6C5:..(D):%s', lambda xw: xw.Range("Sheet1", "E6").vertical.value),
-        ('R6C5:..(R):%s', lambda xw: xw.Range("Sheet1",
-                                              "E6").horizontal.value),
-        ('R6C5:..(RD):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
-        ('R6C5:..(DR):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
-        ('R8C6:R6R4:%s', lambda xw: xw.Range("Sheet1", "D6:F8").value),
-        ('R8C6:R1C1:%s', lambda xw: xw.Range("Sheet1", "A1:F8").value),
-        ('R7C1:R7C4:%s', lambda xw: xw.Range("Sheet1", "A7:D7").value),
-        ('R9C4:R3C4:%s', lambda xw: xw.Range("Sheet1", "D3:D9").value),
+        ('#R7C4:..(D):%s', lambda xw: xw.Range("Sheet1", "D7").vertical.value),
+        ('#R6C5:..(D):%s', lambda xw: xw.Range("Sheet1", "E6").vertical.value),
+        ('#R6C5:..(R):%s', lambda xw: xw.Range("Sheet1",
+                                               "E6").horizontal.value),
+        ('#R6C5:..(RD):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
+        ('#R6C5:..(DR):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
+        ('#R8C6:R6R4:%s', lambda xw: xw.Range("Sheet1", "D6:F8").value),
+        ('#R8C6:R1C1:%s', lambda xw: xw.Range("Sheet1", "A1:F8").value),
+        ('#R7C1:R7C4:%s', lambda xw: xw.Range("Sheet1", "A7:D7").value),
+        ('#R9C4:R3C4:%s', lambda xw: xw.Range("Sheet1", "D3:D9").value),
     )
     def test_vs_xlwings(self, case):
         xlref, res = case
