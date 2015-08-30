@@ -166,36 +166,36 @@ class Parse(unittest.TestCase):
         self.assertRaises(ValueError, xr._parse_xlref_fragment, case)
 
     def test_uncooked_Edge_good(self):
-        self.assertIsNone(xr._uncooked_Edge(None, None, None))
+        self.assertIsNone(xr.Edge_uncooked(None, None, None))
 
-        self.assertEquals(xr._uncooked_Edge('1', 'A', 'LUR'),
+        self.assertEquals(xr.Edge_uncooked('1', 'A', 'LUR'),
                           xr.Edge(xr.Cell(row='1', col='A'), 'LUR'))
-        self.assertEquals(xr._uncooked_Edge('_', '^', 'duL'),
+        self.assertEquals(xr.Edge_uncooked('_', '^', 'duL'),
                           xr.Edge(xr.Cell('_', '^'), 'DUL'))
-        self.assertEquals(xr._uncooked_Edge('1', '_', None),
+        self.assertEquals(xr.Edge_uncooked('1', '_', None),
                           xr.Edge(xr.Cell('1', '_'), None))
-        self.assertEquals(xr._uncooked_Edge('^', '^', None),
+        self.assertEquals(xr.Edge_uncooked('^', '^', None),
                           xr.Edge(xr.Cell('^', '^'), None))
 
     def test_uncooked_Edge_bad(self):
-        self.assertEquals(xr._uncooked_Edge(1, 'A', 'U1'),
+        self.assertEquals(xr.Edge_uncooked(1, 'A', 'U1'),
                           xr.Edge(xr.Cell(1, 'A'), 'U1'))
-        self.assertEquals(xr._uncooked_Edge('1', '%', 'U1'),
+        self.assertEquals(xr.Edge_uncooked('1', '%', 'U1'),
                           xr.Edge(xr.Cell('1', '%'), 'U1'))
-        self.assertEquals(xr._uncooked_Edge('1', 'A', 'D0L'),
+        self.assertEquals(xr.Edge_uncooked('1', 'A', 'D0L'),
                           xr.Edge(xr.Cell('1', 'A'), 'D0L'))
-        self.assertEquals(xr._uncooked_Edge('1', 'A', '@#'),
+        self.assertEquals(xr.Edge_uncooked('1', 'A', '@#'),
                           xr.Edge(xr.Cell('1', 'A'), '@#'))
 
     def test_uncooked_Edge_fail(self):
         self.assertRaises(
-            AttributeError, xr._uncooked_Edge, *('1', 1, '0'))
+            AttributeError, xr.Edge_uncooked, *('1', 1, '0'))
         self.assertRaises(
-            AttributeError, xr._uncooked_Edge, *('1', 'A', 23))
+            AttributeError, xr.Edge_uncooked, *('1', 'A', 23))
 #         self.assertRaises(
-#             ValueError, xr._uncooked_Edge, *('_0', '_', '0'))
+#             ValueError, xr.Edge_uncooked, *('_0', '_', '0'))
 #         self.assertRaises(
-#             ValueError, xr._uncooked_Edge, *('@@', '@', '@'))
+#             ValueError, xr.Edge_uncooked, *('@@', '@', '@'))
 
     def test_col2num(self):
         self.assertEqual(xr._col2num('D'), 3)
@@ -1708,7 +1708,7 @@ class TSheetFactory(unittest.TestCase):
 
 
 class ArraySheet(xr.ABCSheet):
-    """A utility-sheet for facilitating tests."""
+    """A sample-sheet for facilitating tests."""
 
     def __init__(self, arr, ids=('wb', ['sh', 0])):
         self._arr = np.asarray(arr)
@@ -1728,3 +1728,7 @@ class ArraySheet(xr.ABCSheet):
             return self._arr[st]
         rect = np.array([st, nd]) + [[0, 0], [1, 1]]
         return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])].tolist()
+
+    def __str(self):
+        return '%s(%s)@%s \n%s' % (type(self), self.get_sheet_ids(),
+                                   id(self), self._arr)

@@ -25,9 +25,9 @@ import textwrap
 
 from future import utils as fututils  # @UnresolvedImport
 from future.backports import ChainMap  # @UnresolvedImport
+from future.builtins import str  # @UnresolvedImport
 from future.moves.urllib.parse import urldefrag  # @UnresolvedImport
-from future.utils import iteritems
-from future.utils import with_metaclass
+from future.utils import iteritems, with_metaclass
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
 
@@ -115,7 +115,7 @@ def Edge(land, mov=None, mod=None):
     return _Edge(land, mov, mod)
 
 
-def _uncooked_Edge(row, col, mov, mod=None):
+def Edge_uncooked(row, col, mov, mod=None):
     """
     Make a new `Edge` from any non-values supplied, as is capitalized, or nothing.
 
@@ -130,27 +130,27 @@ def _uncooked_Edge(row, col, mov, mod=None):
 
     Examples::
 
-        >>> tr = _uncooked_Edge('1', 'a', 'Rul', '-')
+        >>> tr = Edge_uncooked('1', 'a', 'Rul', '-')
         >>> tr
         Edge(land=Cell(row='1', col='A'), mov='RUL', mod='-')
 
 
     No error checking performed::
 
-        >>> _uncooked_Edge('Any', 'foo', 'BaR', '+_&%')
+        >>> Edge_uncooked('Any', 'foo', 'BaR', '+_&%')
         Edge(land=Cell(row='Any', col='FOO'), mov='BAR', mod='+_&%')
 
-        >>> print(_uncooked_Edge(None, None, None, None))
+        >>> print(Edge_uncooked(None, None, None, None))
         None
 
 
     except were coincidental::
 
-        >>> _uncooked_Edge(row=0, col=123, mov='BAR', mod=None)
+        >>> Edge_uncooked(row=0, col=123, mov='BAR', mod=None)
         Traceback (most recent call last):
         AttributeError: 'int' object has no attribute 'upper'
 
-        >>> _uncooked_Edge(row=0, col='A', mov=123, mod=None)
+        >>> Edge_uncooked(row=0, col='A', mov=123, mod=None)
         Traceback (most recent call last):
         AttributeError: 'int' object has no attribute 'upper'
     """
@@ -271,7 +271,7 @@ _re_exp_moves_parser = re.compile(
 
 
 _excel_str_translator = str.maketrans('“”', '""')
-"""Excel use these chars for double-quotes, which are not valid JSON-strings."""
+"""Excel use these !@#% chars for double-quotes, which are not valid JSON-strings!!"""
 
 
 def _repeat_moves(moves, times=None):
@@ -415,14 +415,14 @@ def _parse_xlref_fragment(xlref_fragment):
         r2, c2 = p('st_row2'), p('st_col2')
         if r2 is not None:
             r, c = r2, c2
-        gs['st_edge'] = _uncooked_Edge(r, c,
-                                       p('st_mov'), p('st_mod'))
+        gs['st_edge'] = Edge_uncooked(r, c,
+                                      p('st_mov'), p('st_mod'))
         r, c = p('nd_row'), p('nd_col')
         r2, c2 = p('nd_row2'), p('nd_col2')
         if r2 is not None:
             r, c = r2, c2
-        gs['nd_edge'] = _uncooked_Edge(r, c,
-                                       p('nd_mov'), p('nd_mod'))
+        gs['nd_edge'] = Edge_uncooked(r, c,
+                                      p('nd_mov'), p('nd_mod'))
 
         exp_moves = gs['exp_moves']
         gs['exp_moves'] = exp_moves and _parse_expansion_moves(exp_moves)
@@ -755,7 +755,9 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
         return rcoord
     except Exception as ex:
         msg = 'invalid {}({!r}) due to: {}'
-        fututils.raise_from(ValueError(msg.format(cname, coord, ex)), ex)
+        # fututils.raise_from(ValueError(msg.format(cname, coord, ex)), ex) see
+        # GH 141
+        raise ValueError(msg.format(cname, coord, ex))
 
 
 def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
@@ -830,7 +832,8 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
         msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  base_cords(%s)"
         log.debug(msg, cell, ex, (up_coords, dn_coords), base_cords)
         msg = "invalid cell(%s) due to: %s"
-        fututils.raise_from(ValueError(msg % (cell, ex)), ex)
+        # fututils.raise_from(ValueError(msg % (cell, ex)), ex) see GH 141
+        raise ValueError(msg % (cell, ex))
 
 
 _mov_vector_slices = {
@@ -1717,7 +1720,7 @@ class Ranger(object):
 
     def recursive_filter(self, lasso, include=None, exclude=None, depth=-1):
         """
-        Recurively expand any :term:`xl-ref' strings found by treating values as mappings (dicts, df, series) and/or nested lists.
+        Recursively expand any :term:`xl-ref` strings found by treating values as mappings (dicts, df, series) and/or nested lists.
 
         The `include`/`exclude` filter args work only for dict-like objects
         with ``items()`` or ``iteritems()`` and indexing methods, 
@@ -2158,3 +2161,6 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
             self._margin_coords = up, dn
 
         return self._margin_coords
+
+    def __str(self):
+        return '%s(%s)@%s' % (type(self), self.get_sheet_ids(), id(self))

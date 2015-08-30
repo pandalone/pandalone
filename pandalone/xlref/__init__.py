@@ -6,55 +6,62 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-A mini-language to capture non-empty rectangular areas from Excel-sheets.
+A mini-language for capturing non-empty rectangular areas from Excel-sheets.
 
 .. default-role:: term
 
 Introduction
 ============
 
-This modules defines a url-fragment notation for `capturing` rectangular areas
-from excel-sheets when their exact position is not known beforehand.
-The notation extends the ordinary excel `coordinates`, and provides for
-`traversing` conditionally the cells based on their `state`.
-Here is an example `xl-ref` url::
+This modules defines a url-fragment notation for "throwing the rope" around 
+rectangular areas of excel-sheets, when their exact position is not known 
+beforehand.
+The notation extends the ordinary *A1* and *RC* excel `coordinates` with 
+ conditional `traversing` operations, based on the cell's empty/full `state`.
 
-    from pandalone import xlref
+For example, the following `xl-ref` url extracts a DataFrame from 
+a contigious table at the top-left of a the 1st sheet of a workbook::
 
-    df = xlref.lasso('a_workbook.xlsx#Sheet1!A1(DR):..(DR):LU:["df"]')
+    from pandalone import xlasso
 
-The goal is to make the extraction of data-tables from excel-workbooks
+    df = xlasso.lasso('a_workbook.xlsx#A1(DR):..(DR):LU:["df"]')
+
+The goal is to make the `capturing` of data-tables from excel-workbooks
 as practical as reading CSVs, while keeping it as "cheap" as possible.
-Since another library would be needed to examine the actual values of the cells
-(i.e. "pandas"), the `xl-ref` syntax provides common `filter` transformations,
-for setting the dimensionality and final type of the captured values.
+Although another library is required for examining the contents of the cells
+(i.e. "pandas"), the `xl-ref` syntax provides `filter` transformations 
+for some common tasks, such as:
+- setting the dimensionality of the result tables,
+- creating higher-level objects (dictionaries, *numpy-arrays* & *dataframes*) 
+- and applying the `lassoing` on the captured values, recursively .
 
 It is based on `xlrd <http://www.python-excel.org/>`_ library but also
 checked for compatibility with `xlwings <http://xlwings.org/quickstart/>`_
-*COM-client* library.
+*COM-client* library.  It requires *numpy* and optionally *pandas* and is 
+developed for python-3 but tested also on python-2 for compatibility.
 
 
 Excel-ref Syntax
 ----------------
 ::
 
-    <1st-edge>[:[<2nd-edge>][:<expansions>]][:<filters>]
-    :[<filters>]                                           # shortcut for ^^:__
+    [<url>]#[<sheet>!]<1st-edge>[:[<2nd-edge>][:<expansions>]][:<filters>]
+    [<url>]#:[<filters>]    # shortcut for ^^:__
 
 
 Annotated Syntax
 ----------------
 ::
 
-    target-moves──────┐
-    landing-cell───┐  │
-                  ┌┤ ┌┤
-                  C3(UL):..(RD):L1DR:{"type": "df_num", "kws": {"header": false}}
-                  └─┬──┘ └─┬──┘ └┬─┘ └───────────────────┬──────────────────────┘
-    1st-edge────────┘      │     │                       │
-    2nd-edge───────────────┘     │                       │
-    expansions───────────────────┘                       │
-    filters──────────────────────────────────────────────┘
+  target-moves─────┐
+  landing-cell──┐  │
+               ┌┤ ┌┤
+              #C3(UL):..(RD):L1DR:["pipe": [['dict'], ["recursive"]]]
+               └─┬──┘ └─┬──┘ └┬─┘ └─────────────────┬───────────────┘
+  1st-edge───────┘      │     │                     │
+  2nd-edge──────────────┘     │                     │
+  expansions──────────────────┘                     │
+  filters───────────────────────────────────────────┘
 
 Which means:
 
@@ -67,7 +74,7 @@ Which means:
     4. try `expansions` on the `target-rect`, once to the left column
        and then down and right until a full-empty line/row is met, respectively;
     5. finally `filter` the values of the `capture-rect` to wrap them up
-       in a pandas DataFrame with *numeric-conversion*.
+       in dictionary, and search its values for `xl-ref` and replace them.
 
 
 API
@@ -278,7 +285,8 @@ Definitions
 
     traversing
     traversal-operations
-        Either the `target-moves` or the `expansion-moves`.
+        Either the `target-moves` or the `expansion-moves` that comprise the 
+        `capturing`.
 
     target-moves
         Specify the cell traversing order while `targeting` using
