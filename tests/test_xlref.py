@@ -153,7 +153,7 @@ class Parse(unittest.TestCase):
         self.assertEquals(res['st_edge'].land, xr.Cell(col='A', row='1'))
         self.assertEquals(res['nd_edge'], None)
 
-        xl_ref = 'Sheet1!a1(l):c2(ul){"1":4,"2":"ciao"}'
+        xl_ref = 'Sheet1!a1(l):c2(ul):{"1":4,"2":"ciao"}'
         res = xr._parse_xlref_fragment(xl_ref)
         self.assertEquals(res['js_filt'], {'2': 'ciao', '1': 4})
         self.assertEquals(res['st_edge'].land, xr.Cell(col='A', row='1'))
@@ -202,7 +202,7 @@ class Parse(unittest.TestCase):
         self.assertEqual(xr._col2num('aAa'), 702)
 
     def test_parse_xl_url_Ok(self):
-        url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D){"json":"..."}'
+        url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D):{"json":"..."}'
         res = xr.parse_xlref(url)
 
         self.assertEquals(res.url_file, 'file://path/to/file.xlsx')
@@ -215,7 +215,7 @@ class Parse(unittest.TestCase):
         self.assertRaises(ValueError, xr.parse_xlref, *('#!:{"json":"..."', ))
 
     def test_parse_xl_url_Only_fragment(self):
-        url = '#sheet_name!UP10:DOWN20{"json":"..."}'
+        url = '#sheet_name!UP10:DOWN20:{"json":"..."}'
         res = xr.parse_xlref(url)
         self.assertEquals(res.url_file, None)
 

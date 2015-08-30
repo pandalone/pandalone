@@ -234,9 +234,9 @@ _re_xl_ref_parser = re.compile(
         )?
     )?
     \s*
-    (?::?\s*
-        (?P<js_filt>[[{"].*)?                            #  [opt] filters
-    )$
+    (?::\s*
+        (?P<js_filt>[[{"].*)                             #  [opt] filters
+    )?$
     """,
     re.IGNORECASE | re.X | re.DOTALL)
 """
