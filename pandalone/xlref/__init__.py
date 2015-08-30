@@ -279,7 +279,7 @@ Definitions
             - any pair of a cell/column *coordinates* specifying cell positions,
               i.e. `landing-cell`, `target-cell`, bounds of the `capture-rect`.
 
-        They can be expressed in ``A1`` format or as a zero-based
+        They can be expressed in ``A1`` or ``RC`` format or as a zero-based
         ``(row, col)`` tuple (*num*).
         Each *coordinate* might be `absolute` or `dependent`, independently.
 

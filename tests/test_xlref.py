@@ -142,7 +142,7 @@ class Parse(unittest.TestCase):
         res = xr._parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
-        self.assertEquals(res['sheet'], 'Sheet1')
+        self.assertEquals(res['sh_name'], 'Sheet1')
         self.assertEquals(st_edge.land, xr.Cell(col='A', row='1'))
         self.assertEquals(nd_edge.land, xr.Cell(col='C', row='2'))
         self.assertEquals(st_edge.mov, 'L')
@@ -206,7 +206,7 @@ class Parse(unittest.TestCase):
         res = xr.parse_xlref(url)
 
         self.assertEquals(res.url_file, 'file://path/to/file.xlsx')
-        self.assertEquals(res.sheet, 'Sheet1')
+        self.assertEquals(res.sh_name, 'Sheet1')
         self.assertEquals(res.js_filt, {"json": "..."})
         self.assertEquals(res.st_edge, xr.Edge(xr.Cell('10', 'U'), 'L'))
         self.assertEquals(res.nd_edge, xr.Edge(xr.Cell('20', 'D'), 'D'))

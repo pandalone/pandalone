@@ -23,10 +23,10 @@ import re
 from string import ascii_uppercase
 import textwrap
 
-from future import utils as fututils  # @UnresolvedImport
-from future.backports import ChainMap  # @UnresolvedImport
-from future.builtins import str  # @UnresolvedImport
-from future.moves.urllib.parse import urldefrag  # @UnresolvedImport
+from future import utils as fututils
+from future.backports import ChainMap
+from future.builtins import str
+from future.moves.urllib.parse import urldefrag
 from future.utils import iteritems, with_metaclass
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
@@ -162,7 +162,7 @@ def Edge_uncooked(row, col, mov, mod=None):
                 mov=mov and mov.upper(), mod=mod)
 
 Lasso = namedtuple('Lasso',
-                   ('xl_ref', 'url_file', 'sheet',
+                   ('xl_ref', 'url_file', 'sh_name',
                     'st_edge', 'nd_edge', 'exp_moves', 'js_filt', 'call_spec',
                     'st', 'nd', 'values',
                     OPTS))
@@ -170,18 +170,18 @@ Lasso = namedtuple('Lasso',
 All the intermediate fields of the algorithm, populated stage-by-stage.
 
 :param ChainMap opts:
-        Stacked dictionaries with options from previoues invocations, 
+        Stacked dictionaries with options from previous invocations, 
         extracted from :term:`filters`. 
 """
 
 
-def _Lasso_from_parsing(xl_ref, url_file, sheet,
+def _Lasso_from_parsing(xl_ref, url_file, sh_name,
                         st_edge, nd_edge, exp_moves, js_filt, opts,
                         ):
     lasso_opts = ChainMap()
     if opts:
         lasso_opts.maps.append(opts)
-    return Lasso(xl_ref, url_file, sheet,
+    return Lasso(xl_ref, url_file, sh_name,
                  st_edge, nd_edge, exp_moves, js_filt, None,
                  None, None, None,
                  lasso_opts)
@@ -197,7 +197,7 @@ _primitive_dir_vectors = {
 
 _re_xl_ref_parser = re.compile(
     r"""
-    ^\s*(?:(?P<sheet>[^!]+)?!)?                          # xl sheet name
+    ^\s*(?:(?P<sh_name>[^!]+)?!)?                          # xl sheet name
     (?:                                                  # 1st-edge
         (?:
             (?:
@@ -255,7 +255,7 @@ This regex produces the following capture-groups:
 """
 
 _re_xl_ref_colon_parser = re.compile("""
-        \s*(?:(?P<sheet>[^!]+)?!)?
+        \s*(?:(?P<sh_name>[^!]+)?!)?
         :\s*(?P<js_filt>[[{"].*)?$
         """ , re.IGNORECASE | re.X | re.DOTALL)
 
@@ -270,7 +270,7 @@ _re_exp_moves_parser = re.compile(
     re.IGNORECASE | re.X)
 
 
-_excel_str_translator = str.maketrans('“”', '""')
+_excel_str_translator = str.maketrans('“”', '""')  # @UndefinedVariable
 """Excel use these !@#% chars for double-quotes, which are not valid JSON-strings!!"""
 
 
@@ -393,7 +393,7 @@ def _parse_xlref_fragment(xlref_fragment):
          ('js_filt', {'func': 'foo'}),
          ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None)),
          ('opts', '...'),
-         ('sheet', 'Sheet1'),
+         ('sh_name', 'Sheet1'),
          ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'))]
         >>> _parse_xlref_fragment('A1(DR)Z20(UL)')
         Traceback (most recent call last):
@@ -471,7 +471,7 @@ def parse_xlref(xlref, default_opts=None):
         >>> res
         Lasso(xl_ref='#Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}', 
             url_file=None, 
-            sheet='Sheet1', 
+            sh_name='Sheet1', 
             st_edge=Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'), 
             nd_edge=Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None), 
             exp_moves=[repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)], 
@@ -1811,11 +1811,11 @@ class Ranger(object):
 
         try:
             sheet = self.sheets_factory.fetch_sheet(
-                lasso.url_file, lasso.sheet,
+                lasso.url_file, lasso.sh_name,
                 lasso.opts)
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
-            raise ValueError(msg % (lasso.url_file, lasso.sheet, ex))
+            raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
 
         st, nd = resolve_capture_rect(sheet.get_states_matrix(),
                                       sheet.get_margin_coords(),
