@@ -254,6 +254,11 @@ This regex produces the following capture-groups:
 - exp_moves: i.e. ``LDL1``
 """
 
+_re_xl_ref_colon_parser = re.compile("""
+        \s*(?:(?P<sheet>[^!]+)?!)?
+        :\s*(?P<js_filt>[[{"].*)?$
+        """ , re.IGNORECASE | re.X | re.DOTALL)
+
 _re_exp_moves_splitter = re.compile('([LURD]\d+)', re.IGNORECASE)
 
 # TODO: Make exp_moves `?` work different from numbers.
@@ -336,6 +341,18 @@ def _parse_expansion_moves(exp_moves):
         raise ValueError(msg.format(exp_moves, ex))
 
 
+def _parse_shortcut_xlref_fragment(xlref_fragment):
+    """Parses the ``#:`` --> ``^^:__`` shortcut."""
+    m = _re_xl_ref_colon_parser.match(xlref_fragment)
+    if m:
+        gs = m.groupdict()
+        gs['st_edge'] = Edge(Cell('^', '^'), None)
+        gs['nd_edge'] = Edge(Cell('_', '_'), None)
+        gs['exp_moves'] = None
+
+        return gs
+
+
 def _parse_xlref_fragment(xlref_fragment):
     """
     Parses a :term:`xl-ref` and splits it in its "ingredients".
@@ -379,33 +396,35 @@ def _parse_xlref_fragment(xlref_fragment):
         ValueError: Not an `xl-ref` syntax.
     """
 
-    m = _re_xl_ref_parser.match(xlref_fragment)
-    if not m:
-        raise ValueError('Not an `xl-ref` syntax.')
-    gs = m.groupdict()
+    gs = _parse_shortcut_xlref_fragment(xlref_fragment)
+    if not gs:
+        m = _re_xl_ref_parser.match(xlref_fragment)
+        if not m:
+            raise ValueError('Not an `xl-ref` syntax.')
+        gs = m.groupdict()
 
-    # Replace coords of 1st and 2nd cells
-    #     with "uncooked" edge.
-    #
-    p = gs.pop
-    r, c = p('st_row'), p('st_col')
-    r2, c2 = p('st_row2'), p('st_col2')
-    if r2 is not None:
-        r, c = r2, c2
-    gs['st_edge'] = _uncooked_Edge(r, c,
-                                   p('st_mov'), p('st_mod'))
-    r, c = p('nd_row'), p('nd_col')
-    r2, c2 = p('nd_row2'), p('nd_col2')
-    if r2 is not None:
-        r, c = r2, c2
-    gs['nd_edge'] = _uncooked_Edge(r, c,
-                                   p('nd_mov'), p('nd_mod'))
+        # Replace coords of 1st and 2nd cells
+        #     with "uncooked" edge.
+        #
+        p = gs.pop
+        r, c = p('st_row'), p('st_col')
+        r2, c2 = p('st_row2'), p('st_col2')
+        if r2 is not None:
+            r, c = r2, c2
+        gs['st_edge'] = _uncooked_Edge(r, c,
+                                       p('st_mov'), p('st_mod'))
+        r, c = p('nd_row'), p('nd_col')
+        r2, c2 = p('nd_row2'), p('nd_col2')
+        if r2 is not None:
+            r, c = r2, c2
+        gs['nd_edge'] = _uncooked_Edge(r, c,
+                                       p('nd_mov'), p('nd_mod'))
 
-    exp_moves = gs['exp_moves']
-    gs['exp_moves'] = _parse_expansion_moves(
-        exp_moves) if exp_moves else None
+        exp_moves = gs['exp_moves']
+        gs['exp_moves'] = exp_moves and _parse_expansion_moves(exp_moves)
 
     js = gs['js_filt']
+
     opts = None
     if js:
         try:

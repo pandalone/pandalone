@@ -1295,6 +1295,28 @@ class TLasso(unittest.TestCase):
             [9,    True,   43,    'str', dt],    # 4
         ])
 
+    def test_read_Colon(self):
+        sf = xr.SheetFactory()
+        sf.add_sheet(ArraySheet(self.m1()))
+        res = xr.lasso('#:', sf)
+        npt.assert_array_equal(res, self.m1().tolist())
+
+    def test_read_ColonWithJson(self):
+        sf = xr.SheetFactory()
+        sf.add_sheet(ArraySheet(self.m1()))
+        res = xr.lasso('''#:
+            [
+                "pipe", [
+                    ["redim", {"col": [2, 1]}], 
+                    "numpy"
+                ], {"opts":
+                    {"verbose": true}
+                }
+            ]''',
+                       sf)
+        self.assertIsInstance(res, np.ndarray)
+        npt.assert_array_equal(res, self.m1())
+
     def test_read_A1(self):
         sf = xr.SheetFactory()
         sf.add_sheet(ArraySheet(self.m1()))

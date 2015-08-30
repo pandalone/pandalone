@@ -16,12 +16,12 @@ Introduction
 This modules defines a url-fragment notation for `capturing` rectangular areas
 from excel-sheets when their exact position is not known beforehand.
 The notation extends the ordinary excel `coordinates`, and provides for
-`traversing` conditionally the cells based on their `state`, with expressions
-like that::
+`traversing` conditionally the cells based on their `state`.
+Here is an example `xl-ref` url::
 
     from pandalone import xlref
-    
-    df = xlref.lasso('A1(DR):..(DR):LU:["df"]')
+
+    df = xlref.lasso('a_workbook.xlsx#Sheet1!A1(DR):..(DR):LU:["df"]')
 
 The goal is to make the extraction of data-tables from excel-workbooks
 as practical as reading CSVs, while keeping it as "cheap" as possible.
@@ -38,8 +38,8 @@ Excel-ref Syntax
 ----------------
 ::
 
-    <1st-edge>[:[<2nd-edge>][:<expansions>]][<filters>]
-    :
+    <1st-edge>[:[<2nd-edge>][:<expansions>]][:<filters>]
+    :[<filters>]                                           # shortcut for ^^:__
 
 
 Annotated Syntax
