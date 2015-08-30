@@ -19,12 +19,13 @@ TODOs
     - XLasso
         - Core:
             - filters:
-                - Recursive filter
+                + Recursive filter
                 - Slices and Index args on 'numpy' and 'df' filters.
             - Syntax:
                 - Coord: RC, ^-1,_-6
                 - Edge +/?(instead of -)
                 - Expand 5+/5?
+                - Use *ast* library for filters
             - Xlrd-read with slices.
             + Keep only single Lasso-stage in Ranger.
         - Struct:
@@ -36,7 +37,7 @@ TODOs
         - Backends:
             - Clipboard
             - xlwings
-            - openpyxll
+            - openpyxl
         - Check TODOs in code
         - README
         - Split own project

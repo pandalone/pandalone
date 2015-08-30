@@ -164,27 +164,57 @@ def Edge_uncooked(row, col, mov, mod=None):
 Lasso = namedtuple('Lasso',
                    ('xl_ref', 'url_file', 'sh_name',
                     'st_edge', 'nd_edge', 'exp_moves', 'js_filt', 'call_spec',
-                    'st', 'nd', 'values',
+                    'sheet', 'st', 'nd', 'values',
                     OPTS))
 """
 All the intermediate fields of the algorithm, populated stage-by-stage.
 
+:param str xl_ref:
+        The full url, populated on parsing.
+:param str sh_name:
+        Parsed sheet name (or index, but still as string), populated on parsing.
+:param Edge st_edge:
+        The 1st edge, populated on parsing.
+:param Edge nd_edge:
+        The 2nd edge, populated on parsing.
+:param Coords st:
+        The top-left targeted coords of the :term:`capture-rect, 
+        populated on :term:`capturing`.`
+:param Coords nd:
+        The bottom-right targeted coords of the :term:`capture-rect`, 
+        populated on :term:`capturing`
+:param ABCSheet sheet:
+        The fetched from factory or ranger's current sheet, populated 
+        after :term:`capturing` before reading.
+:param values:
+        The excel's table-values captured by the :term:`lasso`, 
+        populated after reading updated during :term:`filtering`. 
 :param ChainMap opts:
         Stacked dictionaries with options from previous invocations, 
-        extracted from :term:`filters`. 
+        extracted from :term:`filters`, initialized at the beginning, used and 
+        updated during all stages.
 """
 
 
 def _Lasso_from_parsing(xl_ref, url_file, sh_name,
                         st_edge, nd_edge, exp_moves, js_filt, opts,
-                        ):
+                        init_lasso):
+    """
+    Factory for :class:`Lasso` used by parsers, also ensuring proper opts.
+
+    :param Lasso init_lasso: Default values.
+"""
     lasso_opts = ChainMap()
     if opts:
         lasso_opts.maps.append(opts)
-    return Lasso(xl_ref, url_file, sh_name,
-                 st_edge, nd_edge, exp_moves, js_filt, None,
-                 None, None, None,
-                 lasso_opts)
+    lasso = Lasso(xl_ref, url_file, sh_name,
+                  st_edge, nd_edge, exp_moves, js_filt, None,
+                  None, None, None, None,
+                  lasso_opts)
+    if init_lasso:
+        lasso = init_lasso._replace(**dtz.valfilter(lambda v: v is not None,
+                                                    lasso._asdict()))
+    return lasso
 
 _special_coord_symbols = {'^', '_', '.'}
 
@@ -444,7 +474,7 @@ def _parse_xlref_fragment(xlref_fragment):
     return gs
 
 
-def parse_xlref(xlref, default_opts=None):
+def parse_xlref(xlref, default_opts=None, init_lasso=None):
     """
     Parse a :term:`xl-ref` into a :class:`Lasso`.
 
@@ -477,6 +507,7 @@ def parse_xlref(xlref, default_opts=None):
             exp_moves=[repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)], 
             js_filt={'func': 'foo'}, 
             call_spec=None, 
+            sheet=None, 
             st=None, 
             nd=None, 
             values=None, 
@@ -490,7 +521,7 @@ def parse_xlref(xlref, default_opts=None):
         res = _parse_xlref_fragment(frag)
         res['url_file'] = url_file or None
 
-        lasso = _Lasso_from_parsing(xlref, **res)
+        lasso = _Lasso_from_parsing(xl_ref=xlref, init_lasso=init_lasso, **res)
 
         if default_opts:
             lasso.opts.maps.insert(0, default_opts)
@@ -1816,6 +1847,7 @@ class Ranger(object):
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
             raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
+        lasso = self._relasso(lasso, 'open', sheet=sheet)
 
         st, nd = resolve_capture_rect(sheet.get_states_matrix(),
                                       sheet.get_margin_coords(),

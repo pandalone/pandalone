@@ -6,25 +6,27 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-A mini-language for capturing non-empty rectangular areas from Excel-sheets.
+A mini-language for for "throwing the rope" around rectangular areas of Excel-sheets.
 
 .. default-role:: term
 
 Introduction
 ============
 
-This modules defines a url-fragment notation for "throwing the rope" around 
-rectangular areas of excel-sheets, when their exact position is not known 
-beforehand.
+Overview
+--------
+This modules defines a url-fragment notation for `capturing` rectangular areas 
+of excel-sheets, when their exact position is not known beforehand.
 The notation extends the ordinary *A1* and *RC* excel `coordinates` with 
- conditional `traversing` operations, based on the cell's empty/full `state`.
+conditional `traversing` operations, based on the cell's empty/full `state`.
 
-For example, the following `xl-ref` url extracts a DataFrame from 
+For instance, the following `xl-ref` url extracts a DataFrame from 
 a contigious table at the top-left of a the 1st sheet of a workbook::
 
     from pandalone import xlasso
 
-    df = xlasso.lasso('a_workbook.xlsx#A1(DR):..(DR):LU:["df"]')
+    df = xlasso.lasso('path/to/workbook.xlsx#A1(DR):..(DR):LU:["df"]')
+
 
 The goal is to make the `capturing` of data-tables from excel-workbooks
 as practical as reading CSVs, while keeping it as "cheap" as possible.
@@ -41,8 +43,8 @@ checked for compatibility with `xlwings <http://xlwings.org/quickstart/>`_
 developed for python-3 but tested also on python-2 for compatibility.
 
 
-Excel-ref Syntax
-----------------
+Xl-Ref Syntax
+-------------
 ::
 
     [<url>]#[<sheet>!]<1st-edge>[:[<2nd-edge>][:<expansions>]][:<filters>]
@@ -77,6 +79,50 @@ Which means:
        in dictionary, and search its values for `xl-ref` and replace them.
 
 
+Basic Usage
+-----------
+To capture a `xl-ref` use the :func:`lasso()`. The simplest example is 
+to capture all excel-sheet data but without bordering nulls::
+
+    values = xlasso.lasso('path/to/workbook.xlsx#:')
+
+Assuming that the 1st sheet of the workbook is as shown below, 
+the `capture-rect` would be a 2D (nested) list-of-lists with the values
+contained in the range ``C2:E4``::
+
+      A B C D E
+    1    ┌─────┐
+    2    │    X│ 
+    3    │X    │ 
+    4    │  X  │ 
+    5    └─────┘ 
+
+where:
+- 'X': the full-cells
+- rectangle: the captured-rect
+
+
+If you do not wish to let the library read your workbooks, you can 
+pre-populate a :class:`Ranger' instance with the desired sheets, such as
+the sample :class:`ArraySheet`::
+
+    >>> ranger = xlref.make_default_Ranger()
+    >>> ranger.add_sheet(ArraySheet([None, None,  'A',   None],
+    ...                             [None, 2.2,   'foo', None],
+    ...                             [None, None,   2,    None],
+    ...                             [None, None,   None, 3.14],
+    ...]))
+    >>> xlasso.lasso('#A1(DR):..(DR):RULD`)
+    [[None, 'A'],
+     [2.2, 'foo'], 
+     [None,   2]]
+    
+
+For even more control of the procedure, you can create and use a separate 
+:class:`SheetFactory` instance, which is the backing-store and factory for
+all sheets used by the ``Ranger``.
+
+
 API
 ---
 .. default-role:: obj
@@ -87,12 +133,21 @@ API
   .. autosummary::
 
       lasso
+      Ranger
+      Ranger.lasso
+      SheetFactory
+      make_default_Ranger
+      get_default_opts
+      get_default_filters
       Lasso
       Cell
       Edge
       coords2Cell
+
+- Major internal functions:
       parse_xlref
       resolve_capture_rect
+      ABCSheet.read_rect
 
 - **xlrd** back-end functionality:
 
@@ -103,14 +158,11 @@ API
 .. default-role:: term
 
 
-Examples
---------
-.. ToDo::
-    Provide example python-code for reading a `xl-ref`.
-    Till then, read the sources: :file:`tests/test_xlsreader.py`.
+More Syntax Examples
+--------------------
 
-A typical case is when a sheet contains a single table with a "header"-row and
-a "index"-column.
+Another typical case is when a sheet contains a single table 
+with a "header"-row and a "index"-column.
 There are (at least) 3 ways to do it, beyond specifying
 the exact `coordinates`::
 
@@ -378,7 +430,16 @@ Definitions
           where the last 2 parts are optional and can be given in any order;
         - object: ``{"func": "func_name", "args": ["arg1"], "kws": {"k":"v"}}`` 
           where the ``args`` and ``kws`` are optional.
+          
+        If the outer-most filter is a dictionary, a ``'pop'`` kwd is popped-out
+        as the `opts`.
 
+    opts
+        A stack of dictionaries appended on each filter-invocation affecting 
+        the `lassoing` (i.e. setting ``verbose = True``).
+        It is extracted from the *kwds* of the `call-spec` apart from the 1st
+        which is popped-out if the `filter` expression is a dictionary.  
+        
 Details
 =======
 
@@ -570,8 +631,9 @@ TODOs
 """
 
 from ._xlref import (
-    Cell, coords2Cell, Edge, Lasso, SheetFactory,
-    parse_xlref, resolve_capture_rect, Ranger, lasso,
+    lasso, Ranger, SheetFactory, ArraySheet,
+    Cell, coords2Cell, Edge, Lasso,
+    parse_xlref, resolve_capture_rect,
     make_default_Ranger, get_default_opts, get_default_filters,
     xlwings_dims_call_spec,
 )
