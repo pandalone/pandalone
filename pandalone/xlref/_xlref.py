@@ -270,6 +270,10 @@ _re_exp_moves_parser = re.compile(
     re.IGNORECASE | re.X)
 
 
+_excel_str_translator = str.maketrans('“”', '""')
+"""Excel use these chars for double-quotes, which are not valid JSON-strings."""
+
+
 def _repeat_moves(moves, times=None):
     """
     Returns an iterator that repeats `moves` x `times`, or infinite if unspecified.
@@ -427,8 +431,9 @@ def _parse_xlref_fragment(xlref_fragment):
 
     opts = None
     if js:
+        js = js.translate(_excel_str_translator)
         try:
-            js = gs['js_filt'] = json.loads(js) if js else None
+            js = gs['js_filt'] = json.loads(js)
         except ValueError as ex:
             raise ValueError('%s\n  JSON: \n%s' % (ex, js))
         else:
@@ -1747,7 +1752,11 @@ class Ranger(object):
         def dive(vals, cdepth):
             try:
                 if isinstance(vals, basestring):
-                    vals = self.lasso(vals)
+                    try:
+                        vals = self.lasso(vals)
+                    except Exception as ex:
+                        msg = "Recursive parsing %s stopped due to: %s \n  @Lasso: %s"
+                        log.info(msg, vals, ex, lasso)
                 else:
                     vals = [expand(v, cdepth + 1) for v in vals]
             except:
