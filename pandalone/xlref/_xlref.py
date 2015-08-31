@@ -161,61 +161,6 @@ def Edge_uncooked(row, col, mov, mod=None):
     return Edge(land=Cell(col=col and col.upper(), row=row),
                 mov=mov and mov.upper(), mod=mod)
 
-Lasso = namedtuple('Lasso',
-                   ('xl_ref', 'url_file', 'sh_name',
-                    'st_edge', 'nd_edge', 'exp_moves', 'js_filt', 'call_spec',
-                    'sheet', 'st', 'nd', 'values',
-                    OPTS))
-"""
-All the intermediate fields of the algorithm, populated stage-by-stage.
-
-:param str xl_ref:
-        The full url, populated on parsing.
-:param str sh_name:
-        Parsed sheet name (or index, but still as string), populated on parsing.
-:param Edge st_edge:
-        The 1st edge, populated on parsing.
-:param Edge nd_edge:
-        The 2nd edge, populated on parsing.
-:param Coords st:
-        The top-left targeted coords of the :term:`capture-rect, 
-        populated on :term:`capturing`.`
-:param Coords nd:
-        The bottom-right targeted coords of the :term:`capture-rect`, 
-        populated on :term:`capturing`
-:param ABCSheet sheet:
-        The fetched from factory or ranger's current sheet, populated 
-        after :term:`capturing` before reading.
-:param values:
-        The excel's table-values captured by the :term:`lasso`, 
-        populated after reading updated during :term:`filtering`. 
-:param ChainMap opts:
-        Stacked dictionaries with options from previous invocations, 
-        extracted from :term:`filters`, initialized at the beginning, used and 
-        updated during all stages.
-"""
-
-
-def _Lasso_from_parsing(xl_ref, url_file, sh_name,
-                        st_edge, nd_edge, exp_moves, js_filt, opts,
-                        init_lasso):
-    """
-    Factory for :class:`Lasso` used by parsers, also ensuring proper opts.
-
-    :param Lasso init_lasso: Default values.
-"""
-    lasso_opts = ChainMap()
-    if opts:
-        lasso_opts.maps.append(opts)
-    lasso = Lasso(xl_ref, url_file, sh_name,
-                  st_edge, nd_edge, exp_moves, js_filt, None,
-                  None, None, None, None,
-                  lasso_opts)
-    if init_lasso:
-        lasso = init_lasso._replace(**dtz.valfilter(lambda v: v is not None,
-                                                    lasso._asdict()))
-    return lasso
-
 _special_coord_symbols = {'^', '_', '.'}
 
 _primitive_dir_vectors = {
@@ -387,9 +332,38 @@ def _parse_shortcut_xlref_fragment(xlref_fragment):
         return gs
 
 
+def _parse_regular_xlref_fragment(xlref_fragment):
+    """Parses the regular fragment."""
+    m = _re_xl_ref_parser.match(xlref_fragment)
+    if m:
+        gs = m.groupdict()
+
+        # Replace coords of 1st and 2nd cells
+        #     with "uncooked" edge.
+        #
+        p = gs.pop
+        r, c = p('st_row'), p('st_col')
+        r2, c2 = p('st_row2'), p('st_col2')
+        if r2 is not None:
+            r, c = r2, c2
+        gs['st_edge'] = Edge_uncooked(r, c,
+                                      p('st_mov'), p('st_mod'))
+        r, c = p('nd_row'), p('nd_col')
+        r2, c2 = p('nd_row2'), p('nd_col2')
+        if r2 is not None:
+            r, c = r2, c2
+        gs['nd_edge'] = Edge_uncooked(r, c,
+                                      p('nd_mov'), p('nd_mod'))
+
+        exp_moves = gs['exp_moves']
+        gs['exp_moves'] = exp_moves and _parse_expansion_moves(exp_moves)
+
+        return gs
+
+
 def _parse_xlref_fragment(xlref_fragment):
     """
-    Parses a :term:`xl-ref` and splits it in its "ingredients".
+    Parses a :term:`xl-ref` fragment(without '#').
 
     :param str xlref_fragment:
             a string with the following format::
@@ -417,66 +391,64 @@ def _parse_xlref_fragment(xlref_fragment):
 
     Examples::
 
-        >>> res = _parse_xlref_fragment('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}')
+        >>> res = _parse_xlref_fragment('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:' 
+        ...                             '{"opts":{}, "func": "foo"}')
         >>> sorted(res.items())
         [('exp_moves', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
          ('js_filt', {'func': 'foo'}),
          ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None)),
-         ('opts', '...'),
+         ('opts', {}),
          ('sh_name', 'Sheet1'),
          ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'))]
+
+
+    Shortcut for all sheet from top-left to bottom-right full-cells::
+
+        >>> res=_parse_xlref_fragment(':')
+        >>> sorted(res.items())
+        [('exp_moves', None),
+         ('js_filt', None),
+         ('nd_edge', Edge(land=Cell(row='_', col='_'), mov=None, mod=None)),
+         ('opts', None),
+         ('sh_name', None),
+         ('st_edge', Edge(land=Cell(row='^', col='^'), mov=None, mod=None))]
+
+
+    Errors::
+
         >>> _parse_xlref_fragment('A1(DR)Z20(UL)')
         Traceback (most recent call last):
         ValueError: Not an `xl-ref` syntax.
+
     """
 
     gs = _parse_shortcut_xlref_fragment(xlref_fragment)
     if not gs:
-        m = _re_xl_ref_parser.match(xlref_fragment)
-        if not m:
+        gs = _parse_regular_xlref_fragment(xlref_fragment)
+        if not gs:
             raise ValueError('Not an `xl-ref` syntax.')
-        gs = m.groupdict()
-
-        # Replace coords of 1st and 2nd cells
-        #     with "uncooked" edge.
-        #
-        p = gs.pop
-        r, c = p('st_row'), p('st_col')
-        r2, c2 = p('st_row2'), p('st_col2')
-        if r2 is not None:
-            r, c = r2, c2
-        gs['st_edge'] = Edge_uncooked(r, c,
-                                      p('st_mov'), p('st_mod'))
-        r, c = p('nd_row'), p('nd_col')
-        r2, c2 = p('nd_row2'), p('nd_col2')
-        if r2 is not None:
-            r, c = r2, c2
-        gs['nd_edge'] = Edge_uncooked(r, c,
-                                      p('nd_mov'), p('nd_mod'))
-
-        exp_moves = gs['exp_moves']
-        gs['exp_moves'] = exp_moves and _parse_expansion_moves(exp_moves)
 
     js = gs['js_filt']
-
-    opts = None
     if js:
         js = js.translate(_excel_str_translator)
         try:
             js = gs['js_filt'] = json.loads(js)
         except ValueError as ex:
-            raise ValueError('%s\n  JSON: \n%s' % (ex, js))
-        else:
-            if isinstance(js, dict):
-                opts = js.pop('opts', None)
+            msg = 'Filters are not valid JSON: %s\n  JSON: \n%s'
+            raise ValueError(msg % (ex, js))
+
+    opts = js.pop('opts', None) if isinstance(js, dict) else None
+    if opts and not isinstance(opts, dict):
+        msg = 'Filter-opts({}) must be a json-object(dictionary)!'
+        raise ValueError(msg.format(opts))
     gs['opts'] = opts
 
     return gs
 
 
-def parse_xlref(xlref, default_opts=None, init_lasso=None):
+def parse_xlref(xlref):
     """
-    Parse a :term:`xl-ref` into a :class:`Lasso`.
+    Parse a :term:`xl-ref` into a dict.
 
     :param str xlref:
         a string with the following format::
@@ -487,56 +459,55 @@ def parse_xlref(xlref, default_opts=None, init_lasso=None):
 
             file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
 
-    :param dict or None opts: 
-            Default opts to affect the :term:`lassoing`, inserted below any
-            opts specified in the :term:`filter` part. 
-    :return: a Lasso with any unused fields as `None`
-    :rtype: Lasso
+    :return: A dict with all fields, with None with those missing.
+    :rtype: dict
 
 
     Examples::
 
-        >>> url = '#Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}'
-        >>> res = parse_xlref(url)
-        >>> res
-        Lasso(xl_ref='#Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":"...", "func": "foo"}', 
-            url_file=None, 
-            sh_name='Sheet1', 
-            st_edge=Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'), 
-            nd_edge=Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None), 
-            exp_moves=[repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)], 
-            js_filt={'func': 'foo'}, 
-            call_spec=None, 
-            sheet=None, 
-            st=None, 
-            nd=None, 
-            values=None, 
-            opts=ChainMap({}, '...'))
+        >>> res = parse_xlref('workbook.xlsx#Sheet1!A1(DR+):Z20(UL):L1U2R1D1:' 
+        ...                             '{"opts":{}, "func": "foo"}')
+        >>> sorted(res.items())
+         [('exp_moves', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
+         ('js_filt', {'func': 'foo'}),
+         ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None)),
+         ('opts', {}),
+         ('sh_name', 'Sheet1'),
+         ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR', mod='+')), ('url_file', 'workbook.xlsx'), ('xl_ref', 'workbook.xlsx#Sheet1!A1(DR+):Z20(UL):L1U2R1D1:{"opts":{}, "func": "foo"}')]
+
+    Shortcut for all sheet from top-left to bottom-right full-cells::
+
+        >>> res=parse_xlref('#:')
+        >>> sorted(res.items())
+        [('exp_moves', None),
+         ('js_filt', None),
+         ('nd_edge', Edge(land=Cell(row='_', col='_'), mov=None, mod=None)),
+         ('opts', None),
+         ('sh_name', None),
+         ('st_edge', Edge(land=Cell(row='^', col='^'), mov=None, mod=None)),
+         ('url_file', None), 
+         ('xl_ref', '#:')]
+
+
+    Errors::
+
+        >>> parse_xlref('A1(DR)Z20(UL)')
+        Traceback (most recent call last):
+        ValueError: No fragment-part (starting with '#')!
+
+        >>> parse_xlref('#A1(DR)Z20(UL)')
+        Traceback (most recent call last):
+        ValueError: Not an `xl-ref` syntax.
     """
 
-    try:
-        url_file, frag = urldefrag(xlref)
-        if not frag:
-            raise ValueError("No fragment-part (starting with '#')!")
-        res = _parse_xlref_fragment(frag)
-        res['url_file'] = url_file or None
+    url_file, frag = urldefrag(xlref)
+    if not frag:
+        raise ValueError("No fragment-part (starting with '#')!")
+    res = _parse_xlref_fragment(frag)
+    res['url_file'] = url_file or None
+    res['xl_ref'] = xlref
 
-        lasso = _Lasso_from_parsing(xl_ref=xlref, init_lasso=init_lasso, **res)
-
-        if default_opts:
-            lasso.opts.maps.insert(0, default_opts)
-    except Exception as ex:
-        msg = "Parsing xl-ref(%s) failed due to: %s"
-        log.debug(msg, xlref, ex, exc_info=1)
-        # raise fututils.raise_from(ValueError(msg % (xlref, ex)), ex) see GH
-        # 141
-        raise ValueError(msg % (xlref, ex))
-    except ValueError as ex:
-        msg = "Invalid xl-ref(%s): %s"
-        log.debug(msg, xlref, ex, exc_info=1)
-        raise ValueError(msg % (xlref, ex))
-
-    return lasso
+    return res
 
 
 def _margin_coords_from_states_matrix(states_matrix):
@@ -1501,7 +1472,7 @@ def _parse_call_spec(call_spec_values):
 
 class SheetFactory(object):
     """"
-    Serves :class:`ABCSheet` instances based on (workbook, sheet) IDs, optionally creating them from backends.
+    A caching-store of :class:`ABCSheet` instances, serving them based on (workbook, sheet) IDs, optionally creating them from backends.
 
     :ivar dict _cached_sheets: 
             A cache of all _Spreadsheets accessed so far, 
@@ -1665,24 +1636,74 @@ def _build_call_help(name, func, desc):
     desc = textwrap.indent(textwrap.dedent(desc), '    ')
     return '\n\nFilter: %s%s:\n%s' % (name, sig, desc)
 
+Lasso = namedtuple('Lasso',
+                   ('xl_ref', 'url_file', 'sh_name',
+                    'st_edge', 'nd_edge', 'exp_moves', 'js_filt', 'call_spec',
+                    'sheet', 'st', 'nd', 'values',
+                    OPTS))
+"""
+All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger`.
+
+:param str xl_ref:
+        The full url, populated on parsing.
+:param str sh_name:
+        Parsed sheet name (or index, but still as string), populated on parsing.
+:param Edge st_edge:
+        The 1st edge, populated on parsing.
+:param Edge nd_edge:
+        The 2nd edge, populated on parsing.
+:param Coords st:
+        The top-left targeted coords of the :term:`capture-rect`, 
+        populated on :term:`capturing`.`
+:param Coords nd:
+        The bottom-right targeted coords of the :term:`capture-rect`, 
+        populated on :term:`capturing`
+:param ABCSheet sheet:
+        The fetched from factory or ranger's current sheet, populated 
+        after :term:`capturing` before reading.
+:param values:
+        The excel's table-values captured by the :term:`lasso`, 
+        populated after reading updated while applying :term:`filters`. 
+:param ChainMap opts:
+        Stacked dictionaries with options from previous invocations, 
+        extracted from :term:`filters`, initialized at the beginning, used and 
+        updated during all stages.
+"""
+
+
+Lasso.__new__.__defaults__ = (None,) * len(Lasso._fields)
+"""Make :class:`Lasso` construct with all missing fields as `None`."""
+
+
+def Lasso_new(opts=None, **kwds):
+    """Makes a new :class:`Lasso` ensuring ``lasso.opts`` is `ChainMap` with the `opts` specified."""
+    lasso_opts = ChainMap()
+    if opts:
+        lasso_opts.maps.append(opts)
+    return Lasso(opts=lasso_opts, **kwds)
+
 
 class Ranger(object):
     """
     The director-class that performs all stages required for "throwing the lasso" around rect-values.
 
     Use it when you need to have total control of the procedure and 
-    configuration parameters (no defaults assumed).
+    configuration parameters, since no defaults are assumed.
+
     The :meth:`lasso()` does the job.
 
     :ivar sheets_factory:
             Factory of sheets from where to parse rect-values; does not 
             close it in the end.
-    :ivar dict or None opts: 
-            Default opts to affect the lassoing; read the code to be sure 
-            what are the available choices. No opts applied if unspecified.
+    :ivar dict or None base_opts: 
+            Opts affecting the lassoing procedure that are deep-copied and used
+            as the base-opts for every :meth:`lasso()`, whether invoked 
+            directly or recursively by :meth:`recursive_filter()`. 
+            Read the code to be sure what are the available choices. 
+            If unspecified, no opts are used.
             See :func:`get_default_opts()`.
     :ivar dict or None available_filters: 
-            No filters exists if unspecified. 
+            No filters exist if unspecified. 
             See :func:`get_default_filters()`.
     :ivar Lasso intermediate_lasso:
             A ``('stage', Lasso)`` pair with the last :class:`Lasso` instance 
@@ -1691,9 +1712,9 @@ class Ranger(object):
     """
 
     def __init__(self, sheets_factory,
-                 default_opts=None, available_filters=None):
+                 base_opts=None, available_filters=None):
         self.sheets_factory = sheets_factory
-        self.default_opts = default_opts
+        self.base_opts = base_opts
         self.available_filters = available_filters
         self.intermediate_lasso = None
 
@@ -1742,9 +1763,9 @@ class Ranger(object):
         """
 
         for call_spec_values in pipe:
-            call_spec, opts = _parse_call_spec(call_spec_values)
-            if opts:
-                lasso.maps.append(opts)
+            call_spec, call_opts = _parse_call_spec(call_spec_values)
+            if call_opts:
+                lasso.opts.maps.insert(0, call_opts)
             lasso = self._make_call(lasso, *call_spec)
 
         return lasso
@@ -1787,7 +1808,7 @@ class Ranger(object):
             try:
                 if isinstance(vals, basestring):
                     try:
-                        vals = self.lasso(vals)
+                        vals = self.lasso(vals, base_lasso=lasso)
                     except Exception as ex:
                         msg = "Recursive parsing %s stopped due to: %s \n  @Lasso: %s"
                         log.info(msg, vals, ex, lasso)
@@ -1812,7 +1833,47 @@ class Ranger(object):
 
         return lasso._replace(values=values)
 
-    def lasso(self, xlref):
+    def _parse(self, xlref, base_lasso):
+        """
+        Merges xl-ref parsed-fields with `base_lasso` and reports any errors.
+
+        :param Lasso base_lasso: 
+                Default values to be overridden by non-nulls.
+                Note that ``base_lasso.opts`` must be a `ChainMap`,
+                as returned by 
+
+        :return: a Lasso with any non `None` parsed-fields updated
+        """
+        def is_field_mergeable(field):
+            k, v = field
+            # Edges always relayed eventhough `nd_edge` mybe `None`.
+            return v is not None or k in ['st_edge', 'nd_edge']
+        try:
+            fields = parse_xlref(xlref)
+            parsed_opts = fields.pop(OPTS, None)
+            if parsed_opts:
+                base_lasso.opts.maps.insert(0, parsed_opts)
+            upd_fields = dtz.itemfilter(is_field_mergeable, fields)
+            res = base_lasso._replace(**upd_fields)
+        except Exception as ex:
+            msg = "Parsing xl-ref(%s) failed due to: %s"
+            log.debug(msg, xlref, ex, exc_info=1)
+            # raise fututils.raise_from(ValueError(msg % (xlref, ex)), ex) see GH
+            # 141
+            raise ValueError(msg % (xlref, ex))
+        except ValueError as ex:
+            msg = "Invalid xl-ref(%s): %s"
+            log.debug(msg, xlref, ex, exc_info=1)
+            raise ValueError(msg % (xlref, ex))
+
+        return res
+
+    def _make_base_Lasso(self, opts=None, **kwds):
+        """Invoked when no `base_lasso` speced in :meth:`lasso()` 
+           and sets  mine :attr:`base_opts` new-Lasso's `opts`."""
+        return Lasso_new(opts=deepcopy(self.base_opts), **kwds)
+
+    def lasso(self, xlref, base_lasso=None):
         """
         The director-method that does all the job of hrowing a :term:`lasso`
         around spreadsheet's rect-regions according to :term:`xl-ref`.
@@ -1825,19 +1886,29 @@ class Ranger(object):
             i.e.::
 
                 file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
+
+        :param Lasso base_lasso: 
+                Default values to be overridden by non-nulls, 
+                also utilized by :meth:`recursive_filter()`.
+                Note that ``base_lasso.opts`` must be a `ChainMap`,
+                see :func:`Lasso_new()`
         :return: 
                 The final :class:`Lasso` with captured & filtered values.
         :rtype: Lasso
         """
         self.intermediate_lasso = None
-        lasso = parse_xlref(xlref, deepcopy(self.default_opts))
-        lasso = self._relasso(lasso, 'parse')  # Just for intermediate_lasso.
+
+        lasso = base_lasso or self._make_base_Lasso()
+        lasso = self._relasso(lasso, 'init')
+
+        lasso = self._parse(xlref, lasso)
+        lasso = self._relasso(lasso, 'parse')
 
         call_spec = None
         if lasso.js_filt:
-            call_spec, user_opts = _parse_call_spec(lasso.js_filt)
-            if user_opts:
-                lasso.opts.maps.append(user_opts)
+            call_spec, call_opts = _parse_call_spec(lasso.js_filt)
+            if call_opts:
+                lasso.opts.maps.insert(0, call_opts)
         lasso = self._relasso(lasso, 'call_spec', call_spec=call_spec)
 
         try:
@@ -1996,7 +2067,7 @@ def get_default_opts(overrides=None):
 
 
 def make_default_Ranger(sheets_factory=None,
-                        opts=None,
+                        base_opts=None,
                         available_filters=None,
                         **kwds):
     """
@@ -2007,7 +2078,7 @@ def make_default_Ranger(sheets_factory=None,
             a new :class:`SheetFactory` is created.
             Remember to invoke its :meth:`SheetFactory.close()` to clear
             resources from any opened sheets. 
-    :param dict or None opts: 
+    :param dict or None base_opts: 
             Default opts to affect the lassoing, to be merged with defaults; 
             uses :func:`get_default_opts()`.
 
@@ -2018,14 +2089,14 @@ def make_default_Ranger(sheets_factory=None,
 
     """
     return Ranger(sheets_factory or SheetFactory(),
-                  opts or get_default_opts(),
+                  base_opts or get_default_opts(),
                   available_filters or get_default_filters(),
                   **kwds)
 
 
 def lasso(xlref,
           sheets_factory=None,
-          opts=get_default_opts(),
+          base_opts=get_default_opts(),
           available_filters=get_default_filters(),
           return_lasso=False):
     """
@@ -2046,9 +2117,11 @@ def lasso(xlref,
             the new :class:`SheetFactory` created is closed afterwards.
             Delegated to :func:`make_default_Ranger()`, so items override
             default ones; use a new :class:`Ranger` if that is not desired.
-    :param dict or None opts: 
-            Default opts to affect the lassoing; read the code to be sure 
-            what are the available choices. 
+    :ivar dict or None base_opts: 
+            Opts affecting the lassoing procedure that are deep-copied and used
+            as the base-opts for every :meth:`Ranger.lasso()`, whether invoked 
+            directly or recursively by :meth:`Ranger.recursive_filter()`. 
+            Read the code to be sure what are the available choices. 
             Delegated to :func:`make_default_Ranger()`, so items override
             default ones; use a new :class:`Ranger` if that is not desired.
     :param dict or None available_filters: 
@@ -2069,7 +2142,7 @@ def lasso(xlref,
 
     try:
         ranger = make_default_Ranger(sheets_factory=sheets_factory,
-                                     opts=opts,
+                                     base_opts=base_opts,
                                      available_filters=available_filters)
         lasso = ranger.lasso(xlref)
     finally:
@@ -2196,3 +2269,30 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
 
     def __str(self):
         return '%s(%s)@%s' % (type(self), self.get_sheet_ids(), id(self))
+
+
+class ArraySheet(ABCSheet):
+    """A sample-sheet for facilitating tests."""
+
+    def __init__(self, arr, ids=('wb', ['sh', 0])):
+        self._arr = np.asarray(arr)
+        self._ids = ids
+
+    def open_sibling_sheet(self, sheet_id):
+        raise NotImplementedError()
+
+    def get_sheet_ids(self):
+        return self._ids
+
+    def _read_states_matrix(self):
+        return ~np.equal(self._arr, None)
+
+    def read_rect(self, st, nd):
+        if nd is None:
+            return self._arr[st]
+        rect = np.array([st, nd]) + [[0, 0], [1, 1]]
+        return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])].tolist()
+
+    def __str(self):
+        return '%s(%s)@%s \n%s' % (type(self), self.get_sheet_ids(),
+                                   id(self), self._arr)

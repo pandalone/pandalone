@@ -46,10 +46,6 @@ xl_installed = check_xl_installed()
 xr.CHECK_CELLTYPE = True
 
 
-def make_Lasso(**kwds):
-    return xr.Lasso._make([None] * len(xr.Lasso._fields))._replace(**kwds)
-
-
 def _write_sample_sheet(path, matrix, sheet_name, **kwds):
     df = pd.DataFrame(matrix)
     with pd.ExcelWriter(path) as w:
@@ -161,9 +157,35 @@ class Parse(unittest.TestCase):
         self.assertEquals(res['st_edge'].mov, 'L')
         self.assertEquals(res['nd_edge'].mov, 'UL')
 
+    @data(*list(itt.product(
+        ['A1:B1', 'A1:B1:LURD',
+         'A1:B1:"as"', 'A1:B1:["func"]', 'A1:B1:{"opts": {}}', 'A1:B1:{"opts": {"a": 1}}',
+         'A1:B1:LURD:"as"', 'A1:B1:LURD:["func"]', 'A1:B1:LURD:{"opts": {}}', 'A1:B1:LURD:{"opts": {"a": 1}}',
+         'A1(U):B1:LURD:"as"', 'A1(U):B1:LURD:["func"]', 'A1(U):B1:LURD:{"opts": {}}', 'A1(U):B1:LURD:{"opts": {"a": 1}}',
+         'A1:B1(D):LURD:"as"', 'A1:B1(D):LURD:["func"]', 'A1:B1(D):LURD:{"opts": {}}', 'A1:B1(D):LURD:{"opts": {"a": 1}}',
+         'A1(U):B1(D):LURD:"as"', 'A1(U):B1(D):LURD:["func"]', 'A1(U):B1(D):LURD:{"opts": {}}', 'A1(U):B1(D):LURD:{"opts": {"a": 1}}',
+         'sh!A1(U):B1(D):LURD:"as"', '0!A1(U):B1(D):LURD:["func"]', 'sh!A1(U):B1(D):LURD:{"opts": {}}', 'sh!A1(U):B1(D):LURD:{"opts": {"a": 1}}',
+         ],
+        [':', ':"as"', ':["func"]', ':{"opts": {}}', ':{"opts": {"a": 1}}',
+         'sheet!:', 'sheet!:"as"', 'sheet!:["func"]', 'sheet!:{"opts": {}}', 'sheet!:{"opts": {"a": 1}}',
+         ]
+    )))
+    def test_shortcut_vs_regular_fieldsCount(self, case):
+        regular, shortcut = case
+        res1 = xr._parse_xlref_fragment(regular)
+        res2 = xr._parse_xlref_fragment(shortcut)
+        self.assertEquals(len(res1), len(res2), (res1, res2))
+
     @data('s![[]', 's!{}[]', 's!A', 's!A1:!', 's!1:2', 's!A0:B1', )
     def test_errors_parse_xl_ref(self, case):
         self.assertRaises(ValueError, xr._parse_xlref_fragment, case)
+
+    @data(':{"opts": "..."}', ':{"opts": [2]}',
+          'A1:b1:{"opts": "..."}', 'A1:B1:{"opts": [4]}')
+    def test_parse_xl_ref_BadOpts(self, xlref):
+        err_msg = 'must be a json-object\(dictionary\)'
+        assertRaisesRegex(self, ValueError, err_msg,
+                          xr._parse_xlref_fragment, xlref)
 
     def test_uncooked_Edge_good(self):
         self.assertIsNone(xr.Edge_uncooked(None, None, None))
@@ -205,11 +227,11 @@ class Parse(unittest.TestCase):
         url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D):{"json":"..."}'
         res = xr.parse_xlref(url)
 
-        self.assertEquals(res.url_file, 'file://path/to/file.xlsx')
-        self.assertEquals(res.sh_name, 'Sheet1')
-        self.assertEquals(res.js_filt, {"json": "..."})
-        self.assertEquals(res.st_edge, xr.Edge(xr.Cell('10', 'U'), 'L'))
-        self.assertEquals(res.nd_edge, xr.Edge(xr.Cell('20', 'D'), 'D'))
+        self.assertEquals(res['url_file'], 'file://path/to/file.xlsx')
+        self.assertEquals(res['sh_name'], 'Sheet1')
+        self.assertEquals(res['js_filt'], {"json": "..."})
+        self.assertEquals(res['st_edge'], xr.Edge(xr.Cell('10', 'U'), 'L'))
+        self.assertEquals(res['nd_edge'], xr.Edge(xr.Cell('20', 'D'), 'D'))
 
     def test_parse_xl_url_Bad(self):
         self.assertRaises(ValueError, xr.parse_xlref, *('#!:{"json":"..."', ))
@@ -217,11 +239,11 @@ class Parse(unittest.TestCase):
     def test_parse_xl_url_Only_fragment(self):
         url = '#sheet_name!UP10:DOWN20:{"json":"..."}'
         res = xr.parse_xlref(url)
-        self.assertEquals(res.url_file, None)
+        self.assertEquals(res['url_file'], None)
 
     def test_parse_xl_url_No_fragment(self):
         url = 'sdadsggfds'
-        err_text = "failed due to: No fragment-part"
+        err_text = "No fragment-part"
         with assertRaisesRegex(self, ValueError, err_text):
             xr.parse_xlref(url)
 
@@ -1023,7 +1045,7 @@ class TReadRect(unittest.TestCase):
             [None, None,   43,    'str'],  # 4
             [None, -1,     None,  None],  # 5
         ])
-        self.sheet = ArraySheet(arr)
+        self.sheet = xr.ArraySheet(arr)
 
     def check_read_capture_rect(self, case):
         sheet = self.sheet
@@ -1154,7 +1176,7 @@ class TRecursive(unittest.TestCase):
     def test_dontExpand_nonDicts(self, vals):
         ranger = xr.Ranger(None)
         ranger.lasso = MagicMock(name='lasso()', side_effect=lambda x: x)
-        lasso = make_Lasso(values=vals)
+        lasso = xr.Lasso(values=vals)
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         self.assertEqual(res, vals)
 
@@ -1167,7 +1189,7 @@ class TRecursive(unittest.TestCase):
     def test_expandNestedStrings(self, vals):
         ranger = xr.Ranger(None)
         ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = make_Lasso(values=vals)
+        lasso = xr.Lasso(values=vals)
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
@@ -1181,7 +1203,7 @@ class TRecursive(unittest.TestCase):
     def test_expandDicts_nonStrKeys(self, vals):
         ranger = xr.Ranger(None)
         ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = make_Lasso(values=vals)
+        lasso = xr.Lasso(values=vals)
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
@@ -1195,7 +1217,7 @@ class TRecursive(unittest.TestCase):
     def test_expandDicts_preservingKeys(self, vals):
         ranger = xr.Ranger(None)
         ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = make_Lasso(values=vals)
+        lasso = xr.Lasso(values=vals)
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
@@ -1225,7 +1247,7 @@ class TRecursive(unittest.TestCase):
             'key11': 'bang'}]
         ranger = xr.Ranger(None)
         ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = make_Lasso(values=vals)
+        lasso = xr.Lasso(values=vals)
         res = xr.Ranger.recursive_filter(ranger, lasso, depth=depth).values
         print(res)
         if missing:
@@ -1243,7 +1265,7 @@ class TRecursive(unittest.TestCase):
     def test_expandDFs(self, vals):
         ranger = xr.Ranger(None)
         ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = make_Lasso(values=vals)
+        lasso = xr.Lasso(values=vals)
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
@@ -1270,7 +1292,7 @@ class TRecursive(unittest.TestCase):
         vals, incexc, exist, missing = case
         ranger = xr.Ranger(None)
         ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = make_Lasso(values=vals)
+        lasso = xr.Lasso(values=vals)
         res = xr.Ranger.recursive_filter(ranger, lasso, *incexc).values
         print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
@@ -1297,13 +1319,13 @@ class TLasso(unittest.TestCase):
 
     def test_read_Colon(self):
         sf = xr.SheetFactory()
-        sf.add_sheet(ArraySheet(self.m1()))
+        sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('#:', sf)
         npt.assert_array_equal(res, self.m1().tolist())
 
     def test_read_ColonWithJson(self):
         sf = xr.SheetFactory()
-        sf.add_sheet(ArraySheet(self.m1()))
+        sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('''#:
             [
                 "pipe", [
@@ -1319,7 +1341,7 @@ class TLasso(unittest.TestCase):
 
     def test_read_A1(self):
         sf = xr.SheetFactory()
-        sf.add_sheet(ArraySheet(self.m1()))
+        sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('''#A1:..(D):
             [
                 "pipe", [
@@ -1336,7 +1358,7 @@ class TLasso(unittest.TestCase):
     def test_read_RC(self):
         m1 = self.m1()
         sf = xr.SheetFactory()
-        sf.add_sheet(ArraySheet(self.m1()))
+        sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('#R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
                        sf)
         self.assertIsInstance(res, list)
@@ -1345,20 +1367,20 @@ class TLasso(unittest.TestCase):
     def test_read_RC_negative(self):
         m1 = self.m1()
         sf = xr.SheetFactory()
-        sf.add_sheet(ArraySheet(self.m1()))
+        sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
                        sf)
         npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
 
     def test_read_asLasso(self):
         sf = xr.SheetFactory()
-        sf.add_sheet(ArraySheet(self.m1()))
+        sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('''#A1:..(D)''', sf, return_lasso=True)
         self.assertIsInstance(res, xr.Lasso)
 
     def test_Ranger_intermediateLaso(self):
         sf = xr.SheetFactory()
-        sf.add_sheet(ArraySheet(self.m1()))
+        sf.add_sheet(xr.ArraySheet(self.m1()))
         ranger = xr.make_default_Ranger(sheets_factory=sf)
         ranger.lasso(
             '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]''')
@@ -1396,7 +1418,7 @@ class TLasso(unittest.TestCase):
             [None, 1.,    None, 6.1,  7.1]    # 6
         ])
         sheetsFact = xr.SheetFactory()
-        sheetsFact.add_sheet(ArraySheet(table), 'wb', 'sheet1')
+        sheetsFact.add_sheet(xr.ArraySheet(table), 'wb', 'sheet1')
 
         dims = xr.xlwings_dims_call_spec()
         self.assertEqual(xr.lasso(xlref % dims, sheetsFact), res)
@@ -1452,7 +1474,8 @@ class VsPandas(unittest.TestCase, CustomAssertions):
             xlrd_wb = xlrd.open_workbook(xl_file)
             self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
             xlref_res = self.sheet.read_rect(st, nd)
-            lasso = make_Lasso(st=st, nd=nd, values=xlref_res, opts=ChainMap())
+            lasso = xr.Lasso(
+                st=st, nd=nd, values=xlref_res, opts=ChainMap())
 
             lasso1 = xr.redim_filter(None, lasso, row=[2, True])
 
@@ -1705,30 +1728,3 @@ class TSheetFactory(unittest.TestCase):
 
         self.assertEqual(sf._open_sheet.call_count, open_calls,
                          sf._open_sheet.mock_calls)
-
-
-class ArraySheet(xr.ABCSheet):
-    """A sample-sheet for facilitating tests."""
-
-    def __init__(self, arr, ids=('wb', ['sh', 0])):
-        self._arr = np.asarray(arr)
-        self._ids = ids
-
-    def open_sibling_sheet(self, sheet_id):
-        raise NotImplementedError()
-
-    def get_sheet_ids(self):
-        return self._ids
-
-    def _read_states_matrix(self):
-        return ~np.equal(self._arr, None)
-
-    def read_rect(self, st, nd):
-        if nd is None:
-            return self._arr[st]
-        rect = np.array([st, nd]) + [[0, 0], [1, 1]]
-        return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])].tolist()
-
-    def __str(self):
-        return '%s(%s)@%s \n%s' % (type(self), self.get_sheet_ids(),
-                                   id(self), self._arr)

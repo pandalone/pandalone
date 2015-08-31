@@ -14,8 +14,6 @@ Known deficiencies
 
 TODOs
 =====
-.. todolist::
-
     - XLasso
         - Core:
             - filters:
