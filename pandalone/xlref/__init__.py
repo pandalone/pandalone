@@ -106,17 +106,18 @@ If you do not wish to let the library read your workbooks, you can
 pre-populate a :class:`Ranger' instance with the desired sheets, such as
 the sample :class:`ArraySheet`::
 
+    >>> from pandalone import xlref
+
     >>> ranger = xlref.make_default_Ranger()
-    >>> ranger.add_sheet(ArraySheet([None, None,  'A',   None],
-    ...                             [None, 2.2,   'foo', None],
-    ...                             [None, None,   2,    None],
-    ...                             [None, None,   None, 3.14],
-    ...]))
-    >>> xlasso.lasso('#A1(DR):..(DR):RULD`)
-    [[None, 'A'],
+    >>> ranger.add_sheet(ArraySheet([[None, None,  'A',   None],
+    ...                              [None, 2.2,   'foo', None],
+    ...                              [None, None,   2,    None],
+    ...                              [None, None,   None, 3.14],
+    ... ]))
+    >>> ranger.do_lasso('#A1(DR):..(DR):RULD').values
+    [[None, 'A'], 
      [2.2, 'foo'], 
-     [None,   2]]
-    
+     [None, 2]] 
 
 For even more control of the procedure, you can create and use a separate 
 :class:`SheetsFactory` instance, which is the backing-store and factory for
@@ -134,7 +135,7 @@ API
 
       lasso
       Ranger
-      Ranger.lasso
+      Ranger.do_lasso
       SheetsFactory
       make_default_Ranger
       get_default_opts
@@ -372,12 +373,18 @@ Definitions
         - ``_``          The bottom/right full-cell `coordinate`.
 
     dependent
-        Any `2nd` `edge` `coordinate` identified with a dot(``.``),
-        which means that:
+    base-cell
+        Any `edge` `coordinate` identified with a dot(``.``), meaning that:
 
-            ``2nd-landing-cell coordinate := 1st target-cell coordinate``
+            ``landing-cell coordinate := base-cell coordinate``
 
-        The `2nd` `edge` might contain a "mix" of `absolute` and *dependent*
+        where the *base-coordinates* are:
+        
+        - `1st` edge: the `target-cell` coordinates of the ``context_lasso`` 
+          arg given to the :meth:`Ranger.lasso()`; it is an error if ``None``.
+        - `2nd` edge: the `target-cell` coordinates of the `1st` edge.
+
+        An `edge` might contain a "mix" of `absolute` and *dependent*
         coordinates.
 
     state

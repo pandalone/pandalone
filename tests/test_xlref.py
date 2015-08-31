@@ -25,6 +25,7 @@ import xlrd
 
 import itertools as itt
 import numpy as np
+from pandalone import xlref as xlasso
 from pandalone.xlref import _xlrd as xd
 from pandalone.xlref import _xlref as xr
 from pandalone.xlref._xlrd import XlrdSheet
@@ -74,9 +75,15 @@ def _read_rect_values(sheet, st_edge, nd_edge, dims):
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
-class Doctest(unittest.TestCase):
+class T00Doctest(unittest.TestCase):
 
     def test_xlref(self):
+        failure_count, test_count = doctest.testmod(
+            xlasso, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+        self.assertGreater(test_count, 0, (failure_count, test_count))
+        self.assertEquals(failure_count, 0, (failure_count, test_count))
+
+    def test__xlref(self):
         failure_count, test_count = doctest.testmod(
             xr, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
@@ -96,7 +103,7 @@ _all_dirs = _all_dir_single + _all_dir_pairs
 
 
 @ddt
-class Parse(unittest.TestCase):
+class T01Parse(unittest.TestCase):
 
     def test_parse_xl_ref_Cell_types(self):
         xl_ref = 'b1:C2'
@@ -276,7 +283,7 @@ def make_states_matrix():
 
 
 @ddt
-class StatesVector(unittest.TestCase):
+class T02StatesVector(unittest.TestCase):
 
     @data(*_all_dir_single)
     def test_extract_states_vector_1st_element(self, mov):
@@ -331,7 +338,7 @@ class StatesVector(unittest.TestCase):
 
 
 @ddt
-class TargetOpposite(unittest.TestCase):
+class T03TargetOpposite(unittest.TestCase):
 
     def check_target_opposite_full_impl(self, *args):
         (land_row, land_col,
@@ -413,7 +420,7 @@ class TargetOpposite(unittest.TestCase):
 
 
 @ddt
-class TargetSame(unittest.TestCase):
+class T04TargetSame(unittest.TestCase):
 
     def check_target_same_full_impl(self, *args):
         (inverse_sm, land_row, land_col,
@@ -483,7 +490,7 @@ class TargetSame(unittest.TestCase):
 
 
 @ddt
-class Margins(unittest.TestCase):
+class T05Margins(unittest.TestCase):
 
     def test_find_states_matrix_margins(self):
         sm = np.array([
@@ -568,7 +575,7 @@ class Margins(unittest.TestCase):
 
 
 @ddt
-class Expand(unittest.TestCase):
+class T06Expand(unittest.TestCase):
 
     def make_states_matrix(self):
         states_matrix = np.array([
@@ -703,7 +710,7 @@ class Expand(unittest.TestCase):
 
 
 @ddt
-class Capture(unittest.TestCase):
+class T07Capture(unittest.TestCase):
 
     def make_states_matrix(self):
         states_matrix = np.array([
@@ -823,218 +830,62 @@ class Capture(unittest.TestCase):
         self.check_resolve_capture_rect(*case)
 
 
-@ddt
-class TRedim(unittest.TestCase):
+class T08Sheet(unittest.TestCase):
 
-    def check_redim(self, case):
-        arr, dim, exp = case
-        res = xr._redim(arr, dim)
+    class MySheet(xr.ABCSheet):
 
-        self.assertEqual(res, exp)
-#         if isinstance(exp, list):
-#             exp = np.asarray(exp, dtype=object)
-#             npt.assert_equal(res, exp)
+        def open_sibling_sheet(self, sheet_id):
+            raise NotImplementedError()
 
-    @data(
-        ([1],       1,  [1]),
-        ([1],       2,  [[1]]),
-        ([13],      3,  [[[13]]]),
-        ([1, 2],    1,  [1, 2]),
-        ([1, 2],    2,  [[1, 2]]),
-        ([1, 2],    3,  [[[1, 2]]]),
-    )
-    def test_upscale(self, case):
-        self.check_redim(case)
+        def get_sheet_ids(self):
+            raise NotImplementedError()
 
-    @data(
-        ([[1, 2]],   1,  [1, 2]),
-        ([[[1, 2]]], 2,  [[1, 2]]),
-        ([[[1, 2]]], 1,  [1, 2]),
-        ([[[1], [2]]], 2,  [[1], [2]]),
-        ([[[[1]], [[2]]]], 2,  [[1], [2]]),
-        ([[[[1]], [[2]]]], 3,  [[[1]], [[2]]]),
-        ([[[1], [2]]], 1,  [1, 2]),
-        ([[[1], [2]]], 0,  [1, 2]),
-    )
-    def test_downscale(self, case):
-        self.check_redim(case)
+        def read_rect(self, st, nd):
+            return [[]]
 
-    @data(
-        ([None],    0,  None),
-        ([['str']], 0,  'str'),
-        ([[[3.14]]], 0, 3.14),
-        ('str',     0,  'str'),
-        (None,      0,  None),
-        (5.1,       0,  5.1),
-    )
-    def test_zero(self, case):
-        self.check_redim(case)
+        def _read_states_matrix(self):
+            return [[]]
 
-    @data(
-        ([],        3,  [[[]]]),
-        ([[]],      3,  [[[]]]),
-        ([[]],      2,  [[]]),
-        ([],        2,  [[]]),
-        ([],        1,  []),
-        ([[]],      1,  []),
-    )
-    def test_empty(self, case):
-        self.check_redim(case)
+    def test_get_states_matrix_Caching(self):
+        sheet = self.MySheet()
+        obj = object()
+        sheet._states_matrix = obj
+        self.assertEqual(sheet.get_states_matrix(), obj)
 
-    @data(
-        ([[], []], 1,               []),
-        ([[1, 2], [3, 4]], 1,       [1, 2, 3, 4]),
-        ([[[1, 1]], [[2, 2]]], 1,   [1, 1, 2, 2]),
+    def test_get_margin_coords_Cached(self):
+        sheet = self.MySheet()
+        obj = object()
+        sheet._margin_coords = obj
+        self.assertEqual(sheet.get_margin_coords(), obj)
 
-        ([[], []], 0,               []),
-        ([[1, 2], [3, 4]], 0,       [1, 2, 3, 4]),
-        ([[[1, 1]], [[2, 2]]], 0,   [1, 1, 2, 2]),
-    )
-    def test_flatten(self, case):
-        self.check_redim(case)
+    def test_get_margin_coords_Extracted_from_states_matrix(self):
+        sheet = self.MySheet()
+        sheet._states_matrix = np.array([
+            [0, 1, 1, 0]
+        ])
+        margins = (xr.Cell(0, 1), xr.Cell(0, 2))
+        self.assertEqual(sheet.get_margin_coords(), margins)
+        sheet._margin_coords = None
+        self.assertEqual(sheet.get_margin_coords(), margins)
+        sheet._states_matrix = None
+        self.assertEqual(sheet._margin_coords, margins)
 
-    @data(
-        ([1, 2, 3], 0,          [1, 2, 3]),
-        ([[1, 2], [3, 4]], 0,   [1, 2, 3, 4]),
-        ([[1, 2]], 0,           [1, 2]),
-        ([1, 2], 0,             [1, 2]),
-        ([], 0,                 []),
-        ([[]], 0,               []),
-    )
-    def test_unreducableZero(self, case):
-        self.check_redim(case)
+        # Modify states_matrix but not cache.
+        #
+        sheet._states_matrix = np.asarray([
+            [0, 0, 0],
+            [1, 1, 0],
+            [0, 1, 1],
+            [0, 0, 1],
+        ])
+        self.assertEqual(sheet.get_margin_coords(), margins)
+        sheet._margin_coords = None
+        margins = (xr.Cell(1, 0), xr.Cell(3, 2))
+        self.assertEqual(sheet.get_margin_coords(), margins)
 
 
 @ddt
-class TCallSpec(unittest.TestCase):
-
-    @data(
-        ('func',                ('func', [], {})),
-        ('',                    ('', [], {})),
-
-        (['f', [], {}],         ('f', [], {})),
-        (['f', None, None],     ('f', [], {})),
-        (['f', [1], {2: 2}],    ('f', [1], {2: 2})),
-        (['f', [2], {3: 3}],    ('f', [2], {3: 3})),
-        (['f', {}, []],         ('f', [], {})),
-        (['f', {2: 3}, [1]],    ('f', [1], {2: 3})),
-        (['f', []],             ('f', [], {})),
-        (['f', [1, 2]],         ('f', [1, 2], {})),
-        (['f', {}],             ('f', [], {})),
-        (['f', {1: 1, 2: 2}],   ('f', [], {1: 1, 2: 2})),
-
-        ({'func': 'f', 'args': [], 'kwds': {}},     ('f', [], {})),
-        ({'func': 'f', 'args': None, 'kwds': None}, ('f', [], {})),
-        ({'func': 'f', 'args': [1], 'kwds': {1: 2}}, ('f', [1], {1: 2})),
-        ({'func': 'f', 'args': [], },               ('f', [], {})),
-        ({'func': 'f', 'args': [1, 2], },            ('f', [1, 2], {})),
-        ({'func': 'f', 'kwds': {}},                 ('f', [], {})),
-        ({'func': 'f', 'kwds': {2: 3, 3: 4}},         ('f', [], {2: 3, 3: 4})),
-    )
-    def test_OK(self, case):
-        call_desc, exp = case
-        cspec, opts = xr._parse_call_spec(call_desc)
-        self.assertEqual(cspec, exp)
-        self.assertIsNone(opts)
-
-    _bad_struct = "One of str, list or dict expected"
-    _func_not_str = "Expected a `string` for func"
-    _func_missing = ("missing 1 required positional argument: 'func'"
-                     if fututis.PY3 else
-                     'takes at least 1 argument')
-    _cannot_decide = "Cannot decide `args`/`kwds`"
-    _more_args = ("takes from 1 to 3 positional arguments"
-                  if fututis.PY3 else
-                  'takes at most 3 arguments')
-    _more_kwds = "unexpected keyword argument"
-    _args_not_list = "Expected a `list`"
-    _kwds_not_dict = "Expected a `dict`"
-
-    @data(
-        (1,                     _bad_struct),
-        (True,                  _bad_struct),
-        (None,                  _bad_struct),
-        ([],                    _func_missing),
-    )
-    def test_Fail_base(self, case):
-        call_desc, err = case
-        with assertRaisesRegex(self, ValueError, err):
-            xr._parse_call_spec(call_desc)
-
-    @data(
-        ([1, [], {}],           _func_not_str),
-        ([[], 'f', {}],         _cannot_decide),
-        ([[], {}, 'f'],         _cannot_decide),
-
-        (['f', [], []],         _cannot_decide),
-        (['f', [], {}, []],     _more_args),  # 5
-        (['f', {}, {}],         _cannot_decide),
-        (['f', [], {}, {}],     _more_args),
-
-        (['f', {}, 33],         _cannot_decide),
-        (['f', [], 33],         _cannot_decide),
-
-        (['f', [], {}, 33],     _more_args),  # 10
-        (['f', [], {}, 33],     _more_args),
-
-    )
-    def test_Fail_List(self, case):
-        call_desc, err = case
-        with assertRaisesRegex(self, ValueError, err):
-            xr._parse_call_spec(call_desc)
-
-    @data(
-        ({'args': [], 'kwds': {}},                      _func_missing),
-        ({'args': []},                                  _func_missing),
-        ({'kwds': {}},                                  _func_missing),
-
-        ({'gg': 1, 'args': [], 'kwds': {}},              _more_kwds),
-        ({'func': 'f', 'args': [], 'y': 5},              _more_kwds),
-        ({'func': 'f', 'kwds': {}, 'y': 5},              _more_kwds),
-
-        ({'func': None, 'args': [], 'kwds': {}},        _func_not_str),
-        ({'func': 1, 'args': [], 'kwds': {}},           _func_not_str),
-        ({'func': True, 'args': [1], 'kwds': {}},       _func_not_str),
-        ({'func': [], 'args': [1], 'kwds': {}},         _func_not_str),
-
-        ({'func': 'f', 'args': 1, 'kwds': {}},          _args_not_list),
-        ({'func': 'f', 'args': True, 'kwds': {}},       _args_not_list),
-        ({'func': 'f', 'args': {}, 'kwds': {}},         _args_not_list),
-
-        ({'func': 'f', 'args': [], 'kwds': 1},          _kwds_not_dict),
-        ({'func': 'f', 'args': [], 'kwds': True},       _kwds_not_dict),
-        ({'func': 'f', 'args': [], 'kwds': []},         _kwds_not_dict),
-    )
-    def test_Fail_Object(self, case):
-        call_desc, err = case
-        with assertRaisesRegex(self, ValueError, err):
-            xr._parse_call_spec(call_desc)
-
-    @data(
-        ({'opts': {1: 2}},                  None, {1: 2}),
-        ({'func': 'f', 'kwds': {'opts': {1: 2}}}, ('f', [], {}), {1: 2}),
-        ({'func': 'f', 'kwds': {'a': 'b', 'opts': {1: 2}}},
-         ('f', [], {'a': 'b'}), {1: 2}),
-        (['f', {'a': 2, 'opts': {1: 2}}],   ('f', [], {'a': 2}), {1: 2}),
-        (['f', {'a': 2, 'opts': {1: 2}}, [5, 6]],
-         ('f', [5, 6], {'a': 2}), {1: 2}),  # 5
-        ({'opts': {1: 2}, 'func': 'f', 'args': [1, 2]},
-         ('f', [1, 2], {}), {1: 2}),
-        ({'opts': {1: 2}, 'func': 'f', 'args': [1, 2], 'kwds': {'a': 2}},
-         ('f', [1, 2], {'a': 2}), {1: 2}),
-        ({'opts': {1: 2, 11: 22}, 'func': 'merge',
-          'kwds': {'a': 2, 'opts': {1: 1, 3: 4}}},
-         ('merge', [], {'a': 2}), {1: 1, 11: 22, 3: 4}),
-    )
-    def test_opts(self, case):
-        inp, call_spec, opts = case
-        res = xr._parse_call_spec(inp)
-        self.assertEqual(res[0], call_spec)
-        self.assertEqual(res[1], opts)
-
-
-@ddt
-class TReadRect(unittest.TestCase):
+class T09ReadRect(unittest.TestCase):
 
     def setUp(self):
         arr = np.array([
@@ -1162,436 +1013,7 @@ class TReadRect(unittest.TestCase):
 
 
 @ddt
-class TRecursive(unittest.TestCase):
-
-    @data(
-        1,
-        [1, 2],
-        'str',
-        [],
-        [1],
-        [[1, 2], [3, 4]],
-        [[], [1, 'a', 'b'], [11, list('abc')]],
-    )
-    def test_dontExpand_nonDicts(self, vals):
-        ranger = xr.Ranger(None)
-        ranger.lasso = MagicMock(name='lasso()', side_effect=lambda x: x)
-        lasso = xr.Lasso(values=vals)
-        res = xr.Ranger.recursive_filter(ranger, lasso).values
-        self.assertEqual(res, vals)
-
-    @data(
-        'str',
-        (1, 'str', []),
-        (1, 'str', [[1, 2]]),
-        [[], set([1, 'a', 'b']), [11, list('abc')]],
-    )
-    def test_expandNestedStrings(self, vals):
-        ranger = xr.Ranger(None)
-        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
-        res = xr.Ranger.recursive_filter(ranger, lasso).values
-        self.assertIn(sentinel.BINGO.name, str(res))
-        self.assertNotIn("'", str(res))
-
-    @data(
-        {1: 'str'},
-        [{2: 'str'}],
-        [{3: 'str'}],
-        [{4: ['str', 'a', {4: [list('ab')]}]}],
-    )
-    def test_expandDicts_nonStrKeys(self, vals):
-        ranger = xr.Ranger(None)
-        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
-        res = xr.Ranger.recursive_filter(ranger, lasso).values
-        self.assertIn(sentinel.BINGO.name, str(res))
-        self.assertNotIn("'", str(res))
-
-    @data(
-        {'key': 'str'},
-        [{'key': 'str'}],
-        [{'key': ['str', 'a', {'key': [list('ab')]}]}],
-        [{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
-    )
-    def test_expandDicts_preservingKeys(self, vals):
-        ranger = xr.Ranger(None)
-        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
-        res = xr.Ranger.recursive_filter(ranger, lasso).values
-        # print(res)
-        self.assertIn(sentinel.BINGO.name, str(res))
-        self.assertIn('key', str(res))
-
-        # Mask all str-keys, and check
-        #    no other strings left.
-        #
-        res = str(res)
-        for k in ['key', 'key1', 'key2', 'k3']:
-            res = res.replace("'%s'" % k, 'OFF')
-        self.assertNotIn("'", str(res))
-
-    @data(
-        (0, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
-        (1, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
-        (2, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
-        (3, ['str', 'foo', 'abc', 'bar', '123'], ['bang']),
-        (4, ['abc', 'bar', '123'], ['bang', 'str', 'foo']),
-        (5, ['abc', 'bar'], ['bang', 'str', 'foo', '123']),
-        (6, [], ['bang', 'str', 'foo', 'abc', 'bar', '123']),
-    )
-    def test_expandDicts_depth(self, case):
-        depth, exists, missing = case
-        vals = [{
-            'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}],
-            'key11': 'bang'}]
-        ranger = xr.Ranger(None)
-        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
-        res = xr.Ranger.recursive_filter(ranger, lasso, depth=depth).values
-        print(res)
-        if missing:
-            self.assertIn(sentinel.BINGO.name, str(res))
-        self.assertIn("key", str(res))
-        for v in exists:
-            self.assertIn(v, str(res))
-        for v in missing:
-            self.assertNotIn(v, str(res))
-
-    @data(
-        pd.DataFrame({'key1': list('abc'), 'key2': list('def')}),
-        [pd.DataFrame({'key1': list('abc'), 'key2': list('def')})],
-    )
-    def test_expandDFs(self, vals):
-        ranger = xr.Ranger(None)
-        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
-        res = xr.Ranger.recursive_filter(ranger, lasso).values
-        print(res)
-        self.assertIn(sentinel.BINGO.name, str(res))
-        self.assertIn("key", str(res))
-
-    @data(
-        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
-         ('key1', None),
-         ['abc', 'bar', '123'], ['str', 'foo']),
-
-        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
-         (None, ['key2', 'k3']),
-         ['abc', 'bar', '123'], ['str', 'foo']),
-
-        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
-         (['key1', 'key2'], None),
-         ['123'], ['str', 'foo', 'abc', 'bar']),
-
-        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
-         (None, ['key2', 'k3']),
-         ['abc', 'bar', '123'], ['str', 'foo']),
-    )
-    def test_expandDicts_IncExcFilters(self, case):
-        vals, incexc, exist, missing = case
-        ranger = xr.Ranger(None)
-        ranger.lasso = MagicMock(name='lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
-        res = xr.Ranger.recursive_filter(ranger, lasso, *incexc).values
-        print(res)
-        self.assertIn(sentinel.BINGO.name, str(res))
-        for k in ['key1', 'key2', 'k3']:
-            self.assertIn(k, str(res))
-        for v in exist:
-            self.assertIn(v, str(res))
-        for v in missing:
-            self.assertNotIn(v, str(res))
-
-
-@ddt
-class TLasso(unittest.TestCase):
-
-    def m1(self):
-        dt = datetime(1900, 8, 2)
-        return np.array([
-            # A     B       C      D       E
-            [1,    True,   None, False,  None],   # 1
-            [5,    True,   dt,    '',    3.14],  # 2
-            [7,    False,  5.1,   7.1,    ''],    # 3
-            [9,    True,   43,    'str', dt],    # 4
-        ])
-
-    def test_read_Colon(self):
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('#:', sf)
-        npt.assert_array_equal(res, self.m1().tolist())
-
-    def test_read_ColonWithJson(self):
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('''#:
-            [
-                "pipe", [
-                    ["redim", {"col": [2, 1]}], 
-                    "numpy"
-                ], {"opts":
-                    {"verbose": true}
-                }
-            ]''',
-                       sf)
-        self.assertIsInstance(res, np.ndarray)
-        npt.assert_array_equal(res, self.m1())
-
-    def test_read_A1(self):
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('''#A1:..(D):
-            [
-                "pipe", [
-                    ["redim", {"col": [2, 1]}], 
-                    "numpy"
-                ], {"opts":
-                    {"verbose": true}
-                }
-            ]''',
-                       sf)
-        self.assertIsInstance(res, np.ndarray)
-        npt.assert_array_equal(res, [[1, 5, 7, 9]])
-
-    def test_read_RC(self):
-        m1 = self.m1()
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('#R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
-                       sf)
-        self.assertIsInstance(res, list)
-        npt.assert_array_equal(res, m1[:, 0].reshape((1, -1)))
-
-    def test_read_RC_negative(self):
-        m1 = self.m1()
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
-                       sf)
-        npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
-
-    def test_read_asLasso(self):
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('''#A1:..(D)''', sf, return_lasso=True)
-        self.assertIsInstance(res, xr.Lasso)
-
-    def test_Ranger_intermediateLaso(self):
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        ranger = xr.make_default_Ranger(sheets_factory=sf)
-        ranger.lasso(
-            '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]''')
-        self.assertEqual(ranger.intermediate_lasso[0], 'numpy',
-                         ranger.intermediate_lasso)
-
-        ranger = xr.make_default_Ranger(sheets_factory=sf)
-        self.assertRaises(ValueError, ranger.lasso,
-                          '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["dab_func"]]]''')
-        self.assertEqual(ranger.intermediate_lasso[0], 'dab_func',
-                         ranger.intermediate_lasso, )
-
-    @data(
-        ('#R5C4:..(UL):%s',      [[None, 0, 1], [0, 1, 2]]),
-        ('#R5C4:R5C4:LURD:%s',   [
-            [None, 0,    1,   2],
-            [0,    1,    2,   None],
-            [1,    None, 6.1, 7.1]
-        ]),
-        ('#R5C_(LU):A1(RD):%s',      [[0, 1], [1, 2]]),
-        ('#__(LU+):^^(RD):%s',       [[0, 1], [1, 2], [None, 6.1]]),
-        ('#R_C5:R6C.(L+):%s',        [6.1, 7.1]),  # 5
-        ('#R^C3(U+):..(D+):%s',      [0, 1]),
-        ('#D6:%s',                   6.1),
-    )
-    def test_read_xlwings_dims(self, case):
-        xlref, res = case
-        table = np.array([
-            # A(1)  B(2)   C(3)  D(4)  E(5)
-            [None, None,  None, None, None],  # 1
-            [None, None,  None, None, None],  # 2
-            [None, None,  None, None, None],  # 3
-            [None, None,  0.,   1.,   2.],    # 4
-            [None, 0.,    1.,   2.,   None],  # 5
-            [None, 1.,    None, 6.1,  7.1]    # 6
-        ])
-        sheetsFact = xr.SheetsFactory()
-        sheetsFact.add_sheet(xr.ArraySheet(table), 'wb', 'sheet1')
-
-        dims = xr.xlwings_dims_call_spec()
-        self.assertEqual(xr.lasso(xlref % dims, sheetsFact), res)
-
-
-@ddt
-class VsPandas(unittest.TestCase, CustomAssertions):
-
-    @contextlib.contextmanager
-    def sample_xl_file(self, matrix, **df_write_kwds):
-        try:
-            tmp_file = '%s.xlsx' % tempfile.mktemp()
-            _write_sample_sheet(tmp_file, matrix, 'Sheet1', **df_write_kwds)
-
-            yield tmp_file
-        finally:
-            try:
-                os.unlink(tmp_file)
-            except:
-                log.warning("Failed deleting %s!", tmp_file, exc_info=1)
-
-    dt = datetime(1900, 8, 2)
-    m1 = np.array([
-        # A     B       C      D       E
-        [1,    True,   None, False,  None],   # 1
-        [5,    True,   dt,    u'',    3.14],  # 2
-        [7,    False,  5.1,   7.1,    ''],    # 3
-        [9,    True,   43,    b'str', dt],    # 4
-    ])
-
-    def test_pandas_can_write_multicolumn(self):
-        df = pd.DataFrame([1, 2])
-        df.columns = pd.MultiIndex.from_arrays([list('A'), list('a')])
-        err = "Writing as Excel with a MultiIndex is not yet implemented."
-        msg = ("\n\nTIP: Pandas-%s probably saves DFs with MultiIndex columns now. \n"
-               "     Update _xlref._to_df() accordingly!")
-        with assertRaisesRegex(self, NotImplementedError, err,
-                               msg=msg % pd.__version__):
-            try:
-                tmp_file = '%s.xlsx' % tempfile.mktemp()
-                df.to_excel(tmp_file)
-            finally:
-                try:
-                    os.unlink(tmp_file)
-                except:
-                    pass
-
-    def check_vs_read_df(self, table, st, nd, write_df_kwds={}, parse_df_kwds={}):
-        with self.sample_xl_file(table, **write_df_kwds) as xl_file:
-            pd_df = pd.read_excel(xl_file, 'Sheet1')
-            pd_df = pd_df.iloc[
-                slice(st[0], nd[0] + 1), slice(st[1], nd[1] + 1)]
-            xlrd_wb = xlrd.open_workbook(xl_file)
-            self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
-            xlref_res = self.sheet.read_rect(st, nd)
-            lasso = xr.Lasso(
-                st=st, nd=nd, values=xlref_res, opts=ChainMap())
-
-            lasso1 = xr.redim_filter(None, lasso, row=[2, True])
-
-            df_filter = xr.get_default_filters()['df']['func']
-            lasso2 = df_filter(None, lasso1, **parse_df_kwds)
-
-            xlref_df = lasso2.values
-
-            msg = '\n---\n%s\n--\n%s\n-\n%s' % (xlref_res, xlref_df, pd_df)
-            self.assertTrue(xlref_df.equals(pd_df), msg=msg)
-
-    def test_vs_read_df(self):
-        self.check_vs_read_df(self.m1.tolist(),
-                              xr.Coords(0, 0), xr.Coords(4, 5),
-                              parse_df_kwds=dict(header=0))
-
-
-@unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
-@ddt
-class VsXlwings(unittest.TestCase):
-
-    def setUp(self):
-        self.tmp = '%s.xlsx' % tempfile.mktemp()
-        table = [
-            [1, 2, None],
-            [None, 6.1, 7.1]
-        ]
-        _write_sample_sheet(self.tmp, table, 'Sheet1', startrow=5, startcol=3)
-
-        xlrd_wb = xlrd.open_workbook(self.tmp)
-        self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
-        self.sheetsFact = xr.SheetsFactory()
-        self.sheetsFact.add_sheet(self.sheet, 'wb', 'sheet1')
-
-    def tearDown(self):
-        del self.sheet
-        os.remove(self.tmp)
-
-    @data(
-        ('#R7C4:..(D):%s', lambda xw: xw.Range("Sheet1", "D7").vertical.value),
-        ('#R6C5:..(D):%s', lambda xw: xw.Range("Sheet1", "E6").vertical.value),
-        ('#R6C5:..(R):%s', lambda xw: xw.Range("Sheet1",
-                                               "E6").horizontal.value),
-        ('#R6C5:..(RD):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
-        ('#R6C5:..(DR):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
-        ('#R8C6:R6R4:%s', lambda xw: xw.Range("Sheet1", "D6:F8").value),
-        ('#R8C6:R1C1:%s', lambda xw: xw.Range("Sheet1", "A1:F8").value),
-        ('#R7C1:R7C4:%s', lambda xw: xw.Range("Sheet1", "A7:D7").value),
-        ('#R9C4:R3C4:%s', lambda xw: xw.Range("Sheet1", "D3:D9").value),
-    )
-    def test_vs_xlwings(self, case):
-        xlref, res = case
-        # load Workbook for --> xlwings
-        with xw_Workbook(self.tmp) as xw:
-            res = res(xw)
-
-        dims = xr.xlwings_dims_call_spec()
-        self.assertEqual(xr.lasso(xlref % dims, self.sheetsFact), res)
-
-
-class TSheet(unittest.TestCase):
-
-    class MySheet(xr.ABCSheet):
-
-        def open_sibling_sheet(self, sheet_id):
-            raise NotImplementedError()
-
-        def get_sheet_ids(self):
-            raise NotImplementedError()
-
-        def read_rect(self, st, nd):
-            return [[]]
-
-        def _read_states_matrix(self):
-            return [[]]
-
-    def test_get_states_matrix_Caching(self):
-        sheet = self.MySheet()
-        obj = object()
-        sheet._states_matrix = obj
-        self.assertEqual(sheet.get_states_matrix(), obj)
-
-    def test_get_margin_coords_Cached(self):
-        sheet = self.MySheet()
-        obj = object()
-        sheet._margin_coords = obj
-        self.assertEqual(sheet.get_margin_coords(), obj)
-
-    def test_get_margin_coords_Extracted_from_states_matrix(self):
-        sheet = self.MySheet()
-        sheet._states_matrix = np.array([
-            [0, 1, 1, 0]
-        ])
-        margins = (xr.Cell(0, 1), xr.Cell(0, 2))
-        self.assertEqual(sheet.get_margin_coords(), margins)
-        sheet._margin_coords = None
-        self.assertEqual(sheet.get_margin_coords(), margins)
-        sheet._states_matrix = None
-        self.assertEqual(sheet._margin_coords, margins)
-
-        # Modify states_matrix but not cache.
-        #
-        sheet._states_matrix = np.asarray([
-            [0, 0, 0],
-            [1, 1, 0],
-            [0, 1, 1],
-            [0, 0, 1],
-        ])
-        self.assertEqual(sheet.get_margin_coords(), margins)
-        sheet._margin_coords = None
-        margins = (xr.Cell(1, 0), xr.Cell(3, 2))
-        self.assertEqual(sheet.get_margin_coords(), margins)
-
-
-@ddt
-class TSheetFactory(unittest.TestCase):
+class T10SheetFactory(unittest.TestCase):
 
     @data(
         (('wb1', ['sh1', 0]), None, None,     [('wb1', 'sh1'), ('wb1', 0),
@@ -1728,3 +1150,658 @@ class TSheetFactory(unittest.TestCase):
 
         self.assertEqual(sf._open_sheet.call_count, open_calls,
                          sf._open_sheet.mock_calls)
+
+
+@ddt
+class T11Redim(unittest.TestCase):
+
+    def check_redim(self, case):
+        arr, dim, exp = case
+        res = xr._redim(arr, dim)
+
+        self.assertEqual(res, exp)
+#         if isinstance(exp, list):
+#             exp = np.asarray(exp, dtype=object)
+#             npt.assert_equal(res, exp)
+
+    @data(
+        ([1],       1,  [1]),
+        ([1],       2,  [[1]]),
+        ([13],      3,  [[[13]]]),
+        ([1, 2],    1,  [1, 2]),
+        ([1, 2],    2,  [[1, 2]]),
+        ([1, 2],    3,  [[[1, 2]]]),
+    )
+    def test_upscale(self, case):
+        self.check_redim(case)
+
+    @data(
+        ([[1, 2]],   1,  [1, 2]),
+        ([[[1, 2]]], 2,  [[1, 2]]),
+        ([[[1, 2]]], 1,  [1, 2]),
+        ([[[1], [2]]], 2,  [[1], [2]]),
+        ([[[[1]], [[2]]]], 2,  [[1], [2]]),
+        ([[[[1]], [[2]]]], 3,  [[[1]], [[2]]]),
+        ([[[1], [2]]], 1,  [1, 2]),
+        ([[[1], [2]]], 0,  [1, 2]),
+    )
+    def test_downscale(self, case):
+        self.check_redim(case)
+
+    @data(
+        ([None],    0,  None),
+        ([['str']], 0,  'str'),
+        ([[[3.14]]], 0, 3.14),
+        ('str',     0,  'str'),
+        (None,      0,  None),
+        (5.1,       0,  5.1),
+    )
+    def test_zero(self, case):
+        self.check_redim(case)
+
+    @data(
+        ([],        3,  [[[]]]),
+        ([[]],      3,  [[[]]]),
+        ([[]],      2,  [[]]),
+        ([],        2,  [[]]),
+        ([],        1,  []),
+        ([[]],      1,  []),
+    )
+    def test_empty(self, case):
+        self.check_redim(case)
+
+    @data(
+        ([[], []], 1,               []),
+        ([[1, 2], [3, 4]], 1,       [1, 2, 3, 4]),
+        ([[[1, 1]], [[2, 2]]], 1,   [1, 1, 2, 2]),
+
+        ([[], []], 0,               []),
+        ([[1, 2], [3, 4]], 0,       [1, 2, 3, 4]),
+        ([[[1, 1]], [[2, 2]]], 0,   [1, 1, 2, 2]),
+    )
+    def test_flatten(self, case):
+        self.check_redim(case)
+
+    @data(
+        ([1, 2, 3], 0,          [1, 2, 3]),
+        ([[1, 2], [3, 4]], 0,   [1, 2, 3, 4]),
+        ([[1, 2]], 0,           [1, 2]),
+        ([1, 2], 0,             [1, 2]),
+        ([], 0,                 []),
+        ([[]], 0,               []),
+    )
+    def test_unreducableZero(self, case):
+        self.check_redim(case)
+
+
+@ddt
+class T12CallSpec(unittest.TestCase):
+
+    @data(
+        ('func',                ('func', [], {})),
+        ('',                    ('', [], {})),
+
+        (['f', [], {}],         ('f', [], {})),
+        (['f', None, None],     ('f', [], {})),
+        (['f', [1], {2: 2}],    ('f', [1], {2: 2})),
+        (['f', [2], {3: 3}],    ('f', [2], {3: 3})),
+        (['f', {}, []],         ('f', [], {})),
+        (['f', {2: 3}, [1]],    ('f', [1], {2: 3})),
+        (['f', []],             ('f', [], {})),
+        (['f', [1, 2]],         ('f', [1, 2], {})),
+        (['f', {}],             ('f', [], {})),
+        (['f', {1: 1, 2: 2}],   ('f', [], {1: 1, 2: 2})),
+
+        ({'func': 'f', 'args': [], 'kwds': {}},     ('f', [], {})),
+        ({'func': 'f', 'args': None, 'kwds': None}, ('f', [], {})),
+        ({'func': 'f', 'args': [1], 'kwds': {1: 2}}, ('f', [1], {1: 2})),
+        ({'func': 'f', 'args': [], },               ('f', [], {})),
+        ({'func': 'f', 'args': [1, 2], },            ('f', [1, 2], {})),
+        ({'func': 'f', 'kwds': {}},                 ('f', [], {})),
+        ({'func': 'f', 'kwds': {2: 3, 3: 4}},         ('f', [], {2: 3, 3: 4})),
+    )
+    def test_OK(self, case):
+        call_desc, exp = case
+        cspec, opts = xr._parse_call_spec(call_desc)
+        self.assertEqual(cspec, exp)
+        self.assertIsNone(opts)
+
+    _bad_struct = "One of str, list or dict expected"
+    _func_not_str = "Expected a `string` for func"
+    _func_missing = ("missing 1 required positional argument: 'func'"
+                     if fututis.PY3 else
+                     'takes at least 1 argument')
+    _cannot_decide = "Cannot decide `args`/`kwds`"
+    _more_args = ("takes from 1 to 3 positional arguments"
+                  if fututis.PY3 else
+                  'takes at most 3 arguments')
+    _more_kwds = "unexpected keyword argument"
+    _args_not_list = "Expected a `list`"
+    _kwds_not_dict = "Expected a `dict`"
+
+    @data(
+        (1,                     _bad_struct),
+        (True,                  _bad_struct),
+        (None,                  _bad_struct),
+        ([],                    _func_missing),
+    )
+    def test_Fail_base(self, case):
+        call_desc, err = case
+        with assertRaisesRegex(self, ValueError, err):
+            xr._parse_call_spec(call_desc)
+
+    @data(
+        ([1, [], {}],           _func_not_str),
+        ([[], 'f', {}],         _cannot_decide),
+        ([[], {}, 'f'],         _cannot_decide),
+
+        (['f', [], []],         _cannot_decide),
+        (['f', [], {}, []],     _more_args),  # 5
+        (['f', {}, {}],         _cannot_decide),
+        (['f', [], {}, {}],     _more_args),
+
+        (['f', {}, 33],         _cannot_decide),
+        (['f', [], 33],         _cannot_decide),
+
+        (['f', [], {}, 33],     _more_args),  # 10
+        (['f', [], {}, 33],     _more_args),
+
+    )
+    def test_Fail_List(self, case):
+        call_desc, err = case
+        with assertRaisesRegex(self, ValueError, err):
+            xr._parse_call_spec(call_desc)
+
+    @data(
+        ({'args': [], 'kwds': {}},                      _func_missing),
+        ({'args': []},                                  _func_missing),
+        ({'kwds': {}},                                  _func_missing),
+
+        ({'gg': 1, 'args': [], 'kwds': {}},              _more_kwds),
+        ({'func': 'f', 'args': [], 'y': 5},              _more_kwds),
+        ({'func': 'f', 'kwds': {}, 'y': 5},              _more_kwds),
+
+        ({'func': None, 'args': [], 'kwds': {}},        _func_not_str),
+        ({'func': 1, 'args': [], 'kwds': {}},           _func_not_str),
+        ({'func': True, 'args': [1], 'kwds': {}},       _func_not_str),
+        ({'func': [], 'args': [1], 'kwds': {}},         _func_not_str),
+
+        ({'func': 'f', 'args': 1, 'kwds': {}},          _args_not_list),
+        ({'func': 'f', 'args': True, 'kwds': {}},       _args_not_list),
+        ({'func': 'f', 'args': {}, 'kwds': {}},         _args_not_list),
+
+        ({'func': 'f', 'args': [], 'kwds': 1},          _kwds_not_dict),
+        ({'func': 'f', 'args': [], 'kwds': True},       _kwds_not_dict),
+        ({'func': 'f', 'args': [], 'kwds': []},         _kwds_not_dict),
+    )
+    def test_Fail_Object(self, case):
+        call_desc, err = case
+        with assertRaisesRegex(self, ValueError, err):
+            xr._parse_call_spec(call_desc)
+
+    @data(
+        ({'opts': {1: 2}},                  None, {1: 2}),
+        ({'func': 'f', 'kwds': {'opts': {1: 2}}}, ('f', [], {}), {1: 2}),
+        ({'func': 'f', 'kwds': {'a': 'b', 'opts': {1: 2}}},
+         ('f', [], {'a': 'b'}), {1: 2}),
+        (['f', {'a': 2, 'opts': {1: 2}}],   ('f', [], {'a': 2}), {1: 2}),
+        (['f', {'a': 2, 'opts': {1: 2}}, [5, 6]],
+         ('f', [5, 6], {'a': 2}), {1: 2}),  # 5
+        ({'opts': {1: 2}, 'func': 'f', 'args': [1, 2]},
+         ('f', [1, 2], {}), {1: 2}),
+        ({'opts': {1: 2}, 'func': 'f', 'args': [1, 2], 'kwds': {'a': 2}},
+         ('f', [1, 2], {'a': 2}), {1: 2}),
+        ({'opts': {1: 2, 11: 22}, 'func': 'merge',
+          'kwds': {'a': 2, 'opts': {1: 1, 3: 4}}},
+         ('merge', [], {'a': 2}), {1: 1, 11: 22, 3: 4}),
+    )
+    def test_opts(self, case):
+        inp, call_spec, opts = case
+        res = xr._parse_call_spec(inp)
+        self.assertEqual(res[0], call_spec)
+        self.assertEqual(res[1], opts)
+
+
+@ddt
+class T13Ranger(unittest.TestCase):
+
+    cache_keys = [
+        ([('w1', ['s1'])],                                      1),
+        ([('w1', ['s1', None])],                                2),
+        ([('w1', ['s1', 0, 1])],                                2),
+        ([('w1', ['s1', 0, 1, None])],                          3),
+        ([('wb', ['s1']), ('w1', [0])],                         2),
+        ([('w1', ['s1', 0, None]), ('w2', ['s1', 0, None])],    4),
+
+    ]
+
+    @data(
+        *cache_keys
+    )
+    def test_fetch_sheet_prePopulated(self, case):
+        extra_ids, open_calls = case
+        k1 = ('wb', 'sh')
+        k2 = ('wb',  0)
+        sheet = MagicMock()
+        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
+
+        sf = xr.SheetsFactory()
+        sf._open_sheet = MagicMock(side_effect=AssertionError("OPENED!"))
+        for wb_id, sh_ids in extra_ids:
+            for sh_id in sh_ids:
+                sf.add_sheet(sheet, wb_id, sh_id)
+
+        extra_ids = extra_ids + [('wb', ['sh', 0])]
+        for wb_id, sh_ids in extra_ids:
+            for sh_id in sh_ids:
+                self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
+                self.assertIs(sf.fetch_sheet(None, None), sheet)
+                self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
+                self.assertIs(sf.fetch_sheet(*k1), sheet)
+                self.assertIs(sf.fetch_sheet(*k2), sheet)
+
+    @data(
+        *cache_keys
+    )
+    def test_fetch_sheet_andOpen(self, case):
+        k1 = ('wb', 'sh')
+        k2 = ('wb',  0)
+        extra_ids, open_calls = case
+        sheet = MagicMock(name='sheet')
+        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
+
+        sf = xr.SheetsFactory()
+        sf._open_sheet = MagicMock(name='open_sheet', return_value=sheet)
+
+        extra_ids = extra_ids + [('wb', ['sh', 0])]
+        for wb_id, sh_ids in extra_ids:
+            for sh_id in sh_ids:
+                self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
+                self.assertIs(sf.fetch_sheet(None, None), sheet)
+                self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
+                self.assertIs(sf.fetch_sheet(*k1), sheet)
+                self.assertIs(sf.fetch_sheet(*k2), sheet)
+
+        self.assertEqual(sf._open_sheet.call_count, open_calls,
+                         sf._open_sheet.mock_calls)
+
+
+@ddt
+class T14Lasso(unittest.TestCase):
+
+    def m1(self):
+        dt = datetime(1900, 8, 2)
+        return np.array([
+            # A     B       C      D       E
+            [1,    True,   None, False,  None],   # 1
+            [5,    True,   dt,    '',    3.14],  # 2
+            [7,    False,  5.1,   7.1,    ''],    # 3
+            [9,    True,   43,    'str', dt],    # 4
+        ])
+
+    def test_read_Colon(self):
+        sf = xr.SheetsFactory()
+        sf.add_sheet(xr.ArraySheet(self.m1()))
+        res = xr.lasso('#:', sf)
+        npt.assert_array_equal(res, self.m1().tolist())
+
+    def test_read_ColonWithJson(self):
+        sf = xr.SheetsFactory()
+        sf.add_sheet(xr.ArraySheet(self.m1()))
+        res = xr.lasso('''#:
+            [
+                "pipe", [
+                    ["redim", {"col": [2, 1]}], 
+                    "numpy"
+                ], {"opts":
+                    {"verbose": true}
+                }
+            ]''',
+                       sf)
+        self.assertIsInstance(res, np.ndarray)
+        npt.assert_array_equal(res, self.m1())
+
+    def test_read_A1(self):
+        sf = xr.SheetsFactory()
+        sf.add_sheet(xr.ArraySheet(self.m1()))
+        res = xr.lasso('''#A1:..(D):
+            [
+                "pipe", [
+                    ["redim", {"col": [2, 1]}], 
+                    "numpy"
+                ], {"opts":
+                    {"verbose": true}
+                }
+            ]''',
+                       sf)
+        self.assertIsInstance(res, np.ndarray)
+        npt.assert_array_equal(res, [[1, 5, 7, 9]])
+
+    def test_read_RC(self):
+        m1 = self.m1()
+        sf = xr.SheetsFactory()
+        sf.add_sheet(xr.ArraySheet(self.m1()))
+        res = xr.lasso('#R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
+                       sf)
+        self.assertIsInstance(res, list)
+        npt.assert_array_equal(res, m1[:, 0].reshape((1, -1)))
+
+    def test_read_RC_negative(self):
+        m1 = self.m1()
+        sf = xr.SheetsFactory()
+        sf.add_sheet(xr.ArraySheet(self.m1()))
+        res = xr.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
+                       sf)
+        npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
+
+    def test_read_asLasso(self):
+        sf = xr.SheetsFactory()
+        sf.add_sheet(xr.ArraySheet(self.m1()))
+        res = xr.lasso('''#A1:..(D)''', sf, return_lasso=True)
+        self.assertIsInstance(res, xr.Lasso)
+
+    def test_Ranger_intermediateLaso(self):
+        sf = xr.SheetsFactory()
+        sf.add_sheet(xr.ArraySheet(self.m1()))
+        ranger = xr.make_default_Ranger(sheets_factory=sf)
+        ranger.do_lasso(
+            '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]''')
+        self.assertEqual(ranger.intermediate_lasso[0], 'numpy',
+                         ranger.intermediate_lasso)
+
+        ranger = xr.make_default_Ranger(sheets_factory=sf)
+        self.assertRaises(ValueError, ranger.do_lasso,
+                          '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["dab_func"]]]''')
+        self.assertEqual(ranger.intermediate_lasso[0], 'dab_func',
+                         ranger.intermediate_lasso, )
+
+    @data(
+        ('#R5C4:..(UL):%s',      [[None, 0, 1], [0, 1, 2]]),
+        ('#R5C4:R5C4:LURD:%s',   [
+            [None, 0,    1,   2],
+            [0,    1,    2,   None],
+            [1,    None, 6.1, 7.1]
+        ]),
+        ('#R5C_(LU):A1(RD):%s',      [[0, 1], [1, 2]]),
+        ('#__(LU+):^^(RD):%s',       [[0, 1], [1, 2], [None, 6.1]]),
+        ('#R_C5:R6C.(L+):%s',        [6.1, 7.1]),  # 5
+        ('#R^C3(U+):..(D+):%s',      [0, 1]),
+        ('#D6:%s',                   6.1),
+    )
+    def test_read_xlwings_dims(self, case):
+        xlref, res = case
+        table = np.array([
+            # A(1)  B(2)   C(3)  D(4)  E(5)
+            [None, None,  None, None, None],  # 1
+            [None, None,  None, None, None],  # 2
+            [None, None,  None, None, None],  # 3
+            [None, None,  0.,   1.,   2.],    # 4
+            [None, 0.,    1.,   2.,   None],  # 5
+            [None, 1.,    None, 6.1,  7.1]    # 6
+        ])
+        sheetsFact = xr.SheetsFactory()
+        sheetsFact.add_sheet(xr.ArraySheet(table), 'wb', 'sheet1')
+
+        dims = xr.xlwings_dims_call_spec()
+        self.assertEqual(xr.lasso(xlref % dims, sheetsFact), res)
+
+
+@ddt
+class T15Recursive(unittest.TestCase):
+
+    @data(
+        1,
+        [1, 2],
+        'str',
+        [],
+        [1],
+        [[1, 2], [3, 4]],
+        [[], [1, 'a', 'b'], [11, list('abc')]],
+    )
+    def test_dontExpand_nonDicts(self, vals):
+        ranger = xr.Ranger(None)
+        ranger.do_lasso = MagicMock(name='do_lasso()', side_effect=lambda x: x)
+        lasso = xr.Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso).values
+        self.assertEqual(res, vals)
+
+    @data(
+        'str',
+        (1, 'str', []),
+        (1, 'str', [[1, 2]]),
+        [[], set([1, 'a', 'b']), [11, list('abc')]],
+    )
+    def test_expandNestedStrings(self, vals):
+        ranger = xr.Ranger(None)
+        ranger.do_lasso = MagicMock(
+            name='do_lasso()', return_value=sentinel.BINGO)
+        lasso = xr.Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso).values
+        self.assertIn(sentinel.BINGO.name, str(res))
+        self.assertNotIn("'", str(res))
+
+    @data(
+        {1: 'str'},
+        [{2: 'str'}],
+        [{3: 'str'}],
+        [{4: ['str', 'a', {4: [list('ab')]}]}],
+    )
+    def test_expandDicts_nonStrKeys(self, vals):
+        ranger = xr.Ranger(None)
+        ranger.do_lasso = MagicMock(
+            name='do_lasso()', return_value=sentinel.BINGO)
+        lasso = xr.Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso).values
+        self.assertIn(sentinel.BINGO.name, str(res))
+        self.assertNotIn("'", str(res))
+
+    @data(
+        {'key': 'str'},
+        [{'key': 'str'}],
+        [{'key': ['str', 'a', {'key': [list('ab')]}]}],
+        [{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
+    )
+    def test_expandDicts_preservingKeys(self, vals):
+        ranger = xr.Ranger(None)
+        ranger.do_lasso = MagicMock(
+            name='do_lasso()', return_value=sentinel.BINGO)
+        lasso = xr.Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso).values
+        # print(res)
+        self.assertIn(sentinel.BINGO.name, str(res))
+        self.assertIn('key', str(res))
+
+        # Mask all str-keys, and check
+        #    no other strings left.
+        #
+        res = str(res)
+        for k in ['key', 'key1', 'key2', 'k3']:
+            res = res.replace("'%s'" % k, 'OFF')
+        self.assertNotIn("'", str(res))
+
+    @data(
+        (0, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
+        (1, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
+        (2, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
+        (3, ['str', 'foo', 'abc', 'bar', '123'], ['bang']),
+        (4, ['abc', 'bar', '123'], ['bang', 'str', 'foo']),
+        (5, ['abc', 'bar'], ['bang', 'str', 'foo', '123']),
+        (6, [], ['bang', 'str', 'foo', 'abc', 'bar', '123']),
+    )
+    def test_expandDicts_depth(self, case):
+        depth, exists, missing = case
+        vals = [{
+            'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}],
+            'key11': 'bang'}]
+        ranger = xr.Ranger(None)
+        ranger.do_lasso = MagicMock(
+            name='do_lasso()', return_value=sentinel.BINGO)
+        lasso = xr.Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso, depth=depth).values
+        print(res)
+        if missing:
+            self.assertIn(sentinel.BINGO.name, str(res))
+        self.assertIn("key", str(res))
+        for v in exists:
+            self.assertIn(v, str(res))
+        for v in missing:
+            self.assertNotIn(v, str(res))
+
+    @data(
+        pd.DataFrame({'key1': list('abc'), 'key2': list('def')}),
+        [pd.DataFrame({'key1': list('abc'), 'key2': list('def')})],
+    )
+    def test_expandDFs(self, vals):
+        ranger = xr.Ranger(None)
+        ranger.do_lasso = MagicMock(
+            name='do_lasso()', return_value=sentinel.BINGO)
+        lasso = xr.Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso).values
+        print(res)
+        self.assertIn(sentinel.BINGO.name, str(res))
+        self.assertIn("key", str(res))
+
+    @data(
+        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
+         ('key1', None),
+         ['abc', 'bar', '123'], ['str', 'foo']),
+
+        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
+         (None, ['key2', 'k3']),
+         ['abc', 'bar', '123'], ['str', 'foo']),
+
+        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
+         (['key1', 'key2'], None),
+         ['123'], ['str', 'foo', 'abc', 'bar']),
+
+        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
+         (None, ['key2', 'k3']),
+         ['abc', 'bar', '123'], ['str', 'foo']),
+    )
+    def test_expandDicts_IncExcFilters(self, case):
+        vals, incexc, exist, missing = case
+        ranger = xr.Ranger(None)
+        ranger.do_lasso = MagicMock(
+            name='do_lasso()', return_value=sentinel.BINGO)
+        lasso = xr.Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso, *incexc).values
+        print(res)
+        self.assertIn(sentinel.BINGO.name, str(res))
+        for k in ['key1', 'key2', 'k3']:
+            self.assertIn(k, str(res))
+        for v in exist:
+            self.assertIn(v, str(res))
+        for v in missing:
+            self.assertNotIn(v, str(res))
+
+
+@ddt
+class T16VsPandas(unittest.TestCase, CustomAssertions):
+
+    @contextlib.contextmanager
+    def sample_xl_file(self, matrix, **df_write_kwds):
+        try:
+            tmp_file = '%s.xlsx' % tempfile.mktemp()
+            _write_sample_sheet(tmp_file, matrix, 'Sheet1', **df_write_kwds)
+
+            yield tmp_file
+        finally:
+            try:
+                os.unlink(tmp_file)
+            except:
+                log.warning("Failed deleting %s!", tmp_file, exc_info=1)
+
+    dt = datetime(1900, 8, 2)
+    m1 = np.array([
+        # A     B       C      D       E
+        [1,    True,   None, False,  None],   # 1
+        [5,    True,   dt,    u'',    3.14],  # 2
+        [7,    False,  5.1,   7.1,    ''],    # 3
+        [9,    True,   43,    b'str', dt],    # 4
+    ])
+
+    def test_pandas_can_write_multicolumn(self):
+        df = pd.DataFrame([1, 2])
+        df.columns = pd.MultiIndex.from_arrays([list('A'), list('a')])
+        err = "Writing as Excel with a MultiIndex is not yet implemented."
+        msg = ("\n\nTIP: Pandas-%s probably saves DFs with MultiIndex columns now. \n"
+               "     Update _xlref._to_df() accordingly!")
+        with assertRaisesRegex(self, NotImplementedError, err,
+                               msg=msg % pd.__version__):
+            try:
+                tmp_file = '%s.xlsx' % tempfile.mktemp()
+                df.to_excel(tmp_file)
+            finally:
+                try:
+                    os.unlink(tmp_file)
+                except:
+                    pass
+
+    def check_vs_read_df(self, table, st, nd, write_df_kwds={}, parse_df_kwds={}):
+        with self.sample_xl_file(table, **write_df_kwds) as xl_file:
+            pd_df = pd.read_excel(xl_file, 'Sheet1')
+            pd_df = pd_df.iloc[
+                slice(st[0], nd[0] + 1), slice(st[1], nd[1] + 1)]
+            xlrd_wb = xlrd.open_workbook(xl_file)
+            self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
+            xlref_res = self.sheet.read_rect(st, nd)
+            lasso = xr.Lasso(
+                st=st, nd=nd, values=xlref_res, opts=ChainMap())
+
+            lasso1 = xr.redim_filter(None, lasso, row=[2, True])
+
+            df_filter = xr.get_default_filters()['df']['func']
+            lasso2 = df_filter(None, lasso1, **parse_df_kwds)
+
+            xlref_df = lasso2.values
+
+            msg = '\n---\n%s\n--\n%s\n-\n%s' % (xlref_res, xlref_df, pd_df)
+            self.assertTrue(xlref_df.equals(pd_df), msg=msg)
+
+    def test_vs_read_df(self):
+        self.check_vs_read_df(self.m1.tolist(),
+                              xr.Coords(0, 0), xr.Coords(4, 5),
+                              parse_df_kwds=dict(header=0))
+
+
+@unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
+@ddt
+class T17VsXlwings(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp = '%s.xlsx' % tempfile.mktemp()
+        table = [
+            [1, 2, None],
+            [None, 6.1, 7.1]
+        ]
+        _write_sample_sheet(self.tmp, table, 'Sheet1', startrow=5, startcol=3)
+
+        xlrd_wb = xlrd.open_workbook(self.tmp)
+        self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
+        self.sheetsFact = xr.SheetsFactory()
+        self.sheetsFact.add_sheet(self.sheet, 'wb', 'sheet1')
+
+    def tearDown(self):
+        del self.sheet
+        os.remove(self.tmp)
+
+    @data(
+        ('#R7C4:..(D):%s', lambda xw: xw.Range("Sheet1", "D7").vertical.value),
+        ('#R6C5:..(D):%s', lambda xw: xw.Range("Sheet1", "E6").vertical.value),
+        ('#R6C5:..(R):%s', lambda xw: xw.Range("Sheet1",
+                                               "E6").horizontal.value),
+        ('#R6C5:..(RD):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
+        ('#R6C5:..(DR):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
+        ('#R8C6:R6R4:%s', lambda xw: xw.Range("Sheet1", "D6:F8").value),
+        ('#R8C6:R1C1:%s', lambda xw: xw.Range("Sheet1", "A1:F8").value),
+        ('#R7C1:R7C4:%s', lambda xw: xw.Range("Sheet1", "A7:D7").value),
+        ('#R9C4:R3C4:%s', lambda xw: xw.Range("Sheet1", "D3:D9").value),
+    )
+    def test_vs_xlwings(self, case):
+        xlref, res = case
+        # load Workbook for --> xlwings
+        with xw_Workbook(self.tmp) as xw:
+            res = res(xw)
+
+        dims = xr.xlwings_dims_call_spec()
+        self.assertEqual(xr.lasso(xlref % dims, self.sheetsFact), res)

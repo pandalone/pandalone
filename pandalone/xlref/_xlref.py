@@ -1579,7 +1579,6 @@ class SheetsFactory(object):
                 a single or sequence of extra sheet-ids (ie: name, index, None)
         """
         assert sheet, (sheet, extra_wb_ids, extra_sh_ids)
-
         keys = self._derive_sheet_keys(sheet, extra_wb_ids, extra_sh_ids)
         for k in keys:
             old_sheet = self._cache_get(k)
@@ -1720,7 +1719,8 @@ class Ranger(object):
 
     def add_sheet(self, sheet, extra_wb_ids=None, extra_sh_ids=None,
                   no_current=False):
-        self.sheets_factory.add_sheet(extra_wb_ids, extra_sh_ids, no_current)
+        self.sheets_factory.add_sheet(sheet,
+                                      extra_wb_ids, extra_sh_ids, no_current)
 
     def _relasso(self, lasso, stage, **kwds):
         """Replace lasso-values and updated :attr:`intermediate_lasso`."""
@@ -1812,7 +1812,7 @@ class Ranger(object):
             try:
                 if isinstance(vals, basestring):
                     try:
-                        vals = self.lasso(vals, context_lasso=lasso)
+                        vals = self.do_lasso(vals, context_lasso=lasso)
                     except Exception as ex:
                         msg = "Recursive parsing %s stopped due to: %s \n  @Lasso: %s"
                         log.info(msg, vals, ex, lasso)
@@ -1877,7 +1877,7 @@ class Ranger(object):
            and sets  mine :attr:`base_opts` context-Lasso's `opts`."""
         return Lasso_new(opts=deepcopy(self.base_opts), **kwds)
 
-    def lasso(self, xlref, context_lasso=None):
+    def do_lasso(self, xlref, context_lasso=None):
         """
         The director-method that does all the job of hrowing a :term:`lasso`
         around spreadsheet's rect-regions according to :term:`xl-ref`.
@@ -2123,7 +2123,7 @@ def lasso(xlref,
             default ones; use a new :class:`Ranger` if that is not desired.
     :ivar dict or None base_opts: 
             Opts affecting the lassoing procedure that are deep-copied and used
-            as the base-opts for every :meth:`Ranger.lasso()`, whether invoked 
+            as the base-opts for every :meth:`Ranger.do_lasso()`, whether invoked 
             directly or recursively by :meth:`Ranger.recursive_filter()`. 
             Read the code to be sure what are the available choices. 
             Delegated to :func:`make_default_Ranger()`, so items override
@@ -2148,7 +2148,7 @@ def lasso(xlref,
         ranger = make_default_Ranger(sheets_factory=sheets_factory,
                                      base_opts=base_opts,
                                      available_filters=available_filters)
-        lasso = ranger.lasso(xlref)
+        lasso = ranger.do_lasso(xlref)
     finally:
         if factory_is_mine:
             ranger.sheets_factory.close()
@@ -2298,5 +2298,4 @@ class ArraySheet(ABCSheet):
         return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])].tolist()
 
     def __str(self):
-        return '%s(%s)@%s \n%s' % (type(self), self.get_sheet_ids(),
-                                   id(self), self._arr)
+        return '%s(%s) \n%s' % (type(self), self.get_sheet_ids(), self._arr)
