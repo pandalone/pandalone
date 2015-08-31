@@ -119,7 +119,7 @@ the sample :class:`ArraySheet`::
     
 
 For even more control of the procedure, you can create and use a separate 
-:class:`SheetFactory` instance, which is the backing-store and factory for
+:class:`SheetsFactory` instance, which is the backing-store and factory for
 all sheets used by the ``Ranger``.
 
 
@@ -135,7 +135,7 @@ API
       lasso
       Ranger
       Ranger.lasso
-      SheetFactory
+      SheetsFactory
       make_default_Ranger
       get_default_opts
       get_default_filters
@@ -631,7 +631,7 @@ TODOs
 """
 
 from ._xlref import (
-    lasso, Ranger, SheetFactory, ArraySheet,
+    lasso, Ranger, SheetsFactory, ArraySheet,
     Cell, coords2Cell, Edge, Lasso,
     parse_xlref, resolve_capture_rect,
     make_default_Ranger, get_default_opts, get_default_filters,

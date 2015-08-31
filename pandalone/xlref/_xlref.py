@@ -1470,7 +1470,7 @@ def _parse_call_spec(call_spec_values):
     return CallSpec(func, args, kwds), opts
 
 
-class SheetFactory(object):
+class SheetsFactory(object):
     """"
     A caching-store of :class:`ABCSheet` instances, serving them based on (workbook, sheet) IDs, optionally creating them from backends.
 
@@ -1489,7 +1489,7 @@ class SheetFactory(object):
       .. Tip::
           For the simplest API usage, try this::
 
-              >>> sf = SheetFactory()
+              >>> sf = SheetsFactory()
               >>> sf.add_sheet(some_sheet)              # doctest: +SKIP
               >>> lasso('A1:C3(U)', sf)                 # doctest: +SKIP
 
@@ -1692,7 +1692,7 @@ class Ranger(object):
 
     The :meth:`lasso()` does the job.
 
-    :ivar sheets_factory:
+    :ivar SheetsFactory sheets_factory:
             Factory of sheets from where to parse rect-values; does not 
             close it in the end.
     :ivar dict or None base_opts: 
@@ -1717,6 +1717,10 @@ class Ranger(object):
         self.base_opts = base_opts
         self.available_filters = available_filters
         self.intermediate_lasso = None
+
+    def add_sheet(self, sheet, extra_wb_ids=None, extra_sh_ids=None,
+                  no_current=False):
+        self.sheets_factory.add_sheet(extra_wb_ids, extra_sh_ids, no_current)
 
     def _relasso(self, lasso, stage, **kwds):
         """Replace lasso-values and updated :attr:`intermediate_lasso`."""
@@ -1808,7 +1812,7 @@ class Ranger(object):
             try:
                 if isinstance(vals, basestring):
                     try:
-                        vals = self.lasso(vals, base_lasso=lasso)
+                        vals = self.lasso(vals, context_lasso=lasso)
                     except Exception as ex:
                         msg = "Recursive parsing %s stopped due to: %s \n  @Lasso: %s"
                         log.info(msg, vals, ex, lasso)
@@ -1868,12 +1872,12 @@ class Ranger(object):
 
         return res
 
-    def _make_base_Lasso(self, opts=None, **kwds):
-        """Invoked when no `base_lasso` speced in :meth:`lasso()` 
-           and sets  mine :attr:`base_opts` new-Lasso's `opts`."""
+    def _make_context_Lasso(self, **kwds):
+        """Invoked when no `context_lasso` speced in :meth:`lasso()` 
+           and sets  mine :attr:`base_opts` context-Lasso's `opts`."""
         return Lasso_new(opts=deepcopy(self.base_opts), **kwds)
 
-    def lasso(self, xlref, base_lasso=None):
+    def lasso(self, xlref, context_lasso=None):
         """
         The director-method that does all the job of hrowing a :term:`lasso`
         around spreadsheet's rect-regions according to :term:`xl-ref`.
@@ -1887,10 +1891,10 @@ class Ranger(object):
 
                 file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
 
-        :param Lasso base_lasso: 
+        :param Lasso context_lasso: 
                 Default values to be overridden by non-nulls, 
                 also utilized by :meth:`recursive_filter()`.
-                Note that ``base_lasso.opts`` must be a `ChainMap`,
+                Note that ``context_lasso.opts`` must be a `ChainMap`,
                 see :func:`Lasso_new()`
         :return: 
                 The final :class:`Lasso` with captured & filtered values.
@@ -1898,7 +1902,7 @@ class Ranger(object):
         """
         self.intermediate_lasso = None
 
-        lasso = base_lasso or self._make_base_Lasso()
+        lasso = context_lasso or self._make_context_Lasso()
         lasso = self._relasso(lasso, 'init')
 
         lasso = self._parse(xlref, lasso)
@@ -2075,8 +2079,8 @@ def make_default_Ranger(sheets_factory=None,
 
     :param sheets_factory:
             Factory of sheets from where to parse rect-values; if unspecified, 
-            a new :class:`SheetFactory` is created.
-            Remember to invoke its :meth:`SheetFactory.close()` to clear
+            a new :class:`SheetsFactory` is created.
+            Remember to invoke its :meth:`SheetsFactory.close()` to clear
             resources from any opened sheets. 
     :param dict or None base_opts: 
             Default opts to affect the lassoing, to be merged with defaults; 
@@ -2088,7 +2092,7 @@ def make_default_Ranger(sheets_factory=None,
             Uses :func:`get_default_filters()` if unspecified.
 
     """
-    return Ranger(sheets_factory or SheetFactory(),
+    return Ranger(sheets_factory or SheetsFactory(),
                   base_opts or get_default_opts(),
                   available_filters or get_default_filters(),
                   **kwds)
@@ -2114,7 +2118,7 @@ def lasso(xlref,
 
     :param sheets_factory:
             Factory of sheets from where to parse rect-values; if unspecified, 
-            the new :class:`SheetFactory` created is closed afterwards.
+            the new :class:`SheetsFactory` created is closed afterwards.
             Delegated to :func:`make_default_Ranger()`, so items override
             default ones; use a new :class:`Ranger` if that is not desired.
     :ivar dict or None base_opts: 

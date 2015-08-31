@@ -1318,13 +1318,13 @@ class TLasso(unittest.TestCase):
         ])
 
     def test_read_Colon(self):
-        sf = xr.SheetFactory()
+        sf = xr.SheetsFactory()
         sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('#:', sf)
         npt.assert_array_equal(res, self.m1().tolist())
 
     def test_read_ColonWithJson(self):
-        sf = xr.SheetFactory()
+        sf = xr.SheetsFactory()
         sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('''#:
             [
@@ -1340,7 +1340,7 @@ class TLasso(unittest.TestCase):
         npt.assert_array_equal(res, self.m1())
 
     def test_read_A1(self):
-        sf = xr.SheetFactory()
+        sf = xr.SheetsFactory()
         sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('''#A1:..(D):
             [
@@ -1357,7 +1357,7 @@ class TLasso(unittest.TestCase):
 
     def test_read_RC(self):
         m1 = self.m1()
-        sf = xr.SheetFactory()
+        sf = xr.SheetsFactory()
         sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('#R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
                        sf)
@@ -1366,20 +1366,20 @@ class TLasso(unittest.TestCase):
 
     def test_read_RC_negative(self):
         m1 = self.m1()
-        sf = xr.SheetFactory()
+        sf = xr.SheetsFactory()
         sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
                        sf)
         npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
 
     def test_read_asLasso(self):
-        sf = xr.SheetFactory()
+        sf = xr.SheetsFactory()
         sf.add_sheet(xr.ArraySheet(self.m1()))
         res = xr.lasso('''#A1:..(D)''', sf, return_lasso=True)
         self.assertIsInstance(res, xr.Lasso)
 
     def test_Ranger_intermediateLaso(self):
-        sf = xr.SheetFactory()
+        sf = xr.SheetsFactory()
         sf.add_sheet(xr.ArraySheet(self.m1()))
         ranger = xr.make_default_Ranger(sheets_factory=sf)
         ranger.lasso(
@@ -1417,7 +1417,7 @@ class TLasso(unittest.TestCase):
             [None, 0.,    1.,   2.,   None],  # 5
             [None, 1.,    None, 6.1,  7.1]    # 6
         ])
-        sheetsFact = xr.SheetFactory()
+        sheetsFact = xr.SheetsFactory()
         sheetsFact.add_sheet(xr.ArraySheet(table), 'wb', 'sheet1')
 
         dims = xr.xlwings_dims_call_spec()
@@ -1507,7 +1507,7 @@ class VsXlwings(unittest.TestCase):
 
         xlrd_wb = xlrd.open_workbook(self.tmp)
         self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
-        self.sheetsFact = xr.SheetFactory()
+        self.sheetsFact = xr.SheetsFactory()
         self.sheetsFact.add_sheet(self.sheet, 'wb', 'sheet1')
 
     def tearDown(self):
@@ -1608,7 +1608,7 @@ class TSheetFactory(unittest.TestCase):
     )
     def test_derive_keys(self, case):
         sh_ids, wb_id, sheet_ids, exp = case
-        sf = xr.SheetFactory()
+        sf = xr.SheetsFactory()
         sheet = MagicMock()
         sheet.get_sheet_ids.return_value = sh_ids
         keys = sf._derive_sheet_keys(sheet, wb_id, sheet_ids)
@@ -1634,7 +1634,7 @@ class TSheetFactory(unittest.TestCase):
         k2 = ('wb',  0)
         sheet = MagicMock()
         sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
-        sf = xr.SheetFactory()
+        sf = xr.SheetsFactory()
         for wb_id, sh_ids in extra_ids:
             for sh_id in sh_ids:
                 sf.add_sheet(sheet, wb_id, sh_id)
@@ -1661,7 +1661,7 @@ class TSheetFactory(unittest.TestCase):
                 sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
 
                 # Populate cache
-                sf = xr.SheetFactory()
+                sf = xr.SheetsFactory()
                 for wb_id, sh_ids in extra_ids:
                     for sh_id in sh_ids:
                         sf.add_sheet(sheet, wb_id, sh_id)
@@ -1689,7 +1689,7 @@ class TSheetFactory(unittest.TestCase):
         sheet = MagicMock()
         sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
 
-        sf = xr.SheetFactory()
+        sf = xr.SheetsFactory()
         sf._open_sheet = MagicMock(side_effect=AssertionError("OPENED!"))
         for wb_id, sh_ids in extra_ids:
             for sh_id in sh_ids:
@@ -1714,7 +1714,7 @@ class TSheetFactory(unittest.TestCase):
         sheet = MagicMock(name='sheet')
         sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
 
-        sf = xr.SheetFactory()
+        sf = xr.SheetsFactory()
         sf._open_sheet = MagicMock(name='open_sheet', return_value=sheet)
 
         extra_ids = extra_ids + [('wb', ['sh', 0])]
