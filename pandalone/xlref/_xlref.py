@@ -1798,8 +1798,7 @@ class Ranger(object):
                     except Exception as ex:
                         msg = "Recursive parsing %s stopped due to: %s \n  @Lasso: %s"
                         log.info(msg, vals, ex, lasso)
-                else:
-                    # FIXME: Only for list, also update context!!
+                elif isinstance(vals, list):
                     vals = [expand(v, cdepth + 1) for v in vals]
             except:
                 pass

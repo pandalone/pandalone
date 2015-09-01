@@ -1487,9 +1487,9 @@ class T15Recursive(unittest.TestCase):
 
     @data(
         'str',
-        (1, 'str', []),
-        (1, 'str', [[1, 2]]),
-        [[], set([1, 'a', 'b']), [11, list('abc')]],
+        [1, 'str', []],
+        [1, 'str', [[1, 2]]],
+        [[], [1, 'a', 'b'], [11, list('abc')]],
     )
     def test_expandNestedStrings(self, vals):
         ranger = xr.Ranger(None)
@@ -1499,6 +1499,19 @@ class T15Recursive(unittest.TestCase):
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
+
+    @data(
+        (1, 'str', []),
+        [1, tuple(['str', [1, 2]])],
+        [[], set([1, 'a', 'b']), [11, tuple('abc')]],
+    )
+    def test_dontExpandNonLists(self, vals):
+        ranger = xr.Ranger(None)
+        ranger.do_lasso = MagicMock(
+            name='do_lasso()', return_value=sentinel.BINGO)
+        lasso = xr.Lasso(values=vals)
+        res = xr.Ranger.recursive_filter(ranger, lasso).values
+        self.assertNotIn(sentinel.BINGO.name, str(res))
 
     @data(
         {1: 'str'},
