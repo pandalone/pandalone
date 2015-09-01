@@ -49,7 +49,6 @@ except ImportError:
 CHECK_CELLTYPE = False
 """When `True`, most coord-functions accept any 2-tuples."""
 
-OPTS = 'opts'
 """The key for specifying options within :term:`filters`."""
 
 Cell = namedtuple('Cell', ['row', 'col'])
@@ -1624,9 +1623,10 @@ def _build_call_help(name, func, desc):
 
 Lasso = namedtuple('Lasso',
                    ('xl_ref', 'url_file', 'sh_name',
-                    'st_edge', 'nd_edge', 'exp_moves', 'js_filt', 'call_spec',
+                    'st_edge', 'nd_edge', 'exp_moves', 'js_filt',
+                    'call_spec',
                     'sheet', 'st', 'nd', 'values',
-                    OPTS))
+                    'opts'))
 """
 All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger`.
 
@@ -1650,22 +1650,16 @@ All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger
 :param values:
         The excel's table-values captured by the :term:`lasso`, 
         populated after reading updated while applying :term:`filters`. 
-:param ChainMap opts:
-        ChainMap of :attr:`Ranger.base_opts` with any options extracted 
-        from :term:`filters` on top.
+:param dict or ChainMap opts:
+        - Before `parsing`, they are just any 'opts' dict found in the 
+          :term:`filters`. 
+        - After *parsing, a 2-map ChainMap with :attr:`Ranger.base_opts` and
+          options extracted from *filters* on top.
 """
 
 
 Lasso.__new__.__defaults__ = (None,) * len(Lasso._fields)
 """Make :class:`Lasso` construct with all missing fields as `None`."""
-
-
-def Lasso_new(opts=None, **kwds):
-    """Makes a new :class:`Lasso` ensuring ``lasso.opts`` is `ChainMap` with the `opts` specified."""
-    lasso_opts = ChainMap()
-    if opts:
-        lasso_opts.maps.append(opts)
-    return Lasso(opts=lasso_opts, **kwds)
 
 
 class Ranger(object):
@@ -1680,12 +1674,15 @@ class Ranger(object):
     :ivar SheetsFactory sheets_factory:
             Factory of sheets from where to parse rect-values; does not 
             close it in the end.
-    :ivar dict or None base_opts: 
+            Maybe `None`, but :meth:`do_lasso()` will scream unless invoked 
+            with a `context_lasso` arg containing a concrete :class:`ABCSheet`.
+    :ivar dict base_opts: 
             Opts affecting the lassoing procedure that are deep-copied and used
             as the base-opts for every :meth:`lasso()`, whether invoked 
             directly or recursively by :meth:`recursive_filter()`. 
             Read the code to be sure what are the available choices. 
-            If unspecified, no opts are used.
+            If unspecified, no opts are used, but this attr is set to an 
+            empty dict.
             See :func:`get_default_opts()`.
     :ivar dict or None available_filters: 
             No filters exist if unspecified. 
@@ -1694,21 +1691,19 @@ class Ranger(object):
             A ``('stage', Lasso)`` pair with the last :class:`Lasso` instance 
             produced during the last execution of the :meth:`lasso()` function.
             Used for inspecting/debuging.
-    :ivar _context_Lasso_fields:
-            Those fields are taken from context-Lasso in case the parsed ones 
-            are `None`.
-
-            - They are used for recursive invocations, 
-              see :meth:`Ranger.recursive_filter`.
-            - Note that both Edges are not merged, eventhough `nd_edge` 
-              maybe `None`.
+    :ivar _context_lasso_fields:
+            The name of the fields taken from `context_lasso` arg of 
+            :meth:`do_lasso()`, when the parsed ones are `None`.
+            Needed for recursive invocations, see :meth:`recursive_filter`.
     """
 
-    _context_Lasso_fields = ['url_file', 'sh_name', 'sheet', 'st', 'nd']
+    _context_lasso_fields = ['url_file', 'sh_name', 'sheet', 'st', 'nd']
 
     def __init__(self, sheets_factory,
                  base_opts=None, available_filters=None):
         self.sheets_factory = sheets_factory
+        if base_opts is None:
+            base_opts = {}
         self.base_opts = base_opts
         self.available_filters = available_filters
         self.intermediate_lasso = None
@@ -1831,27 +1826,27 @@ class Ranger(object):
 
         return lasso._replace(values=values)
 
-    def _parse(self, xlref, base_lasso):
+    def _parse_and_merge_with_context(self, xlref, init_lasso):
         """
-        Merges xl-ref parsed-parsed_fields with `base_lasso` and reports any errors.
+        Merges xl-ref parsed-parsed_fields with `init_lasso`, reporting any errors.
 
-        :param Lasso base_lasso: 
+        :param Lasso init_lasso: 
                 Default values to be overridden by non-nulls.
-                Note that ``base_lasso.opts`` must be a `ChainMap`,
-                as returned by 
+                Note that ``init_lasso.opts`` must be a `ChainMap`,
+                as returned by :math:`_make_init_Lasso()`. 
 
-        :return: a Lasso with any non `None` parsed-parsed_fields updated
+        :return: a Lasso with any non `None` parsed-fields updated
         """
-        def is_field_from_parse(field):
-            k, v = field
-            return v is not None or k not in self._context_Lasso_fields
+        assert isinstance(init_lasso.opts, ChainMap), init_lasso
+
         try:
             parsed_fields = parse_xlref(xlref)
-            parsed_opts = parsed_fields.pop(OPTS, None)
+            parsed_opts = parsed_fields.pop('opts', None)
             if parsed_opts:
-                base_lasso.opts.maps.insert(0, parsed_opts)
-            upd_fields = dtz.itemfilter(is_field_from_parse, parsed_fields)
-            res = base_lasso._replace(**upd_fields)
+                init_lasso.opts.maps.insert(0, parsed_opts)
+            filled_fields = dtz.valfilter(lambda v: v is not None,
+                                          parsed_fields)
+            init_lasso = init_lasso._replace(**filled_fields)
         except Exception as ex:
             msg = "Parsing xl-ref(%s) failed due to: %s"
             log.debug(msg, xlref, ex, exc_info=1)
@@ -1863,12 +1858,22 @@ class Ranger(object):
             log.debug(msg, xlref, ex, exc_info=1)
             raise ValueError(msg % (xlref, ex))
 
-        return res
+        return init_lasso
 
-    def _make_context_Lasso(self, **kwds):
-        """Invoked when no `context_lasso` speced in :meth:`lasso()` 
-           and sets  mine :attr:`base_opts` context-Lasso's `opts`."""
-        return Lasso_new(opts=deepcopy(self.base_opts), **kwds)
+    def _make_init_Lasso(self, context_lasso=None):
+        """Creates the lasso to be used for a new :meth:`do_lasso()` invocation."""
+        def is_copied_from_context(field):
+            return field in self._context_lasso_fields
+
+        if context_lasso:
+            context_fields = dtz.keyfilter(is_copied_from_context,
+                                           context_lasso._asdict())
+        else:
+            context_fields = {}
+        context_fields['opts'] = ChainMap(self.base_opts)
+        init_lasso = Lasso(**context_fields)
+
+        return init_lasso
 
     def do_lasso(self, xlref, context_lasso=None):
         """
@@ -1885,20 +1890,19 @@ class Ranger(object):
                 file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
 
         :param Lasso context_lasso: 
-                Default values to be overridden by non-nulls, 
-                also utilized by :meth:`recursive_filter()`.
-                Note that ``context_lasso.opts`` must be a `ChainMap`,
-                see :func:`Lasso_new()`
+                Default values for :attr:`_context_lasso_fields` if not 
+                overridden by non-null parsed ones (i.e. specified by 
+                :meth:`recursive_filter()`).
         :return: 
                 The final :class:`Lasso` with captured & filtered values.
         :rtype: Lasso
         """
         self.intermediate_lasso = None
 
-        lasso = context_lasso or self._make_context_Lasso()
-        lasso = self._relasso(lasso, 'init')
+        lasso = self._make_init_Lasso(context_lasso)
+        lasso = self._relasso(lasso, 'context')
 
-        lasso = self._parse(xlref, lasso)
+        lasso = self._parse_and_merge_with_context(xlref, lasso)
         lasso = self._relasso(lasso, 'parse')
 
         call_spec = None
@@ -1958,7 +1962,7 @@ def redim_filter(ranger, lasso,
 
 def get_default_filters(overrides=None):
     """
-    Returns the available :term:`filter-function`.
+    Returns the default-defined available :term:`filters`.
 
     :param dict or None overrides:
             Any items to update the default ones.
@@ -2172,7 +2176,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
 
         >>> with dsgdsdsfsd as wb:          #  doctest: +SKIP
         ...     sheet = xlref.win32Sheet(wb.sheet['Sheet1'])
-        TODO
+        TODO: Win32 Sheet example
     """
 
     _states_matrix = None

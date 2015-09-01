@@ -240,9 +240,9 @@ Definitions
     lassoing
         It may denote 3 things:
         
-        - the whole procedure of parsing the `xl-ref` syntax,
-          `capturing` values 'spreadsheet rect-regions and sending them 
-          through any `filter-function` specified in the xl-ref;
+        - the whole procedure of `parsing` the `xl-ref` syntax,
+          `capturing` values from spreadsheet rect-regions and sending them 
+          through any `filters` specified in the xl-ref;
         - the :func:`lasso()` and :meth:`Ranger.lasso()` functions 
           performing the above job;
         - the :class:`Lasso` storing intermediate and final results of the 
@@ -255,6 +255,11 @@ Definitions
           it is composed of 2 `edge` references followed by `expansions` and
           `filters`.
         - The *file-part* should resolve to an excel-file.
+
+    parse
+    parsing
+        The stage where the input string gets splitted and checked for validity 
+        against the `xl-ref` syntax.
 
     edge
         An *edge* might signify:
@@ -422,7 +427,6 @@ Definitions
 
     filter
     filters
-    filter-function
         The last part of the `xl-ref` specifying predefined functions to 
         apply for transforming the cell-values of `capture-rect`, 
         abiding to the  **json** syntax.
