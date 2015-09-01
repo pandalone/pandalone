@@ -1513,25 +1513,25 @@ class SheetsFactory(object):
         assert wb is not None, (wb, sh)
         return (wb, sh)
 
-    def _derive_sheet_keys(self, sheet,  extra_wb_ids=None, extra_sh_ids=None):
+    def _derive_sheet_keys(self, sheet,  wb_ids=None, sh_ids=None):
         """
         Retuns the product of user-specified and sheet-internal keys.
 
-        :param extra_wb_ids:
+        :param wb_ids:
                 a single or a sequence of extra workbook-ids (ie: file, url)
-        :param extra_sh_ids:
+        :param sh_ids:
                 a single or sequence of extra sheet-ids (ie: name, index, None)
         """
-        wb_id, sh_ids = sheet.get_sheet_ids()
-        assert wb_id is not None, (wb_id, sh_ids)
-        wb_ids = [wb_id] + as_list(extra_wb_ids)
-        sh_ids = sh_ids + as_list(extra_sh_ids)
+        wb_id, sh_ids2 = sheet.get_sheet_ids()
+        assert wb_id is not None, (wb_id, sh_ids2)
+        wb_ids = [wb_id] + as_list(wb_ids)
+        sh_ids = sh_ids2 + as_list(sh_ids)
 
         key_pairs = itt.product(wb_ids, sh_ids)
         keys = list(set(self._build_sheet_key(*p)
                         for p in key_pairs
                         if p[0] is not None))
-        assert keys, (sheet,  extra_wb_ids, extra_sh_ids)
+        assert keys, (sheet,  wb_ids, sh_ids)
 
         return keys
 
@@ -1554,18 +1554,18 @@ class SheetsFactory(object):
         self._cached_sheets = {}
         self._current_sheet = None
 
-    def add_sheet(self, sheet, extra_wb_ids=None, extra_sh_ids=None,
+    def add_sheet(self, sheet, wb_ids=None, sh_ids=None,
                   no_current=False):
         """
         Updates cache and (optionally) `_current_sheet`.
 
-        :param extra_wb_ids:
+        :param wb_ids:
                 a single or sequence of extra workbook-ids (ie: file, url)
-        :param extra_sh_ids:
+        :param sh_ids:
                 a single or sequence of extra sheet-ids (ie: name, index, None)
         """
-        assert sheet, (sheet, extra_wb_ids, extra_sh_ids)
-        keys = self._derive_sheet_keys(sheet, extra_wb_ids, extra_sh_ids)
+        assert sheet, (sheet, wb_ids, sh_ids)
+        keys = self._derive_sheet_keys(sheet, wb_ids, sh_ids)
         for k in keys:
             old_sheet = self._cache_get(k)
             if old_sheet and old_sheet is not sheet:
@@ -1610,9 +1610,9 @@ class SheetsFactory(object):
         return _xlrd.open_sheet(wb_id, sheet_id, opts)
 
     def __enter__(self):
-        pass
+        return self
 
-    def __exit__(self):
+    def __exit__(self, typ, value, traceback):
         self.close()
 
 
@@ -1669,7 +1669,7 @@ class Ranger(object):
     Use it when you need to have total control of the procedure and 
     configuration parameters, since no defaults are assumed.
 
-    The :meth:`lasso()` does the job.
+    The :meth:`do_lasso()` does the job.
 
     :ivar SheetsFactory sheets_factory:
             Factory of sheets from where to parse rect-values; does not 
@@ -1677,10 +1677,9 @@ class Ranger(object):
             Maybe `None`, but :meth:`do_lasso()` will scream unless invoked 
             with a `context_lasso` arg containing a concrete :class:`ABCSheet`.
     :ivar dict base_opts: 
-            Opts affecting the lassoing procedure that are deep-copied and used
-            as the base-opts for every :meth:`lasso()`, whether invoked 
-            directly or recursively by :meth:`recursive_filter()`. 
-            Read the code to be sure what are the available choices. 
+            The :term:`opts` that are deep-copied and used as the defaults 
+            for every :meth:`do_lasso()`, whether invoked directly or 
+            recursively by :meth:`recursive_filter()`.
             If unspecified, no opts are used, but this attr is set to an 
             empty dict.
             See :func:`get_default_opts()`.
@@ -1689,7 +1688,7 @@ class Ranger(object):
             See :func:`get_default_filters()`.
     :ivar Lasso intermediate_lasso:
             A ``('stage', Lasso)`` pair with the last :class:`Lasso` instance 
-            produced during the last execution of the :meth:`lasso()` function.
+            produced during the last execution of the :meth:`do_lasso()`.
             Used for inspecting/debuging.
     :ivar _context_lasso_fields:
             The name of the fields taken from `context_lasso` arg of 
@@ -1707,11 +1706,6 @@ class Ranger(object):
         self.base_opts = base_opts
         self.available_filters = available_filters
         self.intermediate_lasso = None
-
-    def add_sheet(self, sheet, extra_wb_ids=None, extra_sh_ids=None,
-                  no_current=False):
-        self.sheets_factory.add_sheet(sheet,
-                                      extra_wb_ids, extra_sh_ids, no_current)
 
     def _relasso(self, lasso, stage, **kwds):
         """Replace lasso-values and updated :attr:`intermediate_lasso`."""
@@ -1801,11 +1795,12 @@ class Ranger(object):
             try:
                 if isinstance(vals, basestring):
                     try:
-                        vals = self.do_lasso(vals, context_lasso=lasso)
+                        vals = self.do_lasso(vals, lasso._asdict())
                     except Exception as ex:
                         msg = "Recursive parsing %s stopped due to: %s \n  @Lasso: %s"
                         log.info(msg, vals, ex, lasso)
                 else:
+                    # FIXME: Only for list, also update context!!
                     vals = [expand(v, cdepth + 1) for v in vals]
             except:
                 pass
@@ -1860,22 +1855,26 @@ class Ranger(object):
 
         return init_lasso
 
-    def _make_init_Lasso(self, context_lasso=None):
-        """Creates the lasso to be used for a new :meth:`do_lasso()` invocation."""
-        def is_copied_from_context(field):
+    def _make_init_Lasso(self, **context_kwds):
+        """Creates the lasso to be used for each new :meth:`do_lasso()` invocation."""
+        def is_context_field(field):
             return field in self._context_lasso_fields
 
-        if context_lasso:
-            context_fields = dtz.keyfilter(is_copied_from_context,
-                                           context_lasso._asdict())
-        else:
-            context_fields = {}
-        context_fields['opts'] = ChainMap(self.base_opts)
+        context_fields = dtz.keyfilter(is_context_field, context_kwds)
+        context_fields['opts'] = ChainMap(deepcopy(self.base_opts))
         init_lasso = Lasso(**context_fields)
 
         return init_lasso
 
-    def do_lasso(self, xlref, context_lasso=None):
+    def _fetch_sheet_from_lasso(self, sheet, url_file, sh_name, opts):
+        if sheet:
+            if url_file is None:
+                if sh_name is None:
+                    return sheet
+                else:
+                    return sheet.open_sibling_sheet(sh_name, opts)
+
+    def do_lasso(self, xlref, **context_kwds):
         """
         The director-method that does all the job of hrowing a :term:`lasso`
         around spreadsheet's rect-regions according to :term:`xl-ref`.
@@ -1889,17 +1888,18 @@ class Ranger(object):
 
                 file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
 
-        :param Lasso context_lasso: 
-                Default values for :attr:`_context_lasso_fields` if not 
-                overridden by non-null parsed ones (i.e. specified by 
-                :meth:`recursive_filter()`).
+        :param Lasso context_kwds: 
+                Default :class:`Lasso` fields in case parsed ones are `None` 
+                Only those in :attr:`_context_lasso_fields` are taken 
+                into account.
+                Utilized  by :meth:`recursive_filter()`.
         :return: 
                 The final :class:`Lasso` with captured & filtered values.
         :rtype: Lasso
         """
         self.intermediate_lasso = None
 
-        lasso = self._make_init_Lasso(context_lasso)
+        lasso = self._make_init_Lasso(**context_kwds)
         lasso = self._relasso(lasso, 'context')
 
         lasso = self._parse_and_merge_with_context(xlref, lasso)
@@ -1911,9 +1911,17 @@ class Ranger(object):
         lasso = self._relasso(lasso, 'call_spec', call_spec=call_spec)
 
         try:
-            sheet = self.sheets_factory.fetch_sheet(
-                lasso.url_file, lasso.sh_name,
-                lasso.opts)
+            # Maybe context had a Sheet already.
+            sheet = self._fetch_sheet_from_lasso(lasso.sheet,
+                                                 lasso.url_file, lasso.sh_name,
+                                                 lasso.opts)
+            if not sheet:
+                if not self.sheets_factory:
+                    msg = "The xl-ref(%s) specifies 'url-file` part but Ranger has no sheet-factory!"
+                    raise Exception(msg % lasso.xlref)
+                sheet = self.sheets_factory.fetch_sheet(
+                    lasso.url_file, lasso.sh_name,
+                    lasso.opts)
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
             raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
@@ -2067,8 +2075,7 @@ def get_default_opts(overrides=None):
 
 def make_default_Ranger(sheets_factory=None,
                         base_opts=None,
-                        available_filters=None,
-                        **kwds):
+                        available_filters=None):
     """
     Makes a defaulted :class:`Ranger`.
 
@@ -2089,15 +2096,15 @@ def make_default_Ranger(sheets_factory=None,
     """
     return Ranger(sheets_factory or SheetsFactory(),
                   base_opts or get_default_opts(),
-                  available_filters or get_default_filters(),
-                  **kwds)
+                  available_filters or get_default_filters())
 
 
 def lasso(xlref,
           sheets_factory=None,
           base_opts=get_default_opts(),
           available_filters=get_default_filters(),
-          return_lasso=False):
+          return_lasso=False,
+          **context_kwds):
     """
     High-level function to :term:`lasso` around spreadsheet's rect-regions 
     according to :term:`xl-ref` strings by using internally a :class:`Ranger` .
@@ -2132,6 +2139,11 @@ def lasso(xlref,
 
             For more debugging help, create a :class:`Range` yourself and 
             inspect the :attr:`Ranger.intermediate_lasso`.
+    :param Lasso context_kwds: 
+            Default :class:`Lasso` fields in case parsed ones are `None`
+            (i.e. you can specify the sheet like that).
+            Only those in :attr:`Ranger._context_lasso_fields` are taken 
+            into account.
 
     :return: 
             Either the captured & filtered values or the final :class:`Lasso`,
@@ -2143,7 +2155,7 @@ def lasso(xlref,
         ranger = make_default_Ranger(sheets_factory=sheets_factory,
                                      base_opts=base_opts,
                                      available_filters=available_filters)
-        lasso = ranger.do_lasso(xlref)
+        lasso = ranger.do_lasso(xlref, **context_kwds)
     finally:
         if factory_is_mine:
             ranger.sheets_factory.close()
@@ -2222,7 +2234,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
     @abstractmethod
     def read_rect(self, st, nd):
         """
-        Fecth the actual values  from the backend Excel-sheet.
+        Fecth the actual values from the backend Excel-sheet.
 
         :param Coords st:
                 the top-left edge, inclusive
@@ -2266,12 +2278,12 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
 
         return self._margin_coords
 
-    def __str(self):
-        return '%s(%s)@%s' % (type(self), self.get_sheet_ids(), id(self))
+    def __repr__(self):
+        return '%s%s' % (type(self), self.get_sheet_ids())
 
 
 class ArraySheet(ABCSheet):
-    """A sample-sheet for facilitating tests."""
+    """A sample:class:`ABCSheet` made out of 2D-list or numpy-arrays, for facilitating tests."""
 
     def __init__(self, arr, ids=('wb', ['sh', 0])):
         self._arr = np.asarray(arr)
@@ -2292,5 +2304,5 @@ class ArraySheet(ABCSheet):
         rect = np.array([st, nd]) + [[0, 0], [1, 1]]
         return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])].tolist()
 
-    def __str(self):
-        return '%s(%s) \n%s' % (type(self), self.get_sheet_ids(), self._arr)
+    def __repr__(self):
+        return 'ArraySheet%s \n%s' % (self.get_sheet_ids(), self._arr)

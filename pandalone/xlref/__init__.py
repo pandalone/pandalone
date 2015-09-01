@@ -58,7 +58,7 @@ Annotated Syntax
   target-moves─────┐
   landing-cell──┐  │
                ┌┤ ┌┤
-              #C3(UL):..(RD):L1DR:["pipe": [['dict'], ["recursive"]]]
+              #C3(UL):..(RD):RULD:["pipe": [['dict'], ["recursive"]]]
                └─┬──┘ └─┬──┘ └┬─┘ └─────────────────┬───────────────┘
   1st-edge───────┘      │     │                     │
   2nd-edge──────────────┘     │                     │
@@ -73,20 +73,21 @@ Which means:
     2. continue from the last `target` and travel the `exterior` row and column
        right and down, stopping on their last `full-cell`;
     3. `capture` all the cells between the 2 targets.
-    4. try `expansions` on the `target-rect`, once to the left column
-       and then down and right until a full-empty line/row is met, respectively;
+    4. try `expansions` to all directions if any neighbouring `full-cell`;
     5. finally `filter` the values of the `capture-rect` to wrap them up
-       in dictionary, and search its values for `xl-ref` and replace them.
+       in a dictionary, and search its values for `xl-ref` and replace them.
 
 
 Basic Usage
 -----------
-To capture a `xl-ref` use the :func:`lasso()`. The simplest example is 
-to capture all excel-sheet data but without bordering nulls::
+The simplest way to `lasso` a `xl-ref` is through :func:`lasso()`. 
+A common task is capturing all sheet data but without any bordering nulls::
 
-    values = xlasso.lasso('path/to/workbook.xlsx#:')
+    >>> from pandalone import xlref
 
-Assuming that the 1st sheet of the workbook is as shown below, 
+    >>> values = xlref.lasso('path/to/workbook.xlsx#:')  # doctest: +SKIP
+
+Assuming that the 1st sheet of the workbook on disk is as shown below, 
 the `capture-rect` would be a 2D (nested) list-of-lists with the values
 contained in the range ``C2:E4``::
 
@@ -103,25 +104,58 @@ where:
 
 
 If you do not wish to let the library read your workbooks, you can 
-pre-populate a :class:`Ranger' instance with the desired sheets, such as
-the sample :class:`ArraySheet`::
+invoke the function with a pre-loaded sheet.
+Here we will use the utility :class:`ArraySheet`::
 
-    >>> from pandalone import xlref
-
-    >>> ranger = xlref.make_default_Ranger()
-    >>> ranger.add_sheet(ArraySheet([[None, None,  'A',   None],
-    ...                              [None, 2.2,   'foo', None],
-    ...                              [None, None,   2,    None],
-    ...                              [None, None,   None, 3.14],
-    ... ]))
-    >>> ranger.do_lasso('#A1(DR):..(DR):RULD').values
+    >>> sheet = xlref.ArraySheet([[None, None,  'A',   None],
+    ...                          [None, 2.2,   'foo', None],
+    ...                          [None, None,   2,    None],
+    ...                          [None, None,   None, 3.14],
+    ... ])
+    >>> xlref.lasso('#A1(DR):..(DR):RULD', sheet=sheet)
     [[None, 'A'], 
      [2.2, 'foo'], 
      [None, 2]] 
 
-For even more control of the procedure, you can create and use a separate 
-:class:`SheetsFactory` instance, which is the backing-store and factory for
-all sheets used by the ``Ranger``.
+This `capture-rect` in this case was *B1* and *C3* as can be seen by inspecting
+the the 'st' and 'nd' fields of the full :class:`Lasso` results returned::
+
+    >>> xlref.lasso('#A1(DR):..(DR):RULD', sheet=sheet, return_lasso=1)
+    Lasso(xl_ref='#A1(DR):..(DR):RULD', 
+          url_file=None, 
+          sh_name=None, 
+          st_edge=Edge(land=Cell(row='1', col='A'), mov='DR', mod=None), 
+          nd_edge=Edge(land=Cell(row='.', col='.'), mov='DR', mod=None), 
+          exp_moves=[repeat('RULD')], 
+          js_filt=None, 
+          call_spec=None, 
+          sheet=ArraySheet('wb', ['sh', 0]) 
+                [[None None 'A' None]
+                 [None 2.2 'foo' None]
+                 [None None 2 None]
+                 [None None None 3.14]], 
+          st=Coords(row=0, col=1), 
+          nd=Coords(row=2, col=2), 
+          values=[[None, 'A'], [2.2, 'foo'], [None, 2]], 
+          ...
+
+
+For controlling explicitly the configuration parameters and the opening of 
+workbooks, use separate instances of :class:`Ranger' and :class:`SheetsFactory`, 
+that are the workhorses of this library::
+
+    >>> with xlref.SheetsFactory() as sf:
+    ...     sf.add_sheet(sheet, wb_ids='foo_wb', sh_ids='Sheet1')
+    ...     ranger = xlref.Ranger(sf, base_opts={'verbose': True})
+    ...     ranger.do_lasso('foo_wb#Sheet1!__').values
+    3.14 
+
+Notice that it returned a scalar value since we specified only the `1st` `edge`, 
+``__``, which points to the bottom row and most-left column of the sheet.
+
+
+Alternatively you can call the :func:`make_default_Ranger()` for extending 
+library's defaults.
 
 
 API
@@ -136,18 +170,20 @@ API
       lasso
       Ranger
       Ranger.do_lasso
+      Lasso
       SheetsFactory
       make_default_Ranger
       get_default_opts
       get_default_filters
-      Lasso
-      Cell
-      Edge
       coords2Cell
+      ArraySheet
 
 - Major internal functions:
+      Cell
+      Edge
       parse_xlref
       resolve_capture_rect
+      ABCSheet
       ABCSheet.read_rect
 
 - **xlrd** back-end functionality:
@@ -161,8 +197,7 @@ API
 
 More Syntax Examples
 --------------------
-
-Another typical case is when a sheet contains a single table 
+Another typical but more advanced case is when a sheet contains a single table 
 with a "header"-row and a "index"-column.
 There are (at least) 3 ways to do it, beyond specifying
 the exact `coordinates`::

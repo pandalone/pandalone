@@ -1342,65 +1342,10 @@ class T12CallSpec(unittest.TestCase):
 @ddt
 class T13Ranger(unittest.TestCase):
 
-    cache_keys = [
-        ([('w1', ['s1'])],                                      1),
-        ([('w1', ['s1', None])],                                2),
-        ([('w1', ['s1', 0, 1])],                                2),
-        ([('w1', ['s1', 0, 1, None])],                          3),
-        ([('wb', ['s1']), ('w1', [0])],                         2),
-        ([('w1', ['s1', 0, None]), ('w2', ['s1', 0, None])],    4),
-
-    ]
-
-    @data(
-        *cache_keys
-    )
-    def test_fetch_sheet_prePopulated(self, case):
-        extra_ids, open_calls = case
-        k1 = ('wb', 'sh')
-        k2 = ('wb',  0)
-        sheet = MagicMock()
-        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
-
-        sf = xr.SheetsFactory()
-        sf._open_sheet = MagicMock(side_effect=AssertionError("OPENED!"))
-        for wb_id, sh_ids in extra_ids:
-            for sh_id in sh_ids:
-                sf.add_sheet(sheet, wb_id, sh_id)
-
-        extra_ids = extra_ids + [('wb', ['sh', 0])]
-        for wb_id, sh_ids in extra_ids:
-            for sh_id in sh_ids:
-                self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
-                self.assertIs(sf.fetch_sheet(None, None), sheet)
-                self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
-                self.assertIs(sf.fetch_sheet(*k1), sheet)
-                self.assertIs(sf.fetch_sheet(*k2), sheet)
-
-    @data(
-        *cache_keys
-    )
-    def test_fetch_sheet_andOpen(self, case):
-        k1 = ('wb', 'sh')
-        k2 = ('wb',  0)
-        extra_ids, open_calls = case
-        sheet = MagicMock(name='sheet')
-        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
-
-        sf = xr.SheetsFactory()
-        sf._open_sheet = MagicMock(name='open_sheet', return_value=sheet)
-
-        extra_ids = extra_ids + [('wb', ['sh', 0])]
-        for wb_id, sh_ids in extra_ids:
-            for sh_id in sh_ids:
-                self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
-                self.assertIs(sf.fetch_sheet(None, None), sheet)
-                self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
-                self.assertIs(sf.fetch_sheet(*k1), sheet)
-                self.assertIs(sf.fetch_sheet(*k2), sheet)
-
-        self.assertEqual(sf._open_sheet.call_count, open_calls,
-                         sf._open_sheet.mock_calls)
+    def test_context_sheet(self):
+        ranger = xr.Ranger(None)
+        res = ranger.do_lasso('#B2', sheet=xr.ArraySheet([[1, 2], [3, 4]]))
+        self.assertEqual(res.values, 4)
 
 
 @ddt

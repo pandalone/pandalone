@@ -23,15 +23,15 @@ TODOs
             - [ ] Edge +/?(instead of -)
             - [ ] Use *ast* library for filters
             - [ ] Coord: RC, ^-1,_-6
-            - [ ] Expand 5+/5?
+            - [ ] Expand meander `@`?
         - [ ] Xlrd-read with slices.
-        - [ ] OK: Keep only single Lasso-stage in Ranger.
+        - [x] Keep only single Lasso-stage in Ranger.
     - Struct:
-        - [ ] split lassos from xlref.
+        - [ ] Split lassos from xlref.
         - [ ] plugin backends (& syntax?)
     - TCs
         - [ ] More
-        - [ ] test XlWings in Windows indeed OK.
+        - [ ] Test XlWings in Windows indeed OK.
     - Backends:
         - [ ] Clipboard
         - [ ] xlwings
@@ -39,7 +39,7 @@ TODOs
     - [x] Check TODOs in code
     - [ ] README
     - [ ] Split own project
-        - Rename XLasso
+        - [ ] Rename XLasso
 
 Changelog
 =========
