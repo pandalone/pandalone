@@ -594,7 +594,7 @@ def pmods_from_tuples(pmods_tuples):
     - The "from" path may be:
       - relative,
       - absolute(starting with `/`), or
-      - TODO: "anywhere"(starting with `//`).
+      - "anywhere"(starting with `//`).
 
     - In case a "step" in the "from" path starts with tilda(`~`),
       it is assumed to be a regular-expression, and it is removed from it.
@@ -654,6 +654,8 @@ def pmods_from_tuples(pmods_tuples):
         ... ])
         pmod({'': pmod({'': pmod('New/Root')})})
 
+
+    TODO: Implement "anywhere" matches.
     """
     root = Pmod()
     for i, (f, t) in enumerate(pmods_tuples):

@@ -150,11 +150,11 @@ that are the workhorses of this library::
     ...     ranger.do_lasso('foo_wb#Sheet1!__').values
     3.14 
 
-Notice that it returned a scalar value since we specified only the `1st` `edge`, 
-``__``, which points to the bottom row and most-left column of the sheet.
+Notice that it returned a scalar value since we specified only the `1st` `edge`
+as ``'__'``, which points to the bottom row and most-left column of the sheet.
 
 
-Alternatively you can call the :func:`make_default_Ranger()` for extending 
+Alternatively you can call the :func:`make_default_Ranger` for extending 
 library's defaults.
 
 
@@ -177,14 +177,18 @@ API
       get_default_filters
       coords2Cell
       ArraySheet
+      xlwings_dims_call_spec
 
-- Major internal functions:
-      Cell
-      Edge
+- Major internal functions and classes:
+
+  .. autosummary::
       parse_xlref
       resolve_capture_rect
-      ABCSheet
       ABCSheet.read_rect
+      Cell
+      Coords
+      Edge
+      ABCSheet
 
 - **xlrd** back-end functionality:
 
@@ -670,18 +674,25 @@ Example-refs are given below for capturing the 2 marked tables::
 """
 
 """
-
-TODOs
-=====
+TODOs rejected:
+===============
 * Support cubic areas.
 * Notation for specifying the "last-sheet".
-* Support RC with negative coords for counting backwards from the end.
 """
+
+
+__all__ = [
+    'lasso', 'Ranger', 'SheetsFactory', 'ArraySheet',
+    'Cell', 'coords2Cell', 'Edge', 'Lasso',
+    'parse_xlref', 'resolve_capture_rect',
+    'make_default_Ranger', 'get_default_opts', 'get_default_filters',
+    'xlwings_dims_call_spec',
+]
 
 from ._xlref import (
     lasso, Ranger, SheetsFactory, ArraySheet,
-    Cell, coords2Cell, Edge, Lasso,
-    parse_xlref, resolve_capture_rect,
     make_default_Ranger, get_default_opts, get_default_filters,
+    Cell, Coords, coords2Cell, Edge, Lasso,
+    parse_xlref, resolve_capture_rect,
     xlwings_dims_call_spec,
 )

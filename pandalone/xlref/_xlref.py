@@ -96,7 +96,7 @@ def coords2Cell(row, col):
         col = xl_colname(col)
     return Cell(row=row, col=col)
 
-_Edge = namedtuple('Edge', ['land', 'mov', 'mod'])
+Edge = namedtuple('Edge', ['land', 'mov', 'mod'])
 """
 :param Cell land:
 :param str mov: use None for missing moves.
@@ -109,9 +109,8 @@ An :term:`Edge` might be "cooked" or "uncooked" depending on its `land`:
 
 """
 
-
-def Edge(land, mov=None, mod=None):
-    return _Edge(land, mov, mod)
+Edge.__new__.__defaults__ = (None, None)
+"""Make optional the last 2 fields of :class:`Edge` ``(mov, mod)`` ."""
 
 
 def Edge_uncooked(row, col, mov, mod=None):
@@ -1970,7 +1969,7 @@ def redim_filter(ranger, lasso,
 
 def get_default_filters(overrides=None):
     """
-    Returns the default-defined available :term:`filters`.
+   The default available :term:`filters` used by :func:`lasso()` when constructing its internal :class:`Ranger`.
 
     :param dict or None overrides:
             Any items to update the default ones.
@@ -2058,6 +2057,8 @@ def get_default_filters(overrides=None):
 
 def get_default_opts(overrides=None):
     """
+    Default :term:`opts` used by :func:`lasso()` when constructing its internal :class:`Ranger`.
+
     :param dict or None overrides:
             Any items to update the default ones.
     """
@@ -2283,7 +2284,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
 
 
 class ArraySheet(ABCSheet):
-    """A sample:class:`ABCSheet` made out of 2D-list or numpy-arrays, for facilitating tests."""
+    """A sample :class:`ABCSheet` made out of 2D-list or numpy-arrays, for facilitating tests."""
 
     def __init__(self, arr, ids=('wb', ['sh', 0])):
         self._arr = np.asarray(arr)
