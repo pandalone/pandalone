@@ -1424,18 +1424,12 @@ def _parse_call_spec(call_spec_values):
     def parse_object(func, args=None, kwds=None):
         return func, args, kwds
 
-    opts = None
     try:
         if isinstance(call_spec_values, basestring):
             func, args, kwds = call_spec_values, None, None
         elif isinstance(call_spec_values, list):
             func, args, kwds = parse_list(*call_spec_values)
         elif isinstance(call_spec_values, dict):
-            # Parse a lone OPTS.
-            #
-            opts = call_spec_values.pop(OPTS, None)
-            if not call_spec_values:
-                return None, opts
             func, args, kwds = parse_object(**call_spec_values)
         else:
             msg = "One of str, list or dict expected for call-spec(%s)!"
@@ -1460,14 +1454,7 @@ def _parse_call_spec(call_spec_values):
         msg = "Expected a `dict` for kwds({}) for call-spec({})!"
         raise ValueError(msg.format(kwds, call_spec_values))
 
-    # Extract any OPTS kewd from func-kwds,
-    #     and merge it with base opts.
-    if opts:
-        opts.update(kwds.pop(OPTS, {}))
-    else:
-        opts = kwds.pop(OPTS, None)
-
-    return CallSpec(func, args, kwds), opts
+    return CallSpec(func, args, kwds)
 
 
 class SheetsFactory(object):
@@ -1664,9 +1651,8 @@ All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger
         The excel's table-values captured by the :term:`lasso`, 
         populated after reading updated while applying :term:`filters`. 
 :param ChainMap opts:
-        Stacked dictionaries with options from previous invocations, 
-        extracted from :term:`filters`, initialized at the beginning, used and 
-        updated during all stages.
+        ChainMap of :attr:`Ranger.base_opts` with any options extracted 
+        from :term:`filters` on top.
 """
 
 
@@ -1708,7 +1694,17 @@ class Ranger(object):
             A ``('stage', Lasso)`` pair with the last :class:`Lasso` instance 
             produced during the last execution of the :meth:`lasso()` function.
             Used for inspecting/debuging.
+    :ivar _context_Lasso_fields:
+            Those fields are taken from context-Lasso in case the parsed ones 
+            are `None`.
+
+            - They are used for recursive invocations, 
+              see :meth:`Ranger.recursive_filter`.
+            - Note that both Edges are not merged, eventhough `nd_edge` 
+              maybe `None`.
     """
+
+    _context_Lasso_fields = ['url_file', 'sh_name', 'sheet', 'st', 'nd']
 
     def __init__(self, sheets_factory,
                  base_opts=None, available_filters=None):
@@ -1767,9 +1763,7 @@ class Ranger(object):
         """
 
         for call_spec_values in pipe:
-            call_spec, call_opts = _parse_call_spec(call_spec_values)
-            if call_opts:
-                lasso.opts.maps.insert(0, call_opts)
+            call_spec = _parse_call_spec(call_spec_values)
             lasso = self._make_call(lasso, *call_spec)
 
         return lasso
@@ -1839,25 +1833,24 @@ class Ranger(object):
 
     def _parse(self, xlref, base_lasso):
         """
-        Merges xl-ref parsed-fields with `base_lasso` and reports any errors.
+        Merges xl-ref parsed-parsed_fields with `base_lasso` and reports any errors.
 
         :param Lasso base_lasso: 
                 Default values to be overridden by non-nulls.
                 Note that ``base_lasso.opts`` must be a `ChainMap`,
                 as returned by 
 
-        :return: a Lasso with any non `None` parsed-fields updated
+        :return: a Lasso with any non `None` parsed-parsed_fields updated
         """
-        def is_field_mergeable(field):
+        def is_field_from_parse(field):
             k, v = field
-            # Edges always relayed eventhough `nd_edge` mybe `None`.
-            return v is not None or k in ['st_edge', 'nd_edge']
+            return v is not None or k not in self._context_Lasso_fields
         try:
-            fields = parse_xlref(xlref)
-            parsed_opts = fields.pop(OPTS, None)
+            parsed_fields = parse_xlref(xlref)
+            parsed_opts = parsed_fields.pop(OPTS, None)
             if parsed_opts:
                 base_lasso.opts.maps.insert(0, parsed_opts)
-            upd_fields = dtz.itemfilter(is_field_mergeable, fields)
+            upd_fields = dtz.itemfilter(is_field_from_parse, parsed_fields)
             res = base_lasso._replace(**upd_fields)
         except Exception as ex:
             msg = "Parsing xl-ref(%s) failed due to: %s"
@@ -1910,9 +1903,7 @@ class Ranger(object):
 
         call_spec = None
         if lasso.js_filt:
-            call_spec, call_opts = _parse_call_spec(lasso.js_filt)
-            if call_opts:
-                lasso.opts.maps.insert(0, call_opts)
+            call_spec = _parse_call_spec(lasso.js_filt)
         lasso = self._relasso(lasso, 'call_spec', call_spec=call_spec)
 
         try:
@@ -2061,7 +2052,7 @@ def get_default_opts(overrides=None):
     opts = {
         'lax': False,
         'verbose': False,
-        'read': {'on_demand': False, },
+        'read': {'on_demand': True, },
     }
 
     if overrides:

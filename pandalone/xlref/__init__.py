@@ -442,11 +442,13 @@ Definitions
         as the `opts`.
 
     opts
-        A stack of dictionaries appended on each filter-invocation affecting 
-        the `lassoing` (i.e. setting ``verbose = True``).
-        It is extracted from the *kwds* of the `call-spec` apart from the 1st
-        which is popped-out if the `filter` expression is a dictionary.  
-        
+        Key-value pairs affecting the `lassoing` (i.e. opening xlrd-workbooks).
+        Read the code to be sure what are the available choices :-( 
+        They are a combination of options specified in code (i.e. in the 
+        :func:`lasso()` and those extracted from `filters` by the 'opts' key,
+        and they are stored in the :class:`Lasso`.
+
+
 Details
 =======
 

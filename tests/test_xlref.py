@@ -1262,9 +1262,8 @@ class T12CallSpec(unittest.TestCase):
     )
     def test_OK(self, case):
         call_desc, exp = case
-        cspec, opts = xr._parse_call_spec(call_desc)
+        cspec = xr._parse_call_spec(call_desc)
         self.assertEqual(cspec, exp)
-        self.assertIsNone(opts)
 
     _bad_struct = "One of str, list or dict expected"
     _func_not_str = "Expected a `string` for func"
@@ -1338,28 +1337,6 @@ class T12CallSpec(unittest.TestCase):
         call_desc, err = case
         with assertRaisesRegex(self, ValueError, err):
             xr._parse_call_spec(call_desc)
-
-    @data(
-        ({'opts': {1: 2}},                  None, {1: 2}),
-        ({'func': 'f', 'kwds': {'opts': {1: 2}}}, ('f', [], {}), {1: 2}),
-        ({'func': 'f', 'kwds': {'a': 'b', 'opts': {1: 2}}},
-         ('f', [], {'a': 'b'}), {1: 2}),
-        (['f', {'a': 2, 'opts': {1: 2}}],   ('f', [], {'a': 2}), {1: 2}),
-        (['f', {'a': 2, 'opts': {1: 2}}, [5, 6]],
-         ('f', [5, 6], {'a': 2}), {1: 2}),  # 5
-        ({'opts': {1: 2}, 'func': 'f', 'args': [1, 2]},
-         ('f', [1, 2], {}), {1: 2}),
-        ({'opts': {1: 2}, 'func': 'f', 'args': [1, 2], 'kwds': {'a': 2}},
-         ('f', [1, 2], {'a': 2}), {1: 2}),
-        ({'opts': {1: 2, 11: 22}, 'func': 'merge',
-          'kwds': {'a': 2, 'opts': {1: 1, 3: 4}}},
-         ('merge', [], {'a': 2}), {1: 1, 11: 22, 3: 4}),
-    )
-    def test_opts(self, case):
-        inp, call_spec, opts = case
-        res = xr._parse_call_spec(inp)
-        self.assertEqual(res[0], call_spec)
-        self.assertEqual(res[1], opts)
 
 
 @ddt
@@ -1448,15 +1425,14 @@ class T14Lasso(unittest.TestCase):
     def test_read_ColonWithJson(self):
         sf = xr.SheetsFactory()
         sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('''#:
-            [
-                "pipe", [
-                    ["redim", {"col": [2, 1]}], 
-                    "numpy"
-                ], {"opts":
-                    {"verbose": true}
-                }
-            ]''',
+        res = xr.lasso('''#:{
+            "opts": {"verbose": true},
+            "func": "pipe", 
+            "args": [
+                ["redim", {"col": [2, 1]}],
+                "numpy"
+            ]
+        }''',
                        sf)
         self.assertIsInstance(res, np.ndarray)
         npt.assert_array_equal(res, self.m1())
@@ -1464,15 +1440,14 @@ class T14Lasso(unittest.TestCase):
     def test_read_A1(self):
         sf = xr.SheetsFactory()
         sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('''#A1:..(D):
-            [
-                "pipe", [
-                    ["redim", {"col": [2, 1]}], 
-                    "numpy"
-                ], {"opts":
-                    {"verbose": true}
-                }
-            ]''',
+        res = xr.lasso('''#A1:..(D):{
+            "opts": {"verbose": true},
+            "func": "pipe", 
+            "args": [
+                ["redim", {"col": [2, 1]}],
+                "numpy"
+            ]
+        }''',
                        sf)
         self.assertIsInstance(res, np.ndarray)
         npt.assert_array_equal(res, [[1, 5, 7, 9]])
