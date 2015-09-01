@@ -9,6 +9,7 @@
 A mini-language for for "throwing the rope" around rectangular areas of Excel-sheets.
 
 .. default-role:: term
+.. currentmodule:: pandalone.xlref._xlref
 
 Introduction
 ============
@@ -161,12 +162,11 @@ library's defaults.
 API
 ---
 .. default-role:: obj
+.. currentmodule:: pandalone.xlref._xlref
 
 - User-facing functionality:
 
-  .. currentmodule:: pandalone.xlref._xlref
   .. autosummary::
-
       lasso
       Ranger
       Ranger.do_lasso
@@ -179,7 +179,7 @@ API
       ArraySheet
       xlwings_dims_call_spec
 
-- Major internal functions and classes:
+- Major internal functions and intermediate classes:
 
   .. autosummary::
       parse_xlref
@@ -193,10 +193,13 @@ API
 - **xlrd** back-end functionality:
 
   .. currentmodule:: pandalone.xlref._xlrd
+  
   .. autosummary::
       XlrdSheet
+      open_sheet
 
 .. default-role:: term
+.. currentmodule:: pandalone.xlref._xlref
 
 
 More Syntax Examples
@@ -672,22 +675,6 @@ Example-refs are given below for capturing the 2 marked tables::
 
 .. default-role:: obj
 """
-
-"""
-TODOs rejected:
-===============
-* Support cubic areas.
-* Notation for specifying the "last-sheet".
-"""
-
-
-__all__ = [
-    'lasso', 'Ranger', 'SheetsFactory', 'ArraySheet',
-    'Cell', 'coords2Cell', 'Edge', 'Lasso',
-    'parse_xlref', 'resolve_capture_rect',
-    'make_default_Ranger', 'get_default_opts', 'get_default_filters',
-    'xlwings_dims_call_spec',
-]
 
 from ._xlref import (
     lasso, Ranger, SheetsFactory, ArraySheet,

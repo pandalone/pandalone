@@ -137,6 +137,9 @@ def _open_sheet_by_name_or_index(wb, sheet_id, opts=None):
 
 
 def open_sheet(wb_url, sheet_id, opts):
+    """
+    Opens the local or remote `wb_url` *xlrd* workbook wrapped as :class:`XlrdSheet`. 
+    """
     assert wb_url, (wb_url, sheet_id, opts)
     ropts = opts.get('read', {})
     if ropts:
@@ -157,6 +160,9 @@ def open_sheet(wb_url, sheet_id, opts):
 
 
 class XlrdSheet(ABCSheet):
+    """
+    The *xlrd* workbook wrapper required by xlref library. 
+    """
 
     def __init__(self, sheet, epoch1904=False):
         if not isinstance(sheet, xlrd.sheet.Sheet):

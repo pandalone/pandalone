@@ -98,9 +98,14 @@ def coords2Cell(row, col):
 
 Edge = namedtuple('Edge', ['land', 'mov', 'mod'])
 """
+All the infos required to :term:`target` a cell.
+
 :param Cell land:
-:param str mov: use None for missing moves.
-:param str mod: one of (`+`, `-` or `None`)
+        the :term:`landing-cell`
+:param str mov: 
+        use None for missing moves.
+:param str mod: 
+        one of (`+`, `-` or `None`)
 
 An :term:`Edge` might be "cooked" or "uncooked" depending on its `land`:
 
@@ -1456,7 +1461,7 @@ def _parse_call_spec(call_spec_values):
 
 
 class SheetsFactory(object):
-    """"
+    """
     A caching-store of :class:`ABCSheet` instances, serving them based on (workbook, sheet) IDs, optionally creating them from backends.
 
     :ivar dict _cached_sheets: 
@@ -1624,7 +1629,7 @@ Lasso = namedtuple('Lasso',
                    ('xl_ref', 'url_file', 'sh_name',
                     'st_edge', 'nd_edge', 'exp_moves', 'js_filt',
                     'call_spec',
-                    'sheet', 'st', 'nd', 'values',
+                    'sheet', 'st', 'nd', 'values', 'base_cell',
                     'opts'))
 """
 All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger`.
@@ -1695,7 +1700,8 @@ class Ranger(object):
             Needed for recursive invocations, see :meth:`recursive_filter`.
     """
 
-    _context_lasso_fields = ['url_file', 'sh_name', 'sheet', 'st', 'nd']
+    _context_lasso_fields = ['url_file', 'sh_name', 'sheet',
+                             'st', 'nd', 'base_cell']
 
     def __init__(self, sheets_factory,
                  base_opts=None, available_filters=None):
@@ -1790,32 +1796,45 @@ class Ranger(object):
             ok &= not exclude or key not in exclude
             return ok
 
-        def dive(vals, cdepth):
+        def new_base_cell(base_cell, cdepth, i):
+            if base_cell:
+                if cdepth == 0:
+                    base_cell = base_cell._replace(row=i)
+                elif cdepth == 1:
+                    base_cell = base_cell._replace(col=i)
+            return base_cell
+
+        def dive_list(vals, base_cell, cdepth):
             try:
                 if isinstance(vals, basestring):
                     try:
-                        vals = self.do_lasso(vals, lasso._asdict())
+                        context = lasso._asdict()
+                        context['base_cell'] = base_cell
+                        vals = self.do_lasso(vals, **context)
                     except Exception as ex:
                         msg = "Recursive parsing %s stopped due to: %s \n  @Lasso: %s"
                         log.info(msg, vals, ex, lasso)
                 elif isinstance(vals, list):
-                    vals = [expand(v, cdepth + 1) for v in vals]
+                    for i, v in enumerate(vals):
+                        nbc = new_base_cell(base_cell, cdepth, i)
+                        vals[i] = dive_indexed(v, nbc, cdepth + 1)
             except:
                 pass
             return vals
 
-        def expand(vals, cdepth):
+        def dive_indexed(vals, base_cell, cdepth):
             if cdepth != depth:
                 try:
                     for k, v in iteritems(vals):
                         if is_included(k):
-                            vals[k] = expand(v, cdepth + 1)
+                            # No base_cell possible with Indexed.
+                            vals[k] = dive_indexed(v, None, cdepth + 1)
                 except:
-                    vals = dive(vals, cdepth)
+                    vals = dive_list(vals, base_cell, cdepth)
 
             return vals
 
-        values = expand(lasso.values, cdepth=0)
+        values = dive_indexed(lasso.values, lasso.st, 0)
 
         return lasso._replace(values=values)
 
@@ -1945,7 +1964,7 @@ class Ranger(object):
 
 
 def xlwings_dims_call_spec():
-    """Returns a list :term:`call-spec` for the `redim` :term:`filter` that imitates results of *xlwings* library."""
+    """A list :term:`call-spec` for :meth:`_redim_filter` :term:`filter` that imitates results of *xlwings* library."""
     return '["redim", [0, 1, 1, 1, 2]]'
 
 
@@ -2101,8 +2120,8 @@ def make_default_Ranger(sheets_factory=None,
 
 def lasso(xlref,
           sheets_factory=None,
-          base_opts=get_default_opts(),
-          available_filters=get_default_filters(),
+          base_opts=None,
+          available_filters=None,
           return_lasso=False,
           **context_kwds):
     """
@@ -2150,6 +2169,10 @@ def lasso(xlref,
             depending on the `return_lassos` arg.
     """
     factory_is_mine = not sheets_factory
+    if base_opts is None:
+        base_opts = get_default_opts()
+    if available_filters is None:
+        available_filters = get_default_filters()
 
     try:
         ranger = make_default_Ranger(sheets_factory=sheets_factory,

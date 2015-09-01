@@ -13,7 +13,7 @@ Known deficiencies
 .. _todos-list:
 
 TODOs
-=====
+-----
 - XLasso
     - Core:
         - filters:
@@ -22,8 +22,10 @@ TODOs
         - Syntax:
             - [ ] Edge +/?(instead of -)
             - [ ] Use *ast* library for filters
-            - [ ] Coord: RC, ^-1,_-6
+            - [ ] Notation for specifying the "last-sheet".
+            - [ ] Extend RC-coords: ^-1, _-6, .-4 
             - [ ] Expand meander `@`?
+        - [ ] Respect base-cell also for 1st edge filter
         - [ ] Xlrd-read with slices.
         - [x] Keep only single Lasso-stage in Ranger.
     - Struct:
@@ -40,6 +42,11 @@ TODOs
     - [ ] README
     - [ ] Split own project
         - [ ] Rename XLasso
+
+Rejected TODOs:
+---------------
+- xlef: Support cubic areas.
+
 
 Changelog
 =========

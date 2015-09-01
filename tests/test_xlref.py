@@ -1571,7 +1571,7 @@ class T15Recursive(unittest.TestCase):
             name='do_lasso()', return_value=sentinel.BINGO)
         lasso = xr.Lasso(values=vals)
         res = xr.Ranger.recursive_filter(ranger, lasso, depth=depth).values
-        print(res)
+        # print(res)
         if missing:
             self.assertIn(sentinel.BINGO.name, str(res))
         self.assertIn("key", str(res))
@@ -1590,7 +1590,7 @@ class T15Recursive(unittest.TestCase):
             name='do_lasso()', return_value=sentinel.BINGO)
         lasso = xr.Lasso(values=vals)
         res = xr.Ranger.recursive_filter(ranger, lasso).values
-        print(res)
+        # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertIn("key", str(res))
 
@@ -1618,7 +1618,7 @@ class T15Recursive(unittest.TestCase):
             name='do_lasso()', return_value=sentinel.BINGO)
         lasso = xr.Lasso(values=vals)
         res = xr.Ranger.recursive_filter(ranger, lasso, *incexc).values
-        print(res)
+        # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
         for k in ['key1', 'key2', 'k3']:
             self.assertIn(k, str(res))
