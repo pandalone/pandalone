@@ -48,8 +48,11 @@ Xl-Ref Syntax
 -------------
 ::
 
-    [<url>]#[<sheet>!]<1st-edge>[:[<2nd-edge>][:<expansions>]][:<filters>]
-    [<url>]#:[<filters>]    # shortcut for ^^:__
+    [<url>]#[<sheet>!][<1st-edge>][:[<2nd-edge>][:<expansions>]][:<filters>]
+
+- See `edge`, `expansion-moves`, `filters` for details.
+- Missing *edges* are implicitly replaced by ``^^:__`` (top-left/bottom-right).
+- Spaces are allowed only before `filters`. 
 
 
 Annotated Syntax

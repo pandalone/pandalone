@@ -14,7 +14,7 @@ Prefer accessing the public members from the parent module.
 from __future__ import unicode_literals
 
 from abc import abstractmethod, ABCMeta
-from collections import namedtuple, OrderedDict, defaultdict
+from collections import namedtuple, OrderedDict
 from copy import deepcopy
 import inspect
 import json
@@ -23,7 +23,6 @@ import re
 from string import ascii_uppercase
 import textwrap
 
-from future import utils as fututils
 from future.backports import ChainMap
 from future.builtins import str
 from future.moves.urllib.parse import urldefrag
@@ -118,7 +117,11 @@ Edge.__new__.__defaults__ = (None, None)
 """Make optional the last 2 fields of :class:`Edge` ``(mov, mod)`` ."""
 
 
-def Edge_uncooked(row, col, mov, mod=None):
+_topleft_Edge = Edge(Cell('^', '^'))
+_bottomright_Edge = Edge(Cell('_', '_'))
+
+
+def Edge_uncooked(row, col, mov, mod=None, default=None):
     """
     Make a new `Edge` from any non-values supplied, as is capitalized, or nothing.
 
@@ -159,7 +162,7 @@ def Edge_uncooked(row, col, mov, mod=None):
     """
 
     if col == row == mov == mod is None:
-        return None
+        return default
 
     return Edge(land=Cell(col=col and col.upper(), row=row),
                 mov=mov and mov.upper(), mod=mod)
@@ -175,55 +178,50 @@ _primitive_dir_vectors = {
 
 _regular_xlref_regex = re.compile(
     r"""
-    ^\s*(?:(?P<sh_name>[^!]+)?!)?                          # xl sheet name
-    (?:                                                  # 1st-edge
-        (?:
-            (?:
-            (?P<st_col>[A-Z]+|[_^])                      # col
-            (?P<st_row>[123456789]\d*|[_^])              # row
-            ) | (?:
-            R(?P<st_row2>-?[123456789]\d*|[_^])
-            C(?P<st_col2>-?[123456789]\d*|[_^])
+    ^\s*(?:(?P<sh_name>[^!]+)?!)?                            # xl sheet name
+    (?:                                                      # 1st-edge
+        (?: 
+            (?: 
+                (?P<st_col>[A-Z]+|[_^])                      # A1-col
+                (?P<st_row>[123456789]\d*|[_^])              # A1-row
+            ) | (?: 
+                R(?P<st_row2>-?[123456789]\d*|[_^])         # RC-row
+                C(?P<st_col2>-?[123456789]\d*|[_^])         # RC-col
+            ) 
+        ) 
+        (?:\( 
+            (?P<st_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)      # moves
+            (?P<st_mod>[+-])?                                # move modifiers
+            \) 
+        )? 
+    )? 
+    (?:(?P<colon>:)                                          # ':' needed if 2nd
+        (?:                                                  # 2nd-edge
+            (?:                                              # target
+                (?:
+                    (?P<nd_col>[A-Z]+|[_^.])                 # A1-col
+                    (?P<nd_row>[123456789]\d*|[_^.])         # A1-row
+                ) | (?:
+                    R(?P<nd_row2>-?[123456789]\d*|[_^.])     # RC-row
+                    C(?P<nd_col2>-?[123456789]\d*|[_^.])     # RC-col
+                )
             )
-        )
-        (?:\(
-            (?P<st_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves
-            (?P<st_mod>[+-])?                            # move modifiers
-            \)
+            (?:\(
+                (?P<nd_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves
+                (?P<nd_mod>[+-])?                            # move-modifiers
+                \) 
+            )? 
         )?
-    )
-    (?::                                                 # 2nd-edge [opt]
-        (?:
-            (?:
-            (?P<nd_col>[A-Z]+|[_^.])                     # col
-            (?P<nd_row>[123456789]\d*|[_^.])             # row
-            ) | (?:
-            R(?P<nd_row2>-?[123456789]\d*|[_^.])
-            C(?P<nd_col2>-?[123456789]\d*|[_^.])
-            )
-        )
-        (?:\(
-            (?P<nd_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves
-            (?P<nd_mod>[+-])?                            # move-modifiers
-            \)
-        )?
-        (?::
-            (?P<exp_moves>[LURD?123456789]+)             #  [opt] expansion moves
+        (?: 
+            :(?P<exp_moves>[LURD?123456789]+)                # expansion moves
         )?
     )?
-    \s*
-    (?::\s*
-        (?P<js_filt>[[{"].*)                             #  [opt] filters
+    (?:
+        :\s*(?P<js_filt>[[{"].*)                             # filters
     )?$
     """,
     re.IGNORECASE | re.X | re.DOTALL)
 """The regex for parsing regular :term:`xl-ref`. """
-
-_shortcuts_xlref_regex = re.compile("""
-        \s*(?:(?P<sh_name>[^!]+)?!)?
-        :\s*(?P<js_filt>[[{"].*)?$
-        """ , re.IGNORECASE | re.X | re.DOTALL)
-"""The regex for parsing shortcuts :term:`xl-ref`. """
 
 _re_exp_moves_splitter = re.compile('([LURD]\d+)', re.IGNORECASE)
 
@@ -282,7 +280,7 @@ def _parse_expansion_moves(exp_moves):
 
     Examples::
 
-        >>> res = _parse_expansion_moves('LURD?')
+        >>> res = _parse_expansion_moves('lurd?')
         >>> res
         [repeat('LUR'), repeat('D', 1)]
 
@@ -300,7 +298,7 @@ def _parse_expansion_moves(exp_moves):
 
     """
     try:
-        res = _re_exp_moves_splitter.split(exp_moves.replace('?', '1'))
+        res = _re_exp_moves_splitter.split(exp_moves.upper().replace('?', '1'))
 
         return [_repeat_moves(**_re_exp_moves_parser.match(v).groupdict())
                 for v in res
@@ -311,45 +309,12 @@ def _parse_expansion_moves(exp_moves):
         raise ValueError(msg.format(exp_moves, ex))
 
 
-def _parse_shortcuts_xlref_fragment(xlref_fragment):
-    """Parses the ``#:`` --> ``^^:__`` shortcut."""
-    m = _shortcuts_xlref_regex.match(xlref_fragment)
-    if m:
-        gs = m.groupdict()
-        gs['st_edge'] = Edge(Cell('^', '^'), None)
-        gs['nd_edge'] = Edge(Cell('_', '_'), None)
-        gs['exp_moves'] = None
-
-        return gs
-
-
-def _parse_regular_xlref_fragment(xlref_fragment):
-    """Parses the regular fragment."""
-    m = _regular_xlref_regex.match(xlref_fragment)
-    if m:
-        gs = m.groupdict()
-
-        # Replace coords of 1st and 2nd cells
-        #     with "uncooked" edge.
-        #
-        p = gs.pop
-        r, c = p('st_row'), p('st_col')
-        r2, c2 = p('st_row2'), p('st_col2')
-        if r2 is not None:
-            r, c = r2, c2
-        gs['st_edge'] = Edge_uncooked(r, c,
-                                      p('st_mov'), p('st_mod'))
-        r, c = p('nd_row'), p('nd_col')
-        r2, c2 = p('nd_row2'), p('nd_col2')
-        if r2 is not None:
-            r, c = r2, c2
-        gs['nd_edge'] = Edge_uncooked(r, c,
-                                      p('nd_mov'), p('nd_mod'))
-
-        exp_moves = gs['exp_moves']
-        gs['exp_moves'] = exp_moves and _parse_expansion_moves(exp_moves)
-
-        return gs
+def _parse_edge(gs, prefix, default_edge):
+    row_a1, row_rc = gs.pop('%s_row' % prefix), gs.pop('%s_row2' % prefix)
+    col_a1, col_rc = gs.pop('%s_col' % prefix), gs.pop('%s_col2' % prefix)
+    return Edge_uncooked(row_a1 or row_rc, col_a1 or col_rc,
+                         gs.pop('%s_mov' % prefix),
+                         gs.pop('%s_mod' % prefix), default_edge)
 
 
 def _parse_xlref_fragment(xlref_fragment):
@@ -392,7 +357,6 @@ def _parse_xlref_fragment(xlref_fragment):
          ('sh_name', 'Sheet1'),
          ('st_edge', Edge(land=Cell(row='1', col='A'), mov='DR', mod='+'))]
 
-
     Shortcut for all sheet from top-left to bottom-right full-cells::
 
         >>> res=_parse_xlref_fragment(':')
@@ -413,15 +377,22 @@ def _parse_xlref_fragment(xlref_fragment):
 
     """
 
-    gs = _parse_shortcuts_xlref_fragment(xlref_fragment)
-    if not gs:
-        gs = _parse_regular_xlref_fragment(xlref_fragment)
-        if not gs:
-            raise ValueError('Not an `xl-ref` syntax.')
+    m = _regular_xlref_regex.match(xlref_fragment)
+    if not m:
+        raise ValueError('Not an `xl-ref` syntax.')
+
+    gs = m.groupdict()
+
+    is_colon = gs.pop('colon')
+    gs['st_edge'] = _parse_edge(gs, 'st', is_colon and _topleft_Edge)
+    gs['nd_edge'] = _parse_edge(gs, 'nd', is_colon and _bottomright_Edge)
+    assert is_colon or not gs['nd_edge'], (xlref_fragment, gs['nd_edge'])
+
+    exp_moves = gs['exp_moves']
+    gs['exp_moves'] = exp_moves and _parse_expansion_moves(exp_moves)
 
     js = gs['js_filt']
     if js:
-        js = js.translate(_excel_str_translator)
         try:
             js = gs['js_filt'] = json.loads(js)
         except ValueError as ex:
@@ -490,14 +461,13 @@ def parse_xlref(xlref):
         Traceback (most recent call last):
         ValueError: Not an `xl-ref` syntax.
     """
-
+    xlref = xlref.translate(_excel_str_translator)
     url_file, frag = urldefrag(xlref)
-    url_file = url_file.strip()
-    frag = frag.strip()
     if not frag:
         raise ValueError("No fragment-part (starting with '#')!")
     res = _parse_xlref_fragment(frag)
-    res['url_file'] = url_file or None
+    frag = frag.strip()
+    res['url_file'] = url_file.strip() or None
     res['xl_ref'] = xlref
 
     return res
@@ -649,17 +619,17 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
     """
     Translates special coords or converts Excel string 1-based rows/cols to zero-based, reporting invalids.
 
-    :param str cname:  
+    :param str cname: 
             the coord-name, one of 'row', 'column'
-    :param function cfunc:  
+    :param function cfunc: 
             the function to convert coord ``str --> int``
-    :param int, str coord:  
+    :param int, str coord: 
             the "A1" coord to translate
     :param int up_coord:
             the resolved *top* or *left* margin zero-based coordinate
     :param int dn_coord:
             the resolved *bottom* or *right* margin zero-based coordinate 
-    :param int, None base_coord:  
+    :param int, None base_coord: 
             the resolved basis for dependent coord, if any
 
     :return: the resolved coord or `None` if it were not a special coord.
@@ -1463,7 +1433,7 @@ class SheetsFactory(object):
     - To avoid opening non-trivial workbooks, use the :meth:`add_sheet()` 
       to pre-populate this cache with them.
 
-    - The last sheet added becomes the *current-sheet*, and will be  
+    - The last sheet added becomes the *current-sheet*, and will be 
       served when :term:`xl-ref` does not specify any workbook and sheet.
 
       .. Tip::
@@ -1963,7 +1933,7 @@ def redim_filter(ranger, lasso,
     """
     Reshape and/or transpose captured values, depending on rect's shape.
 
-    Each dimension might be a single int or None, or a pair [dim, transpose].  
+    Each dimension might be a single int or None, or a pair [dim, transpose]. 
     """
     ndims_list = (scalar, cell, row, col, table)
     shape_idx = _classify_rect_shape(lasso.st, lasso.nd)

@@ -79,13 +79,13 @@ def _read_rect_values(sheet, st_edge, nd_edge, dims):
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
 class T00Doctest(unittest.TestCase):
 
-    def test_xlref(self):
+    def test_xlasso(self):
         failure_count, test_count = doctest.testmod(
             xlasso, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
-    def test__xlref(self):
+    def test_xlref(self):
         failure_count, test_count = doctest.testmod(
             xr, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
@@ -143,18 +143,47 @@ class T011Structs(unittest.TestCase):
         self.assertEqual(xr._col2num('aAa'), 702)
 
 
+def produce_xlref_field_combinations(*xlref_expectedFields_pairs):
+    N = None
+    sheets = [('',          {'sh_name': N}),
+              ('0!',        {'sh_name': '0'}),
+              ('sheet1!',   {'sh_name': 'sheet1'}),
+              ('  !',       {'sh_name': N}),
+              ]
+    exp_moves = [('',       {'exp_moves': N}),
+                 (':lurd',  {'exp_moves': xr._parse_expansion_moves('LURD')}),
+                 ]
+    filters = [('',                   {'js_filt': N}),
+               (':"func"',            {'js_filt': 'func'}),
+               (':{"opts": {"1":2}}', {'js_filt': {}, 'opts': {'1': 2}}),
+               ]
+    combs = []
+    for edges_s, edges in xlref_expectedFields_pairs:
+        for sh, emov, filt in itt.product(sheets, exp_moves, filters):
+            fields = edges.copy()
+            fields.update(sh[1])
+            fields.update(emov[1])
+            fields.update(filt[1])
+            xlref = '%s%s%s%s' % (sh[0], edges_s, emov[0], filt[0])
+            combs.append((xlref, fields))
+
+    return combs
+
+
 @ddt
 class T01Parse(unittest.TestCase):
 
     @data(
-          '',
-        'A', 'AB', 'a', 'ab', 
-        '12', '0', 
-        'A0', '%A1'
+        'A', 'AB', 'a', 'ab',
+        '12', '0',
+        'A0', 'A1:A0',
+        '%A1',
+        'A1:LURD',
     )
     def test_parse_BAD(self, xlref):
         err_msg = "Not an `xl-ref` syntax."
         with assertRaisesRegex(self, ValueError, err_msg, msg=xlref):
+            print(xlref)
             xr._parse_xlref_fragment(xlref)
 
     def test_parse_xl_ref_Cell_types(self):
@@ -192,51 +221,90 @@ class T01Parse(unittest.TestCase):
                     if c.isalpha():
                         self.assertTrue(c.isupper(), '%s in %r' % (c, i))
 
-    @data(
-        ('Sheet1!a1(L):C2(UL)',
-            {
-                'sh_name': 'Sheet1',
-                'st_edge': xr.Edge(xr.Cell(col='A', row='1'), 'L'),
-                'nd_edge': xr.Edge(xr.Cell(col='C', row='2'), 'UL'),
-            }
-         ),
-        ('0!A1',
-            {
-                'sh_name': '0',
-                'st_edge': xr.Edge(xr.Cell(col='A', row='1')),
-                'nd_edge': None,
-            }
-         ),
-        ('!a1(l):c2(ul):{"1":4,"2":"ciao"}',
-            {
-                'sh_name': None,
-                'js_filt': {'2': 'ciao', '1': 4},
-                'st_edge': xr.Edge(xr.Cell(col='A', row='1'), 'L'),
-                'nd_edge': xr.Edge(xr.Cell(col='C', row='2'), 'UL'),
-            }
-         ),
-    )
-    def test_parse_regular(self, case):
-        xlref, fields = case
+    def check_xlref(self, xlref, fields):
         res = xr._parse_xlref_fragment(xlref)
         res2 = dtz.keyfilter(lambda k: k in fields.keys(), res)
-        self.assertEquals(res2, fields, xlref)
+        e = 'EMPT|Y'
+        self.assertEqual(str(res2.pop('exp_moves', e)),
+                         str(fields.pop('exp_moves', e)))
+        self.assertDictEqual(res2, fields,
+                             '\n%s\n\n%s\n\n%s' % (xlref, res2, fields))
+        res.pop('exp_moves', None)
         for k in res:
             if k not in fields:
                 self.assertIsNone(res[k])
 
     @data(
-        ('a33(DL)', {'st_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'), }),
-        (':a33(DL)', {'nd_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'), }),
+        ('Sheet1!a1(L):C2(UL)', {
+            'sh_name': 'Sheet1',
+            'st_edge': xr.Edge(xr.Cell(col='A', row='1'), 'L'),
+            'nd_edge': xr.Edge(xr.Cell(col='C', row='2'), 'UL'),
+        }
+        ),
+        ('!a1(l):c2(ul):{"1":4,"2":"ciao"}', {
+            'js_filt': {'2': 'ciao', '1': 4},
+            'st_edge': xr.Edge(xr.Cell(col='A', row='1'), 'L'),
+            'nd_edge': xr.Edge(xr.Cell(col='C', row='2'), 'UL'),
+        }
+        ),
+        ('0!a1:a2', {
+            'sh_name': '0',
+            'st_edge': xr.Edge(xr.Cell(col='A', row='1')),
+            'nd_edge': xr.Edge(xr.Cell(col='A', row='2')),
+        }
+        ),
+        ('r1c1:r2c2', {
+            'st_edge': xr.Edge(xr.Cell(col='1', row='1')),
+            'nd_edge': xr.Edge(xr.Cell(col='2', row='2')),
+        }
+        ),
     )
-    def test_parse_regular_extreme(self, case):
+    def test_parse_regular(self, case):
         xlref, fields = case
-        res = xr._parse_xlref_fragment(xlref)
-        res2 = dtz.keyfilter(lambda k: k in fields.keys(), res)
-        self.assertEquals(res2, fields, xlref)
-        for k in res:
-            if k not in fields:
-                self.assertIsNone(res[k])
+        self.check_xlref(xlref, fields)
+
+    @data(*produce_xlref_field_combinations(
+        ('A1:', {
+            'st_edge': xr.Edge(xr.Cell(col='A', row='1')),
+            'nd_edge': xr._bottomright_Edge,
+        }),
+        ('R1C1:', {
+            'st_edge': xr.Edge(xr.Cell(col='1', row='1')),
+            'nd_edge': xr._bottomright_Edge,
+        }),
+        (':a33(DL)', {
+            'st_edge': xr._topleft_Edge,
+            'nd_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'),
+        }),
+        (':', {
+            'st_edge': xr._topleft_Edge,
+            'nd_edge': xr._bottomright_Edge,
+        }
+        ),
+    ))
+    def test_parse_shortcuts(self, case):
+        xlref, fields = case
+        self.check_xlref(xlref, fields)
+
+    @data(
+        ('', {}),  # Yes, empty allowed, but rejected earlier, after url-split.
+        ('a33(DL)', {
+            'st_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'),
+        }),
+        ('a33(DL):"func"', {
+            'st_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'),
+            'js_filt': 'func'
+        }),
+        ('a33(DL)::"func"', {
+            'st_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'),
+            'nd_edge': xr._bottomright_Edge,
+            'js_filt': 'func'
+        }),
+        ('', {}),  # Yes, empty allowed, but rejected earlier, after url-split.
+    )
+    def test_parse_shortcuts_strange(self, case):
+        xlref, fields = case
+        self.check_xlref(xlref, fields)
 
     @data(*list(itt.product(
         ['A1:B1', 'A1:B1:LURD',
@@ -1432,7 +1500,7 @@ class T14Lasso(unittest.TestCase):
     def test_read_ColonWithJson(self):
         sf = xr.SheetsFactory()
         sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('''#:{
+        res = xr.lasso('''#::{
             "opts": {"verbose": true},
             "func": "pipe", 
             "args": [
