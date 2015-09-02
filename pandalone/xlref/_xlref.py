@@ -173,7 +173,7 @@ _primitive_dir_vectors = {
     'D': Coords(1, 0)
 }
 
-_re_xl_ref_parser = re.compile(
+_regular_xlref_regex = re.compile(
     r"""
     ^\s*(?:(?P<sh_name>[^!]+)?!)?                          # xl sheet name
     (?:                                                  # 1st-edge
@@ -217,25 +217,13 @@ _re_xl_ref_parser = re.compile(
     )?$
     """,
     re.IGNORECASE | re.X | re.DOTALL)
-"""
-This regex produces the following capture-groups:
+"""The regex for parsing regular :term:`xl-ref`. """
 
-- sheet: i.e. ``Sheet 1``
-- st_col: i.e. ``UPT``
-- st_row: i.e. ``8``
-- st_mov: i.e. ``LU``
-- st_mod: i.e. ``-``
-- nd_col: i.e. ``_``
-- nd_row: i.e. ``.``
-- nd_mov: i.e. ``D``
-- nd_mod: i.e. ``+``
-- exp_moves: i.e. ``LDL1``
-"""
-
-_re_xl_ref_colon_parser = re.compile("""
+_shortcuts_xlref_regex = re.compile("""
         \s*(?:(?P<sh_name>[^!]+)?!)?
         :\s*(?P<js_filt>[[{"].*)?$
         """ , re.IGNORECASE | re.X | re.DOTALL)
+"""The regex for parsing shortcuts :term:`xl-ref`. """
 
 _re_exp_moves_splitter = re.compile('([LURD]\d+)', re.IGNORECASE)
 
@@ -323,9 +311,9 @@ def _parse_expansion_moves(exp_moves):
         raise ValueError(msg.format(exp_moves, ex))
 
 
-def _parse_shortcut_xlref_fragment(xlref_fragment):
+def _parse_shortcuts_xlref_fragment(xlref_fragment):
     """Parses the ``#:`` --> ``^^:__`` shortcut."""
-    m = _re_xl_ref_colon_parser.match(xlref_fragment)
+    m = _shortcuts_xlref_regex.match(xlref_fragment)
     if m:
         gs = m.groupdict()
         gs['st_edge'] = Edge(Cell('^', '^'), None)
@@ -337,7 +325,7 @@ def _parse_shortcut_xlref_fragment(xlref_fragment):
 
 def _parse_regular_xlref_fragment(xlref_fragment):
     """Parses the regular fragment."""
-    m = _re_xl_ref_parser.match(xlref_fragment)
+    m = _regular_xlref_regex.match(xlref_fragment)
     if m:
         gs = m.groupdict()
 
@@ -425,7 +413,7 @@ def _parse_xlref_fragment(xlref_fragment):
 
     """
 
-    gs = _parse_shortcut_xlref_fragment(xlref_fragment)
+    gs = _parse_shortcuts_xlref_fragment(xlref_fragment)
     if not gs:
         gs = _parse_regular_xlref_fragment(xlref_fragment)
         if not gs:

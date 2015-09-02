@@ -21,6 +21,7 @@ from future import utils as fututis  # @UnresolvedImport
 from future.backports import ChainMap
 from numpy import testing as npt
 from past.builtins import basestring
+from toolz import dicttoolz as dtz
 import xlrd
 
 import itertools as itt
@@ -103,97 +104,7 @@ _all_dir_single = list('LRUD')
 _all_dirs = _all_dir_single + _all_dir_pairs
 
 
-@ddt
-class T01Parse(unittest.TestCase):
-
-    def test_parse_xl_ref_Cell_types(self):
-        xl_ref = 'b1:C2'
-        res = xr._parse_xlref_fragment(xl_ref)
-        st_edge = res['st_edge']
-        nd_edge = res['nd_edge']
-        self.assertIsInstance(st_edge.land.row, basestring)
-        self.assertIsInstance(st_edge.land.col, basestring)
-        self.assertIsInstance(nd_edge.land.row, basestring)
-        self.assertIsInstance(nd_edge.land.col, basestring)
-
-    def test_parse_xl_ref_Cell_col_row_order(self):
-        xl_ref = 'b1:C2'
-        res = xr._parse_xlref_fragment(xl_ref)
-        st_edge = res['st_edge']
-        nd_edge = res['nd_edge']
-        self.assertTrue(st_edge.land.row.isalnum())
-        self.assertTrue(st_edge.land.col.isalpha())
-        self.assertTrue(nd_edge.land.row.isalnum())
-        self.assertTrue(nd_edge.land.col.isalpha())
-
-    def test_parse_xl_ref_all_upper(self):
-        xl_ref = 'b1(uL):C2(Dr):Lur2D'
-        res = xr._parse_xlref_fragment(xl_ref)
-        st_edge = res['st_edge']
-        nd_edge = res['nd_edge']
-        items = [
-            st_edge.land.row, st_edge.land.col, st_edge.mov,
-            nd_edge.land.row, nd_edge.land.col, nd_edge.mov,
-        ]
-        for i in items:
-            if i:
-                for c in i:
-                    if c.isalpha():
-                        self.assertTrue(c.isupper(), '%s in %r' % (c, i))
-
-    def test_basic_parse_xl_ref(self):
-        xl_ref = 'Sheet1!a1(L):C2(UL)'
-        res = xr._parse_xlref_fragment(xl_ref)
-        st_edge = res['st_edge']
-        nd_edge = res['nd_edge']
-        self.assertEquals(res['sh_name'], 'Sheet1')
-        self.assertEquals(st_edge.land, xr.Cell(col='A', row='1'))
-        self.assertEquals(nd_edge.land, xr.Cell(col='C', row='2'))
-        self.assertEquals(st_edge.mov, 'L')
-        self.assertEquals(nd_edge.mov, 'UL')
-
-        xl_ref = 'Sheet1!A1'
-        res = xr._parse_xlref_fragment(xl_ref)
-        self.assertEquals(res['st_edge'].land, xr.Cell(col='A', row='1'))
-        self.assertEquals(res['nd_edge'], None)
-
-        xl_ref = 'Sheet1!a1(l):c2(ul):{"1":4,"2":"ciao"}'
-        res = xr._parse_xlref_fragment(xl_ref)
-        self.assertEquals(res['js_filt'], {'2': 'ciao', '1': 4})
-        self.assertEquals(res['st_edge'].land, xr.Cell(col='A', row='1'))
-        self.assertEquals(res['nd_edge'].land, xr.Cell(col='C', row='2'))
-        self.assertEquals(res['st_edge'].mov, 'L')
-        self.assertEquals(res['nd_edge'].mov, 'UL')
-
-    @data(*list(itt.product(
-        ['A1:B1', 'A1:B1:LURD',
-         'A1:B1:"as"', 'A1:B1:["func"]', 'A1:B1:{"opts": {}}', 'A1:B1:{"opts": {"a": 1}}',
-         'A1:B1:LURD:"as"', 'A1:B1:LURD:["func"]', 'A1:B1:LURD:{"opts": {}}', 'A1:B1:LURD:{"opts": {"a": 1}}',
-         'A1(U):B1:LURD:"as"', 'A1(U):B1:LURD:["func"]', 'A1(U):B1:LURD:{"opts": {}}', 'A1(U):B1:LURD:{"opts": {"a": 1}}',
-         'A1:B1(D):LURD:"as"', 'A1:B1(D):LURD:["func"]', 'A1:B1(D):LURD:{"opts": {}}', 'A1:B1(D):LURD:{"opts": {"a": 1}}',
-         'A1(U):B1(D):LURD:"as"', 'A1(U):B1(D):LURD:["func"]', 'A1(U):B1(D):LURD:{"opts": {}}', 'A1(U):B1(D):LURD:{"opts": {"a": 1}}',
-         'sh!A1(U):B1(D):LURD:"as"', '0!A1(U):B1(D):LURD:["func"]', 'sh!A1(U):B1(D):LURD:{"opts": {}}', 'sh!A1(U):B1(D):LURD:{"opts": {"a": 1}}',
-         ],
-        [':', ':"as"', ':["func"]', ':{"opts": {}}', ':{"opts": {"a": 1}}',
-         'sheet!:', 'sheet!:"as"', 'sheet!:["func"]', 'sheet!:{"opts": {}}', 'sheet!:{"opts": {"a": 1}}',
-         ]
-    )))
-    def test_shortcut_vs_regular_fieldsCount(self, case):
-        regular, shortcut = case
-        res1 = xr._parse_xlref_fragment(regular)
-        res2 = xr._parse_xlref_fragment(shortcut)
-        self.assertEquals(len(res1), len(res2), (res1, res2))
-
-    @data('s![[]', 's!{}[]', 's!A', 's!A1:!', 's!1:2', 's!A0:B1', )
-    def test_errors_parse_xl_ref(self, case):
-        self.assertRaises(ValueError, xr._parse_xlref_fragment, case)
-
-    @data(':{"opts": "..."}', ':{"opts": [2]}',
-          'A1:b1:{"opts": "..."}', 'A1:B1:{"opts": [4]}')
-    def test_parse_xl_ref_BadOpts(self, xlref):
-        err_msg = 'must be a json-object\(dictionary\)'
-        assertRaisesRegex(self, ValueError, err_msg,
-                          xr._parse_xlref_fragment, xlref)
+class T011Structs(unittest.TestCase):
 
     def test_uncooked_Edge_good(self):
         self.assertIsNone(xr.Edge_uncooked(None, None, None))
@@ -230,6 +141,132 @@ class T01Parse(unittest.TestCase):
     def test_col2num(self):
         self.assertEqual(xr._col2num('D'), 3)
         self.assertEqual(xr._col2num('aAa'), 702)
+
+
+@ddt
+class T01Parse(unittest.TestCase):
+
+    @data(
+          '',
+        'A', 'AB', 'a', 'ab', 
+        '12', '0', 
+        'A0', '%A1'
+    )
+    def test_parse_BAD(self, xlref):
+        err_msg = "Not an `xl-ref` syntax."
+        with assertRaisesRegex(self, ValueError, err_msg, msg=xlref):
+            xr._parse_xlref_fragment(xlref)
+
+    def test_parse_xl_ref_Cell_types(self):
+        xl_ref = 'b1:C2'
+        res = xr._parse_xlref_fragment(xl_ref)
+        st_edge = res['st_edge']
+        nd_edge = res['nd_edge']
+        self.assertIsInstance(st_edge.land.row, basestring)
+        self.assertIsInstance(st_edge.land.col, basestring)
+        self.assertIsInstance(nd_edge.land.row, basestring)
+        self.assertIsInstance(nd_edge.land.col, basestring)
+
+    def test_parse_xl_ref_Cell_col_row_order(self):
+        xl_ref = 'b1:C2'
+        res = xr._parse_xlref_fragment(xl_ref)
+        st_edge = res['st_edge']
+        nd_edge = res['nd_edge']
+        self.assertTrue(st_edge.land.row.isalnum())
+        self.assertTrue(st_edge.land.col.isalpha())
+        self.assertTrue(nd_edge.land.row.isalnum())
+        self.assertTrue(nd_edge.land.col.isalpha())
+
+    def test_parse_xl_ref_all_upper(self):
+        xl_ref = 'b1(uL):C2(Dr):Lur2D'
+        res = xr._parse_xlref_fragment(xl_ref)
+        st_edge = res['st_edge']
+        nd_edge = res['nd_edge']
+        items = [
+            st_edge.land.row, st_edge.land.col, st_edge.mov,
+            nd_edge.land.row, nd_edge.land.col, nd_edge.mov,
+        ]
+        for i in items:
+            if i:
+                for c in i:
+                    if c.isalpha():
+                        self.assertTrue(c.isupper(), '%s in %r' % (c, i))
+
+    @data(
+        ('Sheet1!a1(L):C2(UL)',
+            {
+                'sh_name': 'Sheet1',
+                'st_edge': xr.Edge(xr.Cell(col='A', row='1'), 'L'),
+                'nd_edge': xr.Edge(xr.Cell(col='C', row='2'), 'UL'),
+            }
+         ),
+        ('0!A1',
+            {
+                'sh_name': '0',
+                'st_edge': xr.Edge(xr.Cell(col='A', row='1')),
+                'nd_edge': None,
+            }
+         ),
+        ('!a1(l):c2(ul):{"1":4,"2":"ciao"}',
+            {
+                'sh_name': None,
+                'js_filt': {'2': 'ciao', '1': 4},
+                'st_edge': xr.Edge(xr.Cell(col='A', row='1'), 'L'),
+                'nd_edge': xr.Edge(xr.Cell(col='C', row='2'), 'UL'),
+            }
+         ),
+    )
+    def test_parse_regular(self, case):
+        xlref, fields = case
+        res = xr._parse_xlref_fragment(xlref)
+        res2 = dtz.keyfilter(lambda k: k in fields.keys(), res)
+        self.assertEquals(res2, fields, xlref)
+        for k in res:
+            if k not in fields:
+                self.assertIsNone(res[k])
+
+    @data(
+        ('a33(DL)', {'st_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'), }),
+        (':a33(DL)', {'nd_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'), }),
+    )
+    def test_parse_regular_extreme(self, case):
+        xlref, fields = case
+        res = xr._parse_xlref_fragment(xlref)
+        res2 = dtz.keyfilter(lambda k: k in fields.keys(), res)
+        self.assertEquals(res2, fields, xlref)
+        for k in res:
+            if k not in fields:
+                self.assertIsNone(res[k])
+
+    @data(*list(itt.product(
+        ['A1:B1', 'A1:B1:LURD',
+         'A1:B1:"as"', 'A1:B1:["func"]', 'A1:B1:{"opts": {}}', 'A1:B1:{"opts": {"a": 1}}',
+         'A1:B1:LURD:"as"', 'A1:B1:LURD:["func"]', 'A1:B1:LURD:{"opts": {}}', 'A1:B1:LURD:{"opts": {"a": 1}}',
+         'A1(U):B1:LURD:"as"', 'A1(U):B1:LURD:["func"]', 'A1(U):B1:LURD:{"opts": {}}', 'A1(U):B1:LURD:{"opts": {"a": 1}}',
+         'A1:B1(D):LURD:"as"', 'A1:B1(D):LURD:["func"]', 'A1:B1(D):LURD:{"opts": {}}', 'A1:B1(D):LURD:{"opts": {"a": 1}}',
+         'A1(U):B1(D):LURD:"as"', 'A1(U):B1(D):LURD:["func"]', 'A1(U):B1(D):LURD:{"opts": {}}', 'A1(U):B1(D):LURD:{"opts": {"a": 1}}',
+         'sh!A1(U):B1(D):LURD:"as"', '0!A1(U):B1(D):LURD:["func"]', 'sh!A1(U):B1(D):LURD:{"opts": {}}', 'sh!A1(U):B1(D):LURD:{"opts": {"a": 1}}',
+         ],
+        [':', ':"as"', ':["func"]', ':{"opts": {}}', ':{"opts": {"a": 1}}',
+         'sheet!:', 'sheet!:"as"', 'sheet!:["func"]', 'sheet!:{"opts": {}}', 'sheet!:{"opts": {"a": 1}}',
+         ]
+    )))
+    def test_shortcut_vs_regular_fieldsCount(self, case):
+        regular, shortcut = case
+        res1 = xr._parse_xlref_fragment(regular)
+        res2 = xr._parse_xlref_fragment(shortcut)
+        self.assertEquals(len(res1), len(res2), (res1, res2))
+
+    @data('s![[]', 's!{}[]', 's!A', 's!A1:!', 's!1:2', 's!A0:B1', )
+    def test_errors_parse_xl_ref(self, case):
+        self.assertRaises(ValueError, xr._parse_xlref_fragment, case)
+
+    @data(':{"opts": "..."}', ':{"opts": [2]}',
+          'A1:b1:{"opts": "..."}', 'A1:B1:{"opts": [4]}')
+    def test_parse_xl_ref_BadOpts(self, xlref):
+        err_msg = 'must be a json-object\(dictionary\)'
+        assertRaisesRegex(self, ValueError, err_msg,
+                          xr._parse_xlref_fragment, xlref)
 
     def test_parse_xl_url_Ok(self):
         url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D):{"json":"..."}'
