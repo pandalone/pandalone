@@ -8,6 +8,7 @@
 
 from __future__ import division, print_function, unicode_literals
 
+from collections import OrderedDict
 import contextlib
 from datetime import datetime
 import doctest
@@ -15,6 +16,7 @@ import logging
 import os
 import sys
 import tempfile
+from textwrap import dedent
 import unittest
 
 from ddt import ddt, data
@@ -1808,6 +1810,25 @@ class T15Recursive(unittest.TestCase):
             self.assertIn(v, str(res))
         for v in missing:
             self.assertNotIn(v, str(res))
+
+
+class T16RealFile(unittest.TestCase):
+
+    def setUp(self):
+        logging.basicConfig(level=0)
+
+    @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
+    def test_real_file(self):
+        res = xr.lasso('xlref.xlsx#^^:"recurse"')
+        exp = dedent("""\
+        OrderedDict([('table in this sheet',      A     B
+        r1  11   foo
+        r2  21   bar
+        r3  31  bank), ('tables at 2nd sheet', OrderedDict([('tab1', array([[11, 12],
+               [21, 22]])), ('tab2',    COL1  COL2
+        0    55    56
+        1    65    66)])), ('AllSheet4', [[1, None, None, None, None], [None, None, 2, None, None], [None, None, None, None, None], [None, None, None, None, None], [None, None, None, None, 3]])])""")
+        self.assertEquals(str(res), exp)
 
 
 @ddt

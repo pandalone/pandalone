@@ -1532,7 +1532,7 @@ class SheetsFactory(object):
         key_pairs = itt.product(wb_ids, sh_ids)
         keys = list(set(self._build_sheet_key(*p)
                         for p in key_pairs
-                        if p[0]))
+                        if p[0] is not None))
         assert keys, (keys, sheet,  wb_ids, sh_ids)
 
         return keys
