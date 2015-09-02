@@ -1709,8 +1709,8 @@ class Ranger(object):
         lasso = self._relasso(lasso, func_name)
 
         opts = lasso.opts
-        lax = opts['lax']
-        verbose = opts['verbose']
+        lax = opts.get('lax', False)
+        verbose = opts.get('verbose', False)
         func, func_desc = '', ''
         try:
             func_rec = self.available_filters[func_name]

@@ -21,13 +21,14 @@ TODOs
             - [ ] Slices and Index args on 'numpy' and 'df' filters.
         - Syntax:
             - [ ] Edge +/?(instead of -)
-            - [ ] Use *ast* library for filters
             - [ ] Notation for specifying the "last-sheet".
             - [ ] Extend RC-coords: ^-1, _-6, .-4 
             - [ ] Expand meander `@`?
         - [X] Respect base-cell also for 1st edge filter
-        - [ ] Xlrd-read with slices.
         - [x] Keep only single Lasso-stage in Ranger.
+        - [ ] Xlrd-read with slices.
+        - [ ] Split Laso --> Xlref+Lasso(context) 
+            - [ ] Build XLref recursive trees.  
     - Struct:
         - [ ] Split lassos from xlref.
         - [ ] plugin backends (& syntax?)
@@ -45,7 +46,8 @@ TODOs
 
 Rejected TODOs:
 ---------------
-- xlef: Support cubic areas.
+- xlef: Support cubic areas; pandas create dict-of-dfs from multiple sheets.
+- Use *ast* library for filters; cannot extract safely opts.
 
 
 Changelog
