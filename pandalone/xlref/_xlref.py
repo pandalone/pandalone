@@ -95,7 +95,7 @@ def coords2Cell(row, col):
         col = xl_colname(col)
     return Cell(row=row, col=col)
 
-Edge = namedtuple('Edge', ['land', 'mov', 'mod'])
+Edge = namedtuple('Edge', ('land', 'mov', 'mod'))
 """
 All the infos required to :term:`target` a cell.
 
@@ -185,8 +185,8 @@ _regular_xlref_regex = re.compile(
                 (?P<st_col>[A-Z]+|[_^])                      # A1-col
                 (?P<st_row>[123456789]\d*|[_^])              # A1-row
             ) | (?: 
-                R(?P<st_row2>-?[123456789]\d*|[_^])         # RC-row
-                C(?P<st_col2>-?[123456789]\d*|[_^])         # RC-col
+                R(?P<st_row2>-?[123456789]\d*|[_^.])         # RC-row
+                C(?P<st_col2>-?[123456789]\d*|[_^.])         # RC-col
             ) 
         ) 
         (?:\( 
@@ -236,6 +236,86 @@ _re_exp_moves_parser = re.compile(
 
 _excel_str_translator = str.maketrans('“”', '""')  # @UndefinedVariable
 """Excel use these !@#% chars for double-quotes, which are not valid JSON-strings!!"""
+
+CallSpec = namedtuple('CallSpec', ['func', 'args', 'kwds'])
+"""The :term:`call-specifier` for holding the parsed json-filters."""
+
+CallSpec.__new__.__defaults__ = ([], {})
+"""Make optional the last 2 fields of :class:`CallSpec` ``(args', kwds)`` ."""
+
+
+def _parse_call_spec(call_spec_values):
+    """
+    Parse :term:`call-specifier` from json-filters.
+
+    :param call_spec_values:
+        This is a *non-null* structure specifying some function call 
+        in the `filter` part, which it can be either:
+
+        - string: ``"func_name"`` 
+        - list:   ``["func_name", ["arg1", "arg2"], {"k1": "v1"}]``
+          where the last 2 parts are optional and can be given in any order;
+        - object: ``{"func": "func_name", "args": ["arg1"], "kwds": {"k":"v"}}`` 
+          where the `args` and `kwds` are optional.
+
+    :return: 
+        the 3-tuple ``func, args=(), kwds={}`` with the defaults as shown 
+        when missing. 
+    """
+    def boolarr(l):
+        return np.fromiter(l, dtype=bool)
+
+    def parse_list(func, item1=None, item2=None):
+        items = (item1, item2)
+        isargs = boolarr(isinstance(a, list) for a in items)
+        iskwds = boolarr(isinstance(a, dict) for a in items)
+        isnull = boolarr(a is None for a in items)
+
+        if isargs.all() or iskwds.all() or not (
+                isargs ^ iskwds ^ isnull).all():
+            msg = "Cannot decide `args`/`kwds` for call_spec(%s)!"
+            raise ValueError(msg.format(call_spec_values))
+        args, kwds = None, None
+        if isargs.any():
+            args = items[isargs.nonzero()[0][0]]
+        if iskwds.any():
+            kwds = items[iskwds.nonzero()[0][0]]
+        return func, args, kwds
+
+    def parse_object(func, args=None, kwds=None):
+        return func, args, kwds
+
+    try:
+        if isinstance(call_spec_values, basestring):
+            func, args, kwds = call_spec_values, None, None
+        elif isinstance(call_spec_values, list):
+            func, args, kwds = parse_list(*call_spec_values)
+        elif isinstance(call_spec_values, dict):
+            func, args, kwds = parse_object(**call_spec_values)
+        else:
+            msg = "One of str, list or dict expected for call-spec(%s)!"
+            raise ValueError(msg.format(call_spec_values))
+    except ValueError:
+        raise
+    except Exception as ex:
+        msg = "Cannot parse call-spec({}) due to: {}"
+        raise ValueError(msg.format(call_spec_values, ex))
+
+    if not isinstance(func, basestring):
+        msg = "Expected a `string` for func({}) for call-spec({})!"
+        raise ValueError(msg.format(func, call_spec_values))
+    if args is None:
+        args = []
+    elif not isinstance(args, list):
+        msg = "Expected a `list` for args({}) for call-spec({})!"
+        raise ValueError(msg.format(args, call_spec_values))
+    if kwds is None:
+        kwds = {}
+    elif not isinstance(kwds, dict):
+        msg = "Expected a `dict` for kwds({}) for call-spec({})!"
+        raise ValueError(msg.format(kwds, call_spec_values))
+
+    return CallSpec(func, args, kwds)
 
 
 def _repeat_moves(moves, times=None):
@@ -350,8 +430,8 @@ def _parse_xlref_fragment(xlref_fragment):
         >>> res = _parse_xlref_fragment('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:' 
         ...                             '{"opts":{}, "func": "foo"}')
         >>> sorted(res.items())
-        [('exp_moves', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
-         ('js_filt', {'func': 'foo'}),
+        [('call_spec', CallSpec(func='foo', args=[], kwds={})),
+         ('exp_moves', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
          ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None)),
          ('opts', {}),
          ('sh_name', 'Sheet1'),
@@ -361,8 +441,8 @@ def _parse_xlref_fragment(xlref_fragment):
 
         >>> res=_parse_xlref_fragment(':')
         >>> sorted(res.items())
-        [('exp_moves', None),
-         ('js_filt', None),
+        [('call_spec', None),
+         ('exp_moves', None),
          ('nd_edge', Edge(land=Cell(row='_', col='_'), mov=None, mod=None)),
          ('opts', None),
          ('sh_name', None),
@@ -373,13 +453,13 @@ def _parse_xlref_fragment(xlref_fragment):
 
         >>> _parse_xlref_fragment('A1(DR)Z20(UL)')
         Traceback (most recent call last):
-        ValueError: Not an `xl-ref` syntax.
+        SyntaxError: Not an `xl-ref` syntax: A1(DR)Z20(UL)
 
     """
 
     m = _regular_xlref_regex.match(xlref_fragment)
     if not m:
-        raise ValueError('Not an `xl-ref` syntax.')
+        raise SyntaxError('Not an `xl-ref` syntax: %s' % xlref_fragment)
 
     gs = m.groupdict()
 
@@ -391,19 +471,20 @@ def _parse_xlref_fragment(xlref_fragment):
     exp_moves = gs['exp_moves']
     gs['exp_moves'] = exp_moves and _parse_expansion_moves(exp_moves)
 
-    js = gs['js_filt']
+    js = gs.pop('js_filt', None)
     if js:
         try:
-            js = gs['js_filt'] = json.loads(js)
+            js = json.loads(js)
         except ValueError as ex:
             msg = 'Filters are not valid JSON: %s\n  JSON: \n%s'
             raise ValueError(msg % (ex, js))
 
     opts = js.pop('opts', None) if isinstance(js, dict) else None
-    if opts and not isinstance(opts, dict):
+    if opts is not None and not isinstance(opts, dict):
         msg = 'Filter-opts({}) must be a json-object(dictionary)!'
         raise ValueError(msg.format(opts))
     gs['opts'] = opts
+    gs['call_spec'] = _parse_call_spec(js) if js else None
 
     return gs
 
@@ -430,8 +511,8 @@ def parse_xlref(xlref):
         >>> res = parse_xlref('workbook.xlsx#Sheet1!A1(DR+):Z20(UL):L1U2R1D1:' 
         ...                             '{"opts":{}, "func": "foo"}')
         >>> sorted(res.items())
-         [('exp_moves', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
-         ('js_filt', {'func': 'foo'}),
+         [('call_spec', CallSpec(func='foo', args=[], kwds={})),
+         ('exp_moves', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
          ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None)),
          ('opts', {}),
          ('sh_name', 'Sheet1'),
@@ -441,8 +522,8 @@ def parse_xlref(xlref):
 
         >>> res=parse_xlref('#:')
         >>> sorted(res.items())
-        [('exp_moves', None),
-         ('js_filt', None),
+        [('call_spec', None),
+         ('exp_moves', None),
          ('nd_edge', Edge(land=Cell(row='_', col='_'), mov=None, mod=None)),
          ('opts', None),
          ('sh_name', None),
@@ -455,16 +536,26 @@ def parse_xlref(xlref):
 
         >>> parse_xlref('A1(DR)Z20(UL)')
         Traceback (most recent call last):
-        ValueError: No fragment-part (starting with '#')!
+        SyntaxError: No fragment-part (starting with '#'): A1(DR)Z20(UL)
 
-        >>> parse_xlref('#A1(DR)Z20(UL)')
+        >>> parse_xlref('#A1(DR)Z20(UL)')          ## Missing ':'.
         Traceback (most recent call last):
-        ValueError: Not an `xl-ref` syntax.
+        SyntaxError: Not an `xl-ref` syntax: A1(DR)Z20(UL)
+
+    But as soon as syntax is matched, subsequent errors raised are
+    :class:`ValueErrors`::
+
+        >>> parse_xlref("#A1:B1:{'Bad_JSON_str'}")
+        Traceback (most recent call last):
+        ValueError: Filters are not valid JSON: 
+        Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+          JSON: 
+        {'Bad_JSON_str'}
     """
     xlref = xlref.translate(_excel_str_translator)
     url_file, frag = urldefrag(xlref)
     if not frag:
-        raise ValueError("No fragment-part (starting with '#')!")
+        raise SyntaxError("No fragment-part (starting with '#'): %s" % xlref)
     res = _parse_xlref_fragment(frag)
     frag = frag.strip()
     res['url_file'] = url_file.strip() or None
@@ -657,7 +748,7 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
 
         >>> _resolve_coord(cname, _row2num, '.', 0, 10, base_coord=None)
         Traceback (most recent call last):
-        ValueError: invalid row('.') due to: '.'
+        ValueError: Cannot resolve `relative-row` without `base-coord`!
 
     Other ROW error-checks::
 
@@ -719,6 +810,9 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
 
         return rcoord
     except Exception as ex:
+        if isinstance(ex, KeyError) and ex.args == ('.',):
+            msg = "Cannot resolve `relative-{}` without `base-coord`!"
+            raise ValueError(msg.format(cname))
         msg = 'invalid {}({!r}) due to: {}'
         # fututils.raise_from(ValueError(msg.format(cname, coord, ex)), ex) see
         # GH 141
@@ -776,7 +870,8 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
 
         >>> _resolve_cell(Cell('1', '.'), up, dn)
         Traceback (most recent call last):
-        ValueError: invalid cell(Cell(row='1', col='.')) due to: invalid col('.') due to: '.'
+        ValueError: invalid cell(Cell(row='1', col='.')) due to: 
+        Cannot resolve `relative-col` without `base-coord`!
 
     """
     assert not CHECK_CELLTYPE or isinstance(cell, Cell), cell
@@ -1103,7 +1198,8 @@ def _expand_rect(states_matrix, r1, r2, exp_moves):
 
 
 def resolve_capture_rect(states_matrix, up_dn_margins,
-                         st_edge, nd_edge=None, exp_moves=None):
+                         st_edge, nd_edge=None, exp_moves=None,
+                         base_coords=None):
     """
     Performs :term:`targeting`, :term:`capturing` and :term:`expansions` based on the :term:`states-matrix`.
 
@@ -1123,6 +1219,8 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
     :param Edge nd_edge: "uncooked" as matched by regex
     :param list or none exp_moves:
             the result of :func:`_parse_expansion_moves()`
+    :param Coords base_coords:
+            The base for a :term:`dependent` :term;`1st` edge.
 
     :return:    a ``(Coords, Coords)`` with the 1st and 2nd :term:`capture-cell`
                 ordered from top-left --> bottom-right.
@@ -1171,7 +1269,7 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
     assert not CHECK_CELLTYPE or isinstance(up_margin, Coords), up_margin
     assert not CHECK_CELLTYPE or isinstance(dn_margin, Coords), dn_margin
 
-    st = _resolve_cell(st_edge.land, up_margin, dn_margin)
+    st = _resolve_cell(st_edge.land, up_margin, dn_margin, base_coords)
     try:
         st_state = states_matrix[st]
     except IndexError:
@@ -1342,84 +1440,6 @@ def _redim(values, new_ndim):
     return values.tolist()
 
 
-CallSpec = namedtuple('CallSpec', ('func', 'args', 'kwds'))
-"""The :term:`call-specifier` for holding the parsed json-filters."""
-
-
-def _parse_call_spec(call_spec_values):
-    """
-    Parse :term:`call-specifier` from json-filters.
-
-    :param call_spec_values:
-        This is a *non-null* structure specifying some function call 
-        in the `filter` part, which it can be either:
-
-        - string: ``"func_name"`` 
-        - list:   ``["func_name", ["arg1", "arg2"], {"k1": "v1"}]``
-          where the last 2 parts are optional and can be given in any order;
-        - object: ``{"func": "func_name", "args": ["arg1"], "kwds": {"k":"v"}}`` 
-          where the `args` and `kwds` are optional.
-
-    :return: 
-        the 3-tuple ``func, args=(), kwds={}`` with the defaults as shown 
-        when missing. 
-    """
-    def boolarr(l):
-        return np.fromiter(l, dtype=bool)
-
-    def parse_list(func, item1=None, item2=None):
-        items = (item1, item2)
-        isargs = boolarr(isinstance(a, list) for a in items)
-        iskwds = boolarr(isinstance(a, dict) for a in items)
-        isnull = boolarr(a is None for a in items)
-
-        if isargs.all() or iskwds.all() or not (
-                isargs ^ iskwds ^ isnull).all():
-            msg = "Cannot decide `args`/`kwds` for call_spec(%s)!"
-            raise ValueError(msg.format(call_spec_values))
-        args, kwds = None, None
-        if isargs.any():
-            args = items[isargs.nonzero()[0][0]]
-        if iskwds.any():
-            kwds = items[iskwds.nonzero()[0][0]]
-        return func, args, kwds
-
-    def parse_object(func, args=None, kwds=None):
-        return func, args, kwds
-
-    try:
-        if isinstance(call_spec_values, basestring):
-            func, args, kwds = call_spec_values, None, None
-        elif isinstance(call_spec_values, list):
-            func, args, kwds = parse_list(*call_spec_values)
-        elif isinstance(call_spec_values, dict):
-            func, args, kwds = parse_object(**call_spec_values)
-        else:
-            msg = "One of str, list or dict expected for call-spec(%s)!"
-            raise ValueError(msg.format(call_spec_values))
-    except ValueError:
-        raise
-    except Exception as ex:
-        msg = "Cannot parse call-spec({}) due to: {}"
-        raise ValueError(msg.format(call_spec_values, ex))
-
-    if not isinstance(func, basestring):
-        msg = "Expected a `string` for func({}) for call-spec({})!"
-        raise ValueError(msg.format(func, call_spec_values))
-    if args is None:
-        args = []
-    elif not isinstance(args, list):
-        msg = "Expected a `list` for args({}) for call-spec({})!"
-        raise ValueError(msg.format(args, call_spec_values))
-    if kwds is None:
-        kwds = {}
-    elif not isinstance(kwds, dict):
-        msg = "Expected a `dict` for kwds({}) for call-spec({})!"
-        raise ValueError(msg.format(kwds, call_spec_values))
-
-    return CallSpec(func, args, kwds)
-
-
 class SheetsFactory(object):
     """
     A caching-store of :class:`ABCSheet` instances, serving them based on (workbook, sheet) IDs, optionally creating them from backends.
@@ -1587,7 +1607,7 @@ def _build_call_help(name, func, desc):
 
 Lasso = namedtuple('Lasso',
                    ('xl_ref', 'url_file', 'sh_name',
-                    'st_edge', 'nd_edge', 'exp_moves', 'js_filt',
+                    'st_edge', 'nd_edge', 'exp_moves',
                     'call_spec',
                     'sheet', 'st', 'nd', 'values', 'base_cell',
                     'opts'))
@@ -1765,31 +1785,36 @@ class Ranger(object):
             return base_cell
 
         def dive_list(vals, base_cell, cdepth):
-            try:
-                if isinstance(vals, basestring):
-                    try:
-                        context = lasso._asdict()
-                        context['base_cell'] = base_cell
-                        vals = self.do_lasso(vals, **context)
-                    except Exception as ex:
-                        msg = "Recursive parsing %s stopped due to: %s \n  @Lasso: %s"
-                        log.info(msg, vals, ex, lasso)
-                elif isinstance(vals, list):
-                    for i, v in enumerate(vals):
-                        nbc = new_base_cell(base_cell, cdepth, i)
-                        vals[i] = dive_indexed(v, nbc, cdepth + 1)
-            except:
-                pass
+            if isinstance(vals, basestring):
+                context = lasso._asdict()
+                context['base_cell'] = base_cell
+                try:
+                    rlasso = self.do_lasso(vals, **context)
+                    vals = rlasso and rlasso.values
+                except SyntaxError as ex:
+                    pass
+                except Exception as ex:
+                    msg = "Recursive parsing %s stopped due to: %s \n  @Lasso: %s"
+                    raise ValueError(msg % (vals, ex, lasso))
+            elif isinstance(vals, list):
+                for i, v in enumerate(vals):
+                    nbc = new_base_cell(base_cell, cdepth, i)
+                    vals[i] = dive_indexed(v, nbc, cdepth + 1)
+
             return vals
 
         def dive_indexed(vals, base_cell, cdepth):
             if cdepth != depth:
+                dived = False
                 try:
                     for k, v in iteritems(vals):
                         if is_included(k):
                             # No base_cell possible with Indexed.
                             vals[k] = dive_indexed(v, None, cdepth + 1)
+                    dived = True
                 except:
+                    pass  # Just to avoid chained ex.
+                if not dived:
                     vals = dive_list(vals, base_cell, cdepth)
 
             return vals
@@ -1819,15 +1844,13 @@ class Ranger(object):
             filled_fields = dtz.valfilter(lambda v: v is not None,
                                           parsed_fields)
             init_lasso = init_lasso._replace(**filled_fields)
+        except SyntaxError:
+            raise
         except Exception as ex:
             msg = "Parsing xl-ref(%s) failed due to: %s"
             log.debug(msg, xlref, ex, exc_info=1)
             # raise fututils.raise_from(ValueError(msg % (xlref, ex)), ex) see GH
             # 141
-            raise ValueError(msg % (xlref, ex))
-        except ValueError as ex:
-            msg = "Invalid xl-ref(%s): %s"
-            log.debug(msg, xlref, ex, exc_info=1)
             raise ValueError(msg % (xlref, ex))
 
         return init_lasso
@@ -1882,11 +1905,6 @@ class Ranger(object):
         lasso = self._parse_and_merge_with_context(xlref, lasso)
         lasso = self._relasso(lasso, 'parse')
 
-        call_spec = None
-        if lasso.js_filt:
-            call_spec = _parse_call_spec(lasso.js_filt)
-        lasso = self._relasso(lasso, 'call_spec', call_spec=call_spec)
-
         try:
             # Maybe context had a Sheet already.
             sheet = self._fetch_sheet_from_lasso(lasso.sheet,
@@ -1907,14 +1925,15 @@ class Ranger(object):
         st, nd = resolve_capture_rect(sheet.get_states_matrix(),
                                       sheet.get_margin_coords(),
                                       lasso.st_edge, lasso.nd_edge, lasso.exp_moves)
-        lasso = self._relasso(lasso, 'resolve_capture_rect', st=st, nd=nd)
+        lasso = self._relasso(lasso, 'resolve_capture_rect',
+                              st=st, nd=nd, base_cell=lasso.base_cell)
 
         values = sheet.read_rect(st, nd)
         lasso = self._relasso(lasso, 'read_rect', values=values)
 
-        if call_spec:
+        if lasso.call_spec:
             # relasso() internally
-            lasso = self._make_call(lasso, *call_spec)
+            lasso = self._make_call(lasso, *lasso.call_spec)
 
         return lasso
 

@@ -153,9 +153,9 @@ def produce_xlref_field_combinations(*xlref_expectedFields_pairs):
     exp_moves = [('',       {'exp_moves': N}),
                  (':lurd',  {'exp_moves': xr._parse_expansion_moves('LURD')}),
                  ]
-    filters = [('',                   {'js_filt': N}),
-               (':"func"',            {'js_filt': 'func'}),
-               (':{"opts": {"1":2}}', {'js_filt': {}, 'opts': {'1': 2}}),
+    filters = [('',                   {}),
+               (':"func"',            {'call_spec': xr.CallSpec('func')}),
+               (':{"opts": {"1":2}}', {'opts': {'1': 2}}),
                ]
     combs = []
     for edges_s, edges in xlref_expectedFields_pairs:
@@ -179,14 +179,14 @@ class T01Parse(unittest.TestCase):
         'A0', 'A1:A0',
         '%A1',
         'A1:LURD',
+        's![[]', 's!{}[]', 's!A', 's!A1:!', 's!1:2', 's!A0:B1',
     )
-    def test_parse_BAD(self, xlref):
-        err_msg = "Not an `xl-ref` syntax."
-        with assertRaisesRegex(self, ValueError, err_msg, msg=xlref):
-            print(xlref)
+    def test_BAD(self, xlref):
+        err_msg = "Not an `xl-ref` syntax:"
+        with assertRaisesRegex(self, SyntaxError, err_msg, msg=xlref):
             xr._parse_xlref_fragment(xlref)
 
-    def test_parse_xl_ref_Cell_types(self):
+    def test_xl_ref_Cell_types(self):
         xl_ref = 'b1:C2'
         res = xr._parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
@@ -196,7 +196,7 @@ class T01Parse(unittest.TestCase):
         self.assertIsInstance(nd_edge.land.row, basestring)
         self.assertIsInstance(nd_edge.land.col, basestring)
 
-    def test_parse_xl_ref_Cell_col_row_order(self):
+    def test_xl_ref_Cell_col_row_order(self):
         xl_ref = 'b1:C2'
         res = xr._parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
@@ -206,7 +206,7 @@ class T01Parse(unittest.TestCase):
         self.assertTrue(nd_edge.land.row.isalnum())
         self.assertTrue(nd_edge.land.col.isalpha())
 
-    def test_parse_xl_ref_all_upper(self):
+    def test_xl_ref_all_upper(self):
         xl_ref = 'b1(uL):C2(Dr):Lur2D'
         res = xr._parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
@@ -241,8 +241,8 @@ class T01Parse(unittest.TestCase):
             'nd_edge': xr.Edge(xr.Cell(col='C', row='2'), 'UL'),
         }
         ),
-        ('!a1(l):c2(ul):{"1":4,"2":"ciao"}', {
-            'js_filt': {'2': 'ciao', '1': 4},
+        ('!a1(l):c2(ul):"fun"', {
+            'call_spec': xr.CallSpec('fun'),
             'st_edge': xr.Edge(xr.Cell(col='A', row='1'), 'L'),
             'nd_edge': xr.Edge(xr.Cell(col='C', row='2'), 'UL'),
         }
@@ -259,7 +259,7 @@ class T01Parse(unittest.TestCase):
         }
         ),
     )
-    def test_parse_regular(self, case):
+    def test_regular(self, case):
         xlref, fields = case
         self.check_xlref(xlref, fields)
 
@@ -282,7 +282,7 @@ class T01Parse(unittest.TestCase):
         }
         ),
     ))
-    def test_parse_shortcuts(self, case):
+    def test_shortcuts(self, case):
         xlref, fields = case
         self.check_xlref(xlref, fields)
 
@@ -293,16 +293,17 @@ class T01Parse(unittest.TestCase):
         }),
         ('a33(DL):"func"', {
             'st_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'),
-            'js_filt': 'func'
+            'call_spec': xr.CallSpec('func'),
         }),
-        ('a33(DL)::"func"', {
+        ('a33(DL)::{"func": "func", "opts": {"a": 1}}', {
             'st_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'),
             'nd_edge': xr._bottomright_Edge,
-            'js_filt': 'func'
+            'call_spec': xr.CallSpec('func'),
+            'opts': {"a": 1},
         }),
         ('', {}),  # Yes, empty allowed, but rejected earlier, after url-split.
     )
-    def test_parse_shortcuts_strange(self, case):
+    def test_shortcuts_strange(self, case):
         xlref, fields = case
         self.check_xlref(xlref, fields)
 
@@ -325,47 +326,43 @@ class T01Parse(unittest.TestCase):
         res2 = xr._parse_xlref_fragment(shortcut)
         self.assertEquals(len(res1), len(res2), (res1, res2))
 
-    @data('s![[]', 's!{}[]', 's!A', 's!A1:!', 's!1:2', 's!A0:B1', )
-    def test_errors_parse_xl_ref(self, case):
-        self.assertRaises(ValueError, xr._parse_xlref_fragment, case)
-
     @data(':{"opts": "..."}', ':{"opts": [2]}',
           'A1:b1:{"opts": "..."}', 'A1:B1:{"opts": [4]}')
-    def test_parse_xl_ref_BadOpts(self, xlref):
+    def test_xl_ref_BadOpts(self, xlref):
         err_msg = 'must be a json-object\(dictionary\)'
         assertRaisesRegex(self, ValueError, err_msg,
                           xr._parse_xlref_fragment, xlref)
 
-    def test_parse_xl_url_Ok(self):
-        url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D):{"json":"..."}'
+    def test_xl_url_Ok(self):
+        url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D):{"func":"foo"}'
         res = xr.parse_xlref(url)
 
         self.assertEquals(res['url_file'], 'file://path/to/file.xlsx')
         self.assertEquals(res['sh_name'], 'Sheet1')
-        self.assertEquals(res['js_filt'], {"json": "..."})
+        self.assertEquals(res['call_spec'], xr.CallSpec('foo'))
         self.assertEquals(res['st_edge'], xr.Edge(xr.Cell('10', 'U'), 'L'))
         self.assertEquals(res['nd_edge'], xr.Edge(xr.Cell('20', 'D'), 'D'))
 
-    def test_parse_xl_url_Bad(self):
+    def test_xl_url_Bad(self):
         self.assertRaises(ValueError, xr.parse_xlref, *('#!:{"json":"..."', ))
 
-    def test_parse_xl_url_Only_fragment(self):
-        url = '#sheet_name!UP10:DOWN20:{"json":"..."}'
+    def test_xl_url_Only_fragment(self):
+        url = '#sheet_name!UP10:DOWN20'
         res = xr.parse_xlref(url)
         self.assertEquals(res['url_file'], None)
 
-    def test_parse_xl_url_No_fragment(self):
-        url = 'sdadsggfds'
+    def test_xl_url_No_fragment(self):
+        url = 'A1:B1'
         err_text = "No fragment-part"
-        with assertRaisesRegex(self, ValueError, err_text):
+        with assertRaisesRegex(self, SyntaxError, err_text):
             xr.parse_xlref(url)
 
-    def test_parse_xl_url_emptyFile(self):
+    def test_xl_url_emptyFile(self):
         url = '  #A1'
         res = xr.parse_xlref(url)
         self.assertEquals(res['url_file'], None)
 
-    def test_parse_xl_url_emptySheet(self):
+    def test_xl_url_emptySheet(self):
         url = 'file://path/to/file.xlsx#  !A1'
         res = xr.parse_xlref(url)
         self.assertEquals(res['sh_name'], None)
@@ -852,10 +849,11 @@ class T07Capture(unittest.TestCase):
         nd_edge = xr.Edge(xr.Cell(*args[3:5]), args[5], '+')
         res = (xr.Coords(*args[6:8]),
                xr.Coords(*args[8:10]))
-        args = argshead + (st_edge, nd_edge)
-        self.assertEqual(xr.resolve_capture_rect(*args), res, str(args))
+        args = argshead + (st_edge, nd_edge) + tuple(args[10:])
+        self.assertEqual(xr.resolve_capture_rect(*args),
+                         res, str(args))
 
-    def test_resolve_capture_rect_St_inverseTargetDirs(self):
+    def test_St_inverseTargetDirs(self):
         self.check_resolve_capture_rect('1', 'A', 'DR', '.', '.', 'DR',
                                         3, 2, 4, 2)
         self.check_resolve_capture_rect('^', '^', 'RD', '.', '.', 'RD',
@@ -872,7 +870,7 @@ class T07Capture(unittest.TestCase):
         ('4', 'D', 'L', '4', 'F', 'RD', 3, 2, 4, 5),
         ('4', 'D', 'LU', '4', 'F', 'RD', 3, 2, 4, 5),
     )
-    def test_resolve_capture_rect_Target_fromEmpty_st(self, case):
+    def test_Target_fromEmpty_st(self, case):
         self.check_resolve_capture_rect(*case)
 
     @data(
@@ -902,7 +900,7 @@ class T07Capture(unittest.TestCase):
 
         ('3', 'E', 'L', '_', '_', None, 2, 3, 4, 5),
     )
-    def test_resolve_capture_rect_Target_fromFull_st(self, case):
+    def test_Target_fromFull_st(self, case):
         self.check_resolve_capture_rect(*case)
 
     @data(
@@ -914,10 +912,10 @@ class T07Capture(unittest.TestCase):
         ('3', 'D', None, '4', 'E', 'LD', 2, 2, 3, 3),
         ('3', 'D', None, '4', 'E', 'LU', 2, 2, 3, 3),
     )
-    def test_resolve_capture_rect_Target_fromEmpty_nd(self, case):
+    def test_Target_fromEmpty_nd(self, case):
         self.check_resolve_capture_rect(*case)
 
-    def test_resolve_capture_rect_BackwardRelative_singleDir(self):
+    def test_BackwardRelative_singleDir(self):
         self.check_resolve_capture_rect('^', '_', None, '.', '.', 'L',
                                         2, 3, 2, 5)
         self.check_resolve_capture_rect('_', '^', None, '.', '.', 'U',
@@ -933,7 +931,7 @@ class T07Capture(unittest.TestCase):
         ('_', '^', None, '.', '.', 'UR', 3, 2, 4, 3),
         ('_', '^', None, '.', '.', 'RU', 3, 2, 4, 3),
     )
-    def test_resolve_capture_rect_BackwardRelative_multipleDirs(self, case):
+    def test_BackwardRelative_multipleDirs(self, case):
         self.check_resolve_capture_rect(*case)
 
     @data(
@@ -942,7 +940,24 @@ class T07Capture(unittest.TestCase):
         ('^', '_', None, '_', '^', None, 2, 2, 4, 5),
         ('_', '^', None, '^', '_', None, 2, 2, 4, 5),
     )
-    def test_resolve_capture_rect_BackwardMoves_nonRelative(self, case):
+    def test_BackwardMoves_nonRelative(self, case):
+        self.check_resolve_capture_rect(*case)
+
+    @data(
+        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, None),
+        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, xr.Coords(None, 0)),
+        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, xr.Coords(0, None)),
+    )
+    def test_1stRelative_withoutBase(self, case):
+        err_msg = "Cannot resolve `relative"
+        with assertRaisesRegex(self, ValueError, err_msg):
+            self.check_resolve_capture_rect(*case)
+
+    @data(
+        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, xr.Coords(0, 0)),
+        ('.', '.', None, '.', '.', None, 1, 1, 1, 1, None, xr.Coords(1, 1)),
+    )
+    def test_1stRelative(self, case):
         self.check_resolve_capture_rect(*case)
 
 
@@ -1610,8 +1625,9 @@ class T15Recursive(unittest.TestCase):
     )
     def test_dontExpand_nonDicts(self, vals):
         ranger = xr.Ranger(None)
-        ranger.do_lasso = MagicMock(name='do_lasso()', side_effect=lambda x: x)
-        lasso = xr.Lasso(values=vals)
+        ranger.do_lasso = MagicMock(name='do_lasso()',
+                                    side_effect=lambda x, **kwds: xr.Lasso(values=x))
+        lasso = xr.Lasso(values=vals, opts={})
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         self.assertEqual(res, vals)
 
@@ -1624,8 +1640,8 @@ class T15Recursive(unittest.TestCase):
     def test_expandNestedStrings(self, vals):
         ranger = xr.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
+            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
+        lasso = xr.Lasso(values=vals, opts={})
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
@@ -1638,8 +1654,8 @@ class T15Recursive(unittest.TestCase):
     def test_dontExpandNonLists(self, vals):
         ranger = xr.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
+            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
+        lasso = xr.Lasso(values=vals, opts={})
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         self.assertNotIn(sentinel.BINGO.name, str(res))
 
@@ -1652,8 +1668,8 @@ class T15Recursive(unittest.TestCase):
     def test_expandDicts_nonStrKeys(self, vals):
         ranger = xr.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
+            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
+        lasso = xr.Lasso(values=vals, opts={})
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
@@ -1667,8 +1683,8 @@ class T15Recursive(unittest.TestCase):
     def test_expandDicts_preservingKeys(self, vals):
         ranger = xr.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
+            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
+        lasso = xr.Lasso(values=vals, opts={})
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
@@ -1698,8 +1714,8 @@ class T15Recursive(unittest.TestCase):
             'key11': 'bang'}]
         ranger = xr.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
+            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
+        lasso = xr.Lasso(values=vals, opts={})
         res = xr.Ranger.recursive_filter(ranger, lasso, depth=depth).values
         # print(res)
         if missing:
@@ -1717,8 +1733,8 @@ class T15Recursive(unittest.TestCase):
     def test_expandDFs(self, vals):
         ranger = xr.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
+            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
+        lasso = xr.Lasso(values=vals, opts={})
         res = xr.Ranger.recursive_filter(ranger, lasso).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
@@ -1745,8 +1761,8 @@ class T15Recursive(unittest.TestCase):
         vals, incexc, exist, missing = case
         ranger = xr.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=sentinel.BINGO)
-        lasso = xr.Lasso(values=vals)
+            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
+        lasso = xr.Lasso(values=vals, opts={})
         res = xr.Ranger.recursive_filter(ranger, lasso, *incexc).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))

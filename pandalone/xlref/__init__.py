@@ -131,7 +131,6 @@ the the 'st' and 'nd' fields of the full :class:`Lasso` results returned::
           st_edge=Edge(land=Cell(row='1', col='A'), mov='DR', mod=None), 
           nd_edge=Edge(land=Cell(row='.', col='.'), mov='DR', mod=None), 
           exp_moves=[repeat('RULD')], 
-          js_filt=None, 
           call_spec=None, 
           sheet=ArraySheet('wb', ['sh', 0]) 
                 [[None None 'A' None]
@@ -682,7 +681,7 @@ Example-refs are given below for capturing the 2 marked tables::
 from ._xlref import (
     lasso, Ranger, SheetsFactory, ArraySheet,
     make_default_Ranger, get_default_opts, get_default_filters,
-    Cell, Coords, coords2Cell, Edge, Lasso,
+    Cell, Coords, coords2Cell, Edge, Lasso, CallSpec,
     parse_xlref, resolve_capture_rect,
     xlwings_dims_call_spec,
 )

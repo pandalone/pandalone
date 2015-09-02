@@ -25,7 +25,7 @@ TODOs
             - [ ] Notation for specifying the "last-sheet".
             - [ ] Extend RC-coords: ^-1, _-6, .-4 
             - [ ] Expand meander `@`?
-        - [ ] Respect base-cell also for 1st edge filter
+        - [X] Respect base-cell also for 1st edge filter
         - [ ] Xlrd-read with slices.
         - [x] Keep only single Lasso-stage in Ranger.
     - Struct:
