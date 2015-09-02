@@ -1784,7 +1784,7 @@ class Ranger(object):
             included are accepted, unless also excluded.
 
         - Lower the :mod:`logging` level to see other than syntax-errors on
-          recursion reposrted on :data:`log`; .
+          recursion reported on :data:`log`.
 
         :param list or str include:
                 Items to include in the recursive-search.

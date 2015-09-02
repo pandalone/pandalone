@@ -44,7 +44,7 @@ checked for compatibility with `xlwings <http://xlwings.org/quickstart/>`_
 developed for python-3 but tested also on python-2 for compatibility.
 
 
-Xl-Ref Syntax
+Xl-ref Syntax
 -------------
 ::
 
@@ -55,8 +55,8 @@ Xl-Ref Syntax
 - Spaces are allowed only before `filters`. 
 
 
-Annotated Syntax
-----------------
+Annotated Example
+-----------------
 ::
 
   target-moves─────┐

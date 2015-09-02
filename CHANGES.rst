@@ -33,9 +33,9 @@ TODOs
         - [ ] Split lassos from xlref.
         - [ ] plugin backends (& syntax?)
     - TCs
+        - [x] Recursive with real-excel file.
         - [ ] More
         - [ ] Test XlWings in Windows indeed OK.
-        - [ ] Recursive with real-excel file.
     - Backends:
         - [ ] Clipboard
         - [ ] xlwings
