@@ -29,6 +29,7 @@ from pandalone import xlref as xlasso
 from pandalone.xlref import _xlrd as xd
 from pandalone.xlref import _xlref as xr
 from pandalone.xlref._xlrd import XlrdSheet
+from pandalone.xlref._xlref import SheetsFactory
 import pandas as pd
 from tests import _tutils
 from tests._tutils import (check_xl_installed, xw_Workbook)
@@ -253,6 +254,16 @@ class T01Parse(unittest.TestCase):
         err_text = "No fragment-part"
         with assertRaisesRegex(self, ValueError, err_text):
             xr.parse_xlref(url)
+
+    def test_parse_xl_url_emptyFile(self):
+        url = '  #A1'
+        res = xr.parse_xlref(url)
+        self.assertEquals(res['url_file'], None)
+
+    def test_parse_xl_url_emptySheet(self):
+        url = 'file://path/to/file.xlsx#  !A1'
+        res = xr.parse_xlref(url)
+        self.assertEquals(res['sh_name'], None)
 
 
 def make_sample_matrix():
@@ -1342,9 +1353,23 @@ class T12CallSpec(unittest.TestCase):
 @ddt
 class T13Ranger(unittest.TestCase):
 
-    def test_context_sheet(self):
-        ranger = xr.Ranger(None)
+    @data(True, False)
+    def test_context_sheet(self, has_sf):
+        sf = SheetsFactory() if has_sf else None
+        ranger = xr.Ranger(sf)
         res = ranger.do_lasso('#B2', sheet=xr.ArraySheet([[1, 2], [3, 4]]))
+        self.assertEqual(res.values, 4)
+
+    @data(True, False)
+    def test_context_sibling(self, has_sf):
+        sf = SheetsFactory() if has_sf else None
+        ranger = xr.Ranger(sf)
+        sheet = xr.ArraySheet([[1, 2], [3, 4]])
+        sheet.open_sibling_sheet = MagicMock(name='open_sibling_sheet()',
+                                             return_value=sheet)
+        res = ranger.do_lasso('#Sibl!B2', sheet=sheet)
+        sheet.open_sibling_sheet.assert_called_once_with(
+            'Sibl', ChainMap())
         self.assertEqual(res.values, 4)
 
 

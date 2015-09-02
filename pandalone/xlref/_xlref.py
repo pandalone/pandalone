@@ -504,6 +504,8 @@ def parse_xlref(xlref):
     """
 
     url_file, frag = urldefrag(xlref)
+    url_file = url_file.strip()
+    frag = frag.strip()
     if not frag:
         raise ValueError("No fragment-part (starting with '#')!")
     res = _parse_xlref_fragment(frag)
@@ -1884,12 +1886,12 @@ class Ranger(object):
         return init_lasso
 
     def _fetch_sheet_from_lasso(self, sheet, url_file, sh_name, opts):
-        if sheet:
-            if url_file is None:
-                if sh_name is None:
-                    return sheet
-                else:
-                    return sheet.open_sibling_sheet(sh_name, opts)
+        if sheet and url_file is None:
+            if sh_name is not None:
+                sheet = sheet.open_sibling_sheet(sh_name, opts)
+                if sheet and self.sheets_factory:
+                    self.sheets_factory.add_sheet(sheet, sh_ids=sh_name)
+            return sheet
 
     def do_lasso(self, xlref, **context_kwds):
         """
@@ -1935,7 +1937,7 @@ class Ranger(object):
             if not sheet:
                 if not self.sheets_factory:
                     msg = "The xl-ref(%s) specifies 'url-file` part but Ranger has no sheet-factory!"
-                    raise Exception(msg % lasso.xlref)
+                    raise Exception(msg % lasso.xl_ref)
                 sheet = self.sheets_factory.fetch_sheet(
                     lasso.url_file, lasso.sh_name,
                     lasso.opts)
