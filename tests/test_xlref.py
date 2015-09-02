@@ -11,6 +11,7 @@ from __future__ import division, print_function, unicode_literals
 import contextlib
 from datetime import datetime
 import doctest
+import logging
 import os
 import sys
 import tempfile
@@ -104,6 +105,7 @@ _all_dir_single = list('LRUD')
 _all_dirs = _all_dir_single + _all_dir_pairs
 
 
+@ddt
 class T011Structs(unittest.TestCase):
 
     def test_uncooked_Edge_good(self):
@@ -142,6 +144,42 @@ class T011Structs(unittest.TestCase):
         self.assertEqual(xr._col2num('D'), 3)
         self.assertEqual(xr._col2num('aAa'), 702)
 
+    @data(
+        (xr.Cell('1', 'a'), 'A1'),
+        (xr.Cell('1', '1'), 'R1C1'),
+        (xr.Cell('-1', '-1'), 'R-1C-1'),
+
+        (xr.Cell('1', '-1'), 'R1C-1'),
+        (xr.Cell('-1', '1'), 'R-1C1'),
+        (xr.Cell('-1', 'A'), 'A-1'),
+    )
+    def test_Cell_to_str(self, case):
+        cell, exp = case
+        self.assertEqual(xr._Cell_to_str(cell), exp)
+
+    @data(
+        (xr.Edge_uncooked('1', 'a', ), 'A1'),
+        (xr.Edge_uncooked('1', 'a', None, '+'), 'A1'),  # WARN
+        (xr.Edge_uncooked('1', 'a', 'lu'), 'A1(LU)'),
+        (xr.Edge_uncooked('1', '4', 'lu', '+'), 'R1C4(LU+)'),
+        (xr.Edge_uncooked('-1', '-1', 'dr', '-'), 'R-1C-1(DR-)'),
+    )
+    def test_Edge_to_str(self, case):
+        edge, exp = case
+        self.assertEqual(xr._Edge_to_str(edge), exp)
+
+    @data(
+        (xr.Edge_uncooked('1', 'a', ), xr.Edge_uncooked('1', '-1', ), None,
+         'A1:R1C-1'),
+        (xr.Edge_uncooked('1', 'a', 'L', '-'), xr.Edge_uncooked('1', '-1', ),
+         'lurd',
+         'A1(L-):R1C-1:LURD'),
+    )
+    def test_Lasso_to_edges_str(self, case):
+        edge1, edge2, exp_moves, exp = case
+        lasso = xr.Lasso(st_edge=edge1, nd_edge=edge2, exp_moves=exp_moves)
+        self.assertEqual(xr._Lasso_to_edges_str(lasso), exp)
+
 
 def produce_xlref_field_combinations(*xlref_expectedFields_pairs):
     N = None
@@ -151,7 +189,7 @@ def produce_xlref_field_combinations(*xlref_expectedFields_pairs):
               ('  !',       {'sh_name': N}),
               ]
     exp_moves = [('',       {'exp_moves': N}),
-                 (':lurd',  {'exp_moves': xr._parse_expansion_moves('LURD')}),
+                 (':lurd?',  {'exp_moves': 'lurd?'}),
                  ]
     filters = [('',                   {}),
                (':"func"',            {'call_spec': xr.CallSpec('func')}),
@@ -466,7 +504,7 @@ class T03TargetOpposite(unittest.TestCase):
             res = xr._target_opposite(*args)
             self.assertEqual(res, xr.Coords(exp_row, exp_col), str(args))
         else:
-            with assertRaisesRegex(self, ValueError, "No \w+-target for",
+            with assertRaisesRegex(self, ValueError, "No \w+-target found",
                                    msg=str(args)):
                 xr._target_opposite(*args)
 
@@ -701,11 +739,10 @@ class T06Expand(unittest.TestCase):
         ], dtype=bool)
         return states_matrix
 
-    def check_expand_rect(self, rect_in, exp_mov_str, rect_out, states_matrix=None):
+    def check_expand_rect(self, rect_in, exp_mov, rect_out, states_matrix=None):
         if states_matrix is None:
             states_matrix = self.make_states_matrix()
 
-        exp_mov = xr._parse_expansion_moves(exp_mov_str)
         st = xr.Coords(*rect_in[:2])
         nd = xr.Coords(*rect_in[2:]) if len(rect_in) > 2 else st
         rect_out = (xr.Coords(*rect_out[:2]),
@@ -713,7 +750,6 @@ class T06Expand(unittest.TestCase):
         rect_got = xr._expand_rect(states_matrix, st, nd, exp_mov)
         self.assertEqual(rect_got, rect_out)
 
-        exp_mov = xr._parse_expansion_moves(exp_mov_str)
         rect_got = xr._expand_rect(states_matrix, nd, st, exp_mov)
         self.assertEqual(rect_got, rect_out)
 
@@ -1775,7 +1811,7 @@ class T15Recursive(unittest.TestCase):
 
 
 @ddt
-class T16VsPandas(unittest.TestCase, CustomAssertions):
+class T17VsPandas(unittest.TestCase, CustomAssertions):
 
     @contextlib.contextmanager
     def sample_xl_file(self, matrix, **df_write_kwds):
@@ -1845,7 +1881,7 @@ class T16VsPandas(unittest.TestCase, CustomAssertions):
 
 @unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
 @ddt
-class T17VsXlwings(unittest.TestCase):
+class T18VsXlwings(unittest.TestCase):
 
     def setUp(self):
         self.tmp = '%s.xlsx' % tempfile.mktemp()

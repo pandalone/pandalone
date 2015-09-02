@@ -14,6 +14,7 @@ Prefer accessing the public members from the parent module.
 import datetime
 from distutils.version import LooseVersion
 import logging
+from os import path
 
 from future.moves.urllib import request
 from future.moves.urllib import request as urlreq
@@ -149,7 +150,8 @@ def open_sheet(wb_url, sheet_id, opts):
         ropts['logfile'] = utils.LoggerWriter(log, level)
     parts = filename = urlsplit(wb_url)
     if not parts.scheme or parts.scheme == 'file':
-        wb = xlrd.open_workbook(parts.path, **ropts)
+        fpath = path.abspath(path.expanduser(path.expandvars(parts.path)))
+        wb = xlrd.open_workbook(fpath, **ropts)
     else:
         ropts.pop('on_demand', None)
         http_opts = ropts.get('http_opts', {})
@@ -193,7 +195,7 @@ class XlrdSheet(ABCSheet):
         return (types != XL_CELL_EMPTY) & (types != XL_CELL_BLANK)
 
     def _read_margin_coords(self):
-        return None, Coords(self._sheet.nrows, self._sheet.ncols)
+        return None, Coords(self._sheet.nrows - 1, self._sheet.ncols - 1)
 
     def read_rect(self, st, nd):
         """See super-method. """

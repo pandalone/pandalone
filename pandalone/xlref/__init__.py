@@ -130,7 +130,7 @@ the the 'st' and 'nd' fields of the full :class:`Lasso` results returned::
           sh_name=None, 
           st_edge=Edge(land=Cell(row='1', col='A'), mov='DR', mod=None), 
           nd_edge=Edge(land=Cell(row='.', col='.'), mov='DR', mod=None), 
-          exp_moves=[repeat('RULD')], 
+          exp_moves='RULD', 
           call_spec=None, 
           sheet=ArraySheet('wb', ['sh', 0]) 
                 [[None None 'A' None]
@@ -683,5 +683,5 @@ from ._xlref import (
     make_default_Ranger, get_default_opts, get_default_filters,
     Cell, Coords, coords2Cell, Edge, Lasso, CallSpec,
     parse_xlref, resolve_capture_rect,
-    xlwings_dims_call_spec,
+    xlwings_dims_call_spec, log
 )

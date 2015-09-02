@@ -35,6 +35,7 @@ TODOs
     - TCs
         - [ ] More
         - [ ] Test XlWings in Windows indeed OK.
+        - [ ] Recursive with real-excel file.
     - Backends:
         - [ ] Clipboard
         - [ ] xlwings

@@ -59,6 +59,17 @@ The "num" coords (numeric, 0-based) are specified using numpy-arrays
 """
 
 
+def _Cell_to_str(cell):
+    r = cell.row
+    c = cell.col
+    try:
+        c = int(c)
+        s = 'R%sC%s' % (r, c, )
+    except:
+        s = '%s%s' % (c, r)
+    return s.upper()
+
+
 Coords = namedtuple('Coords', ['row', 'col'])
 """
 A pair of 0-based integers denoting the "num" coordinates of a cell.
@@ -117,11 +128,16 @@ Edge.__new__.__defaults__ = (None, None)
 """Make optional the last 2 fields of :class:`Edge` ``(mov, mod)`` ."""
 
 
+def _Edge_to_str(edge):
+    c = _Cell_to_str(edge.land)
+    return '%s(%s%s)' % (c, edge.mov, edge.mod or '') if edge.mov else c
+
+
 _topleft_Edge = Edge(Cell('^', '^'))
 _bottomright_Edge = Edge(Cell('_', '_'))
 
 
-def Edge_uncooked(row, col, mov, mod=None, default=None):
+def Edge_uncooked(row, col, mov=None, mod=None, default=None):
     """
     Make a new `Edge` from any non-values supplied, as is capitalized, or nothing.
 
@@ -360,16 +376,16 @@ def _parse_expansion_moves(exp_moves):
 
     Examples::
 
-        >>> res = _parse_expansion_moves('lurd?')
+        >>> res = _parse_expansion_moves('lu1urd?')
         >>> res
-        [repeat('LUR'), repeat('D', 1)]
+        [repeat('L'), repeat('U', 1), repeat('UR'), repeat('D', 1)]
 
         # infinite generator
         >>> [next(res[0]) for i in range(10)]
-        ['LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR', 'LUR']
+        ['L', 'L', 'L', 'L', 'L', 'L', 'L', 'L', 'L', 'L']
 
         >>> list(res[1])
-        ['D']
+        ['U']
 
         >>> _parse_expansion_moves('1LURD')
         Traceback (most recent call last):
@@ -431,7 +447,7 @@ def _parse_xlref_fragment(xlref_fragment):
         ...                             '{"opts":{}, "func": "foo"}')
         >>> sorted(res.items())
         [('call_spec', CallSpec(func='foo', args=[], kwds={})),
-         ('exp_moves', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
+         ('exp_moves', 'L1U2R1D1'),
          ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None)),
          ('opts', {}),
          ('sh_name', 'Sheet1'),
@@ -469,7 +485,7 @@ def _parse_xlref_fragment(xlref_fragment):
     assert is_colon or not gs['nd_edge'], (xlref_fragment, gs['nd_edge'])
 
     exp_moves = gs['exp_moves']
-    gs['exp_moves'] = exp_moves and _parse_expansion_moves(exp_moves)
+    gs['exp_moves'] = exp_moves
 
     js = gs.pop('js_filt', None)
     if js:
@@ -512,7 +528,7 @@ def parse_xlref(xlref):
         ...                             '{"opts":{}, "func": "foo"}')
         >>> sorted(res.items())
          [('call_spec', CallSpec(func='foo', args=[], kwds={})),
-         ('exp_moves', [repeat('L', 1), repeat('U', 2), repeat('R', 1), repeat('D', 1)]),
+         ('exp_moves', 'L1U2R1D1'),
          ('nd_edge', Edge(land=Cell(row='20', col='Z'), mov='UL', mod=None)),
          ('opts', {}),
          ('sh_name', 'Sheet1'),
@@ -917,7 +933,7 @@ def _extract_states_vector(states_matrix, dn_coords, land, mov,
 
 
 def _target_opposite(states_matrix, dn_coords, land, moves,
-                     primitive_dir_vectors=_primitive_dir_vectors):
+                     edge_name='', primitive_dir_vectors=_primitive_dir_vectors):
     """
     Follow moves from `land` and stop on the 1st full-cell.
 
@@ -955,11 +971,11 @@ def _target_opposite(states_matrix, dn_coords, land, moves,
 
         >>> _target_opposite(*(args + (Coords(0, 0), 'D')))
         Traceback (most recent call last):
-        ValueError: No opposite-target for landing-Coords(row=0, col=0) with movement(D)!
+        ValueError: No opposite-target found while moving(D) from landing-Coords(row=0, col=0)!
 
         >>> _target_opposite(*(args + (Coords(0, 0), 'UR')))
         Traceback (most recent call last):
-        ValueError: No opposite-target for landing-Coords(row=0, col=0) with movement(UR)!
+        ValueError: No opposite-target found while moving(UR) from landing-Coords(row=0, col=0)!
 
 
     But notice that the landing-cell maybe outside of bounds::
@@ -1006,8 +1022,8 @@ def _target_opposite(states_matrix, dn_coords, land, moves,
 
             target += dv2
 
-    msg = 'No opposite-target for landing-{} with movement({})!'
-    raise ValueError(msg.format(land, moves))
+    msg = 'No opposite-target found while moving({}) from {}landing-{}!'
+    raise ValueError(msg.format(moves, edge_name, land))
 
 
 def _target_same_vector(states_matrix, dn_coords, land, mov):
@@ -1032,7 +1048,7 @@ def _target_same_vector(states_matrix, dn_coords, land, mov):
     return target_coord, coord_indx
 
 
-def _target_same(states_matrix, dn_coords, land, moves):
+def _target_same(states_matrix, dn_coords, land, moves, edge_name=''):
     """
     Scan term:`exterior` row and column on specified `moves` and stop on the last full-cell.
 
@@ -1073,11 +1089,11 @@ def _target_same(states_matrix, dn_coords, land, moves):
 
         >>> _target_same(*(args + (Coords(2, 2), 'DR')))
         Traceback (most recent call last):
-        ValueError: No same-target for landing-Coords(row=2, col=2) with movement(DR)!
+        ValueError: No same-target found while moving(DR) from landing-Coords(row=2, col=2)!
 
         >>> _target_same(*(args + (Coords(10, 3), 'U')))
         Traceback (most recent call last):
-        ValueError: No same-target for landing-Coords(row=10, col=3) with movement(U)!
+        ValueError: No same-target found while moving(U) from landing-Coords(row=10, col=3)!
 
     """
     assert not CHECK_CELLTYPE or isinstance(dn_coords, Coords), dn_coords
@@ -1091,9 +1107,8 @@ def _target_same(states_matrix, dn_coords, land, moves):
             target[indx] = coord
 
         return Coords(*target)
-
-    msg = 'No same-target for landing-{} with movement({})!'
-    raise ValueError(msg.format(land, moves))
+    msg = 'No same-target found while moving({}) from {}landing-{}!'
+    raise ValueError(msg.format(moves, edge_name, land))
 
 
 def _sort_rect(r1, r2):
@@ -1124,6 +1139,7 @@ def _expand_rect(states_matrix, r1, r2, exp_moves):
             A 2D-array with `False` wherever cell are blank or empty.
             Use :meth:`ABCSheet.get_states_matrix()` to derrive it.
     :param exp_moves:
+            Just the parsed string, and not `None`.
     :return: a sorted rect top-left/bottom-right
 
 
@@ -1139,28 +1155,26 @@ def _expand_rect(states_matrix, r1, r2, exp_moves):
         ... ], dtype=bool)
 
         >>> r1, r2 = (Coords(2, 1), Coords(2, 1))
-        >>> exp_moves = [_repeat_moves('U')]
-        >>> _expand_rect(states_matrix, r1, r2, exp_moves)
+        >>> _expand_rect(states_matrix, r1, r2, 'U')
         (Coords(row=2, col=1), Coords(row=2, col=1))
 
         >>> r1, r2 = (Coords(3, 1), Coords(2, 1))
-        >>> exp_moves = [_repeat_moves('R')]
-        >>> _expand_rect(states_matrix, r1, r2, exp_moves)
+        >>> _expand_rect(states_matrix, r1, r2, 'R')
         (Coords(row=2, col=1), Coords(row=3, col=4))
 
         >>> r1, r2 = (Coords(2, 1), Coords(6, 1))
-        >>> exp_moves = [_repeat_moves('R')]
-        >>> _expand_rect(states_matrix, r1, r2, exp_moves)
+        >>> _expand_rect(states_matrix, r1, r2, 'r')
         (Coords(row=2, col=1), Coords(row=6, col=5))
 
         >>> r1, r2 = (Coords(2, 3), Coords(2, 3))
-        >>> exp_moves = [_repeat_moves('LURD')]
-        >>> _expand_rect(states_matrix, r1, r2, exp_moves)
+        >>> _expand_rect(states_matrix, r1, r2, 'LURD')
         (Coords(row=1, col=1), Coords(row=3, col=4))
 
     """
     assert not CHECK_CELLTYPE or isinstance(r1, Coords), r1
     assert not CHECK_CELLTYPE or isinstance(r2, Coords), r2
+
+    exp_moves = _parse_expansion_moves(exp_moves)
 
     nd_offsets = np.array([0, 1, 0, 1])
     coord_offsets = {
@@ -1218,7 +1232,7 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
     :param Edge st_edge: "uncooked" as matched by regex
     :param Edge nd_edge: "uncooked" as matched by regex
     :param list or none exp_moves:
-            the result of :func:`_parse_expansion_moves()`
+            Just the parsed string, and not `None`.
     :param Coords base_coords:
             The base for a :term:`dependent` :term;`1st` edge.
 
@@ -1278,9 +1292,11 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
     if st_edge.mov is not None:
         if st_state:
             if st_edge.mod == '+':
-                st = _target_same(states_matrix, dn_margin, st, st_edge.mov)
+                st = _target_same(states_matrix, dn_margin, st, st_edge.mov,
+                                  '1st-')
         else:
-            st = _target_opposite(states_matrix, dn_margin, st, st_edge.mov)
+            st = _target_opposite(states_matrix, dn_margin, st, st_edge.mov,
+                                  '1st-')
 
     if nd_edge is None:
         nd = None
@@ -1297,9 +1313,11 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
             if nd_state:
                 if (nd_edge.mod == '+' or
                         nd_edge.land == Cell('.', '.') and nd_edge.mod != '-'):
-                    nd = _target_same(states_matrix, dn_margin, nd, mov)
+                    nd = _target_same(
+                        states_matrix, dn_margin, nd, mov, '2nd-')
             else:
-                nd = _target_opposite(states_matrix, dn_margin, nd, mov)
+                nd = _target_opposite(
+                    states_matrix, dn_margin, nd, mov, '2nd-')
 
     if exp_moves:
         st, nd = _expand_rect(states_matrix, st, nd or st, exp_moves)
@@ -1514,8 +1532,8 @@ class SheetsFactory(object):
         key_pairs = itt.product(wb_ids, sh_ids)
         keys = list(set(self._build_sheet_key(*p)
                         for p in key_pairs
-                        if p[0] is not None))
-        assert keys, (sheet,  wb_ids, sh_ids)
+                        if p[0]))
+        assert keys, (keys, sheet,  wb_ids, sh_ids)
 
         return keys
 
@@ -1646,6 +1664,14 @@ Lasso.__new__.__defaults__ = (None,) * len(Lasso._fields)
 """Make :class:`Lasso` construct with all missing fields as `None`."""
 
 
+def _Lasso_to_edges_str(lasso):
+    st = _Edge_to_str(lasso.st_edge) if lasso.st_edge else ''
+    nd = _Edge_to_str(lasso.nd_edge) if lasso.nd_edge else ''
+    s = st if st and not nd else '%s:%s' % (st, nd)
+    exp = ':%s' % lasso.exp_moves.upper() if lasso.exp_moves else ''
+    return s + exp
+
+
 class Ranger(object):
     """
     The director-class that performs all stages required for "throwing the lasso" around rect-values.
@@ -1680,8 +1706,7 @@ class Ranger(object):
             Needed for recursive invocations, see :meth:`recursive_filter`.
     """
 
-    _context_lasso_fields = ['url_file', 'sh_name', 'sheet',
-                             'st', 'nd', 'base_cell']
+    _context_lasso_fields = ['sheet', 'st', 'nd', 'base_cell']
 
     def __init__(self, sheets_factory,
                  base_opts=None, available_filters=None):
@@ -1708,9 +1733,8 @@ class Ranger(object):
         # Just to update intermediate_lasso.
         lasso = self._relasso(lasso, func_name)
 
-        opts = lasso.opts
-        lax = opts.get('lax', False)
-        verbose = opts.get('verbose', False)
+        lax = lasso.opts.get('lax', False)
+        verbose = lasso.opts.get('verbose', False)
         func, func_desc = '', ''
         try:
             func_rec = self.available_filters[func_name]
@@ -1720,12 +1744,13 @@ class Ranger(object):
         except Exception as ex:
             if verbose:
                 func_desc = _build_call_help(func_name, func, func_desc)
-            msg = "Error in call-specifier(%s, %s, %s): %s%s"
+            msg = "While invoking(%s, %s, %s): %s%s"
+            help_msg = func_desc if verbose else ''
             if lax:
                 log.warning(
-                    msg, func_name, args, kwds, ex, func_desc, exc_info=1)
+                    msg, func_name, args, kwds, ex, help_msg, exc_info=1)
             else:
-                raise ValueError(msg % (func_name, args, kwds, ex, func_desc))
+                raise ValueError(msg % (func_name, args, kwds, ex, help_msg))
 
         return lasso
 
@@ -1746,17 +1771,20 @@ class Ranger(object):
         """
         Recursively expand any :term:`xl-ref` strings found by treating values as mappings (dicts, df, series) and/or nested lists.
 
-        The `include`/`exclude` filter args work only for dict-like objects
-        with ``items()`` or ``iteritems()`` and indexing methods, 
-        i.e. Mappings, series and dataframes.
+        - The `include`/`exclude` filter args work only for dict-like objects
+          with ``items()`` or ``iteritems()`` and indexing methods, 
+          i.e. Mappings, series and dataframes.
 
-        - If no filter arg specified, expands for all keys. 
-        - If only `include` specified, rejects all keys not explicitly 
-          contained in this filter arg.
-        - If only `exclude` specified, expands all keys not explicitly 
-          contained in this filter arg.
-        - When both `include`/`exclude` exist, only those explicitely included 
-          are accepted, unless also excluded.
+          - If no filter arg specified, expands for all keys. 
+          - If only `include` specified, rejects all keys not explicitly 
+            contained in this filter arg.
+          - If only `exclude` specified, expands all keys not explicitly 
+            contained in this filter arg.
+          - When both `include`/`exclude` exist, only those explicitely 
+            included are accepted, unless also excluded.
+
+        - Lower the :mod:`logging` level to see other than syntax-errors on
+          recursion reposrted on :data:`log`; .
 
         :param list or str include:
                 Items to include in the recursive-search.
@@ -1770,6 +1798,11 @@ class Ranger(object):
         """
         include = include and as_list(include)
         exclude = exclude and as_list(exclude)
+
+        def verbose(msg):
+            if lasso.opts.get('verbose', False):
+                msg = '%s \n    @Lasso: %s' % (msg, lasso)
+            return msg
 
         def is_included(key):
             ok = not include or key in include
@@ -1792,10 +1825,11 @@ class Ranger(object):
                     rlasso = self.do_lasso(vals, **context)
                     vals = rlasso and rlasso.values
                 except SyntaxError as ex:
-                    pass
+                    msg = "Skipped recursive-lassoing value(%s) due to: %s"
+                    log.debug(msg, vals, ex)
                 except Exception as ex:
-                    msg = "Recursive parsing %s stopped due to: %s \n  @Lasso: %s"
-                    raise ValueError(msg % (vals, ex, lasso))
+                    msg = "Lassoing  %s stopped due to: \n  %s" % (vals, ex)
+                    raise ValueError(verbose(msg))
             elif isinstance(vals, list):
                 for i, v in enumerate(vals):
                     nbc = new_base_cell(base_cell, cdepth, i)
@@ -1807,13 +1841,15 @@ class Ranger(object):
             if cdepth != depth:
                 dived = False
                 try:
-                    for k, v in iteritems(vals):
+                    items = iteritems(vals)
+                except:
+                    pass  # Just to avoid chained ex.
+                else:
+                    for k, v in items:
                         if is_included(k):
                             # No base_cell possible with Indexed.
                             vals[k] = dive_indexed(v, None, cdepth + 1)
                     dived = True
-                except:
-                    pass  # Just to avoid chained ex.
                 if not dived:
                     vals = dive_list(vals, base_cell, cdepth)
 
@@ -1822,6 +1858,17 @@ class Ranger(object):
         values = dive_indexed(lasso.values, lasso.st, 0)
 
         return lasso._replace(values=values)
+
+    def _make_init_Lasso(self, **context_kwds):
+        """Creates the lasso to be used for each new :meth:`do_lasso()` invocation."""
+        def is_context_field(field):
+            return field in self._context_lasso_fields
+
+        context_fields = dtz.keyfilter(is_context_field, context_kwds)
+        context_fields['opts'] = ChainMap(deepcopy(self.base_opts))
+        init_lasso = Lasso(**context_fields)
+
+        return init_lasso
 
     def _parse_and_merge_with_context(self, xlref, init_lasso):
         """
@@ -1847,22 +1894,11 @@ class Ranger(object):
         except SyntaxError:
             raise
         except Exception as ex:
-            msg = "Parsing xl-ref(%s) failed due to: %s"
+            msg = "Parsing xl-ref(%r) failed due to: %s"
             log.debug(msg, xlref, ex, exc_info=1)
             # raise fututils.raise_from(ValueError(msg % (xlref, ex)), ex) see GH
             # 141
             raise ValueError(msg % (xlref, ex))
-
-        return init_lasso
-
-    def _make_init_Lasso(self, **context_kwds):
-        """Creates the lasso to be used for each new :meth:`do_lasso()` invocation."""
-        def is_context_field(field):
-            return field in self._context_lasso_fields
-
-        context_fields = dtz.keyfilter(is_context_field, context_kwds)
-        context_fields['opts'] = ChainMap(deepcopy(self.base_opts))
-        init_lasso = Lasso(**context_fields)
 
         return init_lasso
 
@@ -1873,6 +1909,32 @@ class Ranger(object):
                 if sheet and self.sheets_factory:
                     self.sheets_factory.add_sheet(sheet, sh_ids=sh_name)
             return sheet
+
+    def _open_sheet(self, lasso):
+        try:
+            sheet = self._fetch_sheet_from_lasso(lasso.sheet,
+                                                 lasso.url_file, lasso.sh_name,
+                                                 lasso.opts)
+            if not sheet:
+                if not self.sheets_factory:
+                    msg = "The xl-ref(%r) specifies 'url-file` part but Ranger has no sheet-factory!"
+                    raise Exception(msg % lasso.xl_ref)
+                sheet = self.sheets_factory.fetch_sheet(
+                    lasso.url_file, lasso.sh_name,
+                    lasso.opts)  # Maybe context had a Sheet already.
+        except Exception as ex:
+            msg = "Loading sheet([%s]%s) failed due to: %s"
+            raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
+        return sheet
+
+    def _resolve_capture_rect(self, lasso, sheet):
+        try:
+            st, nd = resolve_capture_rect(sheet.get_states_matrix(), sheet.get_margin_coords(),
+                                          lasso.st_edge, lasso.nd_edge, lasso.exp_moves)
+        except Exception as ex:
+            msg = "Resolving capture-rect(%r) failed due to: %s"
+            raise ValueError(msg % (_Lasso_to_edges_str(lasso), ex))
+        return st, nd
 
     def do_lasso(self, xlref, **context_kwds):
         """
@@ -1905,26 +1967,10 @@ class Ranger(object):
         lasso = self._parse_and_merge_with_context(xlref, lasso)
         lasso = self._relasso(lasso, 'parse')
 
-        try:
-            # Maybe context had a Sheet already.
-            sheet = self._fetch_sheet_from_lasso(lasso.sheet,
-                                                 lasso.url_file, lasso.sh_name,
-                                                 lasso.opts)
-            if not sheet:
-                if not self.sheets_factory:
-                    msg = "The xl-ref(%s) specifies 'url-file` part but Ranger has no sheet-factory!"
-                    raise Exception(msg % lasso.xl_ref)
-                sheet = self.sheets_factory.fetch_sheet(
-                    lasso.url_file, lasso.sh_name,
-                    lasso.opts)
-        except Exception as ex:
-            msg = "Loading sheet([%s]%s) failed due to: %s"
-            raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
+        sheet = self._open_sheet(lasso)
         lasso = self._relasso(lasso, 'open', sheet=sheet)
 
-        st, nd = resolve_capture_rect(sheet.get_states_matrix(),
-                                      sheet.get_margin_coords(),
-                                      lasso.st_edge, lasso.nd_edge, lasso.exp_moves)
+        st, nd = self._resolve_capture_rect(lasso, sheet)
         lasso = self._relasso(lasso, 'resolve_capture_rect',
                               st=st, nd=nd, base_cell=lasso.base_cell)
 
@@ -1932,8 +1978,12 @@ class Ranger(object):
         lasso = self._relasso(lasso, 'read_rect', values=values)
 
         if lasso.call_spec:
-            # relasso() internally
-            lasso = self._make_call(lasso, *lasso.call_spec)
+            try:
+                # relasso() internally
+                lasso = self._make_call(lasso, *lasso.call_spec)
+            except Exception as ex:
+                msg = "Filtering xl-ref(%r) failed due to: %s"
+                raise ValueError(msg % (lasso.xl_ref, ex))
 
         return lasso
 
