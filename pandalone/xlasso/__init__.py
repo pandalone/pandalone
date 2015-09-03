@@ -9,7 +9,7 @@
 A mini-language for for "throwing the rope" around rectangular areas of Excel-sheets.
 
 .. default-role:: term
-.. currentmodule:: pandalone.xlasso._xlref
+.. currentmodule:: pandalone.xlasso._parse
 
 Introduction
 ============
@@ -164,10 +164,10 @@ library's defaults.
 API
 ---
 .. default-role:: obj
-.. currentmodule:: pandalone.xlasso._xlref
 
 - User-facing functionality:
 
+  .. currentmodule:: pandalone.xlasso._lasso
   .. autosummary::
       lasso
       Ranger
@@ -183,8 +183,11 @@ API
 
 - Major internal functions and intermediate classes:
 
+  .. currentmodule:: pandalone.xlasso._parse
   .. autosummary::
       parse_xlref
+      parse_expansion_moves
+      parse_call_spec
       resolve_capture_rect
       ABCSheet.read_rect
       Cell
@@ -201,7 +204,7 @@ API
       open_sheet
 
 .. default-role:: term
-.. currentmodule:: pandalone.xlasso._xlref
+.. currentmodule:: pandalone.xlasso._parse
 
 
 More Syntax Examples
@@ -678,10 +681,14 @@ Example-refs are given below for capturing the 2 marked tables::
 .. default-role:: obj
 """
 
-from ._xlref import (
+from pandalone.xlasso._lasso import (
     lasso, Ranger, SheetsFactory, ArraySheet,
     make_default_Ranger, get_default_opts, get_default_filters,
-    Cell, Coords, coords2Cell, Edge, Lasso, CallSpec,  # ABCSheet,
-    parse_xlref, resolve_capture_rect,
+    coords2Cell, Lasso,
+    resolve_capture_rect,
     xlwings_dims_call_spec, log
+)
+from pandalone.xlasso._parse import (
+    Cell, Coords, Edge, CallSpec,
+    parse_xlref,
 )

@@ -8,7 +8,6 @@
 
 from __future__ import division, print_function, unicode_literals
 
-from collections import OrderedDict
 import contextlib
 from datetime import datetime
 import doctest
@@ -30,10 +29,9 @@ import xlrd
 import itertools as itt
 import numpy as np
 from pandalone import xlasso
+from pandalone.xlasso import _parse as _p, _lasso as _l
 from pandalone.xlasso import _xlrd as xd
-from pandalone.xlasso import _xlref as xr
 from pandalone.xlasso._xlrd import XlrdSheet
-from pandalone.xlasso._xlref import SheetsFactory
 import pandas as pd
 from tests import _tutils
 from tests._tutils import (check_xl_installed, xw_Workbook)
@@ -42,14 +40,14 @@ from ._tutils import assertRaisesRegex, CustomAssertions
 
 
 try:
-    from unittest.mock import MagicMock, patch, sentinel
+    from unittest.mock import MagicMock, sentinel
 except ImportError:
-    from mock import MagicMock, patch, sentinel
+    from mock import MagicMock, sentinel
 
 
 log = _tutils._init_logging(__name__)
 xl_installed = check_xl_installed()
-xr.CHECK_CELLTYPE = True
+_l.CHECK_CELLTYPE = True
 
 
 def _write_sample_sheet(path, matrix, sheet_name, **kwds):
@@ -67,18 +65,6 @@ def _make_local_url(fname, fragment=''):
     return 'file:///{}#{}'.format(fpath, fragment)
 
 
-def _read_rect_values(sheet, st_edge, nd_edge, dims):
-    states_matrix = sheet.get_states_matrix()
-    margin_coords = sheet.get_margin_coords()
-    st, nd = xr.resolve_capture_rect(states_matrix, margin_coords,
-                                     st_edge, nd_edge)  # or Edge(None, None))
-    v = sheet.read_rect(st, nd)
-    if dims is not None:
-        v = xr._redim(v, dims)
-
-    return v
-
-
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
 class T00Doctest(unittest.TestCase):
 
@@ -88,9 +74,15 @@ class T00Doctest(unittest.TestCase):
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
-    def test_xlref(self):
+    def test_parse(self):
         failure_count, test_count = doctest.testmod(
-            xr, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+            _p, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+        self.assertGreater(test_count, 0, (failure_count, test_count))
+        self.assertEquals(failure_count, 0, (failure_count, test_count))
+
+    def test_lasso(self):
+        failure_count, test_count = doctest.testmod(
+            _p, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
@@ -111,76 +103,76 @@ _all_dirs = _all_dir_single + _all_dir_pairs
 class T011Structs(unittest.TestCase):
 
     def test_uncooked_Edge_good(self):
-        self.assertIsNone(xr.Edge_uncooked(None, None, None))
+        self.assertIsNone(_p.Edge_new(None, None, None))
 
-        self.assertEquals(xr.Edge_uncooked('1', 'A', 'LUR'),
-                          xr.Edge(xr.Cell(row='1', col='A'), 'LUR'))
-        self.assertEquals(xr.Edge_uncooked('_', '^', 'duL'),
-                          xr.Edge(xr.Cell('_', '^'), 'DUL'))
-        self.assertEquals(xr.Edge_uncooked('1', '_', None),
-                          xr.Edge(xr.Cell('1', '_'), None))
-        self.assertEquals(xr.Edge_uncooked('^', '^', None),
-                          xr.Edge(xr.Cell('^', '^'), None))
+        self.assertEquals(_p.Edge_new('1', 'A', 'LUR'),
+                          _p.Edge(_p.Cell(row='1', col='A'), 'LUR'))
+        self.assertEquals(_p.Edge_new('_', '^', 'duL'),
+                          _p.Edge(_p.Cell('_', '^'), 'DUL'))
+        self.assertEquals(_p.Edge_new('1', '_', None),
+                          _p.Edge(_p.Cell('1', '_'), None))
+        self.assertEquals(_p.Edge_new('^', '^', None),
+                          _p.Edge(_p.Cell('^', '^'), None))
 
     def test_uncooked_Edge_bad(self):
-        self.assertEquals(xr.Edge_uncooked(1, 'A', 'U1'),
-                          xr.Edge(xr.Cell(1, 'A'), 'U1'))
-        self.assertEquals(xr.Edge_uncooked('1', '%', 'U1'),
-                          xr.Edge(xr.Cell('1', '%'), 'U1'))
-        self.assertEquals(xr.Edge_uncooked('1', 'A', 'D0L'),
-                          xr.Edge(xr.Cell('1', 'A'), 'D0L'))
-        self.assertEquals(xr.Edge_uncooked('1', 'A', '@#'),
-                          xr.Edge(xr.Cell('1', 'A'), '@#'))
+        self.assertEquals(_p.Edge_new(1, 'A', 'U1'),
+                          _p.Edge(_p.Cell(1, 'A'), 'U1'))
+        self.assertEquals(_p.Edge_new('1', '%', 'U1'),
+                          _p.Edge(_p.Cell('1', '%'), 'U1'))
+        self.assertEquals(_p.Edge_new('1', 'A', 'D0L'),
+                          _p.Edge(_p.Cell('1', 'A'), 'D0L'))
+        self.assertEquals(_p.Edge_new('1', 'A', '@#'),
+                          _p.Edge(_p.Cell('1', 'A'), '@#'))
 
     def test_uncooked_Edge_fail(self):
         self.assertRaises(
-            AttributeError, xr.Edge_uncooked, *('1', 1, '0'))
+            AttributeError, _p.Edge_new, *('1', 1, '0'))
         self.assertRaises(
-            AttributeError, xr.Edge_uncooked, *('1', 'A', 23))
+            AttributeError, _p.Edge_new, *('1', 'A', 23))
 #         self.assertRaises(
-#             ValueError, xr.Edge_uncooked, *('_0', '_', '0'))
+#             ValueError, _p.Edge_new, *('_0', '_', '0'))
 #         self.assertRaises(
-#             ValueError, xr.Edge_uncooked, *('@@', '@', '@'))
+#             ValueError, _p.Edge_new, *('@@', '@', '@'))
 
     def test_col2num(self):
-        self.assertEqual(xr._col2num('D'), 3)
-        self.assertEqual(xr._col2num('aAa'), 702)
+        self.assertEqual(_l._col2num('D'), 3)
+        self.assertEqual(_l._col2num('aAa'), 702)
 
     @data(
-        (xr.Cell('1', 'a'), 'A1'),
-        (xr.Cell('1', '1'), 'R1C1'),
-        (xr.Cell('-1', '-1'), 'R-1C-1'),
+        (_p.Cell('1', 'a'), 'A1'),
+        (_p.Cell('1', '1'), 'R1C1'),
+        (_p.Cell('-1', '-1'), 'R-1C-1'),
 
-        (xr.Cell('1', '-1'), 'R1C-1'),
-        (xr.Cell('-1', '1'), 'R-1C1'),
-        (xr.Cell('-1', 'A'), 'A-1'),
+        (_p.Cell('1', '-1'), 'R1C-1'),
+        (_p.Cell('-1', '1'), 'R-1C1'),
+        (_p.Cell('-1', 'A'), 'A-1'),
     )
     def test_Cell_to_str(self, case):
         cell, exp = case
-        self.assertEqual(xr._Cell_to_str(cell), exp)
+        self.assertEqual(_p._Cell_to_str(cell), exp)
 
     @data(
-        (xr.Edge_uncooked('1', 'a', ), 'A1'),
-        (xr.Edge_uncooked('1', 'a', None, '+'), 'A1'),  # WARN
-        (xr.Edge_uncooked('1', 'a', 'lu'), 'A1(LU)'),
-        (xr.Edge_uncooked('1', '4', 'lu', '+'), 'R1C4(LU+)'),
-        (xr.Edge_uncooked('-1', '-1', 'dr', '-'), 'R-1C-1(DR-)'),
+        (_p.Edge_new('1', 'a', ), 'A1'),
+        (_p.Edge_new('1', 'a', None, '+'), 'A1'),  # WARN
+        (_p.Edge_new('1', 'a', 'lu'), 'A1(LU)'),
+        (_p.Edge_new('1', '4', 'lu', '+'), 'R1C4(LU+)'),
+        (_p.Edge_new('-1', '-1', 'dr', '-'), 'R-1C-1(DR-)'),
     )
     def test_Edge_to_str(self, case):
         edge, exp = case
-        self.assertEqual(xr._Edge_to_str(edge), exp)
+        self.assertEqual(_p._Edge_to_str(edge), exp)
 
     @data(
-        (xr.Edge_uncooked('1', 'a', ), xr.Edge_uncooked('1', '-1', ), None,
+        (_p.Edge_new('1', 'a', ), _p.Edge_new('1', '-1', ), None,
          'A1:R1C-1'),
-        (xr.Edge_uncooked('1', 'a', 'L', '-'), xr.Edge_uncooked('1', '-1', ),
+        (_p.Edge_new('1', 'a', 'L', '-'), _p.Edge_new('1', '-1', ),
          'lurd',
          'A1(L-):R1C-1:LURD'),
     )
     def test_Lasso_to_edges_str(self, case):
         edge1, edge2, exp_moves, exp = case
-        lasso = xr.Lasso(st_edge=edge1, nd_edge=edge2, exp_moves=exp_moves)
-        self.assertEqual(xr._Lasso_to_edges_str(lasso), exp)
+        lasso = _l.Lasso(st_edge=edge1, nd_edge=edge2, exp_moves=exp_moves)
+        self.assertEqual(_l._Lasso_to_edges_str(lasso), exp)
 
 
 def produce_xlref_field_combinations(*xlref_expectedFields_pairs):
@@ -194,7 +186,7 @@ def produce_xlref_field_combinations(*xlref_expectedFields_pairs):
                  (':lurd?',  {'exp_moves': 'lurd?'}),
                  ]
     filters = [('',                   {}),
-               (':"func"',            {'call_spec': xr.CallSpec('func')}),
+               (':"func"',            {'call_spec': _p.CallSpec('func')}),
                (':{"opts": {"1":2}}', {'opts': {'1': 2}}),
                ]
     combs = []
@@ -224,11 +216,11 @@ class T01Parse(unittest.TestCase):
     def test_BAD(self, xlref):
         err_msg = "Not an `xl-ref` syntax:"
         with assertRaisesRegex(self, SyntaxError, err_msg, msg=xlref):
-            xr._parse_xlref_fragment(xlref)
+            _p._parse_xlref_fragment(xlref)
 
     def test_xl_ref_Cell_types(self):
         xl_ref = 'b1:C2'
-        res = xr._parse_xlref_fragment(xl_ref)
+        res = _p._parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         self.assertIsInstance(st_edge.land.row, basestring)
@@ -238,7 +230,7 @@ class T01Parse(unittest.TestCase):
 
     def test_xl_ref_Cell_col_row_order(self):
         xl_ref = 'b1:C2'
-        res = xr._parse_xlref_fragment(xl_ref)
+        res = _p._parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         self.assertTrue(st_edge.land.row.isalnum())
@@ -248,7 +240,7 @@ class T01Parse(unittest.TestCase):
 
     def test_xl_ref_all_upper(self):
         xl_ref = 'b1(uL):C2(Dr):Lur2D'
-        res = xr._parse_xlref_fragment(xl_ref)
+        res = _p._parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         items = [
@@ -262,7 +254,7 @@ class T01Parse(unittest.TestCase):
                         self.assertTrue(c.isupper(), '%s in %r' % (c, i))
 
     def check_xlref(self, xlref, fields):
-        res = xr._parse_xlref_fragment(xlref)
+        res = _p._parse_xlref_fragment(xlref)
         res2 = dtz.keyfilter(lambda k: k in fields.keys(), res)
         e = 'EMPT|Y'
         self.assertEqual(str(res2.pop('exp_moves', e)),
@@ -277,25 +269,25 @@ class T01Parse(unittest.TestCase):
     @data(
         ('Sheet1!a1(L):C2(UL)', {
             'sh_name': 'Sheet1',
-            'st_edge': xr.Edge(xr.Cell(col='A', row='1'), 'L'),
-            'nd_edge': xr.Edge(xr.Cell(col='C', row='2'), 'UL'),
+            'st_edge': _p.Edge(_p.Cell(col='A', row='1'), 'L'),
+            'nd_edge': _p.Edge(_p.Cell(col='C', row='2'), 'UL'),
         }
         ),
         ('!a1(l):c2(ul):"fun"', {
-            'call_spec': xr.CallSpec('fun'),
-            'st_edge': xr.Edge(xr.Cell(col='A', row='1'), 'L'),
-            'nd_edge': xr.Edge(xr.Cell(col='C', row='2'), 'UL'),
+            'call_spec': _p.CallSpec('fun'),
+            'st_edge': _p.Edge(_p.Cell(col='A', row='1'), 'L'),
+            'nd_edge': _p.Edge(_p.Cell(col='C', row='2'), 'UL'),
         }
         ),
         ('0!a1:a2', {
             'sh_name': '0',
-            'st_edge': xr.Edge(xr.Cell(col='A', row='1')),
-            'nd_edge': xr.Edge(xr.Cell(col='A', row='2')),
+            'st_edge': _p.Edge(_p.Cell(col='A', row='1')),
+            'nd_edge': _p.Edge(_p.Cell(col='A', row='2')),
         }
         ),
         ('r1c1:r2c2', {
-            'st_edge': xr.Edge(xr.Cell(col='1', row='1')),
-            'nd_edge': xr.Edge(xr.Cell(col='2', row='2')),
+            'st_edge': _p.Edge(_p.Cell(col='1', row='1')),
+            'nd_edge': _p.Edge(_p.Cell(col='2', row='2')),
         }
         ),
     )
@@ -305,20 +297,20 @@ class T01Parse(unittest.TestCase):
 
     @data(*produce_xlref_field_combinations(
         ('A1:', {
-            'st_edge': xr.Edge(xr.Cell(col='A', row='1')),
-            'nd_edge': xr._bottomright_Edge,
+            'st_edge': _p.Edge(_p.Cell(col='A', row='1')),
+            'nd_edge': _p._bottomright_Edge,
         }),
         ('R1C1:', {
-            'st_edge': xr.Edge(xr.Cell(col='1', row='1')),
-            'nd_edge': xr._bottomright_Edge,
+            'st_edge': _p.Edge(_p.Cell(col='1', row='1')),
+            'nd_edge': _p._bottomright_Edge,
         }),
         (':a33(DL)', {
-            'st_edge': xr._topleft_Edge,
-            'nd_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'),
+            'st_edge': _p._topleft_Edge,
+            'nd_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'),
         }),
         (':', {
-            'st_edge': xr._topleft_Edge,
-            'nd_edge': xr._bottomright_Edge,
+            'st_edge': _p._topleft_Edge,
+            'nd_edge': _p._bottomright_Edge,
         }
         ),
     ))
@@ -329,16 +321,16 @@ class T01Parse(unittest.TestCase):
     @data(
         ('', {}),  # Yes, empty allowed, but rejected earlier, after url-split.
         ('a33(DL)', {
-            'st_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'),
+            'st_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'),
         }),
         ('a33(DL):"func"', {
-            'st_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'),
-            'call_spec': xr.CallSpec('func'),
+            'st_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'),
+            'call_spec': _p.CallSpec('func'),
         }),
         ('a33(DL)::{"func": "func", "opts": {"a": 1}}', {
-            'st_edge': xr.Edge(xr.Cell(col='A', row='33'), 'DL'),
-            'nd_edge': xr._bottomright_Edge,
-            'call_spec': xr.CallSpec('func'),
+            'st_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'),
+            'nd_edge': _p._bottomright_Edge,
+            'call_spec': _p.CallSpec('func'),
             'opts': {"a": 1},
         }),
         ('', {}),  # Yes, empty allowed, but rejected earlier, after url-split.
@@ -362,8 +354,8 @@ class T01Parse(unittest.TestCase):
     )))
     def test_shortcut_vs_regular_fieldsCount(self, case):
         regular, shortcut = case
-        res1 = xr._parse_xlref_fragment(regular)
-        res2 = xr._parse_xlref_fragment(shortcut)
+        res1 = _p._parse_xlref_fragment(regular)
+        res2 = _p._parse_xlref_fragment(shortcut)
         self.assertEquals(len(res1), len(res2), (res1, res2))
 
     @data(':{"opts": "..."}', ':{"opts": [2]}',
@@ -371,40 +363,40 @@ class T01Parse(unittest.TestCase):
     def test_xl_ref_BadOpts(self, xlref):
         err_msg = 'must be a json-object\(dictionary\)'
         assertRaisesRegex(self, ValueError, err_msg,
-                          xr._parse_xlref_fragment, xlref)
+                          _p._parse_xlref_fragment, xlref)
 
     def test_xl_url_Ok(self):
         url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D):{"func":"foo"}'
-        res = xr.parse_xlref(url)
+        res = _p.parse_xlref(url)
 
         self.assertEquals(res['url_file'], 'file://path/to/file.xlsx')
         self.assertEquals(res['sh_name'], 'Sheet1')
-        self.assertEquals(res['call_spec'], xr.CallSpec('foo'))
-        self.assertEquals(res['st_edge'], xr.Edge(xr.Cell('10', 'U'), 'L'))
-        self.assertEquals(res['nd_edge'], xr.Edge(xr.Cell('20', 'D'), 'D'))
+        self.assertEquals(res['call_spec'], _p.CallSpec('foo'))
+        self.assertEquals(res['st_edge'], _p.Edge(_p.Cell('10', 'U'), 'L'))
+        self.assertEquals(res['nd_edge'], _p.Edge(_p.Cell('20', 'D'), 'D'))
 
     def test_xl_url_Bad(self):
-        self.assertRaises(ValueError, xr.parse_xlref, *('#!:{"json":"..."', ))
+        self.assertRaises(ValueError, _p.parse_xlref, *('#!:{"json":"..."', ))
 
     def test_xl_url_Only_fragment(self):
         url = '#sheet_name!UP10:DOWN20'
-        res = xr.parse_xlref(url)
+        res = _p.parse_xlref(url)
         self.assertEquals(res['url_file'], None)
 
     def test_xl_url_No_fragment(self):
         url = 'A1:B1'
         err_text = "No fragment-part"
         with assertRaisesRegex(self, SyntaxError, err_text):
-            xr.parse_xlref(url)
+            _p.parse_xlref(url)
 
     def test_xl_url_emptyFile(self):
         url = '  #A1'
-        res = xr.parse_xlref(url)
+        res = _p.parse_xlref(url)
         self.assertEquals(res['url_file'], None)
 
     def test_xl_url_emptySheet(self):
         url = 'file://path/to/file.xlsx#  !A1'
-        res = xr.parse_xlref(url)
+        res = _p.parse_xlref(url)
         self.assertEquals(res['sh_name'], None)
 
 
@@ -415,7 +407,7 @@ def make_sample_matrix():
         [8, 9, 11],
         [12, 13, 15],
     ])
-    dn = xr.Coords(3, 2)
+    dn = _p.Coords(3, 2)
     args = (states_matrix, dn)
 
     return args
@@ -430,7 +422,7 @@ def make_states_matrix():
         [0, 0, 1, 0, 0, 1],  # '4'
         [0, 0, 1, 1, 0, 1],  # '5'
     ], dtype=bool)
-    args = (states_matrix, xr.Coords(4, 5))
+    args = (states_matrix, _p.Coords(4, 5))
 
     return args
 
@@ -444,15 +436,15 @@ class T02StatesVector(unittest.TestCase):
         sm = args[0]
         for r in range(sm.shape[0]):
             for c in range(sm.shape[1]):
-                nargs = args + (xr.Coords(r, c), mov)
-                vect = xr._extract_states_vector(*nargs)[0]
+                nargs = args + (_p.Coords(r, c), mov)
+                vect = _l._extract_states_vector(*nargs)[0]
 
                 npt.assert_array_equal(vect[0], sm[r, c], str(args))
 
     def check_extract_states_vector(self, land_r, land_c, mov, exp_vect):
         args = make_sample_matrix()
-        args += (xr.Coords(land_r, land_c), mov)
-        vect = xr._extract_states_vector(*args)[0]
+        args += (_p.Coords(land_r, land_c), mov)
+        vect = _l._extract_states_vector(*args)[0]
 
         npt.assert_array_equal(vect, exp_vect, str(args))
 
@@ -499,16 +491,16 @@ class T03TargetOpposite(unittest.TestCase):
         states_matrix, dn = make_states_matrix()
         argshead = (states_matrix, dn)
 
-        land_cell = xr.Coords(land_row, land_col)
+        land_cell = _p.Coords(land_row, land_col)
         args = argshead + (land_cell, moves)
 
         if exp_row:
-            res = xr._target_opposite(*args)
-            self.assertEqual(res, xr.Coords(exp_row, exp_col), str(args))
+            res = _l._target_opposite(*args)
+            self.assertEqual(res, _p.Coords(exp_row, exp_col), str(args))
         else:
             with assertRaisesRegex(self, ValueError, "No \w+-target found",
                                    msg=str(args)):
-                xr._target_opposite(*args)
+                _l._target_opposite(*args)
 
     def check_target_opposite_state(self, land_row, land_col, moves,
                                     exp_row=None, exp_col=None):
@@ -583,16 +575,16 @@ class T04TargetSame(unittest.TestCase):
             states_matrix = ~states_matrix
         argshead = (states_matrix, dn)
 
-        land_cell = xr.Coords(land_row, land_col)
+        land_cell = _p.Coords(land_row, land_col)
         args = argshead + (land_cell, moves)
 
         if exp_row:
-            res = xr._target_same(*args)
-            self.assertEqual(res, xr.Coords(exp_row, exp_col), str(args))
+            res = _l._target_same(*args)
+            self.assertEqual(res, _p.Coords(exp_row, exp_col), str(args))
         else:
             with assertRaisesRegex(self, ValueError, "No \w+-target for",
                                    msg=str(args)):
-                xr._target_same(*args)
+                _l._target_same(*args)
 
     def check_target_same_state(self, inverse_sm, land_row, land_col, moves,
                                 exp_row=None, exp_col=None):
@@ -649,8 +641,8 @@ class T05Margins(unittest.TestCase):
         sm = np.array([
             [0, 1, 1, 0]
         ])
-        margins = (xr.Coords(0, 1), xr.Coords(0, 2))
-        self.assertEqual(xr._margin_coords_from_states_matrix(sm), margins)
+        margins = (_p.Coords(0, 1), _p.Coords(0, 2))
+        self.assertEqual(_l._margin_coords_from_states_matrix(sm), margins)
 
         sm = np.asarray([
             [0, 0, 0],
@@ -658,36 +650,36 @@ class T05Margins(unittest.TestCase):
             [0, 1, 1],
             [0, 0, 1],
         ])
-        margins = (xr.Coords(1, 1), xr.Coords(3, 2))
-        self.assertEqual(xr._margin_coords_from_states_matrix(sm), margins)
+        margins = (_p.Coords(1, 1), _p.Coords(3, 2))
+        self.assertEqual(_l._margin_coords_from_states_matrix(sm), margins)
 
     def test_find_states_matrix_margins_Single_cell(self):
         sm = np.array([
             [1],
         ])
-        c = xr.Coords(0, 0)
-        self.assertEqual(xr._margin_coords_from_states_matrix(sm), (c, c))
+        c = _p.Coords(0, 0)
+        self.assertEqual(_l._margin_coords_from_states_matrix(sm), (c, c))
 
         sm = np.array([
             [0, 0, 1],
         ])
-        c = xr.Coords(0, 2)
-        self.assertEqual(xr._margin_coords_from_states_matrix(sm), (c, c))
+        c = _p.Coords(0, 2)
+        self.assertEqual(_l._margin_coords_from_states_matrix(sm), (c, c))
 
         sm = np.array([
             [0, 0],
             [0, 1]
         ])
-        c = xr.Coords(1, 1)
-        self.assertEqual(xr._margin_coords_from_states_matrix(sm), (c, c))
+        c = _p.Coords(1, 1)
+        self.assertEqual(_l._margin_coords_from_states_matrix(sm), (c, c))
 
         sm = np.array([
             [0, 0],
             [0, 0],
             [0, 1]
         ])
-        c = xr.Coords(2, 1)
-        self.assertEqual(xr._margin_coords_from_states_matrix(sm), (c, c))
+        c = _p.Coords(2, 1)
+        self.assertEqual(_l._margin_coords_from_states_matrix(sm), (c, c))
 
     def test_find_states_matrix_margins_Further_empties(self):
         sm = np.asarray([
@@ -697,23 +689,23 @@ class T05Margins(unittest.TestCase):
             [0, 0, 1, 0],
             [0, 0, 0, 0],
         ])
-        margins = (xr.Coords(1, 1), xr.Coords(3, 2))
-        self.assertEqual(xr._margin_coords_from_states_matrix(sm), margins)
+        margins = (_p.Coords(1, 1), _p.Coords(3, 2))
+        self.assertEqual(_l._margin_coords_from_states_matrix(sm), margins)
 
         sm = np.asarray([
             [1, 0],
             [0, 0],
             [0, 0],
         ])
-        margins = (xr.Coords(0, 0), xr.Coords(0, 0))
-        self.assertEqual(xr._margin_coords_from_states_matrix(sm), margins)
+        margins = (_p.Coords(0, 0), _p.Coords(0, 0))
+        self.assertEqual(_l._margin_coords_from_states_matrix(sm), margins)
         sm = np.asarray([
             [0, 0, 0, 0],
             [0, 1, 0, 0],
             [0, 0, 0, 0],
         ])
-        margins = (xr.Coords(1, 1), xr.Coords(1, 1))
-        self.assertEqual(xr._margin_coords_from_states_matrix(sm), margins)
+        margins = (_p.Coords(1, 1), _p.Coords(1, 1))
+        self.assertEqual(_l._margin_coords_from_states_matrix(sm), margins)
 
     @data(
         [[]],
@@ -722,8 +714,8 @@ class T05Margins(unittest.TestCase):
         [[0, 0], [0, 0]],
     )
     def test_find_states_matrix_margins_EmptySheet(self, states_matrix):
-        margins = (xr.Coords(0, 0), xr.Coords(0, 0))
-        res = xr._margin_coords_from_states_matrix(np.asarray(states_matrix))
+        margins = (_p.Coords(0, 0), _p.Coords(0, 0))
+        res = _l._margin_coords_from_states_matrix(np.asarray(states_matrix))
         self.assertEqual(res, margins, states_matrix)
 
 
@@ -745,14 +737,14 @@ class T06Expand(unittest.TestCase):
         if states_matrix is None:
             states_matrix = self.make_states_matrix()
 
-        st = xr.Coords(*rect_in[:2])
-        nd = xr.Coords(*rect_in[2:]) if len(rect_in) > 2 else st
-        rect_out = (xr.Coords(*rect_out[:2]),
-                    xr.Coords(*rect_out[2:]) if len(rect_out) > 2 else xr.Coords(*rect_out))
-        rect_got = xr._expand_rect(states_matrix, st, nd, exp_mov)
+        st = _p.Coords(*rect_in[:2])
+        nd = _p.Coords(*rect_in[2:]) if len(rect_in) > 2 else st
+        rect_out = (_p.Coords(*rect_out[:2]),
+                    _p.Coords(*rect_out[2:]) if len(rect_out) > 2 else _p.Coords(*rect_out))
+        rect_got = _l._expand_rect(states_matrix, st, nd, exp_mov)
         self.assertEqual(rect_got, rect_out)
 
-        rect_got = xr._expand_rect(states_matrix, nd, st, exp_mov)
+        rect_got = _l._expand_rect(states_matrix, nd, st, exp_mov)
         self.assertEqual(rect_got, rect_out)
 
     @data(
@@ -872,7 +864,7 @@ class T07Capture(unittest.TestCase):
             [0, 0, 1, 0, 0, 1],  # '4'
             [0, 0, 1, 1, 0, 1],  # '5'
         ], dtype=bool)
-        margin_coords = xr._margin_coords_from_states_matrix(states_matrix)
+        margin_coords = _l._margin_coords_from_states_matrix(states_matrix)
         args = (states_matrix, margin_coords)
 
         return args
@@ -883,12 +875,12 @@ class T07Capture(unittest.TestCase):
         #     res_st_row, res_st_col, res_nd_row, res_nd_col
         argshead = self.make_states_matrix()
 
-        st_edge = xr.Edge(xr.Cell(*args[0:2]), args[2], '+')
-        nd_edge = xr.Edge(xr.Cell(*args[3:5]), args[5], '+')
-        res = (xr.Coords(*args[6:8]),
-               xr.Coords(*args[8:10]))
+        st_edge = _p.Edge(_p.Cell(*args[0:2]), args[2], '+')
+        nd_edge = _p.Edge(_p.Cell(*args[3:5]), args[5], '+')
+        res = (_p.Coords(*args[6:8]),
+               _p.Coords(*args[8:10]))
         args = argshead + (st_edge, nd_edge) + tuple(args[10:])
-        self.assertEqual(xr.resolve_capture_rect(*args),
+        self.assertEqual(_l.resolve_capture_rect(*args),
                          res, str(args))
 
     def test_St_inverseTargetDirs(self):
@@ -983,8 +975,8 @@ class T07Capture(unittest.TestCase):
 
     @data(
         ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, None),
-        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, xr.Coords(None, 0)),
-        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, xr.Coords(0, None)),
+        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, _p.Coords(None, 0)),
+        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, _p.Coords(0, None)),
     )
     def test_1stRelative_withoutBase(self, case):
         err_msg = "Cannot resolve `relative"
@@ -992,8 +984,8 @@ class T07Capture(unittest.TestCase):
             self.check_resolve_capture_rect(*case)
 
     @data(
-        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, xr.Coords(0, 0)),
-        ('.', '.', None, '.', '.', None, 1, 1, 1, 1, None, xr.Coords(1, 1)),
+        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, _p.Coords(0, 0)),
+        ('.', '.', None, '.', '.', None, 1, 1, 1, 1, None, _p.Coords(1, 1)),
     )
     def test_1stRelative(self, case):
         self.check_resolve_capture_rect(*case)
@@ -1001,7 +993,7 @@ class T07Capture(unittest.TestCase):
 
 class T08Sheet(unittest.TestCase):
 
-    class MySheet(xr.ABCSheet):
+    class MySheet(_l.ABCSheet):
 
         def open_sibling_sheet(self, sheet_id):
             raise NotImplementedError()
@@ -1032,7 +1024,7 @@ class T08Sheet(unittest.TestCase):
         sheet._states_matrix = np.array([
             [0, 1, 1, 0]
         ])
-        margins = (xr.Cell(0, 1), xr.Cell(0, 2))
+        margins = (_p.Cell(0, 1), _p.Cell(0, 2))
         self.assertEqual(sheet.get_margin_coords(), margins)
         sheet._margin_coords = None
         self.assertEqual(sheet.get_margin_coords(), margins)
@@ -1049,8 +1041,24 @@ class T08Sheet(unittest.TestCase):
         ])
         self.assertEqual(sheet.get_margin_coords(), margins)
         sheet._margin_coords = None
-        margins = (xr.Cell(1, 0), xr.Cell(3, 2))
+        margins = (_p.Cell(1, 0), _p.Cell(3, 2))
         self.assertEqual(sheet.get_margin_coords(), margins)
+
+############
+# LASSO
+############
+
+
+def _read_rect_values(sheet, st_edge, nd_edge, dims):
+    states_matrix = sheet.get_states_matrix()
+    margin_coords = sheet.get_margin_coords()
+    st, nd = _l.resolve_capture_rect(states_matrix, margin_coords,
+                                     st_edge, nd_edge)  # or Edge(None, None))
+    v = sheet.read_rect(st, nd)
+    if dims is not None:
+        v = _l._redim(v, dims)
+
+    return v
 
 
 @ddt
@@ -1065,15 +1073,15 @@ class T09ReadRect(unittest.TestCase):
             [None, None,   43,    'str'],  # 4
             [None, -1,     None,  None],  # 5
         ])
-        self.sheet = xr.ArraySheet(arr)
+        self.sheet = _l.ArraySheet(arr)
 
     def check_read_capture_rect(self, case):
         sheet = self.sheet
 
         e1 = case[0]
-        e1 = xr.Edge(xr.Cell(*e1[:2]), *e1[2:])
+        e1 = _p.Edge(_p.Cell(*e1[:2]), *e1[2:])
         e2 = case[1]
-        e2 = e2 and xr.Edge(xr.Cell(*e2[:2]), *e2[2:])
+        e2 = e2 and _p.Edge(_p.Cell(*e2[:2]), *e2[2:])
         args = (sheet, e1, e2, case[2])
         res = _read_rect_values(*args)
         exp = case[3]
@@ -1199,7 +1207,7 @@ class T10SheetFactory(unittest.TestCase):
     )
     def test_derive_keys(self, case):
         sh_ids, wb_id, sheet_ids, exp = case
-        sf = xr.SheetsFactory()
+        sf = _l.SheetsFactory()
         sheet = MagicMock()
         sheet.get_sheet_ids.return_value = sh_ids
         keys = sf._derive_sheet_keys(sheet, wb_id, sheet_ids)
@@ -1220,12 +1228,12 @@ class T10SheetFactory(unittest.TestCase):
         *cache_keys
     )
     def test_cache_sheet(self, case):
-        extra_ids, open_calls = case
+        extra_ids, _ = case
         k1 = ('wb', 'sh')
         k2 = ('wb',  0)
         sheet = MagicMock()
         sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
-        sf = xr.SheetsFactory()
+        sf = _l.SheetsFactory()
         for wb_id, sh_ids in extra_ids:
             for sh_id in sh_ids:
                 sf.add_sheet(sheet, wb_id, sh_id)
@@ -1241,7 +1249,7 @@ class T10SheetFactory(unittest.TestCase):
         *cache_keys
     )
     def test_close_sheet(self, case):
-        extra_ids, open_calls = case
+        extra_ids, _ = case
         # Try closings by all keys.
         #
         extra_ids = extra_ids + [('wb', ['sh', 0])]
@@ -1252,7 +1260,7 @@ class T10SheetFactory(unittest.TestCase):
                 sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
 
                 # Populate cache
-                sf = xr.SheetsFactory()
+                sf = _l.SheetsFactory()
                 for wb_id, sh_ids in extra_ids:
                     for sh_id in sh_ids:
                         sf.add_sheet(sheet, wb_id, sh_id)
@@ -1274,13 +1282,13 @@ class T10SheetFactory(unittest.TestCase):
         *cache_keys
     )
     def test_fetch_sheet_prePopulated(self, case):
-        extra_ids, open_calls = case
+        extra_ids, _ = case
         k1 = ('wb', 'sh')
         k2 = ('wb',  0)
         sheet = MagicMock()
         sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
 
-        sf = xr.SheetsFactory()
+        sf = _l.SheetsFactory()
         sf._open_sheet = MagicMock(side_effect=AssertionError("OPENED!"))
         for wb_id, sh_ids in extra_ids:
             for sh_id in sh_ids:
@@ -1305,7 +1313,7 @@ class T10SheetFactory(unittest.TestCase):
         sheet = MagicMock(name='sheet')
         sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
 
-        sf = xr.SheetsFactory()
+        sf = _l.SheetsFactory()
         sf._open_sheet = MagicMock(name='open_sheet', return_value=sheet)
 
         extra_ids = extra_ids + [('wb', ['sh', 0])]
@@ -1326,7 +1334,7 @@ class T11Redim(unittest.TestCase):
 
     def check_redim(self, case):
         arr, dim, exp = case
-        res = xr._redim(arr, dim)
+        res = _l._redim(arr, dim)
 
         self.assertEqual(res, exp)
 #         if isinstance(exp, list):
@@ -1431,7 +1439,7 @@ class T12CallSpec(unittest.TestCase):
     )
     def test_OK(self, case):
         call_desc, exp = case
-        cspec = xr._parse_call_spec(call_desc)
+        cspec = _p.parse_call_spec(call_desc)
         self.assertEqual(cspec, exp)
 
     _bad_struct = "One of str, list or dict expected"
@@ -1456,7 +1464,7 @@ class T12CallSpec(unittest.TestCase):
     def test_Fail_base(self, case):
         call_desc, err = case
         with assertRaisesRegex(self, ValueError, err):
-            xr._parse_call_spec(call_desc)
+            _p.parse_call_spec(call_desc)
 
     @data(
         ([1, [], {}],           _func_not_str),
@@ -1478,7 +1486,7 @@ class T12CallSpec(unittest.TestCase):
     def test_Fail_List(self, case):
         call_desc, err = case
         with assertRaisesRegex(self, ValueError, err):
-            xr._parse_call_spec(call_desc)
+            _p.parse_call_spec(call_desc)
 
     @data(
         ({'args': [], 'kwds': {}},                      _func_missing),
@@ -1505,7 +1513,7 @@ class T12CallSpec(unittest.TestCase):
     def test_Fail_Object(self, case):
         call_desc, err = case
         with assertRaisesRegex(self, ValueError, err):
-            xr._parse_call_spec(call_desc)
+            _p.parse_call_spec(call_desc)
 
 
 @ddt
@@ -1513,16 +1521,16 @@ class T13Ranger(unittest.TestCase):
 
     @data(True, False)
     def test_context_sheet(self, has_sf):
-        sf = SheetsFactory() if has_sf else None
-        ranger = xr.Ranger(sf)
-        res = ranger.do_lasso('#B2', sheet=xr.ArraySheet([[1, 2], [3, 4]]))
+        sf = _l.SheetsFactory() if has_sf else None
+        ranger = _l.Ranger(sf)
+        res = ranger.do_lasso('#B2', sheet=_l.ArraySheet([[1, 2], [3, 4]]))
         self.assertEqual(res.values, 4)
 
     @data(True, False)
     def test_context_sibling(self, has_sf):
-        sf = SheetsFactory() if has_sf else None
-        ranger = xr.Ranger(sf)
-        sheet = xr.ArraySheet([[1, 2], [3, 4]])
+        sf = _l.SheetsFactory() if has_sf else None
+        ranger = _l.Ranger(sf)
+        sheet = _l.ArraySheet([[1, 2], [3, 4]])
         sheet.open_sibling_sheet = MagicMock(name='open_sibling_sheet()',
                                              return_value=sheet)
         res = ranger.do_lasso('#Sibl!B2', sheet=sheet)
@@ -1545,15 +1553,15 @@ class T14Lasso(unittest.TestCase):
         ])
 
     def test_read_Colon(self):
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('#:', sf)
+        sf = _l.SheetsFactory()
+        sf.add_sheet(_l.ArraySheet(self.m1()))
+        res = _l.lasso('#:', sf)
         npt.assert_array_equal(res, self.m1().tolist())
 
     def test_read_ColonWithJson(self):
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('''#::{
+        sf = _l.SheetsFactory()
+        sf.add_sheet(_l.ArraySheet(self.m1()))
+        res = _l.lasso('''#::{
             "opts": {"verbose": true},
             "func": "pipe", 
             "args": [
@@ -1566,9 +1574,9 @@ class T14Lasso(unittest.TestCase):
         npt.assert_array_equal(res, self.m1())
 
     def test_read_A1(self):
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('''#A1:..(D):{
+        sf = _l.SheetsFactory()
+        sf.add_sheet(_l.ArraySheet(self.m1()))
+        res = _l.lasso('''#A1:..(D):{
             "opts": {"verbose": true},
             "func": "pipe", 
             "args": [
@@ -1582,37 +1590,37 @@ class T14Lasso(unittest.TestCase):
 
     def test_read_RC(self):
         m1 = self.m1()
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('#R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
+        sf = _l.SheetsFactory()
+        sf.add_sheet(_l.ArraySheet(self.m1()))
+        res = _l.lasso('#R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
                        sf)
         self.assertIsInstance(res, list)
         npt.assert_array_equal(res, m1[:, 0].reshape((1, -1)))
 
     def test_read_RC_negative(self):
         m1 = self.m1()
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
+        sf = _l.SheetsFactory()
+        sf.add_sheet(_l.ArraySheet(self.m1()))
+        res = _l.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
                        sf)
         npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
 
     def test_read_asLasso(self):
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        res = xr.lasso('''#A1:..(D)''', sf, return_lasso=True)
-        self.assertIsInstance(res, xr.Lasso)
+        sf = _l.SheetsFactory()
+        sf.add_sheet(_l.ArraySheet(self.m1()))
+        res = _l.lasso('''#A1:..(D)''', sf, return_lasso=True)
+        self.assertIsInstance(res, _l.Lasso)
 
     def test_Ranger_intermediateLaso(self):
-        sf = xr.SheetsFactory()
-        sf.add_sheet(xr.ArraySheet(self.m1()))
-        ranger = xr.make_default_Ranger(sheets_factory=sf)
+        sf = _l.SheetsFactory()
+        sf.add_sheet(_l.ArraySheet(self.m1()))
+        ranger = _l.make_default_Ranger(sheets_factory=sf)
         ranger.do_lasso(
             '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]''')
         self.assertEqual(ranger.intermediate_lasso[0], 'numpy',
                          ranger.intermediate_lasso)
 
-        ranger = xr.make_default_Ranger(sheets_factory=sf)
+        ranger = _l.make_default_Ranger(sheets_factory=sf)
         self.assertRaises(ValueError, ranger.do_lasso,
                           '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["dab_func"]]]''')
         self.assertEqual(ranger.intermediate_lasso[0], 'dab_func',
@@ -1642,11 +1650,11 @@ class T14Lasso(unittest.TestCase):
             [None, 0.,    1.,   2.,   None],  # 5
             [None, 1.,    None, 6.1,  7.1]    # 6
         ])
-        sheetsFact = xr.SheetsFactory()
-        sheetsFact.add_sheet(xr.ArraySheet(table), 'wb', 'sheet1')
+        sheetsFact = _l.SheetsFactory()
+        sheetsFact.add_sheet(_l.ArraySheet(table), 'wb', 'sheet1')
 
-        dims = xr.xlwings_dims_call_spec()
-        self.assertEqual(xr.lasso(xlref % dims, sheetsFact), res)
+        dims = _l.xlwings_dims_call_spec()
+        self.assertEqual(_l.lasso(xlref % dims, sheetsFact), res)
 
 
 @ddt
@@ -1662,11 +1670,11 @@ class T15Recursive(unittest.TestCase):
         [[], [1, 'a', 'b'], [11, list('abc')]],
     )
     def test_dontExpand_nonDicts(self, vals):
-        ranger = xr.Ranger(None)
+        ranger = _l.Ranger(None)
         ranger.do_lasso = MagicMock(name='do_lasso()',
-                                    side_effect=lambda x, **kwds: xr.Lasso(values=x))
-        lasso = xr.Lasso(values=vals, opts={})
-        res = xr.Ranger.recursive_filter(ranger, lasso).values
+                                    side_effect=lambda x, **kwds: _l.Lasso(values=x))
+        lasso = _l.Lasso(values=vals, opts={})
+        res = _l.Ranger.recursive_filter(ranger, lasso).values
         self.assertEqual(res, vals)
 
     @data(
@@ -1676,11 +1684,11 @@ class T15Recursive(unittest.TestCase):
         [[], [1, 'a', 'b'], [11, list('abc')]],
     )
     def test_expandNestedStrings(self, vals):
-        ranger = xr.Ranger(None)
+        ranger = _l.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
-        lasso = xr.Lasso(values=vals, opts={})
-        res = xr.Ranger.recursive_filter(ranger, lasso).values
+            name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
+        lasso = _l.Lasso(values=vals, opts={})
+        res = _l.Ranger.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
 
@@ -1690,11 +1698,11 @@ class T15Recursive(unittest.TestCase):
         [[], set([1, 'a', 'b']), [11, tuple('abc')]],
     )
     def test_dontExpandNonLists(self, vals):
-        ranger = xr.Ranger(None)
+        ranger = _l.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
-        lasso = xr.Lasso(values=vals, opts={})
-        res = xr.Ranger.recursive_filter(ranger, lasso).values
+            name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
+        lasso = _l.Lasso(values=vals, opts={})
+        res = _l.Ranger.recursive_filter(ranger, lasso).values
         self.assertNotIn(sentinel.BINGO.name, str(res))
 
     @data(
@@ -1704,11 +1712,11 @@ class T15Recursive(unittest.TestCase):
         [{4: ['str', 'a', {4: [list('ab')]}]}],
     )
     def test_expandDicts_nonStrKeys(self, vals):
-        ranger = xr.Ranger(None)
+        ranger = _l.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
-        lasso = xr.Lasso(values=vals, opts={})
-        res = xr.Ranger.recursive_filter(ranger, lasso).values
+            name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
+        lasso = _l.Lasso(values=vals, opts={})
+        res = _l.Ranger.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
 
@@ -1719,11 +1727,11 @@ class T15Recursive(unittest.TestCase):
         [{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
     )
     def test_expandDicts_preservingKeys(self, vals):
-        ranger = xr.Ranger(None)
+        ranger = _l.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
-        lasso = xr.Lasso(values=vals, opts={})
-        res = xr.Ranger.recursive_filter(ranger, lasso).values
+            name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
+        lasso = _l.Lasso(values=vals, opts={})
+        res = _l.Ranger.recursive_filter(ranger, lasso).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertIn('key', str(res))
@@ -1750,11 +1758,11 @@ class T15Recursive(unittest.TestCase):
         vals = [{
             'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}],
             'key11': 'bang'}]
-        ranger = xr.Ranger(None)
+        ranger = _l.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
-        lasso = xr.Lasso(values=vals, opts={})
-        res = xr.Ranger.recursive_filter(ranger, lasso, depth=depth).values
+            name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
+        lasso = _l.Lasso(values=vals, opts={})
+        res = _l.Ranger.recursive_filter(ranger, lasso, depth=depth).values
         # print(res)
         if missing:
             self.assertIn(sentinel.BINGO.name, str(res))
@@ -1769,11 +1777,11 @@ class T15Recursive(unittest.TestCase):
         [pd.DataFrame({'key1': list('abc'), 'key2': list('def')})],
     )
     def test_expandDFs(self, vals):
-        ranger = xr.Ranger(None)
+        ranger = _l.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
-        lasso = xr.Lasso(values=vals, opts={})
-        res = xr.Ranger.recursive_filter(ranger, lasso).values
+            name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
+        lasso = _l.Lasso(values=vals, opts={})
+        res = _l.Ranger.recursive_filter(ranger, lasso).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertIn("key", str(res))
@@ -1797,11 +1805,11 @@ class T15Recursive(unittest.TestCase):
     )
     def test_expandDicts_IncExcFilters(self, case):
         vals, incexc, exist, missing = case
-        ranger = xr.Ranger(None)
+        ranger = _l.Ranger(None)
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=xr.Lasso(values=sentinel.BINGO))
-        lasso = xr.Lasso(values=vals, opts={})
-        res = xr.Ranger.recursive_filter(ranger, lasso, *incexc).values
+            name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
+        lasso = _l.Lasso(values=vals, opts={})
+        res = _l.Ranger.recursive_filter(ranger, lasso, *incexc).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
         for k in ['key1', 'key2', 'k3']:
@@ -1819,7 +1827,7 @@ class T16RealFile(unittest.TestCase):
 
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     def test_real_file(self):
-        res = xr.lasso('xlref.xlsx#^^:"recurse"')
+        res = _l.lasso('xlref.xlsx#^^:"recurse"')
         exp = dedent("""\
         OrderedDict([('table in this sheet',      A     B
         r1  11   foo
@@ -1881,12 +1889,12 @@ class T17VsPandas(unittest.TestCase, CustomAssertions):
             xlrd_wb = xlrd.open_workbook(xl_file)
             self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
             xlref_res = self.sheet.read_rect(st, nd)
-            lasso = xr.Lasso(
+            lasso = _l.Lasso(
                 st=st, nd=nd, values=xlref_res, opts=ChainMap())
 
-            lasso1 = xr.redim_filter(None, lasso, row=[2, True])
+            lasso1 = _l.redim_filter(None, lasso, row=[2, True])
 
-            df_filter = xr.get_default_filters()['df']['func']
+            df_filter = _l.get_default_filters()['df']['func']
             lasso2 = df_filter(None, lasso1, **parse_df_kwds)
 
             xlref_df = lasso2.values
@@ -1896,7 +1904,7 @@ class T17VsPandas(unittest.TestCase, CustomAssertions):
 
     def test_vs_read_df(self):
         self.check_vs_read_df(self.m1.tolist(),
-                              xr.Coords(0, 0), xr.Coords(4, 5),
+                              _p.Coords(0, 0), _p.Coords(4, 5),
                               parse_df_kwds=dict(header=0))
 
 
@@ -1914,7 +1922,7 @@ class T18VsXlwings(unittest.TestCase):
 
         xlrd_wb = xlrd.open_workbook(self.tmp)
         self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
-        self.sheetsFact = xr.SheetsFactory()
+        self.sheetsFact = _l.SheetsFactory()
         self.sheetsFact.add_sheet(self.sheet, 'wb', 'sheet1')
 
     def tearDown(self):
@@ -1939,5 +1947,5 @@ class T18VsXlwings(unittest.TestCase):
         with xw_Workbook(self.tmp) as xw:
             res = res(xw)
 
-        dims = xr.xlwings_dims_call_spec()
-        self.assertEqual(xr.lasso(xlref % dims, self.sheetsFact), res)
+        dims = _l.xlwings_dims_call_spec()
+        self.assertEqual(_l.lasso(xlref % dims, self.sheetsFact), res)

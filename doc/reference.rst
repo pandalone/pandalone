@@ -7,23 +7,28 @@ These are the modules in maturity order:
 .. currentmodule:: pandalone
 .. autosummary::
 
-    xlref
+    xlasso
     mappings
     pandata
     components
 
-Module: :mod:`pandalone.xlref`
+Module: :mod:`pandalone.xlasso`
 ==============================
-.. automodule:: pandalone.xlref
+.. automodule:: pandalone.xlasso
 
-Submodule: :mod:`pandalone.xlref._xlref`
+Submodule: :mod:`pandalone.xlasso._parse`
 ----------------------------------------
-.. automodule:: pandalone.xlref._xlref
+.. automodule:: pandalone.xlasso._parse
     :members:
 
-Submodule: :mod:`pandalone.xlref._xlrd`
+Submodule: :mod:`pandalone.xlasso._lasso`
+----------------------------------------
+.. automodule:: pandalone.xlasso._lasso
+    :members:
+
+Submodule: :mod:`pandalone.xlasso._xlrd`
 ---------------------------------------
-.. automodule:: pandalone.xlref._xlrd
+.. automodule:: pandalone.xlasso._xlrd
     :members:
 
 Module: :mod:`pandalone.mappings`

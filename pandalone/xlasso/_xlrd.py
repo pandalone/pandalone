@@ -17,16 +17,16 @@ import logging
 from os import path
 
 from future.moves.urllib import request
-from future.moves.urllib import request as urlreq
 from future.moves.urllib.parse import urlsplit
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
                   XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER)
 import xlrd
 
 import numpy as np
+from pandalone.xlasso._lasso import ABCSheet
+from pandalone.xlasso._parse import Coords
 
 from .. import utils
-from ._xlref import Coords, ABCSheet
 
 
 log = logging.getLogger(__name__)

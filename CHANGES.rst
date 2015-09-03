@@ -27,10 +27,11 @@ TODOs
         - [X] Respect base-cell also for 1st edge filter
         - [x] Keep only single Lasso-stage in Ranger.
         - [ ] Xlrd-read with slices.
-        - [ ] Split Laso --> Xlref+Lasso(context) 
+        - [ ] Split Laso struct --> Xlref+Lasso(context) 
             - [ ] Build XLref recursive trees.  
     - Struct:
-        - [ ] Split lassos from xlref.
+        - [x] Rename XLasso.
+        - [x] Separate modules in _parse, _lasso .
         - [ ] plugin backends (& syntax?)
     - TCs
         - [x] Recursive with real-excel file.
@@ -43,7 +44,6 @@ TODOs
     - [x] Check TODOs in code
     - [ ] README
     - [ ] Split own project
-        - [x] Rename XLasso
 
 Rejected TODOs:
 ---------------
