@@ -165,7 +165,7 @@ API
 ---
 .. default-role:: obj
 
-- User-facing functionality:
+- User-facing higher-level functionality:
 
   .. currentmodule:: pandalone.xlasso._lasso
   .. autosummary::
@@ -177,23 +177,27 @@ API
       make_default_Ranger
       get_default_opts
       get_default_filters
-      coords2Cell
-      ArraySheet
       xlwings_dims_call_spec
 
-- Major internal functions and intermediate classes:
+- Related to :term:`capturing` algorithm:
 
+  .. currentmodule:: pandalone.xlasso._capture
+  .. autosummary::
+      resolve_capture_rect
+      ABCSheet.read_rect
+      ArraySheet
+      ABCSheet
+      coords2Cell
+
+- Related to parsing and basic structure used throughout:
   .. currentmodule:: pandalone.xlasso._parse
   .. autosummary::
       parse_xlref
       parse_expansion_moves
       parse_call_spec
-      resolve_capture_rect
-      ABCSheet.read_rect
       Cell
       Coords
       Edge
-      ABCSheet
 
 - **xlrd** back-end functionality:
 
@@ -681,11 +685,13 @@ Example-refs are given below for capturing the 2 marked tables::
 .. default-role:: obj
 """
 
+from pandalone.xlasso._capture import (
+    resolve_capture_rect, ABCSheet, ArraySheet, coords2Cell,
+)
 from pandalone.xlasso._lasso import (
-    lasso, Ranger, SheetsFactory, ArraySheet,
+    lasso, Ranger, SheetsFactory,
     make_default_Ranger, get_default_opts, get_default_filters,
-    coords2Cell, Lasso,
-    resolve_capture_rect,
+    Lasso,
     xlwings_dims_call_spec, log
 )
 from pandalone.xlasso._parse import (

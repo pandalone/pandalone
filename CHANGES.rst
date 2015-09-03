@@ -17,21 +17,21 @@ TODOs
 - XLasso
     - Core:
         - filters:
-            - [x] Recursive filter
             - [ ] Slices and Index args on 'numpy' and 'df' filters.
+            - [x] Recursive filter
         - Syntax:
             - [ ] Edge +/?(instead of -)
             - [ ] Notation for specifying the "last-sheet".
             - [ ] Extend RC-coords: ^-1, _-6, .-4 
             - [ ] Expand meander `@`?
-        - [X] Respect base-cell also for 1st edge filter
-        - [x] Keep only single Lasso-stage in Ranger.
-        - [ ] Xlrd-read with slices.
         - [ ] Split Laso struct --> Xlref+Lasso(context) 
             - [ ] Build XLref recursive trees.  
+        - [ ] Xlrd-read with slices.
+        - [X] Respect base-cell also for 1st edge filter
+        - [x] Keep only single Lasso-stage in Ranger.
     - Struct:
         - [x] Rename XLasso.
-        - [x] Separate modules in _parse, _lasso .
+        - [x] Separate modules in _parse, _capture, _lasso .
         - [ ] plugin backends (& syntax?)
     - TCs
         - [x] Recursive with real-excel file.

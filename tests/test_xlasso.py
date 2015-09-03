@@ -29,7 +29,7 @@ import xlrd
 import itertools as itt
 import numpy as np
 from pandalone import xlasso
-from pandalone.xlasso import _parse as _p, _lasso as _l
+from pandalone.xlasso import _parse as _p, _capture as _c, _lasso as _l
 from pandalone.xlasso import _xlrd as xd
 from pandalone.xlasso._xlrd import XlrdSheet
 import pandas as pd
@@ -135,8 +135,8 @@ class T011Structs(unittest.TestCase):
 #             ValueError, _p.Edge_new, *('@@', '@', '@'))
 
     def test_col2num(self):
-        self.assertEqual(_l._col2num('D'), 3)
-        self.assertEqual(_l._col2num('aAa'), 702)
+        self.assertEqual(_c._col2num('D'), 3)
+        self.assertEqual(_c._col2num('aAa'), 702)
 
     @data(
         (_p.Cell('1', 'a'), 'A1'),
@@ -437,14 +437,14 @@ class T02StatesVector(unittest.TestCase):
         for r in range(sm.shape[0]):
             for c in range(sm.shape[1]):
                 nargs = args + (_p.Coords(r, c), mov)
-                vect = _l._extract_states_vector(*nargs)[0]
+                vect = _c._extract_states_vector(*nargs)[0]
 
                 npt.assert_array_equal(vect[0], sm[r, c], str(args))
 
     def check_extract_states_vector(self, land_r, land_c, mov, exp_vect):
         args = make_sample_matrix()
         args += (_p.Coords(land_r, land_c), mov)
-        vect = _l._extract_states_vector(*args)[0]
+        vect = _c._extract_states_vector(*args)[0]
 
         npt.assert_array_equal(vect, exp_vect, str(args))
 
@@ -495,12 +495,12 @@ class T03TargetOpposite(unittest.TestCase):
         args = argshead + (land_cell, moves)
 
         if exp_row:
-            res = _l._target_opposite(*args)
+            res = _c._target_opposite(*args)
             self.assertEqual(res, _p.Coords(exp_row, exp_col), str(args))
         else:
             with assertRaisesRegex(self, ValueError, "No \w+-target found",
                                    msg=str(args)):
-                _l._target_opposite(*args)
+                _c._target_opposite(*args)
 
     def check_target_opposite_state(self, land_row, land_col, moves,
                                     exp_row=None, exp_col=None):
@@ -579,12 +579,12 @@ class T04TargetSame(unittest.TestCase):
         args = argshead + (land_cell, moves)
 
         if exp_row:
-            res = _l._target_same(*args)
+            res = _c._target_same(*args)
             self.assertEqual(res, _p.Coords(exp_row, exp_col), str(args))
         else:
             with assertRaisesRegex(self, ValueError, "No \w+-target for",
                                    msg=str(args)):
-                _l._target_same(*args)
+                _c._target_same(*args)
 
     def check_target_same_state(self, inverse_sm, land_row, land_col, moves,
                                 exp_row=None, exp_col=None):
@@ -642,7 +642,7 @@ class T05Margins(unittest.TestCase):
             [0, 1, 1, 0]
         ])
         margins = (_p.Coords(0, 1), _p.Coords(0, 2))
-        self.assertEqual(_l._margin_coords_from_states_matrix(sm), margins)
+        self.assertEqual(_c._margin_coords_from_states_matrix(sm), margins)
 
         sm = np.asarray([
             [0, 0, 0],
@@ -651,27 +651,27 @@ class T05Margins(unittest.TestCase):
             [0, 0, 1],
         ])
         margins = (_p.Coords(1, 1), _p.Coords(3, 2))
-        self.assertEqual(_l._margin_coords_from_states_matrix(sm), margins)
+        self.assertEqual(_c._margin_coords_from_states_matrix(sm), margins)
 
     def test_find_states_matrix_margins_Single_cell(self):
         sm = np.array([
             [1],
         ])
         c = _p.Coords(0, 0)
-        self.assertEqual(_l._margin_coords_from_states_matrix(sm), (c, c))
+        self.assertEqual(_c._margin_coords_from_states_matrix(sm), (c, c))
 
         sm = np.array([
             [0, 0, 1],
         ])
         c = _p.Coords(0, 2)
-        self.assertEqual(_l._margin_coords_from_states_matrix(sm), (c, c))
+        self.assertEqual(_c._margin_coords_from_states_matrix(sm), (c, c))
 
         sm = np.array([
             [0, 0],
             [0, 1]
         ])
         c = _p.Coords(1, 1)
-        self.assertEqual(_l._margin_coords_from_states_matrix(sm), (c, c))
+        self.assertEqual(_c._margin_coords_from_states_matrix(sm), (c, c))
 
         sm = np.array([
             [0, 0],
@@ -679,7 +679,7 @@ class T05Margins(unittest.TestCase):
             [0, 1]
         ])
         c = _p.Coords(2, 1)
-        self.assertEqual(_l._margin_coords_from_states_matrix(sm), (c, c))
+        self.assertEqual(_c._margin_coords_from_states_matrix(sm), (c, c))
 
     def test_find_states_matrix_margins_Further_empties(self):
         sm = np.asarray([
@@ -690,7 +690,7 @@ class T05Margins(unittest.TestCase):
             [0, 0, 0, 0],
         ])
         margins = (_p.Coords(1, 1), _p.Coords(3, 2))
-        self.assertEqual(_l._margin_coords_from_states_matrix(sm), margins)
+        self.assertEqual(_c._margin_coords_from_states_matrix(sm), margins)
 
         sm = np.asarray([
             [1, 0],
@@ -698,14 +698,14 @@ class T05Margins(unittest.TestCase):
             [0, 0],
         ])
         margins = (_p.Coords(0, 0), _p.Coords(0, 0))
-        self.assertEqual(_l._margin_coords_from_states_matrix(sm), margins)
+        self.assertEqual(_c._margin_coords_from_states_matrix(sm), margins)
         sm = np.asarray([
             [0, 0, 0, 0],
             [0, 1, 0, 0],
             [0, 0, 0, 0],
         ])
         margins = (_p.Coords(1, 1), _p.Coords(1, 1))
-        self.assertEqual(_l._margin_coords_from_states_matrix(sm), margins)
+        self.assertEqual(_c._margin_coords_from_states_matrix(sm), margins)
 
     @data(
         [[]],
@@ -715,7 +715,7 @@ class T05Margins(unittest.TestCase):
     )
     def test_find_states_matrix_margins_EmptySheet(self, states_matrix):
         margins = (_p.Coords(0, 0), _p.Coords(0, 0))
-        res = _l._margin_coords_from_states_matrix(np.asarray(states_matrix))
+        res = _c._margin_coords_from_states_matrix(np.asarray(states_matrix))
         self.assertEqual(res, margins, states_matrix)
 
 
@@ -741,10 +741,10 @@ class T06Expand(unittest.TestCase):
         nd = _p.Coords(*rect_in[2:]) if len(rect_in) > 2 else st
         rect_out = (_p.Coords(*rect_out[:2]),
                     _p.Coords(*rect_out[2:]) if len(rect_out) > 2 else _p.Coords(*rect_out))
-        rect_got = _l._expand_rect(states_matrix, st, nd, exp_mov)
+        rect_got = _c._expand_rect(states_matrix, st, nd, exp_mov)
         self.assertEqual(rect_got, rect_out)
 
-        rect_got = _l._expand_rect(states_matrix, nd, st, exp_mov)
+        rect_got = _c._expand_rect(states_matrix, nd, st, exp_mov)
         self.assertEqual(rect_got, rect_out)
 
     @data(
@@ -864,7 +864,7 @@ class T07Capture(unittest.TestCase):
             [0, 0, 1, 0, 0, 1],  # '4'
             [0, 0, 1, 1, 0, 1],  # '5'
         ], dtype=bool)
-        margin_coords = _l._margin_coords_from_states_matrix(states_matrix)
+        margin_coords = _c._margin_coords_from_states_matrix(states_matrix)
         args = (states_matrix, margin_coords)
 
         return args
@@ -993,7 +993,7 @@ class T07Capture(unittest.TestCase):
 
 class T08Sheet(unittest.TestCase):
 
-    class MySheet(_l.ABCSheet):
+    class MySheet(_c.ABCSheet):
 
         def open_sibling_sheet(self, sheet_id):
             raise NotImplementedError()
@@ -1073,7 +1073,7 @@ class T09ReadRect(unittest.TestCase):
             [None, None,   43,    'str'],  # 4
             [None, -1,     None,  None],  # 5
         ])
-        self.sheet = _l.ArraySheet(arr)
+        self.sheet = _c.ArraySheet(arr)
 
     def check_read_capture_rect(self, case):
         sheet = self.sheet
@@ -1523,14 +1523,14 @@ class T13Ranger(unittest.TestCase):
     def test_context_sheet(self, has_sf):
         sf = _l.SheetsFactory() if has_sf else None
         ranger = _l.Ranger(sf)
-        res = ranger.do_lasso('#B2', sheet=_l.ArraySheet([[1, 2], [3, 4]]))
+        res = ranger.do_lasso('#B2', sheet=_c.ArraySheet([[1, 2], [3, 4]]))
         self.assertEqual(res.values, 4)
 
     @data(True, False)
     def test_context_sibling(self, has_sf):
         sf = _l.SheetsFactory() if has_sf else None
         ranger = _l.Ranger(sf)
-        sheet = _l.ArraySheet([[1, 2], [3, 4]])
+        sheet = _c.ArraySheet([[1, 2], [3, 4]])
         sheet.open_sibling_sheet = MagicMock(name='open_sibling_sheet()',
                                              return_value=sheet)
         res = ranger.do_lasso('#Sibl!B2', sheet=sheet)
@@ -1554,13 +1554,13 @@ class T14Lasso(unittest.TestCase):
 
     def test_read_Colon(self):
         sf = _l.SheetsFactory()
-        sf.add_sheet(_l.ArraySheet(self.m1()))
+        sf.add_sheet(_c.ArraySheet(self.m1()))
         res = _l.lasso('#:', sf)
         npt.assert_array_equal(res, self.m1().tolist())
 
     def test_read_ColonWithJson(self):
         sf = _l.SheetsFactory()
-        sf.add_sheet(_l.ArraySheet(self.m1()))
+        sf.add_sheet(_c.ArraySheet(self.m1()))
         res = _l.lasso('''#::{
             "opts": {"verbose": true},
             "func": "pipe", 
@@ -1575,7 +1575,7 @@ class T14Lasso(unittest.TestCase):
 
     def test_read_A1(self):
         sf = _l.SheetsFactory()
-        sf.add_sheet(_l.ArraySheet(self.m1()))
+        sf.add_sheet(_c.ArraySheet(self.m1()))
         res = _l.lasso('''#A1:..(D):{
             "opts": {"verbose": true},
             "func": "pipe", 
@@ -1591,7 +1591,7 @@ class T14Lasso(unittest.TestCase):
     def test_read_RC(self):
         m1 = self.m1()
         sf = _l.SheetsFactory()
-        sf.add_sheet(_l.ArraySheet(self.m1()))
+        sf.add_sheet(_c.ArraySheet(self.m1()))
         res = _l.lasso('#R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
                        sf)
         self.assertIsInstance(res, list)
@@ -1600,20 +1600,20 @@ class T14Lasso(unittest.TestCase):
     def test_read_RC_negative(self):
         m1 = self.m1()
         sf = _l.SheetsFactory()
-        sf.add_sheet(_l.ArraySheet(self.m1()))
+        sf.add_sheet(_c.ArraySheet(self.m1()))
         res = _l.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
                        sf)
         npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
 
     def test_read_asLasso(self):
         sf = _l.SheetsFactory()
-        sf.add_sheet(_l.ArraySheet(self.m1()))
+        sf.add_sheet(_c.ArraySheet(self.m1()))
         res = _l.lasso('''#A1:..(D)''', sf, return_lasso=True)
         self.assertIsInstance(res, _l.Lasso)
 
     def test_Ranger_intermediateLaso(self):
         sf = _l.SheetsFactory()
-        sf.add_sheet(_l.ArraySheet(self.m1()))
+        sf.add_sheet(_c.ArraySheet(self.m1()))
         ranger = _l.make_default_Ranger(sheets_factory=sf)
         ranger.do_lasso(
             '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]''')
@@ -1651,7 +1651,7 @@ class T14Lasso(unittest.TestCase):
             [None, 1.,    None, 6.1,  7.1]    # 6
         ])
         sheetsFact = _l.SheetsFactory()
-        sheetsFact.add_sheet(_l.ArraySheet(table), 'wb', 'sheet1')
+        sheetsFact.add_sheet(_c.ArraySheet(table), 'wb', 'sheet1')
 
         dims = _l.xlwings_dims_call_spec()
         self.assertEqual(_l.lasso(xlref % dims, sheetsFact), res)

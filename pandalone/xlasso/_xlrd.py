@@ -23,7 +23,7 @@ from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
 import xlrd
 
 import numpy as np
-from pandalone.xlasso._lasso import ABCSheet
+from pandalone.xlasso._capture import ABCSheet
 from pandalone.xlasso._parse import Coords
 
 from .. import utils

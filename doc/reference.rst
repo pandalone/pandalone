@@ -13,21 +13,27 @@ These are the modules in maturity order:
     components
 
 Module: :mod:`pandalone.xlasso`
-==============================
+===============================
 .. automodule:: pandalone.xlasso
 
-Submodule: :mod:`pandalone.xlasso._parse`
-----------------------------------------
-.. automodule:: pandalone.xlasso._parse
-    :members:
-
 Submodule: :mod:`pandalone.xlasso._lasso`
-----------------------------------------
+-----------------------------------------
 .. automodule:: pandalone.xlasso._lasso
     :members:
 
+Submodule: :mod:`pandalone.xlasso._capture`
+-------------------------------------------
+.. automodule:: pandalone.xlasso._capture
+    :members:
+
+Submodule: :mod:`pandalone.xlasso._parse`
+-----------------------------------------
+.. automodule:: pandalone.xlasso._parse
+    :members:
+
+
 Submodule: :mod:`pandalone.xlasso._xlrd`
----------------------------------------
+----------------------------------------
 .. automodule:: pandalone.xlasso._xlrd
     :members:
 
