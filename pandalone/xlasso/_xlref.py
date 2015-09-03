@@ -6,7 +6,7 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-The user-facing implementation of *xlref*.
+The user-facing implementation of *xlasso*.
 
 Prefer accessing the public members from the parent module.
 """
@@ -1608,7 +1608,7 @@ class SheetsFactory(object):
 
     def _open_sheet(self, wb_id, sheet_id, opts):
         """OVERRIDE THIS to change backend."""
-        from .import _xlrd
+        from . import _xlrd
         return _xlrd.open_sheet(wb_id, sheet_id, opts)
 
     def __enter__(self):
@@ -2233,13 +2233,13 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
 
         >>> import xlrd                                       #  doctest: +SKIP
         >>> with xlrd.open_workbook(self.tmp) as wb:          #  doctest: +SKIP
-        ...     sheet = xlref.xlrdSheet(wb.sheet_by_name('Sheet1'))
+        ...     sheet = xlasso.xlrdSheet(wb.sheet_by_name('Sheet1'))
         ...     ## Do whatever
 
     *win32* examples::
 
         >>> with dsgdsdsfsd as wb:          #  doctest: +SKIP
-        ...     sheet = xlref.win32Sheet(wb.sheet['Sheet1'])
+        ...     sheet = xlasso.win32Sheet(wb.sheet['Sheet1'])
         TODO: Win32 Sheet example
     """
 

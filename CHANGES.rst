@@ -43,7 +43,7 @@ TODOs
     - [x] Check TODOs in code
     - [ ] README
     - [ ] Split own project
-        - [ ] Rename XLasso
+        - [x] Rename XLasso
 
 Rejected TODOs:
 ---------------

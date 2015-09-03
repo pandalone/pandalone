@@ -29,11 +29,11 @@ import xlrd
 
 import itertools as itt
 import numpy as np
-from pandalone import xlref as xlasso
-from pandalone.xlref import _xlrd as xd
-from pandalone.xlref import _xlref as xr
-from pandalone.xlref._xlrd import XlrdSheet
-from pandalone.xlref._xlref import SheetsFactory
+from pandalone import xlasso
+from pandalone.xlasso import _xlrd as xd
+from pandalone.xlasso import _xlref as xr
+from pandalone.xlasso._xlrd import XlrdSheet
+from pandalone.xlasso._xlref import SheetsFactory
 import pandas as pd
 from tests import _tutils
 from tests._tutils import (check_xl_installed, xw_Workbook)

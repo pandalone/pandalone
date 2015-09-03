@@ -163,7 +163,7 @@ def open_sheet(wb_url, sheet_id, opts):
 
 class XlrdSheet(ABCSheet):
     """
-    The *xlrd* workbook wrapper required by xlref library. 
+    The *xlrd* workbook wrapper required by xlasso library. 
     """
 
     def __init__(self, sheet, epoch1904=False):

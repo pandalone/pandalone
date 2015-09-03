@@ -9,7 +9,7 @@
 A mini-language for for "throwing the rope" around rectangular areas of Excel-sheets.
 
 .. default-role:: term
-.. currentmodule:: pandalone.xlref._xlref
+.. currentmodule:: pandalone.xlasso._xlref
 
 Introduction
 ============
@@ -87,9 +87,9 @@ Basic Usage
 The simplest way to `lasso` a `xl-ref` is through :func:`lasso()`. 
 A common task is capturing all sheet data but without any bordering nulls::
 
-    >>> from pandalone import xlref
+    >>> from pandalone import xlasso
 
-    >>> values = xlref.lasso('path/to/workbook.xlsx#:')  # doctest: +SKIP
+    >>> values = xlasso.lasso('path/to/workbook.xlsx#:')  # doctest: +SKIP
 
 Assuming that the 1st sheet of the workbook on disk is as shown below, 
 the `capture-rect` would be a 2D (nested) list-of-lists with the values
@@ -111,12 +111,12 @@ If you do not wish to let the library read your workbooks, you can
 invoke the function with a pre-loaded sheet.
 Here we will use the utility :class:`ArraySheet`::
 
-    >>> sheet = xlref.ArraySheet([[None, None,  'A',   None],
+    >>> sheet = xlasso.ArraySheet([[None, None,  'A',   None],
     ...                          [None, 2.2,   'foo', None],
     ...                          [None, None,   2,    None],
     ...                          [None, None,   None, 3.14],
     ... ])
-    >>> xlref.lasso('#A1(DR):..(DR):RULD', sheet=sheet)
+    >>> xlasso.lasso('#A1(DR):..(DR):RULD', sheet=sheet)
     [[None, 'A'], 
      [2.2, 'foo'], 
      [None, 2]] 
@@ -124,7 +124,7 @@ Here we will use the utility :class:`ArraySheet`::
 This `capture-rect` in this case was *B1* and *C3* as can be seen by inspecting
 the the 'st' and 'nd' fields of the full :class:`Lasso` results returned::
 
-    >>> xlref.lasso('#A1(DR):..(DR):RULD', sheet=sheet, return_lasso=1)
+    >>> xlasso.lasso('#A1(DR):..(DR):RULD', sheet=sheet, return_lasso=1)
     Lasso(xl_ref='#A1(DR):..(DR):RULD', 
           url_file=None, 
           sh_name=None, 
@@ -147,9 +147,9 @@ For controlling explicitly the configuration parameters and the opening of
 workbooks, use separate instances of :class:`Ranger' and :class:`SheetsFactory`, 
 that are the workhorses of this library::
 
-    >>> with xlref.SheetsFactory() as sf:
+    >>> with xlasso.SheetsFactory() as sf:
     ...     sf.add_sheet(sheet, wb_ids='foo_wb', sh_ids='Sheet1')
-    ...     ranger = xlref.Ranger(sf, base_opts={'verbose': True})
+    ...     ranger = xlasso.Ranger(sf, base_opts={'verbose': True})
     ...     ranger.do_lasso('foo_wb#Sheet1!__').values
     3.14 
 
@@ -164,7 +164,7 @@ library's defaults.
 API
 ---
 .. default-role:: obj
-.. currentmodule:: pandalone.xlref._xlref
+.. currentmodule:: pandalone.xlasso._xlref
 
 - User-facing functionality:
 
@@ -194,14 +194,14 @@ API
 
 - **xlrd** back-end functionality:
 
-  .. currentmodule:: pandalone.xlref._xlrd
+  .. currentmodule:: pandalone.xlasso._xlrd
   
   .. autosummary::
       XlrdSheet
       open_sheet
 
 .. default-role:: term
-.. currentmodule:: pandalone.xlref._xlref
+.. currentmodule:: pandalone.xlasso._xlref
 
 
 More Syntax Examples
@@ -681,7 +681,7 @@ Example-refs are given below for capturing the 2 marked tables::
 from ._xlref import (
     lasso, Ranger, SheetsFactory, ArraySheet,
     make_default_Ranger, get_default_opts, get_default_filters,
-    Cell, Coords, coords2Cell, Edge, Lasso, CallSpec,
+    Cell, Coords, coords2Cell, Edge, Lasso, CallSpec,  # ABCSheet,
     parse_xlref, resolve_capture_rect,
     xlwings_dims_call_spec, log
 )
