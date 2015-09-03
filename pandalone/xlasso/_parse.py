@@ -139,7 +139,7 @@ _regular_xlref_regex = re.compile(
         ) 
         (?:\( 
             (?P<st_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)      # moves
-            (?P<st_mod>[+-])?                                # move modifiers
+            (?P<st_mod>[+?])?                                # move modifiers
             \) 
         )? 
     )? 
@@ -156,7 +156,7 @@ _regular_xlref_regex = re.compile(
             )
             (?:\(
                 (?P<nd_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves
-                (?P<nd_mod>[+-])?                            # move-modifiers
+                (?P<nd_mod>[+?])?                            # move-modifiers
                 \) 
             )? 
         )?

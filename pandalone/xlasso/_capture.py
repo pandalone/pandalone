@@ -811,7 +811,7 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
             mov = nd_edge.mov
             if nd_state:
                 if (nd_edge.mod == '+' or
-                        nd_edge.land == Cell('.', '.') and nd_edge.mod != '-'):
+                        nd_edge.land == Cell('.', '.') and nd_edge.mod != '?'):
                     nd = _target_same(
                         states_matrix, dn_margin, nd, mov, '2nd-')
             else:

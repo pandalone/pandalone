@@ -165,9 +165,9 @@ class T011Structs(unittest.TestCase):
     @data(
         (_p.Edge_new('1', 'a', ), _p.Edge_new('1', '-1', ), None,
          'A1:R1C-1'),
-        (_p.Edge_new('1', 'a', 'L', '-'), _p.Edge_new('1', '-1', ),
+        (_p.Edge_new('1', 'a', 'L', '?'), _p.Edge_new('1', '-1', ),
          'lurd',
-         'A1(L-):R1C-1:LURD'),
+         'A1(L?):R1C-1:LURD'),
     )
     def test_Lasso_to_edges_str(self, case):
         edge1, edge2, exp_moves, exp = case
