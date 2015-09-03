@@ -16,14 +16,15 @@ TODOs
 -----
 - XLasso
     - Core:
-        - filters:
-            - [ ] Slices and Index args on 'numpy' and 'df' filters.
-            - [x] Recursive filter
         - Syntax:
             - [ ] Edge +/?(instead of -)
             - [ ] Notation for specifying the "last-sheet".
             - [ ] Extend RC-coords: ^-1, _-6, .-4 
+                - [ ] Cell becomes 4-tuple.
             - [ ] Expand meander `@`?
+        - filters:
+            - [ ] Slices and Index args on 'numpy' and 'df' filters.
+            - [x] Recursive filter
         - [ ] Split Laso struct --> Xlref+Lasso(context) 
             - [ ] Build XLref recursive trees.  
         - [ ] Xlrd-read with slices.

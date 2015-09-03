@@ -36,135 +36,6 @@ from ._parse import _Edge_to_str
 log = logging.getLogger(__name__)
 
 
-def _classify_rect_shape(st, nd):
-    """
-    Identifies rect from its edge-coordinates (row, col, 2d-table)..
-
-    :param Coords st:
-            the top-left edge of capture-rect, inclusive
-    :param Coords or None nd:
-            the bottom-right edge of capture-rect, inclusive
-    :return: 
-            in int based on the input like that:
-
-            - 0: only `st` given 
-            - 1: `st` and `nd` point the same cell 
-            - 2: row 
-            - 3: col 
-            - 4: 2d-table 
-
-    Examples::
-
-        >>> _classify_rect_shape((1,1), None)
-        0
-        >>> _classify_rect_shape((2,2), (2,2))
-        1
-        >>> _classify_rect_shape((2,2), (2,20))
-        2
-        >>> _classify_rect_shape((2,2), (20,2))
-        3
-        >>> _classify_rect_shape((2,2), (20,20))
-        4
-    """
-    if nd is None:
-        return 0
-    rows = nd[0] - st[0]
-    cols = nd[1] - st[1]
-    return 1 + bool(cols) + 2 * bool(rows)
-
-
-def _decide_ndim_by_rect_shape(shape_idx, ndims_list):
-    return ndims_list[shape_idx]
-
-
-def _updim(values, new_ndim):
-    """
-    Append trivial dimensions to the left.
-
-    :param values:      The scalar ot 2D-results of :meth:`Sheet.read_rect()`
-    :param int new_dim: The new dimension the result should have
-    """
-    new_shape = (1,) * (new_ndim - values.ndim) + values.shape
-    return values.reshape(new_shape)
-
-
-def _downdim(values, new_ndim):
-    """
-    Squeeze it, and then flatten it, before inflating it.
-
-    :param values:       The scalar ot 2D-results of :meth:`Sheet.read_rect()`
-    :param int new_dim: The new dimension the result should have
-    """
-    trivial_indxs = [i for i, d in enumerate(values.shape) if d == 1]
-    offset = values.ndim - new_ndim
-    trivial_ndims = len(trivial_indxs)
-    if offset > trivial_ndims:
-        values = values.flatten()
-    elif offset == trivial_ndims:
-        values = values.squeeze()
-    else:
-        for _, indx in zip(range(offset), trivial_indxs):
-            values = values.squeeze(indx)
-
-    return values
-
-
-def _redim(values, new_ndim):
-    """
-    Reshapes the :term:`capture-rect` values of :func:`read_capture_rect()`.
-
-    :param values:      The scalar ot 2D-results of :meth:`Sheet.read_rect()`
-    :type values: (nested) list, *
-    :param new_ndim: 
-    :type int, (int, bool) or None new_ndim: 
-
-    :return: reshaped values
-    :rtype: list of lists, list, *
-
-
-    Examples::
-
-        >>> _redim([1, 2], 2)
-        [[1, 2]]
-
-        >>> _redim([[1, 2]], 1)
-        [1, 2]
-
-        >>> _redim([], 2)
-        [[]]
-
-        >>> _redim([[3.14]], 0)
-        3.14
-
-        >>> _redim([[11, 22]], 0)
-        [11, 22]
-
-        >>> arr = [[[11], [22]]]
-        >>> arr == _redim(arr, None)
-        True
-
-        >>> _redim([[11, 22]], 0)
-        [11, 22]
-    """
-    if new_ndim is None:
-        return values
-
-    values = np.asarray(values)
-    try:
-        new_ndim, transpose = new_ndim
-        if transpose:
-            values = values.T
-    except:
-        pass
-    if new_ndim is not None:
-        if values.ndim < new_ndim:
-            values = _updim(values, new_ndim)
-        elif values.ndim > new_ndim:
-            values = _downdim(values, new_ndim)
-
-    return values.tolist()
-
-
 class SheetsFactory(object):
     """
     A caching-store of :class:`ABCSheet` instances, serving them based on (workbook, sheet) IDs, optionally creating them from backends.
@@ -324,11 +195,6 @@ class SheetsFactory(object):
     def __exit__(self, typ, value, traceback):
         self.close()
 
-
-def _build_call_help(name, func, desc):
-    sig = func and inspect.formatargspec(*inspect.getfullargspec(func))
-    desc = textwrap.indent(textwrap.dedent(desc), '    ')
-    return '\n\nFilter: %s%s:\n%s' % (name, sig, desc)
 
 Lasso = namedtuple('Lasso',
                    ('xl_ref', 'url_file', 'sh_name',
@@ -697,6 +563,141 @@ class Ranger(object):
 ###############
 # FILTER-DEFS
 ###############
+
+
+def _build_call_help(name, func, desc):
+    sig = func and inspect.formatargspec(*inspect.getfullargspec(func))
+    desc = textwrap.indent(textwrap.dedent(desc), '    ')
+    return '\n\nFilter: %s%s:\n%s' % (name, sig, desc)
+
+
+def _classify_rect_shape(st, nd):
+    """
+    Identifies rect from its edge-coordinates (row, col, 2d-table)..
+
+    :param Coords st:
+            the top-left edge of capture-rect, inclusive
+    :param Coords or None nd:
+            the bottom-right edge of capture-rect, inclusive
+    :return: 
+            in int based on the input like that:
+
+            - 0: only `st` given 
+            - 1: `st` and `nd` point the same cell 
+            - 2: row 
+            - 3: col 
+            - 4: 2d-table 
+
+    Examples::
+
+        >>> _classify_rect_shape((1,1), None)
+        0
+        >>> _classify_rect_shape((2,2), (2,2))
+        1
+        >>> _classify_rect_shape((2,2), (2,20))
+        2
+        >>> _classify_rect_shape((2,2), (20,2))
+        3
+        >>> _classify_rect_shape((2,2), (20,20))
+        4
+    """
+    if nd is None:
+        return 0
+    rows = nd[0] - st[0]
+    cols = nd[1] - st[1]
+    return 1 + bool(cols) + 2 * bool(rows)
+
+
+def _decide_ndim_by_rect_shape(shape_idx, ndims_list):
+    return ndims_list[shape_idx]
+
+
+def _updim(values, new_ndim):
+    """
+    Append trivial dimensions to the left.
+
+    :param values:      The scalar ot 2D-results of :meth:`Sheet.read_rect()`
+    :param int new_dim: The new dimension the result should have
+    """
+    new_shape = (1,) * (new_ndim - values.ndim) + values.shape
+    return values.reshape(new_shape)
+
+
+def _downdim(values, new_ndim):
+    """
+    Squeeze it, and then flatten it, before inflating it.
+
+    :param values:       The scalar ot 2D-results of :meth:`Sheet.read_rect()`
+    :param int new_dim: The new dimension the result should have
+    """
+    trivial_indxs = [i for i, d in enumerate(values.shape) if d == 1]
+    offset = values.ndim - new_ndim
+    trivial_ndims = len(trivial_indxs)
+    if offset > trivial_ndims:
+        values = values.flatten()
+    elif offset == trivial_ndims:
+        values = values.squeeze()
+    else:
+        for _, indx in zip(range(offset), trivial_indxs):
+            values = values.squeeze(indx)
+
+    return values
+
+
+def _redim(values, new_ndim):
+    """
+    Reshapes the :term:`capture-rect` values of :func:`read_capture_rect()`.
+
+    :param values:      The scalar ot 2D-results of :meth:`Sheet.read_rect()`
+    :type values: (nested) list, *
+    :param new_ndim: 
+    :type int, (int, bool) or None new_ndim: 
+
+    :return: reshaped values
+    :rtype: list of lists, list, *
+
+
+    Examples::
+
+        >>> _redim([1, 2], 2)
+        [[1, 2]]
+
+        >>> _redim([[1, 2]], 1)
+        [1, 2]
+
+        >>> _redim([], 2)
+        [[]]
+
+        >>> _redim([[3.14]], 0)
+        3.14
+
+        >>> _redim([[11, 22]], 0)
+        [11, 22]
+
+        >>> arr = [[[11], [22]]]
+        >>> arr == _redim(arr, None)
+        True
+
+        >>> _redim([[11, 22]], 0)
+        [11, 22]
+    """
+    if new_ndim is None:
+        return values
+
+    values = np.asarray(values)
+    try:
+        new_ndim, transpose = new_ndim
+        if transpose:
+            values = values.T
+    except:
+        pass
+    if new_ndim is not None:
+        if values.ndim < new_ndim:
+            values = _updim(values, new_ndim)
+        elif values.ndim > new_ndim:
+            values = _downdim(values, new_ndim)
+
+    return values.tolist()
 
 
 def xlwings_dims_call_spec():

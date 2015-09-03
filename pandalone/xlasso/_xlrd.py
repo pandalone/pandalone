@@ -32,7 +32,6 @@ from .. import utils
 log = logging.getLogger(__name__)
 
 # noinspection PyUnresolvedReferences
-# noinspection PyUnresolvedReferences
 if LooseVersion(xlrd.__VERSION__) >= LooseVersion("0.9.3"):
     _xlrd_0_9_3 = True
 else:
