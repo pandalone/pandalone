@@ -9,6 +9,8 @@
 The high-level functionality, the filtering and recursive :term:`lassoing`.
 
 Prefer accessing the public members from the parent module.
+
+.. currentmodule:: pandalone.xlasso
 """
 
 from __future__ import unicode_literals

@@ -420,10 +420,9 @@ _mov_vector_slices = {
 }
 
 
-def _extract_states_vector(states_matrix, dn_coords, land, mov,
-                           mov_slices=_mov_vector_slices):
+def _extract_states_vector(states_matrix, dn_coords, land, mov):
     """Extract a slice from the states-matrix by starting from `land` and following `mov`."""
-    coord_indx, is_reverse, slice_func = mov_slices[mov]
+    coord_indx, is_reverse, slice_func = _mov_vector_slices[mov]
     vect_slice = slice_func(*land)
     states_vect = states_matrix[vect_slice]
     states_vect = states_vect[::is_reverse]
@@ -431,8 +430,7 @@ def _extract_states_vector(states_matrix, dn_coords, land, mov,
     return states_vect, coord_indx, is_reverse
 
 
-def _target_opposite(states_matrix, dn_coords, land, moves,
-                     edge_name='', primitive_dir_vectors=_primitive_dir_vectors):
+def _target_opposite(states_matrix, dn_coords, land, moves, edge_name=''):
     """
     Follow moves from `land` and stop on the 1st full-cell.
 
@@ -500,7 +498,7 @@ def _target_opposite(states_matrix, dn_coords, land, moves,
     imoves = iter(moves)
     mov1 = next(imoves)
     mov2 = next(imoves, None)
-    dv2 = mov2 and primitive_dir_vectors[mov2]
+    dv2 = mov2 and _primitive_dir_vectors[mov2]
 
     # Limit negative coords, since they are valid indices.
     while (up_coords <= target).all():
@@ -928,7 +926,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
         """
         Extract (and cache) margins either internally or from :func:`_margin_coords_from_states_matrix()`.
 
-        :return:    the resolved top-left and bottom-right :class:`Coords`
+        :return:    the resolved top-left and bottom-right :class:`.xlasso.Coords`
         :rtype:     tuple
 
         """

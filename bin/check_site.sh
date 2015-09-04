@@ -28,6 +28,7 @@ fi
 #
 warns="$( echo "$out" | 
     grep -v 'image' | 
+    grep -v ' WARNING: more than one target found for cross-reference' |
     grep 'WARNING' )" 
 if [ -n "$warns" ]; then
     die "$warns"

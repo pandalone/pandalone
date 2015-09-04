@@ -9,6 +9,8 @@
 The syntax-parsing part *xlasso*.
 
 Prefer accessing the public members from the parent module.
+
+.. currentmodule:: pandalone.xlasso
 """
 
 from __future__ import unicode_literals

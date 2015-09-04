@@ -6,42 +6,44 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-A mini-language for for "throwing the rope" around rectangular areas of Excel-sheets.
+A mini-language for "throwing the rope" around rectangular areas of Excel-sheets.
 
 .. default-role:: term
-.. currentmodule:: pandalone.xlasso._parse
+.. currentmodule:: pandalone.xlasso
 
-Introduction
-============
+About
+=====
+Any *decent* dataset is stored in **csv**.
+Consequently, many datasets are in excel-sheets.
+
+*XLasso* defines a url-fragment notation (`xl-ref`) that renders 
+the `capturing` of tables from sheets as practical as reading a **csv**, 
+even when the exact position of those tables are not known beforehand.
+
+An additional goal is to apply the same `lassoing` operation recursively, 
+to  build *data-trees*. For that end, the syntax supports `filter` 
+transformations such as:
+    - setting the dimensionality of the result tables,
+    - creating higher-level objects from 2D `capture-rect` 
+      (dictionaries, *numpy-arrays* & *dataframes*). 
+
+It is based on `xlrd <http://www.python-excel.org/>`_ library but also
+checked for compatibility with `xlwings <http://xlwings.org/quickstart/>`_
+*COM-client* library.  
+It requires *numpy* and (optionally) *pandas*.
+It is developed on python-3 but also tested on python-2 for compatibility.
+
 
 Overview
---------
-This modules defines a url-fragment notation for `capturing` rectangular areas 
-of excel-sheets, when their exact position is not known beforehand.
-The notation extends the ordinary *A1* and *RC* excel `coordinates` with 
+========
+The `xl-ref` notation extends ordinary *A1* and *RC* excel `coordinates` with 
 conditional `traversing` operations, based on the cell's empty/full `state`.
-
-For instance, the following `xl-ref` url extracts a DataFrame from 
-a contigious table at the top-left of a the 1st sheet of a workbook::
+For instance, to extract a contigious table near the ``A1`` cell, 
+and make a ``pandas.DataFrame`` out of it use this::
 
     from pandalone import xlasso
 
     df = xlasso.lasso('path/to/workbook.xlsx#A1(DR):..(DR):LU:["df"]')
-
-
-The goal is to make the `capturing` of data-tables from excel-workbooks
-as practical as reading CSVs, while keeping it as "cheap" as possible.
-Although another library is required for examining the contents of the cells
-(i.e. "pandas"), the `xl-ref` syntax provides `filter` transformations 
-for some common tasks, such as:
-- setting the dimensionality of the result tables,
-- creating higher-level objects (dictionaries, *numpy-arrays* & *dataframes*) 
-- and applying the `lassoing` on the captured values, recursively .
-
-It is based on `xlrd <http://www.python-excel.org/>`_ library but also
-checked for compatibility with `xlwings <http://xlwings.org/quickstart/>`_
-*COM-client* library.  It requires *numpy* and optionally *pandas* and is 
-developed for python-3 but tested also on python-2 for compatibility.
 
 
 Xl-ref Syntax
@@ -52,7 +54,7 @@ Xl-ref Syntax
 
 - See `edge`, `expansion-moves`, `filters` for details.
 - Missing *edges* are implicitly replaced by ``^^:__`` (top-left/bottom-right).
-- Spaces are allowed only before `filters`. 
+- Spaces are allowed only in `filters`. 
 
 
 Annotated Example
@@ -62,12 +64,12 @@ Annotated Example
   target-moves─────┐
   landing-cell──┐  │
                ┌┤ ┌┤
-              #C3(UL):..(RD):RULD:["pipe": [['dict'], ["recursive"]]]
-               └─┬──┘ └─┬──┘ └┬─┘ └─────────────────┬───────────────┘
-  1st-edge───────┘      │     │                     │
-  2nd-edge──────────────┘     │                     │
-  expansions──────────────────┘                     │
-  filters───────────────────────────────────────────┘
+              #C3(UL):..(RD):RULD:["pipe": ['odict', "recursive"]]
+               └─┬──┘ └─┬──┘ └┬─┘ └──────────────┬───────────────┘
+  1st-edge───────┘      │     │                  │
+  2nd-edge──────────────┘     │                  │
+  expansions──────────────────┘                  │
+  filters────────────────────────────────────────┘
 
 Which means:
 
@@ -79,7 +81,8 @@ Which means:
     3. `capture` all the cells between the 2 targets.
     4. try `expansions` to all directions if any neighbouring `full-cell`;
     5. finally `filter` the values of the `capture-rect` to wrap them up
-       in a dictionary, and search its values for `xl-ref` and replace them.
+       in an ordered- dictionary, and dive into its values searching for 
+       `xl-ref`, and replace them.
 
 
 Basic Usage
@@ -91,9 +94,9 @@ A common task is capturing all sheet data but without any bordering nulls::
 
     >>> values = xlasso.lasso('path/to/workbook.xlsx#:')  # doctest: +SKIP
 
-Assuming that the 1st sheet of the workbook on disk is as shown below, 
-the `capture-rect` would be a 2D (nested) list-of-lists with the values
-contained in the range ``C2:E4``::
+Assuming that the `full-cell` of the 1st sheet of the workbook on disk are 
+those marked with ``'X'``, then the result  `capture-rect` of the above call 
+would be a 2D *list-of-lists* with the values contained in ``C2:E4``::
 
       A B C D E
     1    ┌─────┐
@@ -101,10 +104,6 @@ contained in the range ``C2:E4``::
     3    │X    │ 
     4    │  X  │ 
     5    └─────┘ 
-
-where:
-- 'X': the full-cells
-- rectangle: the captured-rect
 
 
 If you do not wish to let the library read your workbooks, you can 
@@ -122,9 +121,9 @@ Here we will use the utility :class:`ArraySheet`::
      [None, 2]] 
 
 This `capture-rect` in this case was *B1* and *C3* as can be seen by inspecting
-the the 'st' and 'nd' fields of the full :class:`Lasso` results returned::
+the ``st`` and ``nd`` fields of the full :class:`Xlref` results returned::
 
-    >>> xlasso.lasso('#A1(DR):..(DR):RULD', sheet=sheet, return_lasso=1)
+    >>> xlasso.lasso('#A1(DR):..(DR):RULD', sheet=sheet, return_lasso=True)
     Lasso(xl_ref='#A1(DR):..(DR):RULD', 
           url_file=None, 
           sh_name=None, 
@@ -133,18 +132,21 @@ the the 'st' and 'nd' fields of the full :class:`Lasso` results returned::
           exp_moves='RULD', 
           call_spec=None, 
           sheet=ArraySheet('wb', ['sh', 0]) 
-                [[None None 'A' None]
-                 [None 2.2 'foo' None]
-                 [None None 2 None]
-                 [None None None 3.14]], 
+                [[None  None  'A'   None]
+                 [None  2.2  'foo'  None]
+                 [None  None  2     None]
+                 [None  None  None  3.14]], 
           st=Coords(row=0, col=1), 
           nd=Coords(row=2, col=2), 
-          values=[[None, 'A'], [2.2, 'foo'], [None, 2]], 
+          values=[[None, 'A'], 
+                  [2.2, 'foo'], 
+                  [None, 2]], 
+          base_cell=None, 
           ...
 
 
 For controlling explicitly the configuration parameters and the opening of 
-workbooks, use separate instances of :class:`Ranger' and :class:`SheetsFactory`, 
+workbooks, use separate instances of :class:`Ranger` and :class:`SheetsFactory`, 
 that are the workhorses of this library::
 
     >>> with xlasso.SheetsFactory() as sf:
@@ -208,7 +210,7 @@ API
       open_sheet
 
 .. default-role:: term
-.. currentmodule:: pandalone.xlasso._parse
+.. currentmodule:: pandalone.xlasso
 
 
 More Syntax Examples
@@ -698,3 +700,15 @@ from pandalone.xlasso._parse import (
     Cell, Coords, Edge, CallSpec,
     parse_xlref,
 )
+
+__all__ = [
+    'resolve_capture_rect', 'ABCSheet', 'ArraySheet', 'coords2Cell',
+
+    'lasso', 'Ranger', 'SheetsFactory',
+    'make_default_Ranger', 'get_default_opts', 'get_default_filters',
+    'Lasso',
+    'xlwings_dims_call_spec', 'log',
+
+    'Cell', 'Coords', 'Edge', 'CallSpec',
+    'parse_xlref',
+]
