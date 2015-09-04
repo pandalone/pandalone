@@ -23,6 +23,7 @@ from future import utils as fututis  # @UnresolvedImport
 from future.backports import ChainMap
 from numpy import testing as npt
 from past.builtins import basestring
+from tests import _tutils
 from toolz import dicttoolz as dtz
 import xlrd
 
@@ -33,7 +34,6 @@ from pandalone.xlasso import _parse as _p, _capture as _c, _lasso as _l
 from pandalone.xlasso import _xlrd as xd
 from pandalone.xlasso._xlrd import XlrdSheet
 import pandas as pd
-from tests import _tutils
 from tests._tutils import (check_excell_installed, xw_Workbook)
 
 from ._tutils import assertRaisesRegex, CustomAssertions
@@ -102,37 +102,43 @@ _all_dirs = _all_dir_single + _all_dir_pairs
 @ddt
 class T011Structs(unittest.TestCase):
 
-    def test_uncooked_Edge_good(self):
-        self.assertIsNone(_p.Edge_new(None, None, None))
+    @data(
+        ((None, None),              None),
+        ((None, None, None),        None),
+        ((None, None, None, None),  None),
+        (('1', 'a', 'lu'),          _p.Edge(_p.Cell(row='1', col='A'), 'LU')),
+        (('1', 'A', 'LUR', '+'),    _p.Edge(_p.Cell(row='1', col='A'),
+                                            'LUR', '+')),
+        (('_', '^', 'duL'),         _p.Edge(_p.Cell('_', '^'), 'DUL')),
+        (('1', '_', None),          _p.Edge(_p.Cell('1', '_'), None)),
+        (('^', '^', None),          _p.Edge(_p.Cell('^', '^'), None)),
 
-        self.assertEquals(_p.Edge_new('1', 'A', 'LUR'),
-                          _p.Edge(_p.Cell(row='1', col='A'), 'LUR'))
-        self.assertEquals(_p.Edge_new('_', '^', 'duL'),
-                          _p.Edge(_p.Cell('_', '^'), 'DUL'))
-        self.assertEquals(_p.Edge_new('1', '_', None),
-                          _p.Edge(_p.Cell('1', '_'), None))
-        self.assertEquals(_p.Edge_new('^', '^', None),
-                          _p.Edge(_p.Cell('^', '^'), None))
+        (('1', '1'),                _p.Edge(_p.Cell(row='1', col='1'))),
+        (('_', '5'),                _p.Edge(_p.Cell(row='_', col='5'))),
+    )
+    def test_Edge_good(self, case):
+        new_edge_args, edge = case
+        self.assertEquals(_p.Edge_new(*new_edge_args), edge)
 
-    def test_uncooked_Edge_bad(self):
-        self.assertEquals(_p.Edge_new(1, 'A', 'U1'),
-                          _p.Edge(_p.Cell(1, 'A'), 'U1'))
-        self.assertEquals(_p.Edge_new('1', '%', 'U1'),
-                          _p.Edge(_p.Cell('1', '%'), 'U1'))
-        self.assertEquals(_p.Edge_new('1', 'A', 'D0L'),
-                          _p.Edge(_p.Cell('1', 'A'), 'D0L'))
-        self.assertEquals(_p.Edge_new('1', 'A', '@#'),
-                          _p.Edge(_p.Cell('1', 'A'), '@#'))
+    @data(
+        ((1, 'A', 'U1'), _p.Edge(_p.Cell(1, 'A'), 'U1')),
+        (('1', '%', 'U1'), _p.Edge(_p.Cell('1', '%'), 'U1')),
+        (('1', 'A', 'D0L'), _p.Edge(_p.Cell('1', 'A'), 'D0L')),
+        (('1', 'A', '@#'), _p.Edge(_p.Cell('1', 'A'), '@#')),
+    )
+    def test_Edge_bad_areOK(self, case):
+        new_edge_args, edge = case
+        self.assertEquals(_p.Edge_new(*new_edge_args), edge)
 
-    def test_uncooked_Edge_fail(self):
+    @data(
+        ('1', 1, '0'),
+        ('1', 'A', 23),
+        # ('_0', '_', '0'),
+        # ('@@', '@', '@'),
+    )
+    def test_Edge_fail(self, case):
         self.assertRaises(
-            AttributeError, _p.Edge_new, *('1', 1, '0'))
-        self.assertRaises(
-            AttributeError, _p.Edge_new, *('1', 'A', 23))
-#         self.assertRaises(
-#             ValueError, _p.Edge_new, *('_0', '_', '0'))
-#         self.assertRaises(
-#             ValueError, _p.Edge_new, *('@@', '@', '@'))
+            AttributeError, _p.Edge_new, *case)
 
     def test_col2num(self):
         self.assertEqual(_c._col2num('D'), 3)
@@ -149,7 +155,7 @@ class T011Structs(unittest.TestCase):
     )
     def test_Cell_to_str(self, case):
         cell, exp = case
-        self.assertEqual(_p._Cell_to_str(cell), exp)
+        self.assertEqual(str(cell), exp)
 
     @data(
         (_p.Edge_new('1', 'a', ), 'A1'),
@@ -160,7 +166,7 @@ class T011Structs(unittest.TestCase):
     )
     def test_Edge_to_str(self, case):
         edge, exp = case
-        self.assertEqual(_p._Edge_to_str(edge), exp)
+        self.assertEqual(str(edge), exp)
 
     @data(
         (_p.Edge_new('1', 'a', ), _p.Edge_new('1', '-1', ), None,
@@ -1930,20 +1936,20 @@ class T18VsXlwings(unittest.TestCase):
         os.remove(self.tmp)
 
     @data(
-        ('#R7C4:..(D):%s',  lambda xw: xw.Range("Sheet1", "D7").vertical.value),
-        ('#R6C5:..(D):%s',  lambda xw: xw.Range("Sheet1", "E6").vertical.value),
-        ('#R6C5:..(R):%s',  lambda xw: xw.Range("Sheet1",
+        ('#R7C4:..(D):%s', lambda xw: xw.Range("Sheet1", "D7").vertical.value),
+        ('#R6C5:..(D):%s', lambda xw: xw.Range("Sheet1", "E6").vertical.value),
+        ('#R6C5:..(R):%s', lambda xw: xw.Range("Sheet1",
                                                "E6").horizontal.value),
         ('#R6C5:..(RD):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
         ('#R6C5:..(DR):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
-        ('#R8C6:R6C4:%s',   lambda xw: xw.Range("Sheet1", "D6:F8").value),
-        ('#R8C6:R1C1:%s',   lambda xw: xw.Range("Sheet1", "A1:F8").value),
-        ('#R7C1:R7C4:%s',   lambda xw: xw.Range("Sheet1", "A7:D7").value),
-        ('#R9C4:R3C4:%s',   lambda xw: xw.Range("Sheet1", "D3:D9").value),
+        ('#R8C6:R6C4:%s', lambda xw: xw.Range("Sheet1", "D6:F8").value),
+        ('#R8C6:R1C1:%s', lambda xw: xw.Range("Sheet1", "A1:F8").value),
+        ('#R7C1:R7C4:%s', lambda xw: xw.Range("Sheet1", "A7:D7").value),
+        ('#R9C4:R3C4:%s', lambda xw: xw.Range("Sheet1", "D3:D9").value),
     )
     def test_vs_xlwings(self, case):
         xlref, res = case
-        import xlwings as xw
+        import xlwings as xw  # @UnresolvedImport
         # load Workbook for --> xlwings
         with xw_Workbook(self.tmp):
             res = res(xw)

@@ -27,24 +27,23 @@ import itertools as itt
 import numpy as np
 
 
-Cell = namedtuple('Cell', ['row', 'col'])
-"""
-A pair of 1-based strings, denoting the "A1" coordinates of a cell.
+class Cell(namedtuple('Cell', ('row', 'col'))):
+    """
+    A pair of 1-based strings, denoting the "A1" coordinates of a cell.
 
-The "num" coords (numeric, 0-based) are specified using numpy-arrays
-(:class:`Coords`).
-"""
+    The "num" coords (numeric, 0-based) are specified using numpy-arrays
+    (:class:`Coords`).
+    """
 
-
-def _Cell_to_str(cell):
-    r = cell.row
-    c = cell.col
-    try:
-        c = int(c)
-        s = 'R%sC%s' % (r, c, )
-    except:
-        s = '%s%s' % (c, r)
-    return s.upper()
+    def __str__(self):
+        r = self.row
+        c = self.col
+        try:
+            c = int(c)
+            s = 'R%sC%s' % (r, c, )
+        except:
+            s = '%s%s' % (c, r)
+        return s.upper()
 
 
 Coords = namedtuple('Coords', ['row', 'col'])
@@ -53,28 +52,30 @@ A pair of 0-based integers denoting the "num" coordinates of a cell.
 
 The "A1" coords (1-based coordinates) are specified using :class:`Cell`.
 """
-#     return np.array([row, cell], dtype=np.int16)
 
 
-Edge = namedtuple('Edge', ('land', 'mov', 'mod'))
-"""
-All the infos required to :term:`target` a cell.
+class Edge(namedtuple('Edge', ('land', 'mov', 'mod'))):
+    """
+    All the infos required to :term:`target` a cell.
 
-An :term:`Edge` contains *A1* :class:`Cell` as `land`.
+    An :term:`Edge` contains *A1* :class:`Cell` as `land`.
 
-:param Cell land: the :term:`landing-cell`
-:param str mov: use None for missing moves.
-:param str mod: one of (`+`, `-` or `None`)
-"""
+    :param Cell land: the :term:`landing-cell`
+    :param str mov: use None for missing moves.
+    :param str mod: one of (`+`, `-` or `None`)
+    """
+    __slots__ = ()
 
-Edge.__new__.__defaults__ = (None, None)
-"""Make optional the last 2 fields of :class:`Edge` ``(mov, mod)`` ."""
+    def __new__(cls, land, mov=None, mod=None):
+        return super(cls, Edge).__new__(cls, land, mov, mod)
 
+    def __str__(self):
+        return ('%s(%s%s)' % (self.land, self.mov, self.mod or '')
+                if self.mov
+                else str(self.land))
 
-def _Edge_to_str(edge):
-    c = _Cell_to_str(edge.land)
-    return '%s(%s%s)' % (c, edge.mov, edge.mod or '') if edge.mov else c
-
+    # def __repr__(self):
+    #     return "Edge('%s')" % str(self)
 
 _topleft_Edge = Edge(Cell('^', '^'))
 _bottomright_Edge = Edge(Cell('_', '_'))
@@ -95,9 +96,10 @@ def Edge_new(row, col, mov=None, mod=None, default=None):
 
     Examples::
 
-        >>> tr = Edge_new('1', 'a', 'Rul', '-')
-        >>> tr
+        >>> Edge_new('1', 'a', 'Rul', '-')
         Edge(land=Cell(row='1', col='A'), mov='RUL', mod='-')
+        >>> print(Edge_new('5', '5'))
+        R5C5
 
 
     No error checking performed::

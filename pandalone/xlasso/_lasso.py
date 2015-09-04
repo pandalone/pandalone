@@ -32,7 +32,6 @@ import numpy as np
 from . import _parse
 from ..utils import as_list
 from ._capture import resolve_capture_rect
-from ._parse import _Edge_to_str
 
 
 log = logging.getLogger(__name__)
@@ -240,8 +239,8 @@ Lasso.__new__.__defaults__ = (None,) * len(Lasso._fields)
 
 
 def _Lasso_to_edges_str(lasso):
-    st = _Edge_to_str(lasso.st_edge) if lasso.st_edge else ''
-    nd = _Edge_to_str(lasso.nd_edge) if lasso.nd_edge else ''
+    st = lasso.st_edge if lasso.st_edge else ''
+    nd = lasso.nd_edge if lasso.nd_edge else ''
     s = st if st and not nd else '%s:%s' % (st, nd)
     exp = ':%s' % lasso.exp_moves.upper() if lasso.exp_moves else ''
     return s + exp
