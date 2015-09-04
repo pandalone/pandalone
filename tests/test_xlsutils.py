@@ -15,12 +15,12 @@ from pandas.core.generic import NDFrame
 import numpy as np
 import pandas as pd
 from tests._tutils import (
-    _init_logging, TemporaryDirectory, check_xl_installed, xw_Workbook,
+    _init_logging, TemporaryDirectory, check_excell_installed, xw_Workbook,
     xw_close_workbook)
 
 
 log = _init_logging(__name__)
-xl_installed = check_xl_installed()
+is_excel_installed = check_excell_installed()
 
 
 def from_my_path(*parts):
@@ -34,7 +34,7 @@ def _make_sample_sheet(wb, sheetname, addr, value):
     xw.Range(addr).value = value
 
 
-@unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
+@unittest.skipIf(not is_excel_installed, "Cannot test xlwings without MS Excel.")
 class TestExcel(unittest.TestCase):
 
     def test_build_excel(self):

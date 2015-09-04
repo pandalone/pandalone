@@ -34,7 +34,7 @@ from pandalone.xlasso import _xlrd as xd
 from pandalone.xlasso._xlrd import XlrdSheet
 import pandas as pd
 from tests import _tutils
-from tests._tutils import (check_xl_installed, xw_Workbook)
+from tests._tutils import (check_excell_installed, xw_Workbook)
 
 from ._tutils import assertRaisesRegex, CustomAssertions
 
@@ -46,7 +46,7 @@ except ImportError:
 
 
 log = _tutils._init_logging(__name__)
-xl_installed = check_xl_installed()
+is_excel_installed = check_excell_installed()
 _l.CHECK_CELLTYPE = True
 
 
@@ -57,7 +57,7 @@ def _write_sample_sheet(path, matrix, sheet_name, **kwds):
             for s in sheet_name:
                 df.to_excel(w, s, **kwds)
         else:
-            df.to_excel(w, sheet_name, **kwds)
+            df.to_excel(w, sheet_name, encoding='utf-8', **kwds)
 
 
 def _make_local_url(fname, fragment=''):
@@ -1844,8 +1844,8 @@ class T17VsPandas(unittest.TestCase, CustomAssertions):
 
     @contextlib.contextmanager
     def sample_xl_file(self, matrix, **df_write_kwds):
+        tmp_file = '%s.xlsx' % tempfile.mktemp()
         try:
-            tmp_file = '%s.xlsx' % tempfile.mktemp()
             _write_sample_sheet(tmp_file, matrix, 'Sheet1', **df_write_kwds)
 
             yield tmp_file
@@ -1861,7 +1861,7 @@ class T17VsPandas(unittest.TestCase, CustomAssertions):
         [1,    True,   None, False,  None],   # 1
         [5,    True,   dt,    u'',    3.14],  # 2
         [7,    False,  5.1,   7.1,    ''],    # 3
-        [9,    True,   43,    b'str', dt],    # 4
+        [9,    True,   43,    'str', dt],    # 4
     ])
 
     def test_pandas_can_write_multicolumn(self):
@@ -1908,7 +1908,7 @@ class T17VsPandas(unittest.TestCase, CustomAssertions):
                               parse_df_kwds=dict(header=0))
 
 
-@unittest.skipIf(not xl_installed, "Cannot test xlwings without MS Excel.")
+@unittest.skipIf(not is_excel_installed, "Cannot test xlwings without MS Excel.")
 @ddt
 class T18VsXlwings(unittest.TestCase):
 
@@ -1930,21 +1930,22 @@ class T18VsXlwings(unittest.TestCase):
         os.remove(self.tmp)
 
     @data(
-        ('#R7C4:..(D):%s', lambda xw: xw.Range("Sheet1", "D7").vertical.value),
-        ('#R6C5:..(D):%s', lambda xw: xw.Range("Sheet1", "E6").vertical.value),
-        ('#R6C5:..(R):%s', lambda xw: xw.Range("Sheet1",
+        ('#R7C4:..(D):%s',  lambda xw: xw.Range("Sheet1", "D7").vertical.value),
+        ('#R6C5:..(D):%s',  lambda xw: xw.Range("Sheet1", "E6").vertical.value),
+        ('#R6C5:..(R):%s',  lambda xw: xw.Range("Sheet1",
                                                "E6").horizontal.value),
         ('#R6C5:..(RD):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
         ('#R6C5:..(DR):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
-        ('#R8C6:R6R4:%s', lambda xw: xw.Range("Sheet1", "D6:F8").value),
-        ('#R8C6:R1C1:%s', lambda xw: xw.Range("Sheet1", "A1:F8").value),
-        ('#R7C1:R7C4:%s', lambda xw: xw.Range("Sheet1", "A7:D7").value),
-        ('#R9C4:R3C4:%s', lambda xw: xw.Range("Sheet1", "D3:D9").value),
+        ('#R8C6:R6C4:%s',   lambda xw: xw.Range("Sheet1", "D6:F8").value),
+        ('#R8C6:R1C1:%s',   lambda xw: xw.Range("Sheet1", "A1:F8").value),
+        ('#R7C1:R7C4:%s',   lambda xw: xw.Range("Sheet1", "A7:D7").value),
+        ('#R9C4:R3C4:%s',   lambda xw: xw.Range("Sheet1", "D3:D9").value),
     )
     def test_vs_xlwings(self, case):
         xlref, res = case
+        import xlwings as xw
         # load Workbook for --> xlwings
-        with xw_Workbook(self.tmp) as xw:
+        with xw_Workbook(self.tmp):
             res = res(xw)
 
         dims = _l.xlwings_dims_call_spec()

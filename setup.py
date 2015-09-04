@@ -204,7 +204,6 @@ setup(
     extras_require={
         ':python_version == "2.7"': [  # See PEP-426
             'mock',
-            'pathlib',  # TODO: Remove pathlib when use `python-future`.
         ],
     },
     run_requires=[

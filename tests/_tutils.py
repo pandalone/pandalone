@@ -42,7 +42,7 @@ except:  # pragma: no cover
     assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
 
 
-def check_xl_installed():
+def check_excell_installed():
     """Checks once and returns `True` if Excel-app is installed in the system."""
     global _xl_installed
     if _xl_installed is None:
@@ -261,8 +261,7 @@ def capture(command, *args, **kwargs):
 def chdir(dirname=None):
     curdir = os.getcwd()
     try:
-        if dirname is not None:
-            os.chdir(dirname)
+        os.chdir(dirname)
         yield
     finally:
         os.chdir(curdir)
@@ -280,7 +279,9 @@ def xw_Workbook(*args, **kws):
     import xlwings
 
     wb = xlwings.Workbook(*args, **kws)
-    # app = wb.application TODO: Upgrade xlwings
-    yield wb
-    xw_close_workbook(wb)
+    try:
+        # app = wb.application TODO: Upgrade xlwings
+        yield wb
+    finally:
+        xw_close_workbook(wb)
     # app.quit()

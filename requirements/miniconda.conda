@@ -1,7 +1,7 @@
 ## Dependencies for the *conda* package-manager.
 ## Under *linux* use this command to install them::
 ##
-##      install `grep -v '#' requirements/miniconda.conda`
+##      conda install --file requirements/miniconda.conda
 ##
 ## To install the rest deps of the project use the "standard"::
 ##
