@@ -121,7 +121,7 @@ class T011Structs(unittest.TestCase):
         self.assertEquals(_p.Edge_new(*new_edge_args), edge)
 
     @data(
-        ((1, 'A', 'U1'), _p.Edge(_p.Cell(1, 'A'), 'U1')),
+        (('1', 'A', 'U1'), _p.Edge(_p.Cell('1', 'A'), 'U1')),
         (('1', '%', 'U1'), _p.Edge(_p.Cell('1', '%'), 'U1')),
         (('1', 'A', 'D0L'), _p.Edge(_p.Cell('1', 'A'), 'D0L')),
         (('1', 'A', '@#'), _p.Edge(_p.Cell('1', 'A'), '@#')),
@@ -152,10 +152,30 @@ class T011Structs(unittest.TestCase):
         (_p.Cell('1', '-1'), 'R1C-1'),
         (_p.Cell('-1', '1'), 'R-1C1'),
         (_p.Cell('-1', 'A'), 'A-1'),
+
+        #         (_p.Cell('1', 'a', 'R'), 'A1[R]`)
+        #         (_p.Cell('1', 'a', None, 'c'),
+        #         (_p.Cell('1', 'a', '^', 'c'),
     )
     def test_Cell_to_str(self, case):
         cell, exp = case
         self.assertEqual(str(cell), exp)
+
+    @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
+    @data(
+        (_p.Cell('1', 'a'), "Cell(row='1', col='A')"),
+        (_p.Cell('1', '1'), "Cell(row='1', col='1')"),
+
+        (_p.Cell('1', 'a', 'R'),
+         "Cell(row='1', col='A', brow='R', bcol=None)"),
+        (_p.Cell('1', 'a', None, 'c'),
+         "Cell(row='1', col='A', brow=None, bcol='C')"),
+        (_p.Cell('1', '.', '^', 'C'),
+         "Cell(row='1', col='.', brow='^', bcol='C')"),
+    )
+    def test_Cell_to_repr(self, case):
+        cell, exp = case
+        self.assertEqual(repr(cell), exp)
 
     @data(
         (_p.Edge_new('1', 'a', ), 'A1'),
@@ -1030,7 +1050,7 @@ class T08Sheet(unittest.TestCase):
         sheet._states_matrix = np.array([
             [0, 1, 1, 0]
         ])
-        margins = (_p.Cell(0, 1), _p.Cell(0, 2))
+        margins = (_p.Coords(0, 1), _p.Coords(0, 2))
         self.assertEqual(sheet.get_margin_coords(), margins)
         sheet._margin_coords = None
         self.assertEqual(sheet.get_margin_coords(), margins)
@@ -1047,7 +1067,7 @@ class T08Sheet(unittest.TestCase):
         ])
         self.assertEqual(sheet.get_margin_coords(), margins)
         sheet._margin_coords = None
-        margins = (_p.Cell(1, 0), _p.Cell(3, 2))
+        margins = (_p.Coords(1, 0), _p.Coords(3, 2))
         self.assertEqual(sheet.get_margin_coords(), margins)
 
 ############

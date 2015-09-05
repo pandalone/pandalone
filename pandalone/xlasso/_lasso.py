@@ -274,13 +274,13 @@ class Ranger(object):
             A ``('stage', Lasso)`` pair with the last :class:`Lasso` instance 
             produced during the last execution of the :meth:`do_lasso()`.
             Used for inspecting/debuging.
-    :ivar _context_lasso_fields:
-            The name of the fields taken from `context_lasso` arg of 
-            :meth:`do_lasso()`, when the parsed ones are `None`.
-            Needed for recursive invocations, see :meth:`recursive_filter`.
+    :ivar _recursive_lasso_fields:
+            The name of the fields taken from `context_kwds` arg of 
+            :meth:`do_lasso()`, when the parsed ones are `None`, when
+            recursing invocations with meth:`recursive_filter`.
     """
 
-    _context_lasso_fields = ['sheet', 'st', 'nd', 'base_coords']
+    _recursive_lasso_fields = ['sheet', 'st', 'nd', 'base_coords']
 
     def __init__(self, sheets_factory,
                  base_opts=None, available_filters=None):
@@ -359,7 +359,7 @@ class Ranger(object):
 
         - Lower the :mod:`logging` level to see other than syntax-errors on
           recursion reported on :data:`log`.
-        - Only those in :attr:`Ranger._context_lasso_fields` are passed 
+        - Only those in :attr:`Ranger._recursive_lasso_fields` are passed 
           recursively.
 
         :param list or str include:
@@ -394,7 +394,7 @@ class Ranger(object):
             return base_coords
 
         def invoke_recursively(vals, base_coords, cdepth):
-            context = dtz.keyfilter(lambda k: k in self._context_lasso_fields,
+            context = dtz.keyfilter(lambda k: k in self._recursive_lasso_fields,
                                     lasso._asdict())
             context['base_coords'] = base_coords
             try:
@@ -542,9 +542,6 @@ class Ranger(object):
 
         :param Lasso context_kwds: 
                 Default :class:`Lasso` fields in case parsed ones are `None` 
-                Only those in :attr:`_context_lasso_fields` are taken 
-                into account.
-                Utilized  by :meth:`recursive_filter()`.
         :return: 
                 The final :class:`Lasso` with captured & filtered values.
         :rtype: Lasso

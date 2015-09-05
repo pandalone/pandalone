@@ -27,13 +27,21 @@ import itertools as itt
 import numpy as np
 
 
-class Cell(namedtuple('Cell', ('row', 'col'))):
+class Cell(namedtuple('Cell', ('row', 'col', 'brow', 'bcol'))):
     """
     A pair of 1-based strings, denoting the "A1" coordinates of a cell.
 
     The "num" coords (numeric, 0-based) are specified using numpy-arrays
     (:class:`Coords`).
     """
+
+    def __new__(cls, row, col, brow=None, bcol=None):
+
+        return super(cls, Cell).__new__(cls,
+                                        row and row.upper(),
+                                        col and col.upper(),
+                                        brow and brow.upper(),
+                                        bcol and bcol.upper())
 
     def __str__(self):
         r = self.row
@@ -43,8 +51,17 @@ class Cell(namedtuple('Cell', ('row', 'col'))):
             s = 'R%sC%s' % (r, c, )
         except:
             s = '%s%s' % (c, r)
-        return s.upper()
+        return s
 
+    def __repr__(self):
+        if self.brow or self.bcol:
+            s = super(Cell, self).__repr__()
+        else:
+            s = "Cell(row=%r, col=%r)" % (self.row, self.col)
+        return s
+
+Cell.__new__.__defaults__ = (None, None)
+"""Make :class:`Cell` construct with missing 'brow', 'bcol' fields as `None`."""
 
 Coords = namedtuple('Coords', ['row', 'col'])
 """
@@ -105,7 +122,7 @@ def Edge_new(row, col, mov=None, mod=None, default=None):
     No error checking performed::
 
         >>> Edge_new('Any', 'foo', 'BaR', '+_&%')
-        Edge(land=Cell(row='Any', col='FOO'), mov='BAR', mod='+_&%')
+        Edge(land=Cell(row='ANY', col='FOO'), mov='BAR', mod='+_&%')
 
         >>> print(Edge_new(None, None, None, None))
         None
@@ -125,7 +142,7 @@ def Edge_new(row, col, mov=None, mod=None, default=None):
     if col == row == mov == mod is None:
         return default
 
-    return Edge(land=Cell(col=col and col.upper(), row=row),
+    return Edge(land=Cell(row, col),
                 mov=mov and mov.upper(), mod=mod)
 
 _regular_xlref_regex = re.compile(
