@@ -112,7 +112,7 @@ def _parse_cell(xcell, epoch1904=False):
                      (xcell.ctype, xcell.value))
 
 
-def _open_sheet_by_name_or_index(wb, sheet_id, opts=None):
+def _open_sheet_by_name_or_index(xlrd_book, wb_id, sheet_id, opts=None):
     """
     :param int or str or None sheet_id:
             If `None`, opens 1st sheet.
@@ -122,18 +122,18 @@ def _open_sheet_by_name_or_index(wb, sheet_id, opts=None):
     if sheet_id is None:
         sheet_id = 0
     if isinstance(sheet_id, int):
-        xl_sh = wb.sheet_by_index(sheet_id)
+        xl_sh = xlrd_book.sheet_by_index(sheet_id)
     else:
         try:
-            xl_sh = wb.sheet_by_name(sheet_id)
+            xl_sh = xlrd_book.sheet_by_name(sheet_id)
         except Exception as xl_ex:
             try:
                 sheet_id = int(sheet_id)
             except ValueError:
                 raise xl_ex
             else:
-                xl_sh = wb.sheet_by_index(sheet_id)
-    return XlrdSheet(xl_sh)
+                xl_sh = xlrd_book.sheet_by_index(sheet_id)
+    return XlrdSheet(xl_sh, xlrd_book)
 
 
 def open_sheet(wb_url, sheet_id, opts):
@@ -150,14 +150,15 @@ def open_sheet(wb_url, sheet_id, opts):
     parts = filename = urlsplit(wb_url)
     if not parts.scheme or parts.scheme == 'file':
         fpath = path.abspath(path.expanduser(path.expandvars(parts.path)))
-        wb = xlrd.open_workbook(fpath, **ropts)
+        book = xlrd.open_workbook(fpath, **ropts)
     else:
         ropts.pop('on_demand', None)
         http_opts = ropts.get('http_opts', {})
         with request.urlopen(wb_url, **http_opts) as response:
-            wb = xlrd.open_workbook(filename, file_contents=response, **ropts)
+            book = xlrd.open_workbook(
+                filename, file_contents=response, **ropts)
 
-    return _open_sheet_by_name_or_index(wb, sheet_id, opts)
+    return _open_sheet_by_name_or_index(book, wb_url, sheet_id, opts)
 
 
 class XlrdSheet(ABCSheet):
@@ -165,11 +166,12 @@ class XlrdSheet(ABCSheet):
     The *xlrd* workbook wrapper required by xlasso library. 
     """
 
-    def __init__(self, sheet, epoch1904=False):
+    def __init__(self, sheet, book_fname, epoch1904=False):
         if not isinstance(sheet, xlrd.sheet.Sheet):
             raise ValueError("Invalid xlrd-sheet({})".format(sheet))
         self._sheet = sheet
         self._epoch1904 = epoch1904
+        self.book_fname = book_fname
 
     def _close(self):
         """ Override it to release resources for this sheet."""
@@ -181,11 +183,12 @@ class XlrdSheet(ABCSheet):
 
     def get_sheet_ids(self):
         sh = self._sheet
-        return sh.book.filestr,  [sh.name, sh.number]
+        return self.book_fname or sh.book.filestr,  [sh.name, sh.number]
 
     def open_sibling_sheet(self, sheet_id, opts=None):
         """Gets by-index only if `sheet_id` is `int`, otherwise tries both by name and index."""
-        return _open_sheet_by_name_or_index(self._sheet.book, sheet_id,
+        return _open_sheet_by_name_or_index(self._sheet.book,
+                                            self.book_fname, sheet_id,
                                             opts)
 
     def _read_states_matrix(self):

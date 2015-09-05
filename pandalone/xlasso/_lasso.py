@@ -111,7 +111,7 @@ class SheetsFactory(object):
         key_pairs = itt.product(wb_ids, sh_ids)
         keys = list(set(self._build_sheet_key(*p)
                         for p in key_pairs
-                        if p[0] is not None))
+                        if p[0]))
         assert keys, (keys, sheet,  wb_ids, sh_ids)
 
         return keys
@@ -359,6 +359,8 @@ class Ranger(object):
 
         - Lower the :mod:`logging` level to see other than syntax-errors on
           recursion reported on :data:`log`.
+        - Only those in :attr:`Ranger._context_lasso_fields` are passed 
+          recursively.
 
         :param list or str include:
                 Items to include in the recursive-search.
@@ -391,19 +393,28 @@ class Ranger(object):
                     base_cell = base_cell._replace(col=i)
             return base_cell
 
+        def invoke_recursively(vals, base_cell, cdepth):
+            context = dtz.keyfilter(lambda k: k in self._context_lasso_fields,
+                                    lasso._asdict())
+            context['base_cell'] = base_cell
+            try:
+                rlasso = self.do_lasso(vals, **context)
+                vals = rlasso and rlasso.values
+            except SyntaxError as ex:
+                msg = "Skipped non xl-ref(%s) due to: %s"
+                log.debug(msg, vals, ex)
+            except Exception as ex:
+                loc = lasso.sheet.get_sheet_ids() if lasso.sheet else ()
+                if lasso.base_cell:
+                    loc += (lasso.base_cell,)
+                msg = "Lassoing  xl-ref(%s) at loc(%s) stopped due to: \n  %s"
+                msg %= (vals, loc, ex)
+                raise ValueError(verbose(msg))
+            return vals
+
         def dive_list(vals, base_cell, cdepth):
             if isinstance(vals, basestring):
-                context = lasso._asdict()
-                context['base_cell'] = base_cell
-                try:
-                    rlasso = self.do_lasso(vals, **context)
-                    vals = rlasso and rlasso.values
-                except SyntaxError as ex:
-                    msg = "Skipped recursive-lassoing value(%s) due to: %s"
-                    log.debug(msg, vals, ex)
-                except Exception as ex:
-                    msg = "Lassoing  %s stopped due to: \n  %s" % (vals, ex)
-                    raise ValueError(verbose(msg))
+                vals = invoke_recursively(vals, base_cell, cdepth)
             elif isinstance(vals, list):
                 for i, v in enumerate(vals):
                     nbc = new_base_cell(base_cell, cdepth, i)
@@ -419,10 +430,13 @@ class Ranger(object):
                 except:
                     pass  # Just to avoid chained ex.
                 else:
-                    for k, v in items:
+                    for i, (k, v) in enumerate(items):
+                        # Dict is not ordered, so cannot locate `base_cell`!
                         if is_included(k):
-                            # No base_cell possible with Indexed.
-                            vals[k] = dive_indexed(v, None, cdepth + 1)
+                            nbc = (None
+                                   if isinstance(vals, dict)
+                                   else new_base_cell(base_cell, cdepth, i))
+                            vals[k] = dive_indexed(v, nbc, cdepth + 1)
                     dived = True
                 if not dived:
                     vals = dive_list(vals, base_cell, cdepth)
@@ -435,12 +449,8 @@ class Ranger(object):
 
     def _make_init_Lasso(self, **context_kwds):
         """Creates the lasso to be used for each new :meth:`do_lasso()` invocation."""
-        def is_context_field(field):
-            return field in self._context_lasso_fields
-
-        context_fields = dtz.keyfilter(is_context_field, context_kwds)
-        context_fields['opts'] = ChainMap(deepcopy(self.base_opts))
-        init_lasso = Lasso(**context_fields)
+        context_kwds['opts'] = ChainMap(deepcopy(self.base_opts))
+        init_lasso = Lasso(**context_kwds)
 
         return init_lasso
 
@@ -481,7 +491,9 @@ class Ranger(object):
             if sh_name is not None:
                 sheet = sheet.open_sibling_sheet(sh_name, opts)
                 if sheet and self.sheets_factory:
-                    self.sheets_factory.add_sheet(sheet, sh_ids=sh_name)
+                    self.sheets_factory.add_sheet(sheet,
+                                                  wb_ids=url_file,
+                                                  sh_ids=sh_name)
             return sheet
 
     def _open_sheet(self, lasso):
@@ -503,8 +515,12 @@ class Ranger(object):
 
     def _resolve_capture_rect(self, lasso, sheet):
         try:
-            st, nd = resolve_capture_rect(sheet.get_states_matrix(), sheet.get_margin_coords(),
-                                          lasso.st_edge, lasso.nd_edge, lasso.exp_moves)
+            st, nd = resolve_capture_rect(sheet.get_states_matrix(),
+                                          sheet.get_margin_coords(),
+                                          lasso.st_edge,
+                                          lasso.nd_edge,
+                                          lasso.exp_moves,
+                                          lasso.base_cell)
         except Exception as ex:
             msg = "Resolving capture-rect(%r) failed due to: %s"
             raise ValueError(msg % (_Lasso_to_edges_str(lasso), ex))
@@ -533,6 +549,8 @@ class Ranger(object):
                 The final :class:`Lasso` with captured & filtered values.
         :rtype: Lasso
         """
+        if not isinstance(xlref, basestring):
+            raise ValueError("Expected a string as `xl-ref`: %s" % xlref)
         self.intermediate_lasso = None
 
         lasso = self._make_init_Lasso(**context_kwds)
@@ -545,16 +563,15 @@ class Ranger(object):
         lasso = self._relasso(lasso, 'open', sheet=sheet)
 
         st, nd = self._resolve_capture_rect(lasso, sheet)
-        lasso = self._relasso(lasso, 'resolve_capture_rect',
-                              st=st, nd=nd, base_cell=lasso.base_cell)
+        lasso = self._relasso(lasso, 'capture', st=st, nd=nd)
 
         values = sheet.read_rect(st, nd)
         lasso = self._relasso(lasso, 'read_rect', values=values)
 
         if lasso.call_spec:
             try:
-                # relasso() internally
                 lasso = self._make_call(lasso, *lasso.call_spec)
+                # relasso(values) invoked internally.
             except Exception as ex:
                 msg = "Filtering xl-ref(%r) failed due to: %s"
                 raise ValueError(msg % (lasso.xl_ref, ex))
@@ -899,8 +916,6 @@ def lasso(xlref,
     :param Lasso context_kwds: 
             Default :class:`Lasso` fields in case parsed ones are `None`
             (i.e. you can specify the sheet like that).
-            Only those in :attr:`Ranger._context_lasso_fields` are taken 
-            into account.
 
     :return: 
             Either the captured & filtered values or the final :class:`Lasso`,

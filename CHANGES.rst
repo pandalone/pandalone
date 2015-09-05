@@ -25,8 +25,7 @@ TODOs
         - filters:
             - [ ] Slices and Index args on 'numpy' and 'df' filters.
             - [x] Recursive filter
-        - [ ] Split Laso struct --> Lasso+Context 
-            - [ ] Build XLref recursive trees.  
+        - [ ] Build XLref recursive trees.  
         - [ ] Xlrd-read with slices.
         - [X] Respect base-cell also for 1st edge filter
         - [x] Keep only single Lasso-stage in Ranger.
@@ -36,7 +35,7 @@ TODOs
         - [x] Separate modules in _parse, _capture, _lasso .
     - TCs
         - [ ] More TCs.
-        - [ ] Test XlWings in Windows indeed OK.
+        - [x] Test XlWings in Windows indeed OK.
         - [x] Recursive with real-excel file.
     - Backends:
         - [ ] xlwings

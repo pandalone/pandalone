@@ -221,7 +221,7 @@ def _col2num(coord):
     return rcoord
 
 
-def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
+def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coords=None):
     """
     Translates special coords or converts Excel string 1-based rows/cols to zero-based, reporting invalids.
 
@@ -235,7 +235,7 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
             the resolved *top* or *left* margin zero-based coordinate
     :param int dn_coord:
             the resolved *bottom* or *right* margin zero-based coordinate 
-    :param int, None base_coord: 
+    :param int, None base_coords: 
             the resolved basis for dependent coord, if any
 
     :return: the resolved coord or `None` if it were not a special coord.
@@ -261,7 +261,7 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
 
     But notice when base-cell missing::
 
-        >>> _resolve_coord(cname, _row2num, '.', 0, 10, base_coord=None)
+        >>> _resolve_coord(cname, _row2num, '.', 0, 10, base_coords=None)
         Traceback (most recent call last):
         ValueError: Cannot resolve `relative-row` without `base-coord`!
 
@@ -313,8 +313,8 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
                 '^': up_coord,
                 '_': dn_coord
             }
-            if base_coord is not None:
-                special_dict['.'] = base_coord
+            if base_coords is not None:
+                special_dict['.'] = base_coords
             rcoord = special_dict[coord]
         else:
             rcoord = cfunc(coord)
@@ -334,7 +334,7 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coord=None):
         raise ValueError(msg.format(cname, coord, ex))
 
 
-def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
+def _resolve_cell(cell, up_coords, dn_coords, base_coords=None):
     """
     Translates any special coords to absolute ones.
 
@@ -349,7 +349,7 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
             the top-left resolved coords with full-cells
     :param Coords dn_coords:
             the bottom-right resolved coords with full-cells
-    :param Coords base_cords:
+    :param Coords base_coords:
                 A resolved cell to base dependent coords (``.``).
     :return: the resolved cell-coords
     :rtype:  Coords
@@ -393,10 +393,10 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
     assert not CHECK_CELLTYPE or isinstance(up_coords, Coords), up_coords
     assert not CHECK_CELLTYPE or isinstance(dn_coords, Coords), dn_coords
     try:
-        if base_cords is None:
+        if base_coords is None:
             base_row = base_col = None
         else:
-            base_row, base_col = base_cords
+            base_row, base_col = base_coords
         row = _resolve_coord('row', _row2num, cell.row,
                              up_coords[0], dn_coords[0], base_row)
         col = _resolve_coord('col', _col2num, cell.col,
@@ -404,8 +404,8 @@ def _resolve_cell(cell, up_coords, dn_coords, base_cords=None):
 
         return Coords(row, col)
     except Exception as ex:
-        msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  base_cords(%s)"
-        log.debug(msg, cell, ex, (up_coords, dn_coords), base_cords)
+        msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  base_coords(%s)"
+        log.debug(msg, cell, ex, (up_coords, dn_coords), base_coords)
         msg = "invalid cell(%s) due to: %s"
         # fututils.raise_from(ValueError(msg % (cell, ex)), ex) see GH 141
         raise ValueError(msg % (cell, ex))
@@ -731,7 +731,7 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
     :param list or none exp_moves:
             Just the parsed string, and not `None`.
     :param Coords base_coords:
-            The base for a :term:`dependent` :term;`1st` edge.
+            The base for a :term:`dependent` :term:`1st` edge.
 
     :return:    a ``(Coords, Coords)`` with the 1st and 2nd :term:`capture-cell`
                 ordered from top-left --> bottom-right.

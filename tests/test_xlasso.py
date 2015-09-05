@@ -1833,7 +1833,7 @@ class T16RealFile(unittest.TestCase):
 
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     def test_real_file(self):
-        res = _l.lasso('xlref.xlsx#^^:"recurse"')
+        res = _l.lasso('recursive.xlsx#^^:"recurse"')
         exp = dedent("""\
         OrderedDict([('table in this sheet',      A     B
         r1  11   foo
@@ -1892,8 +1892,8 @@ class T17VsPandas(unittest.TestCase, CustomAssertions):
             pd_df = pd.read_excel(xl_file, 'Sheet1')
             pd_df = pd_df.iloc[
                 slice(st[0], nd[0] + 1), slice(st[1], nd[1] + 1)]
-            xlrd_wb = xlrd.open_workbook(xl_file)
-            self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
+            xlrd_book = xlrd.open_workbook(xl_file)
+            self.sheet = XlrdSheet(xlrd_book.sheet_by_name('Sheet1'), xl_file)
             xlref_res = self.sheet.read_rect(st, nd)
             lasso = _l.Lasso(
                 st=st, nd=nd, values=xlref_res, opts=ChainMap())
@@ -1919,21 +1919,23 @@ class T17VsPandas(unittest.TestCase, CustomAssertions):
 class T18VsXlwings(unittest.TestCase):
 
     def setUp(self):
-        self.tmp = '%s.xlsx' % tempfile.mktemp()
+        self.tmp_excel_fname = '%s.xlsx' % tempfile.mktemp()
         table = [
             [1, 2, None],
             [None, 6.1, 7.1]
         ]
-        _write_sample_sheet(self.tmp, table, 'Sheet1', startrow=5, startcol=3)
+        _write_sample_sheet(self.tmp_excel_fname,
+                            table, 'Sheet1', startrow=5, startcol=3)
 
-        xlrd_wb = xlrd.open_workbook(self.tmp)
-        self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'))
+        xlrd_wb = xlrd.open_workbook(self.tmp_excel_fname)
+        self.sheet = XlrdSheet(self.tmp_excel_fname,
+                               xlrd_wb.sheet_by_name('Sheet1'))
         self.sheetsFact = _l.SheetsFactory()
         self.sheetsFact.add_sheet(self.sheet, 'wb', 'sheet1')
 
     def tearDown(self):
         del self.sheet
-        os.remove(self.tmp)
+        os.remove(self.tmp_excel_fname)
 
     @data(
         ('#R7C4:..(D):%s', lambda xw: xw.Range("Sheet1", "D7").vertical.value),
@@ -1951,7 +1953,7 @@ class T18VsXlwings(unittest.TestCase):
         xlref, res = case
         import xlwings as xw  # @UnresolvedImport
         # load Workbook for --> xlwings
-        with xw_Workbook(self.tmp):
+        with xw_Workbook(self.tmp_excel_fname):
             res = res(xw)
 
         dims = _l.xlwings_dims_call_spec()
