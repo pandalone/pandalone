@@ -201,7 +201,7 @@ Lasso = namedtuple('Lasso',
                    ('xl_ref', 'url_file', 'sh_name',
                     'st_edge', 'nd_edge', 'exp_moves',
                     'call_spec',
-                    'sheet', 'st', 'nd', 'values', 'base_cell',
+                    'sheet', 'st', 'nd', 'values', 'base_coords',
                     'opts'))
 """
 All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger`.
@@ -280,7 +280,7 @@ class Ranger(object):
             Needed for recursive invocations, see :meth:`recursive_filter`.
     """
 
-    _context_lasso_fields = ['sheet', 'st', 'nd', 'base_cell']
+    _context_lasso_fields = ['sheet', 'st', 'nd', 'base_coords']
 
     def __init__(self, sheets_factory,
                  base_opts=None, available_filters=None):
@@ -385,18 +385,18 @@ class Ranger(object):
             ok &= not exclude or key not in exclude
             return ok
 
-        def new_base_cell(base_cell, cdepth, i):
-            if base_cell:
+        def new_base_coords(base_coords, cdepth, i):
+            if base_coords:
                 if cdepth == 0:
-                    base_cell = base_cell._replace(row=i)
+                    base_coords = base_coords._replace(row=i)
                 elif cdepth == 1:
-                    base_cell = base_cell._replace(col=i)
-            return base_cell
+                    base_coords = base_coords._replace(col=i)
+            return base_coords
 
-        def invoke_recursively(vals, base_cell, cdepth):
+        def invoke_recursively(vals, base_coords, cdepth):
             context = dtz.keyfilter(lambda k: k in self._context_lasso_fields,
                                     lasso._asdict())
-            context['base_cell'] = base_cell
+            context['base_coords'] = base_coords
             try:
                 rlasso = self.do_lasso(vals, **context)
                 vals = rlasso and rlasso.values
@@ -405,24 +405,24 @@ class Ranger(object):
                 log.debug(msg, vals, ex)
             except Exception as ex:
                 loc = lasso.sheet.get_sheet_ids() if lasso.sheet else ()
-                if lasso.base_cell:
-                    loc += (lasso.base_cell,)
+                if lasso.base_coords:
+                    loc += (lasso.base_coords,)
                 msg = "Lassoing  xl-ref(%s) at loc(%s) stopped due to: \n  %s"
                 msg %= (vals, loc, ex)
                 raise ValueError(verbose(msg))
             return vals
 
-        def dive_list(vals, base_cell, cdepth):
+        def dive_list(vals, base_coords, cdepth):
             if isinstance(vals, basestring):
-                vals = invoke_recursively(vals, base_cell, cdepth)
+                vals = invoke_recursively(vals, base_coords, cdepth)
             elif isinstance(vals, list):
                 for i, v in enumerate(vals):
-                    nbc = new_base_cell(base_cell, cdepth, i)
+                    nbc = new_base_coords(base_coords, cdepth, i)
                     vals[i] = dive_indexed(v, nbc, cdepth + 1)
 
             return vals
 
-        def dive_indexed(vals, base_cell, cdepth):
+        def dive_indexed(vals, base_coords, cdepth):
             if cdepth != depth:
                 dived = False
                 try:
@@ -431,15 +431,15 @@ class Ranger(object):
                     pass  # Just to avoid chained ex.
                 else:
                     for i, (k, v) in enumerate(items):
-                        # Dict is not ordered, so cannot locate `base_cell`!
+                        # Dict is not ordered, so cannot locate `base_coords`!
                         if is_included(k):
                             nbc = (None
                                    if isinstance(vals, dict)
-                                   else new_base_cell(base_cell, cdepth, i))
+                                   else new_base_coords(base_coords, cdepth, i))
                             vals[k] = dive_indexed(v, nbc, cdepth + 1)
                     dived = True
                 if not dived:
-                    vals = dive_list(vals, base_cell, cdepth)
+                    vals = dive_list(vals, base_coords, cdepth)
 
             return vals
 
@@ -520,7 +520,7 @@ class Ranger(object):
                                           lasso.st_edge,
                                           lasso.nd_edge,
                                           lasso.exp_moves,
-                                          lasso.base_cell)
+                                          lasso.base_coords)
         except Exception as ex:
             msg = "Resolving capture-rect(%r) failed due to: %s"
             raise ValueError(msg % (_Lasso_to_edges_str(lasso), ex))

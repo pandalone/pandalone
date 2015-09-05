@@ -141,7 +141,7 @@ the ``st`` and ``nd`` fields of the full :class:`Xlref` results returned::
           values=[[None, 'A'], 
                   [2.2, 'foo'], 
                   [None, 2]], 
-          base_cell=None, 
+          base_coords=None, 
           ...
 
 
