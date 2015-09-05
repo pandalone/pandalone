@@ -351,17 +351,11 @@ def _parse_edge(gs, prefix, default_edge):
 
 def _parse_xlref_fragment(xlref_fragment):
     """
-    Parses a :term:`xl-ref` fragment(without '#').
+    Parses a :term:`xl-ref` fragment.
 
     :param str xlref_fragment:
-            a string with the following format::
-
-                <sheet>!<st_col><st_row>(<st_mov>):<nd_col><nd_row>(<nd_mov>):<exp_moves>{<js_filt>}
-
-            i.e.::
-
-                sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
-
+            the url-fragment part of the :term:`xl-ref` string, 
+            including the ``'#'`` char.
     :return:
         dictionary containing the following parameters:
 
@@ -445,16 +439,10 @@ def parse_xlref(xlref):
     """
     Parse a :term:`xl-ref` into a dict.
 
-    :param str xlref:
-        a string with the following format::
-
-            <url_file>#<sheet>!<1st_edge>:<2nd_edge>:<expand><js_filt>
-
-        i.e.::
-
-            file:///path/to/file.xls#sheet_name!UPT8(LU-):_.(D+):LDL1{"dims":1}
-
-    :return: A dict with all fields, with None with those missing.
+    :param str xlref: 
+            A url-string abiding to the :term:`xl-ref` syntax.
+    :return: 
+            A dict with all fields, with None with those missing.
     :rtype: dict
 
 

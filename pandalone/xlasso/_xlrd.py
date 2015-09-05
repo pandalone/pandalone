@@ -6,9 +6,7 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-Implements the *xlrd* backend of :term:`xl-ref` that reads in-file Excel-spreadsheets.
-
-Prefer accessing the public members from the parent module.
+Implements the *xlrd* backend of *xlasso* that reads in-file Excel-spreadsheets.
 """
 
 import datetime
