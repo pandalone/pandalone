@@ -14,16 +14,16 @@ Prefer accessing the public members from the parent module.
 from __future__ import unicode_literals
 
 from abc import abstractmethod, ABCMeta
+from collections import namedtuple
 import logging
+from pandalone.xlasso import _parse
+from pandalone.xlasso._parse import Cell, Coords
 from string import ascii_uppercase
 
 from future.builtins import str
 from future.utils import with_metaclass
 
 import numpy as np
-
-from pandalone.xlasso import _parse
-from pandalone.xlasso._parse import Cell, Coords
 
 
 log = logging.getLogger(__name__)
@@ -199,7 +199,7 @@ def _col2num(coord):
 
         >>> _col2num([])
         Traceback (most recent call last):
-        TypeError: int() argument must be a string, a bytes-like object or 
+        TypeError: int() argument must be a string, a bytes-like object or
                     a number, not 'list'
 
     """
@@ -225,17 +225,17 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coords=None):
     """
     Translates special coords or converts Excel string 1-based rows/cols to zero-based, reporting invalids.
 
-    :param str cname: 
+    :param str cname:
             the coord-name, one of 'row', 'column'
-    :param function cfunc: 
+    :param function cfunc:
             the function to convert coord ``str --> int``
-    :param int, str coord: 
+    :param int, str coord:
             the "A1" coord to translate
     :param int up_coord:
             the resolved *top* or *left* margin zero-based coordinate
     :param int dn_coord:
-            the resolved *bottom* or *right* margin zero-based coordinate 
-    :param int, None base_coords: 
+            the resolved *bottom* or *right* margin zero-based coordinate
+    :param int, None base_coords:
             the resolved basis for dependent coord, if any
 
     :return: the resolved coord or `None` if it were not a special coord.
@@ -299,7 +299,7 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coords=None):
 
         >>> _resolve_coord(cname, _col2num, None, 0, 10)
         Traceback (most recent call last):
-        ValueError: invalid column(None) due to: int() argument must be a string, 
+        ValueError: invalid column(None) due to: int() argument must be a string,
                     a bytes-like object or a number, not 'NoneType'
 
         >>> _resolve_coord(cname, _col2num, 0, 0, 10)
@@ -385,7 +385,7 @@ def _resolve_cell(cell, up_coords, dn_coords, base_coords=None):
 
         >>> _resolve_cell(Cell('1', '.'), up, dn)
         Traceback (most recent call last):
-        ValueError: invalid cell(Cell(row='1', col='.')) due to: 
+        ValueError: invalid cell(Cell(row='1', col='.')) due to:
         Cannot resolve `relative-col` without `base-coord`!
 
     """
@@ -825,6 +825,8 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
 
     return st, nd
 
+SheetId = namedtuple('SheetId', ('book', 'ids'))
+
 
 class ABCSheet(with_metaclass(ABCMeta, object)):
     """
@@ -867,7 +869,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
     def get_sheet_ids(self):
         """
         :return: a 2-tuple of its wb-name and a sheet-ids of this sheet i.e. name & indx
-        :rtype: ([str or None, [str or int or None])
+        :rtype: SheetId or None
         """
 
     @abstractmethod
@@ -904,7 +906,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
         :param Coords, None nd:
                 the bottom-right edge, inclusive(!); when `None`,
                 must return a scalar value.
-        :return: 
+        :return:
                 a 1D or 2D-list with the values fenced by the rect,
                 which might be empty if beyond limits.
         :rtype: list
@@ -942,13 +944,13 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
         return self._margin_coords
 
     def __repr__(self):
-        return '%s%s' % (type(self), self.get_sheet_ids())
+        return '%s(%s)' % (type(self), self.get_sheet_ids())
 
 
 class ArraySheet(ABCSheet):
     """A sample :class:`ABCSheet` made out of 2D-list or numpy-arrays, for facilitating tests."""
 
-    def __init__(self, arr, ids=('wb', ['sh', 0])):
+    def __init__(self, arr, ids=SheetId('wb', ['sh', 0])):
         self._arr = np.asarray(arr)
         self._ids = ids
 
@@ -968,4 +970,4 @@ class ArraySheet(ABCSheet):
         return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])].tolist()
 
     def __repr__(self):
-        return 'ArraySheet%s \n%s' % (self.get_sheet_ids(), self._arr)
+        return 'ArraySheet(%s, \n%s)' % (self.get_sheet_ids(), self._arr)

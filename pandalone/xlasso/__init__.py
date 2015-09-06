@@ -16,29 +16,29 @@ About
 Any *decent* dataset is stored in **csv**.
 Consequently, many datasets are in excel-sheets.
 
-*XLasso* defines a url-fragment notation (`xl-ref`) that renders 
-the `capturing` of tables from sheets as practical as reading a **csv**, 
+*XLasso* defines a url-fragment notation (`xl-ref`) that renders
+the `capturing` of tables from sheets as practical as reading a **csv**,
 even when the exact position of those tables are not known beforehand.
 
-An additional goal is to apply the same `lassoing` operation recursively, 
-to  build *data-trees*. For that end, the syntax supports `filter` 
+An additional goal is to apply the same `lassoing` operation recursively,
+to  build *data-trees*. For that end, the syntax supports `filter`
 transformations such as:
     - setting the dimensionality of the result tables,
-    - creating higher-level objects from 2D `capture-rect` 
-      (dictionaries, *numpy-arrays* & *dataframes*). 
+    - creating higher-level objects from 2D `capture-rect`
+      (dictionaries, *numpy-arrays* & *dataframes*).
 
 It is based on `xlrd <http://www.python-excel.org/>`_ library but also
 checked for compatibility with `xlwings <http://xlwings.org/quickstart/>`_
-*COM-client* library.  
+*COM-client* library.
 It requires *numpy* and (optionally) *pandas*.
 It is developed on python-3 but also tested on python-2 for compatibility.
 
 
 Overview
 ========
-The `xl-ref` notation extends ordinary *A1* and *RC* excel `coordinates` with 
+The `xl-ref` notation extends ordinary *A1* and *RC* excel `coordinates` with
 conditional `traversing` operations, based on the cell's empty/full `state`.
-For instance, to extract a contigious table near the ``A1`` cell, 
+For instance, to extract a contigious table near the ``A1`` cell,
 and make a ``pandas.DataFrame`` out of it use this::
 
     from pandalone import xlasso
@@ -54,7 +54,7 @@ Xl-ref Syntax
 
 - See `edge`, `expansion-moves`, `filters` for details.
 - Missing *edges* are implicitly replaced by ``^^:__`` (top-left/bottom-right).
-- Spaces are allowed only in `filters`. 
+- Spaces are allowed only in `filters`.
 
 
 Annotated Example
@@ -81,32 +81,32 @@ Which means:
     3. `capture` all the cells between the 2 targets.
     4. try `expansions` to all directions if any neighbouring `full-cell`;
     5. finally `filter` the values of the `capture-rect` to wrap them up
-       in an ordered- dictionary, and dive into its values searching for 
+       in an ordered- dictionary, and dive into its values searching for
        `xl-ref`, and replace them.
 
 
 Basic Usage
 -----------
-The simplest way to `lasso` a `xl-ref` is through :func:`lasso()`. 
+The simplest way to `lasso` a `xl-ref` is through :func:`lasso()`.
 A common task is capturing all sheet data but without any bordering nulls::
 
     >>> from pandalone import xlasso
 
     >>> values = xlasso.lasso('path/to/workbook.xlsx#:')  # doctest: +SKIP
 
-Assuming that the `full-cell` of the 1st sheet of the workbook on disk are 
-those marked with ``'X'``, then the result  `capture-rect` of the above call 
+Assuming that the `full-cell` of the 1st sheet of the workbook on disk are
+those marked with ``'X'``, then the result  `capture-rect` of the above call
 would be a 2D *list-of-lists* with the values contained in ``C2:E4``::
 
       A B C D E
     1    ┌─────┐
-    2    │    X│ 
-    3    │X    │ 
-    4    │  X  │ 
-    5    └─────┘ 
+    2    │    X│
+    3    │X    │
+    4    │  X  │
+    5    └─────┘
 
 
-If you do not wish to let the library read your workbooks, you can 
+If you do not wish to let the library read your workbooks, you can
 invoke the function with a pre-loaded sheet.
 Here we will use the utility :class:`ArraySheet`::
 
@@ -116,50 +116,50 @@ Here we will use the utility :class:`ArraySheet`::
     ...                          [None, None,   None, 3.14],
     ... ])
     >>> xlasso.lasso('#A1(DR):..(DR):RULD', sheet=sheet)
-    [[None, 'A'], 
-     [2.2, 'foo'], 
-     [None, 2]] 
+    [[None, 'A'],
+     [2.2, 'foo'],
+     [None, 2]]
 
 This `capture-rect` in this case was *B1* and *C3* as can be seen by inspecting
 the ``st`` and ``nd`` fields of the full :class:`Xlref` results returned::
 
     >>> xlasso.lasso('#A1(DR):..(DR):RULD', sheet=sheet, return_lasso=True)
-    Lasso(xl_ref='#A1(DR):..(DR):RULD', 
-          url_file=None, 
-          sh_name=None, 
-          st_edge=Edge(land=Cell(row='1', col='A'), mov='DR', mod=None), 
-          nd_edge=Edge(land=Cell(row='.', col='.'), mov='DR', mod=None), 
-          exp_moves='RULD', 
-          call_spec=None, 
-          sheet=ArraySheet('wb', ['sh', 0]) 
-                [[None  None  'A'   None]
-                 [None  2.2  'foo'  None]
-                 [None  None  2     None]
-                 [None  None  None  3.14]], 
-          st=Coords(row=0, col=1), 
-          nd=Coords(row=2, col=2), 
-          values=[[None, 'A'], 
-                  [2.2, 'foo'], 
-                  [None, 2]], 
-          base_coords=None, 
+    Lasso(xl_ref='#A1(DR):..(DR):RULD',
+          url_file=None,
+          sh_name=None,
+          st_edge=Edge(land=Cell(row='1', col='A'), mov='DR', mod=None),
+          nd_edge=Edge(land=Cell(row='.', col='.'), mov='DR', mod=None),
+          exp_moves='RULD',
+          call_spec=None,
+          sheet=ArraySheet(SheetId(book='wb', ids=['sh', 0]),
+                                 [[None None 'A' None]
+                                  [None 2.2 'foo' None]
+                                  [None None 2 None]
+                                  [None None None 3.14]]),
+          st=Coords(row=0, col=1),
+          nd=Coords(row=2, col=2),
+          values=[[None, 'A'],
+                  [2.2, 'foo'],
+                  [None, 2]],
+          base_coords=None,
           ...
 
 
-For controlling explicitly the configuration parameters and the opening of 
-workbooks, use separate instances of :class:`Ranger` and :class:`SheetsFactory`, 
+For controlling explicitly the configuration parameters and the opening of
+workbooks, use separate instances of :class:`Ranger` and :class:`SheetsFactory`,
 that are the workhorses of this library::
 
     >>> with xlasso.SheetsFactory() as sf:
     ...     sf.add_sheet(sheet, wb_ids='foo_wb', sh_ids='Sheet1')
     ...     ranger = xlasso.Ranger(sf, base_opts={'verbose': True})
     ...     ranger.do_lasso('foo_wb#Sheet1!__').values
-    3.14 
+    3.14
 
 Notice that it returned a scalar value since we specified only the `1st` `edge`
 as ``'__'``, which points to the bottom row and most-left column of the sheet.
 
 
-Alternatively you can call the :func:`make_default_Ranger` for extending 
+Alternatively you can call the :func:`make_default_Ranger` for extending
 library's defaults.
 
 
@@ -204,7 +204,7 @@ API
 - **xlrd** back-end functionality:
 
   .. currentmodule:: pandalone.xlasso._xlrd
-  
+
   .. autosummary::
       XlrdSheet
       open_sheet
@@ -215,7 +215,7 @@ API
 
 More Syntax Examples
 --------------------
-Another typical but more advanced case is when a sheet contains a single table 
+Another typical but more advanced case is when a sheet contains a single table
 with a "header"-row and a "index"-column.
 There are (at least) 3 ways to do it, beyond specifying
 the exact `coordinates`::
@@ -292,13 +292,13 @@ Definitions
     lasso
     lassoing
         It may denote 3 things:
-        
+
         - the whole procedure of `parsing` the `xl-ref` syntax,
-          `capturing` values from spreadsheet rect-regions and sending them 
+          `capturing` values from spreadsheet rect-regions and sending them
           through any `filters` specified in the xl-ref;
-        - the :func:`lasso()` and :meth:`Ranger.lasso()` functions 
+        - the :func:`lasso()` and :meth:`Ranger.lasso()` functions
           performing the above job;
-        - the :class:`Lasso` storing intermediate and final results of the 
+        - the :class:`Lasso` storing intermediate and final results of the
           above algorithm.
 
     xl-ref
@@ -311,7 +311,7 @@ Definitions
 
     parse
     parsing
-        The stage where the input string gets splitted and checked for validity 
+        The stage where the input string gets splitted and checked for validity
         against the `xl-ref` syntax.
 
     edge
@@ -396,7 +396,7 @@ Definitions
 
     traversing
     traversal-operations
-        Either the `target-moves` or the `expansion-moves` that comprise the 
+        Either the `target-moves` or the `expansion-moves` that comprise the
         `capturing`.
 
     target-moves
@@ -437,8 +437,8 @@ Definitions
             ``landing-cell coordinate := base-cell coordinate``
 
         where the *base-coordinates* are:
-        
-        - `1st` edge: the `target-cell` coordinates of the ``context_lasso`` 
+
+        - `1st` edge: the `target-cell` coordinates of the ``context_lasso``
           arg given to the :meth:`Ranger.lasso()`; it is an error if ``None``.
         - `2nd` edge: the `target-cell` coordinates of the `1st` edge.
 
@@ -480,28 +480,28 @@ Definitions
 
     filter
     filters
-        The last part of the `xl-ref` specifying predefined functions to 
-        apply for transforming the cell-values of `capture-rect`, 
+        The last part of the `xl-ref` specifying predefined functions to
+        apply for transforming the cell-values of `capture-rect`,
         abiding to the  **json** syntax.
 
     call-specifier
     call-spec
         The structure to specify some function call in the `filter` part;
         it can either be a json *string*, *list* or *object* like that:
-        
-        - string: ``"func_name"`` 
+
+        - string: ``"func_name"``
         - list:   ``["func_name", ["arg1", "arg2"], {"k1": "v1"}]``
           where the last 2 parts are optional and can be given in any order;
-        - object: ``{"func": "func_name", "args": ["arg1"], "kws": {"k":"v"}}`` 
+        - object: ``{"func": "func_name", "args": ["arg1"], "kws": {"k":"v"}}``
           where the ``args`` and ``kws`` are optional.
-          
+
         If the outer-most filter is a dictionary, a ``'pop'`` kwd is popped-out
         as the `opts`.
 
     opts
         Key-value pairs affecting the `lassoing` (i.e. opening xlrd-workbooks).
-        Read the code to be sure what are the available choices :-( 
-        They are a combination of options specified in code (i.e. in the 
+        Read the code to be sure what are the available choices :-(
+        They are a combination of options specified in code (i.e. in the
         :func:`lasso()` and those extracted from `filters` by the 'opts' key,
         and they are stored in the :class:`Lasso`.
 

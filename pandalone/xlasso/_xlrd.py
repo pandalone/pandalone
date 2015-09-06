@@ -13,6 +13,8 @@ import datetime
 from distutils.version import LooseVersion
 import logging
 from os import path
+from pandalone.xlasso._capture import ABCSheet, SheetId
+from pandalone.xlasso._parse import Coords
 
 from future.moves.urllib import request
 from future.moves.urllib.parse import urlsplit
@@ -21,8 +23,6 @@ from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
 import xlrd
 
 import numpy as np
-from pandalone.xlasso._capture import ABCSheet
-from pandalone.xlasso._parse import Coords
 
 from .. import utils
 
@@ -114,7 +114,7 @@ def _open_sheet_by_name_or_index(xlrd_book, wb_id, sheet_id, opts=None):
     """
     :param int or str or None sheet_id:
             If `None`, opens 1st sheet.
-    :param dict opts: 
+    :param dict opts:
             does nothing with them
     """
     if sheet_id is None:
@@ -131,12 +131,12 @@ def _open_sheet_by_name_or_index(xlrd_book, wb_id, sheet_id, opts=None):
                 raise xl_ex
             else:
                 xl_sh = xlrd_book.sheet_by_index(sheet_id)
-    return XlrdSheet(xl_sh, xlrd_book)
+    return XlrdSheet(xl_sh, wb_id)
 
 
 def open_sheet(wb_url, sheet_id, opts):
     """
-    Opens the local or remote `wb_url` *xlrd* workbook wrapped as :class:`XlrdSheet`. 
+    Opens the local or remote `wb_url` *xlrd* workbook wrapped as :class:`XlrdSheet`.
     """
     assert wb_url, (wb_url, sheet_id, opts)
     ropts = opts.get('read', {})
@@ -161,7 +161,7 @@ def open_sheet(wb_url, sheet_id, opts):
 
 class XlrdSheet(ABCSheet):
     """
-    The *xlrd* workbook wrapper required by xlasso library. 
+    The *xlrd* workbook wrapper required by xlasso library.
     """
 
     def __init__(self, sheet, book_fname, epoch1904=False):
@@ -181,7 +181,8 @@ class XlrdSheet(ABCSheet):
 
     def get_sheet_ids(self):
         sh = self._sheet
-        return self.book_fname or sh.book.filestr,  [sh.name, sh.number]
+        return SheetId(self.book_fname or sh.book.filestr,
+                       [sh.name, sh.number])
 
     def open_sibling_sheet(self, sheet_id, opts=None):
         """Gets by-index only if `sheet_id` is `int`, otherwise tries both by name and index."""

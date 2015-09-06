@@ -13,8 +13,14 @@ from datetime import datetime
 import doctest
 import logging
 import os
+from pandalone import xlasso
+from pandalone.xlasso import _parse as _p, _capture as _c, _lasso as _l
+from pandalone.xlasso import _xlrd as xd
+from pandalone.xlasso._xlrd import XlrdSheet
 import sys
 import tempfile
+from tests import _tutils
+from tests._tutils import (check_excell_installed, xw_Workbook)
 from textwrap import dedent
 import unittest
 
@@ -23,18 +29,12 @@ from future import utils as fututis  # @UnresolvedImport
 from future.backports import ChainMap
 from numpy import testing as npt
 from past.builtins import basestring
-from tests import _tutils
 from toolz import dicttoolz as dtz
 import xlrd
 
 import itertools as itt
 import numpy as np
-from pandalone import xlasso
-from pandalone.xlasso import _parse as _p, _capture as _c, _lasso as _l
-from pandalone.xlasso import _xlrd as xd
-from pandalone.xlasso._xlrd import XlrdSheet
 import pandas as pd
-from tests._tutils import (check_excell_installed, xw_Workbook)
 
 from ._tutils import assertRaisesRegex, CustomAssertions
 
@@ -1304,6 +1304,26 @@ class T10SheetFactory(unittest.TestCase):
                     for sh_id in sh_ids:
                         self.assertIsNone(sf._cache_get((wb_id, sh_id)))
 
+    def test_close_old_sheet(self):
+        sf = _l.SheetsFactory()
+        sh1 = MagicMock()
+        sh1.get_sheet_ids.return_value = ('wb', ['sh', 0])
+        sf.add_sheet(sh1)
+
+        sh2 = MagicMock()
+        sh2.get_sheet_ids.return_value = ('wb', ['sh', 0])
+        sf.add_sheet(sh2)
+        self.assertEqual(sh1._close.call_count, 1,
+                         sh1._close.mock_calls)
+
+        sh3 = MagicMock()
+        sh3.get_sheet_ids.return_value = ('foo', ['bar'])
+        sf.add_sheet(sh3, 'wb', 'sh')
+        self.assertEqual(sh2._close.call_count, 1,
+                         sh2._close.mock_calls)
+        self.assertEqual(sh1._close.call_count, 1,
+                         sh1._close.mock_calls)
+
     @data(
         *cache_keys
     )
@@ -1863,6 +1883,12 @@ class T16RealFile(unittest.TestCase):
         0    55    56
         1    65    66)])), ('AllSheet4', [[1, None, None, None, None], [None, None, 2, None, None], [None, None, None, None, None], [None, None, None, None, None], [None, None, None, None, 3]])])""")
         self.assertEquals(str(res), exp)
+
+    @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
+    def test_real_file_recurse_fail(self):
+        err_msg = r"Context\(sheet=<class 'pandalone.xlasso._xlrd.XlrdSheet'>\(SheetId\(book='recursive.xlsx', ids=\['2', 0\]\)\), base_coords=Coords\(row=7, col=0\)\)"
+        with assertRaisesRegex(self, ValueError, err_msg):
+            res = _l.lasso('recursive.xlsx#A_(U):"recurse"')
 
 
 @ddt
