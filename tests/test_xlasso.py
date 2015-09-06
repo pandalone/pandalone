@@ -1589,7 +1589,7 @@ class T14Lasso(unittest.TestCase):
         sf.add_sheet(_c.ArraySheet(self.m1()))
         res = _l.lasso('''#::{
             "opts": {"verbose": true},
-            "func": "pipe", 
+            "func": "pipe",
             "args": [
                 ["redim", {"col": [2, 1]}],
                 "numpy"
@@ -1604,7 +1604,7 @@ class T14Lasso(unittest.TestCase):
         sf.add_sheet(_c.ArraySheet(self.m1()))
         res = _l.lasso('''#A1:..(D):{
             "opts": {"verbose": true},
-            "func": "pipe", 
+            "func": "pipe",
             "args": [
                 ["redim", {"col": [2, 1]}],
                 "numpy"
@@ -1948,8 +1948,8 @@ class T18VsXlwings(unittest.TestCase):
                             table, 'Sheet1', startrow=5, startcol=3)
 
         xlrd_wb = xlrd.open_workbook(self.tmp_excel_fname)
-        self.sheet = XlrdSheet(self.tmp_excel_fname,
-                               xlrd_wb.sheet_by_name('Sheet1'))
+        self.sheet = XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'),
+                               self.tmp_excel_fname)
         self.sheetsFact = _l.SheetsFactory()
         self.sheetsFact.add_sheet(self.sheet, 'wb', 'sheet1')
 
