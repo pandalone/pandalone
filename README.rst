@@ -8,7 +8,7 @@ pandalone: process data-trees with reconfigurable-paths
 |dev-status| |travis-status| |appveyor-status| |cover-status| |docs-status| \
 |pypi-status| |downloads-count| |github-issues| |proj-license|
 
-:Release:       0.0.1.dev2
+:Release:       0.1.0
 :Documentation: https://pandalone.readthedocs.org/
 :Source:        https://github.com/pandalone/pandalone
 :PyPI repo:     https://pypi.python.org/pypi/pandalone
@@ -269,7 +269,7 @@ After installation, it is important that you check which version is visible in y
 .. code-block:: bash
 
     $ pndlcmd --version
-    0.0.1.dev2
+    0.1.0
 
 
 To install for different Python versions, repeat the procedure for every required version.
@@ -423,7 +423,7 @@ First run :command:`python` or :command:`ipython` and try to import the project 
     >>> import pandalone
 
     >>> pandalone.__version__           ## Check version once more.
-    '0.0.1.dev2'
+    '0.1.0'
 
     >>> pandalone.__file__              ## To check where it was installed.         # doctest: +SKIP
     /usr/local/lib/site-package/pandalone-...

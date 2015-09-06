@@ -18,30 +18,22 @@ TODOs
     - Core:
         - Syntax:
             - [ ] Notation for specifying the "last-sheet".
-            - [ ] Extend RC-coords: ^-1, _-6, .-4 
+            - [ ] Extend RC-coords: ^-1, _-6, .-4
                 - [ ] Cell becomes 4-tuple.
             - [ ] Expand meander `@`?
-            - [x] Edge +/?(instead of -)
         - filters:
             - [ ] Slices and Index args on 'numpy' and 'df' filters.
-            - [x] Recursive filter
-        - [ ] Build XLref recursive trees.  
+        - [ ] Build XLref recursive trees.
         - [ ] Xlrd-read with slices.
-        - [X] Respect base-cell also for 1st edge filter
-        - [x] Keep only single Lasso-stage in Ranger.
     - Struct:
         - [ ] Plugins for backends (& syntax?)
-        - [x] Rename XLasso.
-        - [x] Separate modules in _parse, _capture, _lasso .
     - TCs
         - [ ] More TCs.
-        - [x] Test XlWings in Windows indeed OK.
-        - [x] Recursive with real-excel file.
     - Backends:
         - [ ] xlwings
         - [ ] Clipboard
         - [ ] openpyxl
-    - [x] Check TODOs in code
+    - [ ] Check TODOs in code
     - [ ] README
     - [ ] Split own project
 
@@ -54,7 +46,8 @@ Rejected TODOs:
 Changelog
 =========
 
-- v0.1.0 (XX-Sep-2015) 
-- v0.0.11 (XX-May-2015) 
-- v0.0.1.dev1 (01-March-2015) 
+- v0.1.0 (Sep-2015)
+    - The `mappings` and `xlasso` packages are considered ready to be used.
+- v0.0.11 (XX-May-2015)
+- v0.0.1.dev1 (01-March-2015)
 
