@@ -361,7 +361,7 @@ def _resolve_cell(cell, up_coords, dn_coords, base_coords=None):
         >>> dn = Coords(10, 6)
         >>> base = Coords(40, 50)
 
-        >>> _resolve_cell(Cell(col='B', row=5), up, dn)
+        >>> _resolve_cell(Cell(col='B', row='5'), up, dn)
         Coords(row=4, col=1)
 
         >>> _resolve_cell(Cell('^', '^'), up, dn)
@@ -404,9 +404,9 @@ def _resolve_cell(cell, up_coords, dn_coords, base_coords=None):
 
         return Coords(row, col)
     except Exception as ex:
-        msg = "invalid cell(%s) due to: %s\n  margins(%s)\n  base_coords(%s)"
+        msg = "invalid cell(%r) due to: %s\n  margins(%r)\n  base_coords(%r)"
         log.debug(msg, cell, ex, (up_coords, dn_coords), base_coords)
-        msg = "invalid cell(%s) due to: %s"
+        msg = "invalid cell(%r) due to: %s"
         # fututils.raise_from(ValueError(msg % (cell, ex)), ex) see GH 141
         raise ValueError(msg % (cell, ex))
 
@@ -738,6 +738,7 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
     :rtype: tuple
 
     Examples::
+        >>> from pandalone.xleash import Edge
 
         >>> states_matrix = np.array([
         ...     [0, 0, 0, 0, 0, 0],

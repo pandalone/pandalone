@@ -257,12 +257,13 @@ def parse_call_spec(call_spec_values):
     try:
         if isinstance(call_spec_values, basestring):
             func, args, kwds = call_spec_values, None, None
+        # elif isinstance(call_spec_values, (tuple, list)): ???
         elif isinstance(call_spec_values, list):
             func, args, kwds = parse_list(*call_spec_values)
         elif isinstance(call_spec_values, dict):
             func, args, kwds = parse_object(**call_spec_values)
         else:
-            msg = "One of str, list or dict expected for call-spec(%s)!"
+            msg = "One of str, list or dict expected for call-spec({})!"
             raise ValueError(msg.format(call_spec_values))
     except ValueError:
         raise
