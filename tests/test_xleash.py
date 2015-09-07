@@ -80,9 +80,15 @@ class T00Doctest(unittest.TestCase):
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
+    def test_capture(self):
+        failure_count, test_count = doctest.testmod(
+            _c, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+        self.assertGreater(test_count, 0, (failure_count, test_count))
+        self.assertEquals(failure_count, 0, (failure_count, test_count))
+
     def test_lasso(self):
         failure_count, test_count = doctest.testmod(
-            _p, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+            _l, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
@@ -906,7 +912,7 @@ class T07Capture(unittest.TestCase):
         res = (_p.Coords(*args[6:8]),
                _p.Coords(*args[8:10]))
         args = argshead + (st_edge, nd_edge) + tuple(args[10:])
-        self.assertEqual(_l.resolve_capture_rect(*args),
+        self.assertEqual(_c.resolve_capture_rect(*args),
                          res, str(args))
 
     def test_St_inverseTargetDirs(self):
@@ -1078,7 +1084,7 @@ class T08Sheet(unittest.TestCase):
 def _read_rect_values(sheet, st_edge, nd_edge, dims):
     states_matrix = sheet.get_states_matrix()
     margin_coords = sheet.get_margin_coords()
-    st, nd = _l.resolve_capture_rect(states_matrix, margin_coords,
+    st, nd = _c.resolve_capture_rect(states_matrix, margin_coords,
                                      st_edge, nd_edge)  # or Edge(None, None))
     v = sheet.read_rect(st, nd)
     if dims is not None:
@@ -1855,7 +1861,9 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.recursive_filter(ranger, lasso, *incexc).values
+        res = _l.recursive_filter(ranger, lasso,
+                                  **dict(zip(['include', 'exclude'], incexc)))
+        res = res.values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
         for k in ['key1', 'key2', 'k3']:
@@ -1866,10 +1874,78 @@ class T15Recursive(unittest.TestCase):
             self.assertNotIn(v, str(res))
 
 
-class T16RealFile(unittest.TestCase, CustomAssertions):
+@ddt
+class T16Eval(unittest.TestCase, CustomAssertions):
 
     def setUp(self):
         logging.basicConfig(level=0)
+        logging.getLogger().level = 0
+
+    @data(
+        ("1",               _l.Lasso(values=1)),
+        ("True",            _l.Lasso(values=True)),
+        ("[12,3]",          _l.Lasso(values=[12, 3])),
+        ("{12:3}",          _l.Lasso(values={12: 3})),
+    )
+    def test_ok_basicTypes(self, case):
+        expr, exp = case
+        exp = exp._replace(opts={})
+
+        ranger = _l.Ranger(None)
+        lasso = _l.Lasso(values=expr, opts={})
+        res = _l.eval_filter(ranger, lasso)
+
+        self.assertEqual(res, exp)
+
+    @data(
+        ("xleash.Lasso(values=1)",        _l.Lasso(values=1)),
+        ("xleash.Lasso(values=True)",      _l.Lasso(values=True)),
+        ("xleash.Lasso(values=[12,3])",    _l.Lasso(values=[12, 3])),
+        ("xleash.Lasso(values={12:3})",    _l.Lasso(values={12: 3})),
+    )
+    def test_ok_basicTypes_asLasso(self, case):
+        expr, exp = case
+        exp = exp._replace(opts={})
+
+        ranger = _l.Ranger(None)
+        lasso = _l.Lasso(values=expr, opts={})
+        res = _l.eval_filter(ranger, lasso)
+
+        self.assertEqual(res, exp)
+
+    @data(
+        ("boo haha",
+         "While py-eval 'boo haha': SyntaxError(boo haha Syntax Error)"),
+        ("1-'tt'", """While py-eval "1-'tt'": TypeError(   1-'tt'
+                        unsupported operand type(s) for -: 'int' and 'str')
+        """),
+        ("1-'tt'", """While py-eval "1-'tt'": TypeError(   1-'tt'
+                        unsupported operand type(s) for -: 'int' and 'str')
+        """),
+    )
+    def test_syntaxErrors(self, case):
+        expr, err_msg = case
+
+        ranger = _l.Ranger(None)
+        lasso = _l.Lasso(values=expr, opts={})
+        try:
+            _l.eval_filter(ranger, lasso)
+        except ValueError as ex:
+            self.assertStrippedStringsEqual(str(ex), err_msg)
+        except:
+            raise
+        else:
+            raise AssertionError('ValueError not raised!')
+
+        lasso = _l.Lasso(values=expr, opts={'lax': True})
+        _l.eval_filter(ranger, lasso)
+
+
+class T17RealFile(unittest.TestCase, CustomAssertions):
+
+    def setUp(self):
+        logging.basicConfig(level=0)
+        logging.getLogger().level = 0
 
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     def test_real_file(self):
@@ -1892,7 +1968,11 @@ class T16RealFile(unittest.TestCase, CustomAssertions):
                                      [None, None, None, None, None],
                                      [None, None, None, None, 3]]),
             ('No Recurse',           'bar'),
-            ('Empty',                None)
+            ('Empty',                None),
+            ('P-eval',                  COL1        EVAL_COL  NO_EVAL
+                                    0    foo        a=1; a+5     a'+4
+                                    1    bar         [1,2,3]  bad boy
+                                    2    bus  dict(a_dict=1)     None)
         ])
         """
         self.assertStrippedStringsEqual(str(res), exp)
@@ -1900,10 +1980,10 @@ class T16RealFile(unittest.TestCase, CustomAssertions):
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     def test_real_file_recurse_fail(self):
         err_msg = """
-            Filtering xl-ref('recursive.xlsx#A_(U):"recurse"') failed due to:
-                While invoking(recurse, [], {}):
-                    Lassoing  xl-ref(#BAD1:"filter") at XlrdSheet(book='recursive.xlsx', sheet_ids=['2', 0]), Coords(row=9, col=0) stopped due to:
-                        array index out of range
+        Filtering xl-ref('recursive.xlsx#A_(U):"recurse"') failed due to:
+            While invoking(recurse, args=[], kwds={}):
+                Lassoing  xl-ref(#BAD1:"filter") at XlrdSheet(book='recursive.xlsx', sheet_ids=['2', 0]), Coords(row=10, col=0) stopped due to:
+                    array index out of range
         """
         try:
             _l.lasso('recursive.xlsx#A_(U):"recurse"')
@@ -1916,7 +1996,7 @@ class T16RealFile(unittest.TestCase, CustomAssertions):
 
 
 @ddt
-class T17VsPandas(unittest.TestCase, CustomAssertions):
+class T18VsPandas(unittest.TestCase, CustomAssertions):
 
     @contextlib.contextmanager
     def sample_xl_file(self, matrix, **df_write_kwds):
@@ -1988,7 +2068,7 @@ class T17VsPandas(unittest.TestCase, CustomAssertions):
 
 @unittest.skipIf(not is_excel_installed, "Cannot test xlwings without MS Excel.")
 @ddt
-class T18VsXlwings(unittest.TestCase):
+class T19VsXlwings(unittest.TestCase):
 
     def setUp(self):
         self.tmp_excel_fname = '%s.xlsx' % tempfile.mktemp()

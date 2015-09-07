@@ -139,6 +139,7 @@ install_requires = [
     'pandas >= 0.15.0',
     'xlrd',
     'openpyxl==1.8.6',  # TODO: openpyxl-444 & pandas-10125
+    'asteval',
     'Pillow',  # For UI About boxes
     'doit >= 0.28',
     'easygui',
@@ -207,14 +208,10 @@ setup(
         ],
     },
     run_requires=[
-
+        # TODO: check when `run_requires` works.
         {
             "requires": ["pywin32 > 1.0", "xlwings", "easygui"],
-            "environment": "sys_platform == 'win32'"
-        },
-        {
-            "requires": ["pywin32 > 1.0", "xlwings", "easygui"],
-            "environment": "sys_platform == 'darwin'"
+            "environment": "sys_platform == 'win32' or sys_platform == 'darwin'"
         },
     ],
     entry_points={
