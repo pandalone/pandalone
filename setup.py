@@ -141,6 +141,7 @@ install_requires = [
     'openpyxl==1.8.6',  # TODO: openpyxl-444 & pandas-10125
     'Pillow',  # For UI About boxes
     'doit >= 0.28',
+    'easygui',
 ]
 
 setup(
