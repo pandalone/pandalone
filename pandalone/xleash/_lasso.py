@@ -404,8 +404,8 @@ class Ranger(object):
                 msg = "Skipped non xl-ref(%s) due to: %s"
                 log.debug(msg, vals, ex)
             except Exception as ex:
-                msg = "Lassoing  xl-ref(%s) at %s stopped due to: \n  %s"
-                msg %= (vals, context, ex)
+                msg = "Lassoing  xl-ref(%s) at %s, %s stopped due to: \n  %s"
+                msg %= (vals, ) + context + (ex, )
                 raise ValueError(verbose(msg))
             return vals
 

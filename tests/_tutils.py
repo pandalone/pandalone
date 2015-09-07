@@ -157,11 +157,11 @@ class CustomAssertions(object):
             if not cond:
                 raise AssertionError(msg)
 
-    def assertStringWhitoutSpacesEqual(self, st, nd, msg='', context=20):
+    def assertStrippedStringsEqual(self, st, nd, msg=None, context_chars=20):
         regex = re.compile('\\s+', re.DOTALL)
         st1 = regex.sub('', st)
         nd1 = regex.sub('', nd)
-        msg = '%s\n--1st: %s \n--2nd: %s' % (msg, st, nd)
+        msg = '%s\n--1st: %s \n--2nd: %s' % (msg or '', st, nd)
         try:
             self.assertSequenceEqual(st1, nd1, msg)
         except AssertionError as ex:
@@ -169,10 +169,11 @@ class CustomAssertions(object):
             m = re.search(r"First differing element (\d+):", err_msg)
             if m:
                 err_i = int(m.group(1))
-                s_slice = slice(max(0, err_i - context), err_i + context)
+                s_slice = slice(
+                    max(0, err_i - context_chars), err_i + context_chars)
                 c1, c2 = st1[s_slice], nd1[s_slice]
                 err_msg += "\n\nContext: \n  --1st: %s\n%s^ \n  --2nd: %s" % (
-                    c1, ' ' * (2 + 7 + context), c2)
+                    c1, ' ' * (2 + 7 + context_chars), c2)
             raise AssertionError(err_msg)
         except:
             raise

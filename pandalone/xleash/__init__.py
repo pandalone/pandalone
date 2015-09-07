@@ -296,7 +296,7 @@ Definitions
         - the whole procedure of `parsing` the `xl-ref` syntax,
           `capturing` values from spreadsheet rect-regions and sending them
           through any `filters` specified in the xl-ref;
-        - the :func:`lasso()` and :meth:`Ranger.lasso()` functions
+        - the :func:`lasso()` and/or :meth:`Ranger.lasso()` functions
           performing the above job;
         - the :class:`Lasso` storing intermediate and final results of the
           above algorithm.

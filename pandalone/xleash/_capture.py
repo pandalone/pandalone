@@ -948,7 +948,8 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
         return self._margin_coords
 
     def __repr__(self):
-        return '%s(%s)' % (type(self), self.get_sheet_ids())
+        args = (type(self).__name__, ) + self.get_sheet_ids()
+        return '%s(book=%r, sheet_ids=%r)' % args
 
 
 class ArraySheet(ABCSheet):

@@ -1891,16 +1891,28 @@ class T16RealFile(unittest.TestCase, CustomAssertions):
                                      [None, None, None, None, None],
                                      [None, None, None, None, None],
                                      [None, None, None, None, 3]]),
-            ('No Recurse',           'bar')
+            ('No Recurse',           'bar'),
+            ('Empty',                None)
         ])
         """
-        self.assertStringWhitoutSpacesEqual(str(res), exp)
+        self.assertStrippedStringsEqual(str(res), exp)
 
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     def test_real_file_recurse_fail(self):
-        err_msg = r"Context\(sheet=<class 'pandalone.xleash._xlrd.XlrdSheet'>\(SheetId\(book='recursive.xlsx', ids=\['2', 0\]\)\), base_coords=Coords\(row=7, col=0\)\)"
-        with assertRaisesRegex(self, ValueError, err_msg):
-            res = _l.lasso('recursive.xlsx#A_(U):"recurse"')
+        err_msg = """
+            Filtering xl-ref('recursive.xlsx#A_(U):"recurse"') failed due to:
+                While invoking(recurse, [], {}):
+                    Lassoing  xl-ref(#BAD1:"filter") at XlrdSheet(book='recursive.xlsx', sheet_ids=['2', 0]), Coords(row=9, col=0) stopped due to:
+                        array index out of range
+        """
+        try:
+            _l.lasso('recursive.xlsx#A_(U):"recurse"')
+        except ValueError as ex:
+            self.assertStrippedStringsEqual(str(ex), err_msg)
+        except:
+            raise
+        else:
+            raise AssertionError('ValueError not raised!')
 
 
 @ddt
