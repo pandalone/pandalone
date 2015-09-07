@@ -1866,7 +1866,7 @@ class T15Recursive(unittest.TestCase):
             self.assertNotIn(v, str(res))
 
 
-class T16RealFile(unittest.TestCase):
+class T16RealFile(unittest.TestCase, CustomAssertions):
 
     def setUp(self):
         logging.basicConfig(level=0)
@@ -1874,15 +1874,27 @@ class T16RealFile(unittest.TestCase):
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     def test_real_file(self):
         res = _l.lasso('recursive.xlsx#^^:"recurse"')
-        exp = dedent("""\
-        OrderedDict([('table in this sheet',      A     B
-        r1  11   foo
-        r2  21   bar
-        r3  31  bank), ('tables at 2nd sheet', OrderedDict([('tab1', array([[11, 12],
-               [21, 22]])), ('tab2',    COL1  COL2
-        0    55    56
-        1    65    66)])), ('AllSheet4', [[1, None, None, None, None], [None, None, 2, None, None], [None, None, None, None, None], [None, None, None, None, None], [None, None, None, None, 3]])])""")
-        self.assertEquals(str(res), exp)
+        exp = """\
+        OrderedDict([
+            ('table in this sheet',      A     B
+                                    r1  11   foo
+                                    r2  21   bar
+                                    r3  31  bank),
+            ('tables at 2nd sheet', OrderedDict([
+                ('tab1',            array([[11, 12],
+                                           [21, 22]])),
+                ('tab2',                COL1  COL2
+                                    0    55    56
+                                    1    65    66)])),
+            ('AllSheet4',           [[1,    None, None, None, None],
+                                     [None, None, 2,    None, None],
+                                     [None, None, None, None, None],
+                                     [None, None, None, None, None],
+                                     [None, None, None, None, 3]]),
+            ('No Recurse',           'bar')
+        ])
+        """
+        self.assertStringWhitoutSpacesEqual(str(res), exp)
 
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     def test_real_file_recurse_fail(self):

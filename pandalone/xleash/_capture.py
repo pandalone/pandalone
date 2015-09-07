@@ -907,8 +907,12 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
                 the bottom-right edge, inclusive(!); when `None`,
                 must return a scalar value.
         :return:
-                a 1D or 2D-list with the values fenced by the rect,
-                which might be empty if beyond limits.
+                Depends on whether both coords are given:
+                    - If both given, 2D list-lists with the values of the rect,
+                      which might be empty if beyond limits.
+                    - If only 1st given, the scalar value, and if
+                      beyond margins, raise error!
+
         :rtype: list
         """
 
