@@ -1720,7 +1720,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(name='do_lasso()',
                                     side_effect=lambda x, **kwds: _l.Lasso(values=x))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.Ranger.recursive_filter(ranger, lasso).values
+        res = _l.recursive_filter(ranger, lasso).values
         self.assertEqual(res, vals)
 
     @data(
@@ -1734,7 +1734,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.Ranger.recursive_filter(ranger, lasso).values
+        res = _l.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
 
@@ -1748,7 +1748,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.Ranger.recursive_filter(ranger, lasso).values
+        res = _l.recursive_filter(ranger, lasso).values
         self.assertNotIn(sentinel.BINGO.name, str(res))
 
     @data(
@@ -1762,7 +1762,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.Ranger.recursive_filter(ranger, lasso).values
+        res = _l.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
 
@@ -1777,7 +1777,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.Ranger.recursive_filter(ranger, lasso).values
+        res = _l.recursive_filter(ranger, lasso).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertIn('key', str(res))
@@ -1808,7 +1808,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.Ranger.recursive_filter(ranger, lasso, depth=depth).values
+        res = _l.recursive_filter(ranger, lasso, depth=depth).values
         # print(res)
         if missing:
             self.assertIn(sentinel.BINGO.name, str(res))
@@ -1827,7 +1827,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.Ranger.recursive_filter(ranger, lasso).values
+        res = _l.recursive_filter(ranger, lasso).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertIn("key", str(res))
@@ -1855,7 +1855,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.Ranger.recursive_filter(ranger, lasso, *incexc).values
+        res = _l.recursive_filter(ranger, lasso, *incexc).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
         for k in ['key1', 'key2', 'k3']:

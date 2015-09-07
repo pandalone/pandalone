@@ -262,7 +262,7 @@ class Ranger(object):
     :ivar dict base_opts:
             The :term:`opts` that are deep-copied and used as the defaults
             for every :meth:`do_lasso()`, whether invoked directly or
-            recursively by :meth:`recursive_filter()`.
+            recursively by :func:`recursive_filter()`.
             If unspecified, no opts are used, but this attr is set to an
             empty dict.
             See :func:`get_default_opts()`.
@@ -274,7 +274,7 @@ class Ranger(object):
             produced during the last execution of the :meth:`do_lasso()`.
             Used for inspecting/debuging.
     :ivar Context:
-            On recursive invocations with meth:`recursive_filter`, these fields
+            On recursive invocations with func:`recursive_filter()`, these fields
             are extracted from :meth:`do_lasso()` `context_kwds` arg and
             preserved when the parsed ones are `None`.
     """
@@ -339,110 +339,6 @@ class Ranger(object):
             lasso = self._make_call(lasso, *call_spec)
 
         return lasso
-
-    def recursive_filter(self, lasso, include=None, exclude=None, depth=-1):
-        """
-        Recursively expand any :term:`xl-ref` strings found by treating values as mappings (dicts, df, series) and/or nested lists.
-
-        - The `include`/`exclude` filter args work only for dict-like objects
-          with ``items()`` or ``iteritems()`` and indexing methods,
-          i.e. Mappings, series and dataframes.
-
-          - If no filter arg specified, expands for all keys.
-          - If only `include` specified, rejects all keys not explicitly
-            contained in this filter arg.
-          - If only `exclude` specified, expands all keys not explicitly
-            contained in this filter arg.
-          - When both `include`/`exclude` exist, only those explicitely
-            included are accepted, unless also excluded.
-
-        - Lower the :mod:`logging` level to see other than syntax-errors on
-          recursion reported on :data:`log`.
-        - Only those in :attr:`Ranger.Context` are passed
-          recursively.
-
-        :param list or str include:
-                Items to include in the recursive-search.
-                See descritpion above.
-        :param list or str exclude:
-                Items to include in the recursive-search.
-                See descritpion above.
-        :param int or None depth:
-                How deep to dive into nested structures for parsing xl-refs.
-                If `< 0`, no limit. If 0, stops completely.
-        """
-        include = include and as_list(include)
-        exclude = exclude and as_list(exclude)
-
-        def verbose(msg):
-            if lasso.opts.get('verbose', False):
-                msg = '%s \n    @Lasso: %s' % (msg, lasso)
-            return msg
-
-        def is_included(key):
-            ok = not include or key in include
-            ok &= not exclude or key not in exclude
-            return ok
-
-        def new_base_coords(base_coords, cdepth, i):
-            if base_coords:
-                if cdepth == 0:
-                    base_coords = base_coords._replace(row=i)
-                elif cdepth == 1:
-                    base_coords = base_coords._replace(col=i)
-            return base_coords
-
-        def invoke_recursively(vals, base_coords, cdepth):
-            context_kwds = dtz.keyfilter(lambda k: k in self.Context._fields,
-                                         lasso._asdict())
-            context_kwds['base_coords'] = base_coords
-            context = self.Context(**context_kwds)
-            try:
-                rlasso = self.do_lasso(vals, **context_kwds)
-                vals = rlasso and rlasso.values
-            except SyntaxError as ex:
-                msg = "Skipped non xl-ref(%s) due to: %s"
-                log.debug(msg, vals, ex)
-            except Exception as ex:
-                msg = "Lassoing  xl-ref(%s) at %s, %s stopped due to: \n  %s"
-                msg %= (vals, ) + context + (ex, )
-                raise ValueError(verbose(msg))
-            return vals
-
-        def dive_list(vals, base_coords, cdepth):
-            if isinstance(vals, basestring):
-                vals = invoke_recursively(vals, base_coords, cdepth)
-            elif isinstance(vals, list):
-                for i, v in enumerate(vals):
-                    nbc = new_base_coords(base_coords, cdepth, i)
-                    vals[i] = dive_indexed(v, nbc, cdepth + 1)
-
-            return vals
-
-        def dive_indexed(vals, base_coords, cdepth):
-            if cdepth != depth:
-                dived = False
-                try:
-                    items = iteritems(vals)
-                except:
-                    pass  # Just to avoid chained ex.
-                else:
-                    for i, (k, v) in enumerate(items):
-                        # Dict is not ordered, so cannot locate `base_coords`!
-                        if is_included(k):
-                            nbc = (None
-                                   if isinstance(vals, dict)
-                                   else new_base_coords(base_coords, cdepth, i))
-                            vals[k] = dive_indexed(v, nbc, cdepth + 1)
-                    dived = True
-                if not dived:
-                    vals = dive_list(vals, base_coords, cdepth)
-
-            return vals
-
-        values = dive_indexed(lasso.values, lasso.st, 0)
-
-        return lasso._replace(values=values)
 
     def _make_init_Lasso(self, **context_kwds):
         """Creates the lasso to be used for each new :meth:`do_lasso()` invocation."""
@@ -734,6 +630,111 @@ def redim_filter(ranger, lasso,
     return lasso
 
 
+def recursive_filter(ranger, lasso, include=None, exclude=None, depth=-1):
+    """
+    Recursively expand any :term:`xl-ref` strings found by treating values as mappings (dicts, df, series) and/or nested lists.
+
+    - The `include`/`exclude` filter args work only for dict-like objects
+      with ``items()`` or ``iteritems()`` and indexing methods,
+      i.e. Mappings, series and dataframes.
+
+      - If no filter arg specified, expands for all keys.
+      - If only `include` specified, rejects all keys not explicitly
+        contained in this filter arg.
+      - If only `exclude` specified, expands all keys not explicitly
+        contained in this filter arg.
+      - When both `include`/`exclude` exist, only those explicitely
+        included are accepted, unless also excluded.
+
+    - Lower the :mod:`logging` level to see other than syntax-errors on
+      recursion reported on :data:`log`.
+    - Only those in :attr:`Ranger.Context` are passed
+      recursively.
+
+    :param list or str include:
+            Items to include in the recursive-search.
+            See descritpion above.
+    :param list or str exclude:
+            Items to include in the recursive-search.
+            See descritpion above.
+    :param int or None depth:
+            How deep to dive into nested structures for parsing xl-refs.
+            If `< 0`, no limit. If 0, stops completely.
+    """
+    include = include and as_list(include)
+    exclude = exclude and as_list(exclude)
+
+    def verbose(msg):
+        if lasso.opts.get('verbose', False):
+            msg = '%s \n    @Lasso: %s' % (msg, lasso)
+        return msg
+
+    def is_included(key):
+        ok = not include or key in include
+        ok &= not exclude or key not in exclude
+        return ok
+
+    def new_base_coords(base_coords, cdepth, i):
+        if base_coords:
+            if cdepth == 0:
+                base_coords = base_coords._replace(row=i)
+            elif cdepth == 1:
+                base_coords = base_coords._replace(col=i)
+        return base_coords
+
+    def invoke_recursively(vals, base_coords, cdepth):
+        context_kwds = dtz.keyfilter(lambda k: k in ranger.Context._fields,
+                                     lasso._asdict())
+        context_kwds['base_coords'] = base_coords
+        context = ranger.Context(**context_kwds)
+        try:
+            rlasso = ranger.do_lasso(vals, **context_kwds)
+            vals = rlasso and rlasso.values
+        except SyntaxError as ex:
+            msg = "Skipped non xl-ref(%s) due to: %s"
+            log.debug(msg, vals, ex)
+        except Exception as ex:
+            msg = "Lassoing  xl-ref(%s) at %s, %s stopped due to: \n  %s"
+            msg %= (vals, ) + context + (ex, )
+            raise ValueError(verbose(msg))
+        return vals
+
+    def dive_list(vals, base_coords, cdepth):
+        if isinstance(vals, basestring):
+            vals = invoke_recursively(vals, base_coords, cdepth)
+        elif isinstance(vals, list):
+            for i, v in enumerate(vals):
+                nbc = new_base_coords(base_coords, cdepth, i)
+                vals[i] = dive_indexed(v, nbc, cdepth + 1)
+
+        return vals
+
+    def dive_indexed(vals, base_coords, cdepth):
+        if cdepth != depth:
+            dived = False
+            try:
+                items = iteritems(vals)
+            except:
+                pass  # Just to avoid chained ex.
+            else:
+                for i, (k, v) in enumerate(items):
+                    # Dict is not ordered, so cannot locate `base_coords`!
+                    if is_included(k):
+                        nbc = (None
+                               if isinstance(vals, dict)
+                               else new_base_coords(base_coords, cdepth, i))
+                        vals[k] = dive_indexed(v, nbc, cdepth + 1)
+                dived = True
+            if not dived:
+                vals = dive_list(vals, base_coords, cdepth)
+
+        return vals
+
+    values = dive_indexed(lasso.values, lasso.st, 0)
+
+    return lasso._replace(values=values)
+
+
 def get_default_filters(overrides=None):
     """
    The default available :term:`filters` used by :func:`lasso()` when constructing its internal :class:`Ranger`.
@@ -755,7 +756,7 @@ def get_default_filters(overrides=None):
             'func': Ranger.pipe_filter,
         },
         'recurse': {
-            'func': Ranger.recursive_filter,
+            'func': recursive_filter,
         },
         'redim': {
             'func': redim_filter,
@@ -894,7 +895,7 @@ def lasso(xlref,
     :ivar dict or None base_opts:
             Opts affecting the lassoing procedure that are deep-copied and used
             as the base-opts for every :meth:`Ranger.do_lasso()`, whether invoked
-            directly or recursively by :meth:`Ranger.recursive_filter()`.
+            directly or recursively by :func:`recursive_filter()`.
             Read the code to be sure what are the available choices.
             Delegated to :func:`make_default_Ranger()`, so items override
             default ones; use a new :class:`Ranger` if that is not desired.
