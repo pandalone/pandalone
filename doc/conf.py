@@ -13,39 +13,24 @@ import re
 import sys
 import os
 import io
+import importlib
+
+
+def check_import(lib):
+    try:
+        mod = importlib.import_module(lib)
+        print("%s: %s, %s" % (lib, mod.__version__, mod.__file__))
+    except ImportError:
+        print("no %s" % lib)
 
 print("python exec: %s" % sys.executable)
 print("sys.path: %s" % sys.path)
-try:
-    import numpy
-    print("numpy: %s, %s" % (numpy.__version__, numpy.__file__))
-except ImportError:
-    print("no numpy")
-try:
-    import scipy
-    print("scipy: %s, %s" % (scipy.__version__, scipy.__file__))
-except ImportError:
-    print("no scipy")
-try:
-    import pandas
-    print("pandas: %s, %s" % (pandas.__version__, pandas.__file__))
-except ImportError:
-    print("no pandas")
-try:
-    import matplotlib
-    print("matplotlib: %s, %s" % (matplotlib.__version__, matplotlib.__file__))
-except ImportError:
-    print("no matplotlib")
-try:
-    import IPython
-    print("ipython: %s, %s" % (IPython.__version__, IPython.__file__))
-except ImportError:
-    print("no ipython")
-try:
-    import mock
-    print("mock: %s, %s" % (mock.__version__, mock.__file__))
-except ImportError:
-    print("no mock")
+check_import('numpy')
+check_import('scipy')
+check_import('pandas')
+check_import('matplotlib')
+check_import('IPython')
+check_import('mock')
 
 
 projname = 'pandalone'
@@ -318,8 +303,9 @@ latex_elements = {
 
     # Additional stuff for the LaTeX preamble.
     #'preamble': '',
-    ## For UTF8 and other smbols
-    ## From http://tex.stackexchange.com/questions/20182/how-to-use-unicode-characters-with-sphinx-rst-documents-and-properly-generate-pd
+    # For UTF8 and other smbols
+    # From
+    # http://tex.stackexchange.com/questions/20182/how-to-use-unicode-characters-with-sphinx-rst-documents-and-properly-generate-pd
     'inputenc': '',
     'utf8extra': '',
     'preamble': r'''
@@ -327,6 +313,7 @@ latex_elements = {
     \usepackage{amsmath}
     \usepackage{textcomp}
     \usepackage{dejavu}
+    \usepackage[utf8]{inputenc}
     ''',
 }
 

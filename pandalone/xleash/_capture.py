@@ -16,8 +16,8 @@ from __future__ import unicode_literals
 from abc import abstractmethod, ABCMeta
 from collections import namedtuple
 import logging
-from pandalone.xlasso import _parse
-from pandalone.xlasso._parse import Cell, Coords
+from pandalone.xleash import _parse
+from pandalone.xleash._parse import Cell, Coords
 from string import ascii_uppercase
 
 from future.builtins import str
@@ -846,13 +846,13 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
 
         >>> import xlrd                                       #  doctest: +SKIP
         >>> with xlrd.open_workbook(self.tmp) as wb:          #  doctest: +SKIP
-        ...     sheet = xlasso.xlrdSheet(wb.sheet_by_name('Sheet1'))
+        ...     sheet = xleash.xlrdSheet(wb.sheet_by_name('Sheet1'))
         ...     ## Do whatever
 
     *win32* examples::
 
         >>> with dsgdsdsfsd as wb:          #  doctest: +SKIP
-        ...     sheet = xlasso.win32Sheet(wb.sheet['Sheet1'])
+        ...     sheet = xleash.win32Sheet(wb.sheet['Sheet1'])
         TODO: Win32 Sheet example
     """
 
@@ -928,7 +928,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
         """
         Extract (and cache) margins either internally or from :func:`_margin_coords_from_states_matrix()`.
 
-        :return:    the resolved top-left and bottom-right :class:`.xlasso.Coords`
+        :return:    the resolved top-left and bottom-right :class:`.xleash.Coords`
         :rtype:     tuple
 
         """

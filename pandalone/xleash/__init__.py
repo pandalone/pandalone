@@ -9,14 +9,14 @@
 A mini-language for "throwing the rope" around rectangular areas of Excel-sheets.
 
 .. default-role:: term
-.. currentmodule:: pandalone.xlasso
+.. currentmodule:: pandalone.xleash
 
 About
 =====
 Any *decent* dataset is stored in **csv**.
 Consequently, many datasets are in excel-sheets.
 
-*XLasso* defines a url-fragment notation (`xl-ref`) that renders
+*XLeash* defines a url-fragment notation (`xl-ref`) that renders
 the `capturing` of tables from sheets as practical as reading a **csv**,
 even when the exact position of those tables are not known beforehand.
 
@@ -41,9 +41,9 @@ conditional `traversing` operations, based on the cell's empty/full `state`.
 For instance, to extract a contigious table near the ``A1`` cell,
 and make a ``pandas.DataFrame`` out of it use this::
 
-    from pandalone import xlasso
+    from pandalone import xleash
 
-    df = xlasso.lasso('path/to/workbook.xlsx#A1(DR):..(DR):LU:["df"]')
+    df = xleash.lasso('path/to/workbook.xlsx#A1(DR):..(DR):LU:["df"]')
 
 
 Xl-ref Syntax
@@ -64,7 +64,7 @@ Annotated Example
   target-moves─────┐
   landing-cell──┐  │
                ┌┤ ┌┤
-              #C3(UL):..(RD):RULD:["pipe": ['odict', "recursive"]]
+              #C3(UL):..(RD):RULD:["pipe": ["odict", "recursive"]]
                └─┬──┘ └─┬──┘ └┬─┘ └──────────────┬───────────────┘
   1st-edge───────┘      │     │                  │
   2nd-edge──────────────┘     │                  │
@@ -90,9 +90,9 @@ Basic Usage
 The simplest way to `lasso` a `xl-ref` is through :func:`lasso()`.
 A common task is capturing all sheet data but without any bordering nulls::
 
-    >>> from pandalone import xlasso
+    >>> from pandalone import xleash
 
-    >>> values = xlasso.lasso('path/to/workbook.xlsx#:')  # doctest: +SKIP
+    >>> values = xleash.lasso('path/to/workbook.xlsx#:')  # doctest: +SKIP
 
 Assuming that the `full-cell` of the 1st sheet of the workbook on disk are
 those marked with ``'X'``, then the result  `capture-rect` of the above call
@@ -110,12 +110,12 @@ If you do not wish to let the library read your workbooks, you can
 invoke the function with a pre-loaded sheet.
 Here we will use the utility :class:`ArraySheet`::
 
-    >>> sheet = xlasso.ArraySheet([[None, None,  'A',   None],
+    >>> sheet = xleash.ArraySheet([[None, None,  'A',   None],
     ...                          [None, 2.2,   'foo', None],
     ...                          [None, None,   2,    None],
     ...                          [None, None,   None, 3.14],
     ... ])
-    >>> xlasso.lasso('#A1(DR):..(DR):RULD', sheet=sheet)
+    >>> xleash.lasso('#A1(DR):..(DR):RULD', sheet=sheet)
     [[None, 'A'],
      [2.2, 'foo'],
      [None, 2]]
@@ -123,7 +123,7 @@ Here we will use the utility :class:`ArraySheet`::
 This `capture-rect` in this case was *B1* and *C3* as can be seen by inspecting
 the ``st`` and ``nd`` fields of the full :class:`Xlref` results returned::
 
-    >>> xlasso.lasso('#A1(DR):..(DR):RULD', sheet=sheet, return_lasso=True)
+    >>> xleash.lasso('#A1(DR):..(DR):RULD', sheet=sheet, return_lasso=True)
     Lasso(xl_ref='#A1(DR):..(DR):RULD',
           url_file=None,
           sh_name=None,
@@ -149,9 +149,9 @@ For controlling explicitly the configuration parameters and the opening of
 workbooks, use separate instances of :class:`Ranger` and :class:`SheetsFactory`,
 that are the workhorses of this library::
 
-    >>> with xlasso.SheetsFactory() as sf:
+    >>> with xleash.SheetsFactory() as sf:
     ...     sf.add_sheet(sheet, wb_ids='foo_wb', sh_ids='Sheet1')
-    ...     ranger = xlasso.Ranger(sf, base_opts={'verbose': True})
+    ...     ranger = xleash.Ranger(sf, base_opts={'verbose': True})
     ...     ranger.do_lasso('foo_wb#Sheet1!__').values
     3.14
 
@@ -169,7 +169,7 @@ API
 
 - User-facing higher-level functionality:
 
-  .. currentmodule:: pandalone.xlasso._lasso
+  .. currentmodule:: pandalone.xleash._lasso
   .. autosummary::
       lasso
       Ranger
@@ -183,7 +183,7 @@ API
 
 - Related to :term:`capturing` algorithm:
 
-  .. currentmodule:: pandalone.xlasso._capture
+  .. currentmodule:: pandalone.xleash._capture
   .. autosummary::
       resolve_capture_rect
       ABCSheet.read_rect
@@ -192,7 +192,7 @@ API
       coords2Cell
 
 - Related to parsing and basic structure used throughout:
-  .. currentmodule:: pandalone.xlasso._parse
+  .. currentmodule:: pandalone.xleash._parse
   .. autosummary::
       parse_xlref
       parse_expansion_moves
@@ -203,14 +203,14 @@ API
 
 - **xlrd** back-end functionality:
 
-  .. currentmodule:: pandalone.xlasso._xlrd
+  .. currentmodule:: pandalone.xleash._xlrd
 
   .. autosummary::
       XlrdSheet
       open_sheet
 
 .. default-role:: term
-.. currentmodule:: pandalone.xlasso
+.. currentmodule:: pandalone.xleash
 
 
 More Syntax Examples
@@ -281,7 +281,7 @@ the `1st` `landing-cell`, the capturing becomes more intricate::
        └───┘        D2(L+):^_
 
 
-.. seealso:: Example spreadsheet: :download:`xls_ref.xlsx`
+.. seealso:: Example spreadsheet: :download:`xleash.xlsx`
 
 
 Definitions
@@ -687,16 +687,16 @@ Example-refs are given below for capturing the 2 marked tables::
 .. default-role:: obj
 """
 
-from pandalone.xlasso._capture import (
+from pandalone.xleash._capture import (
     resolve_capture_rect, ABCSheet, ArraySheet, coords2Cell,
 )
-from pandalone.xlasso._lasso import (
+from pandalone.xleash._lasso import (
     lasso, Ranger, SheetsFactory,
     make_default_Ranger, get_default_opts, get_default_filters,
     Lasso,
     xlwings_dims_call_spec, log
 )
-from pandalone.xlasso._parse import (
+from pandalone.xleash._parse import (
     Cell, Coords, Edge, CallSpec,
     parse_xlref,
 )

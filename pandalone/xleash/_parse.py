@@ -6,11 +6,11 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-The syntax-parsing part *xlasso*.
+The syntax-parsing part *xleash*.
 
 Prefer accessing the public members from the parent module.
 
-.. currentmodule:: pandalone.xlasso
+.. currentmodule:: pandalone.xleash
 """
 
 from __future__ import unicode_literals
@@ -149,21 +149,21 @@ _regular_xlref_regex = re.compile(
     r"""
     ^\s*(?:(?P<sh_name>[^!]+)?!)?                            # xl sheet name
     (?:                                                      # 1st-edge
-        (?: 
-            (?: 
+        (?:
+            (?:
                 (?P<st_col>[A-Z]+|[_^])                      # A1-col
                 (?P<st_row>[123456789]\d*|[_^])              # A1-row
-            ) | (?: 
+            ) | (?:
                 R(?P<st_row2>-?[123456789]\d*|[_^.])         # RC-row
                 C(?P<st_col2>-?[123456789]\d*|[_^.])         # RC-col
-            ) 
-        ) 
-        (?:\( 
+            )
+        )
+        (?:\(
             (?P<st_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)      # moves
             (?P<st_mod>[+?])?                                # move modifiers
-            \) 
-        )? 
-    )? 
+            \)
+        )?
+    )?
     (?:(?P<colon>:)                                          # ':' needed if 2nd
         (?:                                                  # 2nd-edge
             (?:                                              # target
@@ -178,10 +178,10 @@ _regular_xlref_regex = re.compile(
             (?:\(
                 (?P<nd_mov>L|U|R|D|LD|LU|UL|UR|RU|RD|DL|DR)  # moves
                 (?P<nd_mod>[+?])?                            # move-modifiers
-                \) 
-            )? 
+                \)
+            )?
         )?
-        (?: 
+        (?:
             :(?P<exp_moves>[LURD?123456789]+)                # expansion moves
         )?
     )?
@@ -218,18 +218,18 @@ def parse_call_spec(call_spec_values):
     Parse :term:`call-specifier` from json-filters.
 
     :param call_spec_values:
-        This is a *non-null* structure specifying some function call 
+        This is a *non-null* structure specifying some function call
         in the `filter` part, which it can be either:
 
-        - string: ``"func_name"`` 
+        - string: ``"func_name"``
         - list:   ``["func_name", ["arg1", "arg2"], {"k1": "v1"}]``
           where the last 2 parts are optional and can be given in any order;
-        - object: ``{"func": "func_name", "args": ["arg1"], "kwds": {"k":"v"}}`` 
+        - object: ``{"func": "func_name", "args": ["arg1"], "kwds": {"k":"v"}}``
           where the `args` and `kwds` are optional.
 
-    :return: 
-        the 3-tuple ``func, args=(), kwds={}`` with the defaults as shown 
-        when missing. 
+    :return:
+        the 3-tuple ``func, args=(), kwds={}`` with the defaults as shown
+        when missing.
     """
     def boolarr(l):
         return np.fromiter(l, dtype=bool)
@@ -371,7 +371,7 @@ def _parse_xlref_fragment(xlref_fragment):
     Parses a :term:`xl-ref` fragment.
 
     :param str xlref_fragment:
-            the url-fragment part of the :term:`xl-ref` string, 
+            the url-fragment part of the :term:`xl-ref` string,
             including the ``'#'`` char.
     :return:
         dictionary containing the following parameters:
@@ -381,7 +381,7 @@ def _parse_xlref_fragment(xlref_fragment):
           i.e. ``Edge(land=Cell(row='8', col='UPT'), mov='LU', mod='-')``
         - nd_edge: (Edge, None) the 2nd-ref, with raw cell
           i.e. ``Edge(land=Cell(row='_', col='.'), mov='D', mod='+')``
-        - exp_moves: (sequence, None), as i.e. ``LDL1`` parsed by 
+        - exp_moves: (sequence, None), as i.e. ``LDL1`` parsed by
           :func:`parse_expansion_moves()`
         - js_filt: dict i.e. ``{"dims: 1}``
 
@@ -390,7 +390,7 @@ def _parse_xlref_fragment(xlref_fragment):
 
     Examples::
 
-        >>> res = _parse_xlref_fragment('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:' 
+        >>> res = _parse_xlref_fragment('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:'
         ...                             '{"opts":{}, "func": "foo"}')
         >>> sorted(res.items())
         [('call_spec', CallSpec(func='foo', args=[], kwds={})),
@@ -456,16 +456,16 @@ def parse_xlref(xlref):
     """
     Parse a :term:`xl-ref` into a dict.
 
-    :param str xlref: 
+    :param str xlref:
             A url-string abiding to the :term:`xl-ref` syntax.
-    :return: 
+    :return:
             A dict with all fields, with None with those missing.
     :rtype: dict
 
 
     Examples::
 
-        >>> res = parse_xlref('workbook.xlsx#Sheet1!A1(DR+):Z20(UL):L1U2R1D1:' 
+        >>> res = parse_xlref('workbook.xlsx#Sheet1!A1(DR+):Z20(UL):L1U2R1D1:'
         ...                             '{"opts":{}, "func": "foo"}')
         >>> sorted(res.items())
          [('call_spec', CallSpec(func='foo', args=[], kwds={})),
@@ -485,7 +485,7 @@ def parse_xlref(xlref):
          ('opts', None),
          ('sh_name', None),
          ('st_edge', Edge(land=Cell(row='^', col='^'), mov=None, mod=None)),
-         ('url_file', None), 
+         ('url_file', None),
          ('xl_ref', '#:')]
 
 
@@ -504,9 +504,9 @@ def parse_xlref(xlref):
 
         >>> parse_xlref("#A1:B1:{'Bad_JSON_str'}")
         Traceback (most recent call last):
-        ValueError: Filters are not valid JSON: 
+        ValueError: Filters are not valid JSON:
         Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
-          JSON: 
+          JSON:
         {'Bad_JSON_str'}
     """
     xlref = xlref.translate(_excel_str_translator)

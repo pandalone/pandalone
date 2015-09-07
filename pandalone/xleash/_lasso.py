@@ -10,7 +10,7 @@ The high-level functionality, the filtering and recursive :term:`lassoing`.
 
 Prefer accessing the public members from the parent module.
 
-.. currentmodule:: pandalone.xlasso
+.. currentmodule:: pandalone.xleash
 """
 
 from __future__ import unicode_literals
@@ -28,10 +28,9 @@ from toolz import dicttoolz as dtz
 
 import itertools as itt
 import numpy as np
-
 from . import _parse
 from ..utils import as_list
-from ._capture import resolve_capture_rect
+from pandalone.xleash import resolve_capture_rect
 
 
 log = logging.getLogger(__name__)

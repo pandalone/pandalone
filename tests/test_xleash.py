@@ -13,10 +13,10 @@ from datetime import datetime
 import doctest
 import logging
 import os
-from pandalone import xlasso
-from pandalone.xlasso import _parse as _p, _capture as _c, _lasso as _l
-from pandalone.xlasso import _xlrd as xd
-from pandalone.xlasso._xlrd import XlrdSheet
+from pandalone import xleash
+from pandalone.xleash import _parse as _p, _capture as _c, _lasso as _l
+from pandalone.xleash import _xlrd as xd
+from pandalone.xleash._xlrd import XlrdSheet
 import sys
 import tempfile
 from tests import _tutils
@@ -68,9 +68,9 @@ def _make_local_url(fname, fragment=''):
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
 class T00Doctest(unittest.TestCase):
 
-    def test_xlasso(self):
+    def test_xleash(self):
         failure_count, test_count = doctest.testmod(
-            xlasso, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+            xleash, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
@@ -1886,7 +1886,7 @@ class T16RealFile(unittest.TestCase):
 
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     def test_real_file_recurse_fail(self):
-        err_msg = r"Context\(sheet=<class 'pandalone.xlasso._xlrd.XlrdSheet'>\(SheetId\(book='recursive.xlsx', ids=\['2', 0\]\)\), base_coords=Coords\(row=7, col=0\)\)"
+        err_msg = r"Context\(sheet=<class 'pandalone.xleash._xlrd.XlrdSheet'>\(SheetId\(book='recursive.xlsx', ids=\['2', 0\]\)\), base_coords=Coords\(row=7, col=0\)\)"
         with assertRaisesRegex(self, ValueError, err_msg):
             res = _l.lasso('recursive.xlsx#A_(U):"recurse"')
 
@@ -1920,8 +1920,10 @@ class T17VsPandas(unittest.TestCase, CustomAssertions):
         df = pd.DataFrame([1, 2])
         df.columns = pd.MultiIndex.from_arrays([list('A'), list('a')])
         err = "Writing as Excel with a MultiIndex is not yet implemented."
-        msg = ("\n\nTIP: Pandas-%s probably saves DFs with MultiIndex columns now. \n"
-               "     Update _xlref._to_df() accordingly!")
+        msg = """\n\nTIP: Pandas-%s probably saves DFs with MultiIndex columns now.
+                Update _xlref._to_df() accordingly!
+                See GH4679, GH10967, GH10564
+                    """
         with assertRaisesRegex(self, NotImplementedError, err,
                                msg=msg % pd.__version__):
             try:

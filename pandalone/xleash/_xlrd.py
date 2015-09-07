@@ -6,15 +6,15 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-Implements the *xlrd* backend of *xlasso* that reads in-file Excel-spreadsheets.
+Implements the *xlrd* backend of *xleash* that reads in-file Excel-spreadsheets.
 """
 
 import datetime
 from distutils.version import LooseVersion
 import logging
 from os import path
-from pandalone.xlasso._capture import ABCSheet, SheetId
-from pandalone.xlasso._parse import Coords
+from pandalone.xleash._capture import ABCSheet, SheetId
+from pandalone.xleash._parse import Coords
 
 from future.moves.urllib import request
 from future.moves.urllib.parse import urlsplit
@@ -161,7 +161,7 @@ def open_sheet(wb_url, sheet_id, opts):
 
 class XlrdSheet(ABCSheet):
     """
-    The *xlrd* workbook wrapper required by xlasso library.
+    The *xlrd* workbook wrapper required by xleash library.
     """
 
     def __init__(self, sheet, book_fname, epoch1904=False):

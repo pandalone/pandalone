@@ -14,7 +14,7 @@ Known deficiencies
 
 TODOs
 -----
-- XLasso
+- XLeash
     - Core:
         - Syntax:
             - [ ] Notation for specifying the "last-sheet".
@@ -33,9 +33,9 @@ TODOs
         - [ ] xlwings
         - [ ] Clipboard
         - [ ] openpyxl
-    - [ ] Check TODOs in code
-    - [ ] README
     - [ ] Split own project
+    	- [ ] README
+    - [ ] Check TODOs in code
 
 Rejected TODOs:
 ---------------
