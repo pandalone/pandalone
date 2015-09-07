@@ -23,7 +23,7 @@ TODOs
             - [ ] Expand meander `@`?
         - filters:
             - [ ] Slices and Index args on 'numpy' and 'df' filters.
-        - [ ] Build XLref recursive trees.
+            - [ ] Impl  new `eval` filter with `asteval` lib
         - [ ] Xlrd-read with slices.
     - Struct:
         - [ ] Plugins for backends (& syntax?)
@@ -39,8 +39,11 @@ TODOs
 
 Rejected TODOs:
 ---------------
-- xlef: Support cubic areas; pandas create dict-of-dfs from multiple sheets.
-- Use *ast* library for filters; cannot extract safely opts.
+- xleash
+	- Support cubic areas; pandas create dict-of-dfs from multiple sheets.
+	- Use *ast* library for filters; cannot extract safely opts.
+	- Build Lasso-structs trees on `recursive` filter for debugging; carefully
+	  crafted exception-messages is enough.
 
 
 Changelog

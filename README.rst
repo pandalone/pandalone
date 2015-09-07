@@ -8,7 +8,7 @@ pandalone: process data-trees with reconfigurable-paths
 |dev-status| |travis-status| |appveyor-status| |cover-status| |docs-status| \
 |pypi-status| |downloads-count| |github-issues| |proj-license|
 
-:Release:       0.1.0
+:Release:       0.1.1
 :Documentation: https://pandalone.readthedocs.org/
 :Source:        https://github.com/pandalone/pandalone
 :PyPI repo:     https://pypi.python.org/pypi/pandalone
@@ -51,7 +51,7 @@ Introduction
 Overview
 --------
 
-At the most fundamental level, an "execution" or a "run" of a processing
+At the most fundamental level, an "execution" or a "run" of any data-processing
 can be thought like that ::
 
            .--------------.     _____________        .-------------.
@@ -97,11 +97,11 @@ Quick-start
     The program runs on **Python-2.7+** and **Python-3.3+** (preferred) and requires
     **numpy/scipy**, **pandas** and **win32** libraries along with their *native backends* to be installed.
     If you do not have such an environment already installed, please read :doc:`install` section below for
-    suitable distributions such as |winpython|_ or |anaconda|_.
+    suitable distributions such as |anaconda|_ or |winpython|_.
 
 Assuming that you have a working python-environment, open a *command-shell*,
 (in *Windows* use :program:`cmd.exe` BUT ensure :program:`python.exe` is in its :envvar:`PATH`),
-you can try the following commands:
+try the following commands:
 
 .. Tip::
     The commands beginning with ``$``, below, imply a *Unix* like operating system with a *POSIX* shell
@@ -269,7 +269,7 @@ After installation, it is important that you check which version is visible in y
 .. code-block:: bash
 
     $ pndlcmd --version
-    0.1.0
+    0.1.1
 
 
 To install for different Python versions, repeat the procedure for every required version.
@@ -346,13 +346,15 @@ Project files and folders
 -------------------------
 The files and folders of the project are listed below::
 
-    +--pandalone/       ## (package) The python-code of the calculator
+    +--pandalone/       ## (package) Python-code
     +--tests/           ## (package) Test-cases
-    +--docs/            ## Documentation folder
+    +--doc/             ## Documentation folder
     +--setup.py         ## (script) The entry point for `setuptools`, installing, testing, etc
     +--requirements/    ## (txt-files) Various pip and conda dependencies.
     +--README.rst
     +--CHANGES.rst
+    +--AUTHORS.rst
+    +--CONTRIBUTING.rst
     +--LICENSE.txt
 
 
@@ -361,6 +363,9 @@ The files and folders of the project are listed below::
 
 Usage
 =====
+Currently 2 portions of this library are ready for use: :mod:`pandalone.xleash` and
+:mod:`pandalone.mappings`
+
 .. _cmd-line-usage:
 
 Cmd-line usage
@@ -423,7 +428,7 @@ First run :command:`python` or :command:`ipython` and try to import the project 
     >>> import pandalone
 
     >>> pandalone.__version__           ## Check version once more.
-    '0.1.0'
+    '0.1.1'
 
     >>> pandalone.__file__              ## To check where it was installed.         # doctest: +SKIP
     /usr/local/lib/site-package/pandalone-...
