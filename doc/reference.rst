@@ -26,6 +26,11 @@ Submodule: :mod:`pandalone.xleash._capture`
 .. automodule:: pandalone.xleash._capture
     :members:
 
+Submodule: :mod:`pandalone.xleash._filter`
+-------------------------------------------
+.. automodule:: pandalone.xleash._filter
+    :members:
+
 Submodule: :mod:`pandalone.xleash._parse`
 -----------------------------------------
 .. automodule:: pandalone.xleash._parse

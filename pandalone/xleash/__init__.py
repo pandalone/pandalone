@@ -5,7 +5,9 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
-"""
+from __future__ import unicode_literals
+
+__doc__ = """
 A mini-language for "throwing the rope" around rectangular areas of Excel-sheets.
 
 .. default-role:: term
@@ -190,6 +192,12 @@ API
       ArraySheet
       ABCSheet
       coords2Cell
+
+  .. currentmodule:: pandalone.xleash._filter
+  .. autosummary::
+    get_default_filters,
+    xlwings_dims_call_spec,
+
 
 - Related to parsing and basic structure used throughout:
   .. currentmodule:: pandalone.xleash._parse
@@ -687,19 +695,74 @@ Example-refs are given below for capturing the 2 marked tables::
 .. default-role:: obj
 """
 
+from collections import namedtuple
+
+Lasso = namedtuple('Lasso',
+                   ('xl_ref', 'url_file', 'sh_name',
+                    'st_edge', 'nd_edge', 'exp_moves',
+                    'call_spec',
+                    'sheet', 'st', 'nd', 'values', 'base_coords',
+                    'opts'))
+"""
+All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger`.
+
+:param str xl_ref:
+        The full url, populated on parsing.
+:param str sh_name:
+        Parsed sheet name (or index, but still as string), populated on parsing.
+:param Edge st_edge:
+        The 1st edge, populated on parsing.
+:param Edge nd_edge:
+        The 2nd edge, populated on parsing.
+:param Coords st:
+        The top-left targeted coords of the :term:`capture-rect`,
+        populated on :term:`capturing`.`
+:param Coords nd:
+        The bottom-right targeted coords of the :term:`capture-rect`,
+        populated on :term:`capturing`
+:param ABCSheet sheet:
+        The fetched from factory or ranger's current sheet, populated
+        after :term:`capturing` before reading.
+:param values:
+        The excel's table-values captured by the :term:`lasso`,
+        populated after reading updated while applying :term:`filters`.
+:param dict or ChainMap opts:
+        - Before `parsing`, they are just any 'opts' dict found in the
+          :term:`filters`.
+        - After *parsing, a 2-map ChainMap with :attr:`Ranger.base_opts` and
+          options extracted from *filters* on top.
+"""
+
+Lasso.__new__.__defaults__ = (None,) * len(Lasso._fields)
+"""Make :class:`Lasso` construct with all missing fields as `None`."""
+
+
+def _Lasso_to_edges_str(lasso):
+    st = lasso.st_edge if lasso.st_edge else ''
+    nd = lasso.nd_edge if lasso.nd_edge else ''
+    s = st if st and not nd else '%s:%s' % (st, nd)
+    exp = ':%s' % lasso.exp_moves.upper() if lasso.exp_moves else ''
+    return s + exp
+
+
 from pandalone.xleash._capture import (
     resolve_capture_rect, ABCSheet, ArraySheet, coords2Cell,
 )
 from pandalone.xleash._lasso import (
     lasso, Ranger, SheetsFactory,
-    make_default_Ranger, get_default_opts, get_default_filters,
-    Lasso,
-    xlwings_dims_call_spec, log
+    make_default_Ranger, get_default_opts,
+    log
 )
 from pandalone.xleash._parse import (
     Cell, Coords, Edge, CallSpec,
     parse_xlref,
 )
+
+from pandalone.xleash._filter import (
+    get_default_filters,
+    xlwings_dims_call_spec,
+)
+
 
 __all__ = [
     'resolve_capture_rect', 'ABCSheet', 'ArraySheet', 'coords2Cell',

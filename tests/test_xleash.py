@@ -14,7 +14,10 @@ import doctest
 import logging
 import os
 from pandalone import xleash
-from pandalone.xleash import _parse as _p, _capture as _c, _lasso as _l
+from pandalone.xleash import (_parse as _p,
+                              _capture as _c,
+                              _filter as _f,
+                              _lasso as _l)
 from pandalone.xleash import _xlrd as xd
 from pandalone.xleash._xlrd import XlrdSheet
 import sys
@@ -1088,7 +1091,7 @@ def _read_rect_values(sheet, st_edge, nd_edge, dims):
                                      st_edge, nd_edge)  # or Edge(None, None))
     v = sheet.read_rect(st, nd)
     if dims is not None:
-        v = _l._redim(v, dims)
+        v = _f._redim(v, dims)
 
     return v
 
@@ -1386,7 +1389,7 @@ class T11Redim(unittest.TestCase):
 
     def check_redim(self, case):
         arr, dim, exp = case
-        res = _l._redim(arr, dim)
+        res = _f._redim(arr, dim)
 
         self.assertEqual(res, exp)
 #         if isinstance(exp, list):
@@ -1705,7 +1708,7 @@ class T14Lasso(unittest.TestCase):
         sheetsFact = _l.SheetsFactory()
         sheetsFact.add_sheet(_c.ArraySheet(table), 'wb', 'sheet1')
 
-        dims = _l.xlwings_dims_call_spec()
+        dims = _f.xlwings_dims_call_spec()
         self.assertEqual(_l.lasso(xlref % dims, sheetsFact), res)
 
 
@@ -1726,7 +1729,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(name='do_lasso()',
                                     side_effect=lambda x, **kwds: _l.Lasso(values=x))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.recursive_filter(ranger, lasso).values
+        res = _f.recursive_filter(ranger, lasso).values
         self.assertEqual(res, vals)
 
     @data(
@@ -1740,7 +1743,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.recursive_filter(ranger, lasso).values
+        res = _f.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
 
@@ -1754,7 +1757,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.recursive_filter(ranger, lasso).values
+        res = _f.recursive_filter(ranger, lasso).values
         self.assertNotIn(sentinel.BINGO.name, str(res))
 
     @data(
@@ -1768,7 +1771,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.recursive_filter(ranger, lasso).values
+        res = _f.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
 
@@ -1783,7 +1786,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.recursive_filter(ranger, lasso).values
+        res = _f.recursive_filter(ranger, lasso).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertIn('key', str(res))
@@ -1814,7 +1817,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.recursive_filter(ranger, lasso, depth=depth).values
+        res = _f.recursive_filter(ranger, lasso, depth=depth).values
         # print(res)
         if missing:
             self.assertIn(sentinel.BINGO.name, str(res))
@@ -1833,7 +1836,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.recursive_filter(ranger, lasso).values
+        res = _f.recursive_filter(ranger, lasso).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertIn("key", str(res))
@@ -1861,7 +1864,7 @@ class T15Recursive(unittest.TestCase):
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=_l.Lasso(values=sentinel.BINGO))
         lasso = _l.Lasso(values=vals, opts={})
-        res = _l.recursive_filter(ranger, lasso,
+        res = _f.recursive_filter(ranger, lasso,
                                   **dict(zip(['include', 'exclude'], incexc)))
         res = res.values
         # print(res)
@@ -1893,7 +1896,7 @@ class T16Eval(unittest.TestCase, CustomAssertions):
 
         ranger = _l.Ranger(None)
         lasso = _l.Lasso(values=expr, opts={})
-        res = _l.eval_filter(ranger, lasso)
+        res = _f.eval_filter(ranger, lasso)
 
         self.assertEqual(res, exp)
 
@@ -1909,7 +1912,7 @@ class T16Eval(unittest.TestCase, CustomAssertions):
 
         ranger = _l.Ranger(None)
         lasso = _l.Lasso(values=expr, opts={})
-        res = _l.eval_filter(ranger, lasso)
+        res = _f.eval_filter(ranger, lasso)
 
         self.assertEqual(res, exp)
 
@@ -1929,7 +1932,7 @@ class T16Eval(unittest.TestCase, CustomAssertions):
         ranger = _l.Ranger(None)
         lasso = _l.Lasso(values=expr, opts={})
         try:
-            _l.eval_filter(ranger, lasso)
+            _f.eval_filter(ranger, lasso)
         except ValueError as ex:
             self.assertStrippedStringsEqual(str(ex), err_msg)
         except:
@@ -1938,7 +1941,7 @@ class T16Eval(unittest.TestCase, CustomAssertions):
             raise AssertionError('ValueError not raised!')
 
         lasso = _l.Lasso(values=expr, opts={'lax': True})
-        _l.eval_filter(ranger, lasso)
+        _f.eval_filter(ranger, lasso)
 
 
 class T17RealFile(unittest.TestCase, CustomAssertions):
@@ -1975,6 +1978,10 @@ class T17RealFile(unittest.TestCase, CustomAssertions):
                                     2    bus  dict(a_dict=1)     None)
         ])
         """
+        # ('P-eval',                  COL1        EVAL_COL  NO_EVAL
+        #                         0    foo               6     a'+4
+        #                         1    bar         [1,2,3]  bad boy
+        #                         2    bus   {'a_dict': 1}     None)
         self.assertStrippedStringsEqual(str(res), exp)
 
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
@@ -2050,9 +2057,9 @@ class T18VsPandas(unittest.TestCase, CustomAssertions):
             lasso = _l.Lasso(
                 st=st, nd=nd, values=xlref_res, opts=ChainMap())
 
-            lasso1 = _l.redim_filter(None, lasso, row=[2, True])
+            lasso1 = _f.redim_filter(None, lasso, row=[2, True])
 
-            df_filter = _l.get_default_filters()['df']['func']
+            df_filter = _f.get_default_filters()['df']['func']
             lasso2 = df_filter(None, lasso1, **parse_df_kwds)
 
             xlref_df = lasso2.values
@@ -2108,5 +2115,5 @@ class T19VsXlwings(unittest.TestCase):
         with xw_Workbook(self.tmp_excel_fname):
             res = res(xw)
 
-        dims = _l.xlwings_dims_call_spec()
+        dims = _f.xlwings_dims_call_spec()
         self.assertEqual(_l.lasso(xlref % dims, self.sheetsFact), res)
