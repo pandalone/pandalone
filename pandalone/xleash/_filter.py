@@ -200,7 +200,8 @@ def redim_filter(ranger, lasso,
     return lasso
 
 
-ElementContext = namedtuple('ElementContext', ('sheet', 'base_coords'))
+ElementContext = namedtuple('ElementContext',
+                            ('sheet', 'st', 'nd', 'base_coords'))
 """
 Fields denoting the position of a sheet/cell while running a :term:`element-wise-filter`.
 
@@ -275,9 +276,9 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
     def new_base_coords(base_coords, cdepth, i):
         if base_coords:
             if cdepth == 0:
-                base_coords = base_coords._replace(row=i)
+                base_coords = base_coords._replace(row=base_coords.row + i)
             elif cdepth == 1:
-                base_coords = base_coords._replace(col=i)
+                base_coords = base_coords._replace(col=base_coords.col + i)
         return base_coords
 
     def call_element_func(vals, base_coords, cdepth):
@@ -289,8 +290,8 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
             proced, res_lasso = element_func(ranger, lasso, context, vals,
                                              *args, **kwds)
         except Exception as ex:
-            msg_args = (vals,) + context + (ex, )
-            raise ValueError("Value(%r) at %s, %s: \n    %s" % msg_args)
+            msg_args = (vals, context, ex)
+            raise ValueError("Value(%r) at %s: \n    %s" % msg_args)
 
         if proced:
             if not isinstance(res_lasso, Lasso):
@@ -345,8 +346,8 @@ def _recurse_element_func(ranger, lasso, context, vals):
             lasso = ranger.do_lasso(vals, **context._asdict())
             proced = True
     except SyntaxError as ex:
-        msg = "Skipped non `xl-ref` value(%r) at %s, %s due to: %s"
-        msg_args = (vals,) + context + (ex, )
+        msg = "Skipped non `xl-ref` value(%r) at %s due to: \n  %s"
+        msg_args = (vals, context, ex)
         log.debug(msg, *msg_args)
     except Exception as ex:
         msg = "Lassoing  `xl-ref` failed due to: %s"
@@ -387,7 +388,7 @@ def recursive_filter(ranger, lasso, *filters, **kwds):
                                   depth=depth)
 
 
-ast_log_writer = LoggerWriter(logging.getLogger('%s.eval' % __name__),
+ast_log_writer = LoggerWriter(logging.getLogger('%s.pyeval' % __name__),
                               logging.INFO)
 
 
@@ -407,9 +408,9 @@ def _pyeval_element_func(ranger, lasso, context, vals, eval_all):
                 msg_args = (len(aeval.error), expr) + error
                 raise ValueError(msg % msg_args)
             else:
-                msg = "Skipped py-evaluating value(%r) at %s, %s due to %i errors: %s: %s"
-                msg_args = (vals,) + context + (len(aeval.error),) + error
-                log.debug(msg, *msg_args)
+                msg = "Skipped py-evaluating value(%r) at %s due to %i errors: %s: %s"
+                msg_args = (vals, context, len(aeval.error)) + error
+                log.warning(msg, *msg_args)
         else:
             if isinstance(res, Lasso):
                 lasso = (res._replace(opts=lasso.opts)
@@ -609,7 +610,7 @@ def get_default_filters(overrides=None):
             }
         })
     except ImportError as ex:
-        msg = "The 'df' and 'series' filters were notinstalled, due to: %s"
+        msg = "The 'df' and 'series' filters were not installed, due to: %s"
         log.info(msg, ex)
 
     if overrides:

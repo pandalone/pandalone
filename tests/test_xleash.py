@@ -2005,28 +2005,35 @@ class T17RealFile(unittest.TestCase, CustomAssertions):
             ('P-eval',                  COL1        EVAL_COL  NO_EVAL
                                     0    foo               6     a'+4
                                     1    bar         [1,2,3]  bad boy
-                                    2    bus   {'a_dict': 1}     None)
+                                    2    bus   {'a_dict': 1}     None),
+            ('PevalAll',               COL1       EVAL_COL  NO_EVAL
+                                    0  foo              6     a'+4
+                                    1  bar      [1, 2, 3]  bad boy
+                                    2  bus  {'a_dict': 1}     None)
         ])
         """
         # ('P-eval',                  COL1        EVAL_COL  NO_EVAL
         #                         0    foo               6     a'+4
         #                         1    bar         [1,2,3]  bad boy
         #                         2    bus   {'a_dict': 1}     None)
+        res = _l.lasso('recursive.xlsx#^^:"recurse"')
+        self.assertStrippedStringsEqual(str(res), exp)
+
+    def test_subfilter(self):
         with self.assertLogs(level=logging.INFO) as logass:
-            res = _l.lasso('recursive.xlsx#^^:"recurse"')
+            _l.lasso('recursive.xlsx#^^:"recurse"')
             for s in logass.output:
                 if '4.14' in s:
                     break
             else:
                 self.fail("'py' filter did not produce anything!")
-        self.assertStrippedStringsEqual(str(res), exp)
 
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     def test_real_file_recurse_fail(self):
         err_msg = """
         Filtering xl-ref('recursive.xlsx#A_(U):"recurse"') failed due to:
             While invoking(recurse, args=[], kwds={}):
-                Value('#BAD1:"filter"') at XlrdSheet(book='recursive.xlsx', sheet_ids=['2', 0]), Coords(row=10, col=0):
+                Value('#BAD1:"filter"') at XlrdSheet(book='recursive.xlsx', sheet_ids=['2', 0]), Coords(row=11, col=0):
                     Lassoing  `xl-ref` failed due to:
                         array index out of range
         """
