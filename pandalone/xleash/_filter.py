@@ -265,10 +265,14 @@ ones were `None`.
 """
 
 
-def recursive_filter(ranger, lasso, *filters,
-                     include=None, exclude=None, depth=-1):
+def recursive_filter(ranger, lasso, *filters, **kwds):
     """
     Recursively expand any :term:`xl-ref` strings found by treating values as mappings (dicts, df, series) and/or nested lists.
+
+    Note that in python-3 the signature woudl be::
+
+        def recursive_filter(ranger, lasso, *filters,
+                             include=None, exclude=None, depth=-1):
 
     - The `include`/`exclude` filter args work only for dict-like objects
       with ``items()`` or ``iteritems()`` and indexing methods,
@@ -298,6 +302,10 @@ def recursive_filter(ranger, lasso, *filters,
             How deep to dive into nested structures for parsing xl-refs.
             If `< 0`, no limit. If 0, stops completely.
     """
+    include = kwds.pop('include', None)
+    exclude = kwds.pop('exclude', None)
+    depth = kwds.pop('depth', -1)
+
     include = include and as_list(include)
     exclude = exclude and as_list(exclude)
 
