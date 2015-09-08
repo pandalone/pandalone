@@ -1881,7 +1881,7 @@ class T16Eval(unittest.TestCase, CustomAssertions):
 
     def setUp(self):
         logging.basicConfig(level=0)
-        logging.getLogger().level = 0
+        logging.getLogger().setLevel(0)
 
     @data(
         ("1",               Lasso(values=1)),
@@ -1978,11 +1978,11 @@ class T17RealFile(unittest.TestCase, CustomAssertions):
 
     def setUp(self):
         logging.basicConfig(level=0)
-        logging.getLogger().level = 0
+        logging.getLogger().setLevel(0)
+        pass
 
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     def test_real_file(self):
-        res = _l.lasso('recursive.xlsx#^^:"recurse"')
         exp = """\
         OrderedDict([
             ('table in this sheet',      A     B
@@ -2012,6 +2012,13 @@ class T17RealFile(unittest.TestCase, CustomAssertions):
         #                         0    foo               6     a'+4
         #                         1    bar         [1,2,3]  bad boy
         #                         2    bus   {'a_dict': 1}     None)
+        with self.assertLogs(level=logging.INFO) as logass:
+            res = _l.lasso('recursive.xlsx#^^:"recurse"')
+            for s in logass.output:
+                if '4.14' in s:
+                    break
+            else:
+                self.fail("'py' filter did not produce anything!")
         self.assertStrippedStringsEqual(str(res), exp)
 
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")

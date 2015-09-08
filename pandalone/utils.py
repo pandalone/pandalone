@@ -157,6 +157,8 @@ class LoggerWriter:
             if msg:
                 self.logger.log(self.level, msg)
 
+    def flush(self):
+        pass
 
 if __name__ == '__main__':
     raise NotImplementedError

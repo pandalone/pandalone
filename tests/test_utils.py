@@ -8,8 +8,9 @@
 from __future__ import division, unicode_literals
 
 import doctest
+import logging
 import os
-from pandalone.utils import fullmatch_py2
+from pandalone.utils import fullmatch_py2, LoggerWriter
 import re
 import sys
 import unittest
@@ -66,3 +67,13 @@ class TestUtils(unittest.TestCase):
         fname = os.path.join('..', 'tests', os.path.basename(__file__))
         fname2 = os.path.join('..', 'tests', fname1)
         self.assertEqual(utils.make_unique_filename(fname), fname2)
+
+    @unittest.skipIf(sys.version_info < (3, 4), "TC.assertLog() not exists!")
+    def test_LogWriter_smoke(self):
+        logname = "foobar"
+        log = logging.getLogger(logname)
+        level = logging.INFO
+        lw = LoggerWriter(log, level)
+        with self.assertLogs(logname, level):
+            lw.write('Hehe')
+        lw.flush()

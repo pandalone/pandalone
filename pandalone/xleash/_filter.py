@@ -427,15 +427,16 @@ def pyeval_filter(ranger, lasso, *filters, **kwds):
     A :term:`element-wise-filter` that uses :mod:`asteval` to evaluate string values as python expressions.
 
     The `expr` fecthed from `term:`capturing` may access read-write
-    all :func:`locals()` of this method(`ranger`, `lasso`), :mod:`numpy` funcs,
-    and the :mod:`pandalone.xleash` module under the `xlash` variable.
+    all :func:`locals()` of this method (ie: `ranger`, `lasso`),
+    the :mod:`numpy` funcs, and the :mod:`pandalone.xleash` module under
+    the `xleash` variable.
 
     The `expr` may return either:
         - the processed values, or
         - an instance of the :class:`Lasso`, in which case only its `opt`
           field is checked and replaced with original if missing.
-          So better user :func:`namedtuple._replace()` on the current `lasso`
-          which exists in the globals.
+          So better use :func:`namedtuple._replace()` on the current `lasso`
+          which exists in the expr's namespace.
 
     :param bool eval_all:
             If `True` raise on 1st error and stop diving cells.
@@ -481,7 +482,46 @@ def pyeval_filter(ranger, lasso, *filters, **kwds):
                                   include=include,
                                   exclude=exclude,
                                   depth=depth,
-                                  lax_eval=lax_eval)
+                                  eval_all=eval_all)
+
+
+def py_filter(ranger, lasso, expr):
+    """
+    A :term:`bulk-filter` that passes values through a python-expression using :mod:`asteval` library.
+
+    The `expr` may access read-write all :func:`locals()` of this method
+    (`ranger`, `lasso`), the :mod:`numpy` funcs, and the :mod:`pandalone.xleash`
+    module under the `xleash` variable.
+
+    The `expr` may return either:
+        - the processed values, or
+        - an instance of the :class:`Lasso`, in which case only its `opt`
+          field is checked and replaced with original if missing.
+          So better use :func:`namedtuple._replace()` on the current `lasso`
+          which exists in the expr's namespace.
+
+    :param str expr:
+            The python-expression, which may comprise of multiple statements.
+    """
+    symtable = locals()
+    from .. import xleash
+    symtable.update({'xleash': xleash})
+    aeval = Interpreter(symtable, writer=ast_log_writer)
+    res = aeval.eval(expr)
+    if aeval.error:
+        error = aeval.error[0].get_error()
+        msg = "%i errors while py-evaluating %r: %s: %s"
+        msg_args = (len(aeval.error), expr) + error
+        raise ValueError(msg % msg_args)
+    else:
+        if isinstance(res, Lasso):
+            lasso = (res._replace(opts=lasso.opts)
+                     if res.opts is None
+                     else res)
+        else:
+            lasso = lasso._replace(values=res)
+
+    return lasso
 
 
 def get_default_filters(overrides=None):
@@ -506,6 +546,9 @@ def get_default_filters(overrides=None):
         },
         'pyeval': {
             'func': pyeval_filter,
+        },
+        'py': {
+            'func': py_filter,
         },
         'recurse': {
             'func': recursive_filter,

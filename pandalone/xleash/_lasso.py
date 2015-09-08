@@ -115,15 +115,16 @@ class Ranger(object):
             func_rec = self.available_filters[func_name]
             func, func_desc = parse_avail_func_rec(**func_rec)
             lasso = func(self, lasso, *args, **kwds)
-            assert isinstance(lasso, Lasso), (func_name, lasso)
+            assert isinstance(lasso, Lasso), "Filter(%r) returned not a Lasso(%r)!" % (
+                func_name, lasso)
         except Exception as ex:
             if verbose:
                 func_desc = _build_call_help(func_name, func, func_desc)
             msg = "While invoking(%s, args=%s, kwds=%s): %s%s"
             help_msg = func_desc if verbose else ''
             if lax:
-                log.warning(
-                    msg, func_name, args, kwds, ex, help_msg, exc_info=1)
+                log.warning(msg, func_name, args, kwds, ex, help_msg,
+                            exc_info=1)
             else:
                 raise ValueError(msg % (func_name, args, kwds, ex, help_msg))
 
