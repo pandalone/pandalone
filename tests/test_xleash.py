@@ -1895,7 +1895,7 @@ class T16Eval(unittest.TestCase, CustomAssertions):
 
         ranger = _l.Ranger(None)
         lasso = Lasso(values=expr, opts={})
-        res = _f.eval_filter(ranger, lasso)
+        res = _f.pyeval_filter(ranger, lasso)
 
         self.assertEqual(res, exp)
 
@@ -1911,18 +1911,26 @@ class T16Eval(unittest.TestCase, CustomAssertions):
 
         ranger = _l.Ranger(None)
         lasso = Lasso(values=expr, opts={})
-        res = _f.eval_filter(ranger, lasso)
+        res = _f.pyeval_filter(ranger, lasso)
 
         self.assertEqual(res, exp)
 
+    @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     @data(
-        ("boo haha",
-         "While py-eval 'boo haha': SyntaxError(boo haha Syntax Error)"),
-        ("1-'tt'", """While py-eval "1-'tt'": TypeError(   1-'tt'
-                        unsupported operand type(s) for -: 'int' and 'str')
+        ("boo haha", """
+            Value('boo haha') at None, None:
+            1 errors while py-evaluating 'boo haha':
+            SyntaxError: boo haha Syntax Error
+         """),
+        ("1-'tt'", """
+            Value("1-'tt'") at None, None:
+            3 errors while py-evaluating "1-'tt'":
+            TypeError: 1-'tt' unsupported operand type(s) for -: 'int' and 'str'
         """),
-        ("1-'tt'", """While py-eval "1-'tt'": TypeError(   1-'tt'
-                        unsupported operand type(s) for -: 'int' and 'str')
+        ("int('g')", """
+            Value("int('g')") at None, None:
+            4 errors while py-evaluating "int('g')":
+            ValueError: int('g') Error running <class 'int'>
         """),
     )
     def test_syntaxErrors(self, case):
@@ -1931,7 +1939,7 @@ class T16Eval(unittest.TestCase, CustomAssertions):
         ranger = _l.Ranger(None)
         lasso = Lasso(values=expr, opts={})
         try:
-            _f.eval_filter(ranger, lasso)
+            _f.pyeval_filter(ranger, lasso, eval_all=True)
         except ValueError as ex:
             self.assertStrippedStringsEqual(str(ex), err_msg)
         except:
@@ -1939,8 +1947,31 @@ class T16Eval(unittest.TestCase, CustomAssertions):
         else:
             raise AssertionError('ValueError not raised!')
 
+    @data("boo haha", "1-'tt'", "int('g')")
+    def test_syntaxErrors_suppresed(self, expr):
+        ranger = _l.Ranger(None, available_filters=_f.get_default_filters())
+
+        lasso = Lasso(values=expr, opts={})
+        _f.pyeval_filter(ranger, lasso, eval_all=False)
+        _f.pyeval_filter(ranger, lasso)
+
+    @data("boo haha", "1-'tt'", "int('g')")
+    def test_syntaxErrors_laxing(self, expr):
+        ranger = _l.Ranger(None, available_filters=_f.get_default_filters())
+
+        lasso = Lasso(values=expr, opts={})
+        kwds = {'lax': True}
+        ranger.make_call(lasso, 'pyeval', (), kwds)
+
         lasso = Lasso(values=expr, opts={'lax': True})
-        _f.eval_filter(ranger, lasso)
+        ranger.make_call(lasso, 'pyeval', (), {})
+
+        lasso = Lasso(values=expr, opts={'lax': True})
+        ranger.make_call(lasso, 'pyeval', (), {})
+
+        lasso = Lasso(values=expr, opts={'lax': False})
+        kwds = {'lax': True}
+        ranger.make_call(lasso, 'pyeval', (), kwds)
 
 
 class T17RealFile(unittest.TestCase, CustomAssertions):
@@ -1972,9 +2003,9 @@ class T17RealFile(unittest.TestCase, CustomAssertions):
             ('No Recurse',           'bar'),
             ('Empty',                None),
             ('P-eval',                  COL1        EVAL_COL  NO_EVAL
-                                    0    foo        a=1; a+5     a'+4
+                                    0    foo               6     a'+4
                                     1    bar         [1,2,3]  bad boy
-                                    2    bus  dict(a_dict=1)     None)
+                                    2    bus   {'a_dict': 1}     None)
         ])
         """
         # ('P-eval',                  COL1        EVAL_COL  NO_EVAL
@@ -1988,8 +2019,9 @@ class T17RealFile(unittest.TestCase, CustomAssertions):
         err_msg = """
         Filtering xl-ref('recursive.xlsx#A_(U):"recurse"') failed due to:
             While invoking(recurse, args=[], kwds={}):
-                Lassoing  xl-ref(#BAD1:"filter") at XlrdSheet(book='recursive.xlsx', sheet_ids=['2', 0]), Coords(row=10, col=0) stopped due to:
-                    array index out of range
+                Value('#BAD1:"filter"') at XlrdSheet(book='recursive.xlsx', sheet_ids=['2', 0]), Coords(row=10, col=0):
+                    Lassoing  `xl-ref` failed due to:
+                        array index out of range
         """
         try:
             _l.lasso('recursive.xlsx#A_(U):"recurse"')

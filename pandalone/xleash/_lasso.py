@@ -92,6 +92,14 @@ class Ranger(object):
         return lasso
 
     def make_call(self, lasso, func_name, args, kwds):
+        """
+        Executes a :term:`call-spec` respecting any `lax` argument popped from `kwds`.
+
+        :param bool lax:
+                After overlaying it on :term:`opts`, it governs whether to
+                raise on errors.
+                Defaults to `False` (scream!).
+        """
         def parse_avail_func_rec(func, desc=None):
             if not desc:
                 desc = func.__doc__
@@ -101,6 +109,7 @@ class Ranger(object):
         lasso = self._relasso(lasso, func_name)
 
         verbose = lasso.opts.get('verbose', False)
+        lax = kwds.pop('lax', lasso.opts.get('lax', False))
         func, func_desc = '', ''
         try:
             func_rec = self.available_filters[func_name]
@@ -112,7 +121,7 @@ class Ranger(object):
                 func_desc = _build_call_help(func_name, func, func_desc)
             msg = "While invoking(%s, args=%s, kwds=%s): %s%s"
             help_msg = func_desc if verbose else ''
-            if lasso.opts.get('lax', False):
+            if lax:
                 log.warning(
                     msg, func_name, args, kwds, ex, help_msg, exc_info=1)
             else:
