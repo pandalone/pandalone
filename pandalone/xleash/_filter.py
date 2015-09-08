@@ -17,6 +17,8 @@ from __future__ import unicode_literals
 
 from collections import namedtuple, OrderedDict
 import logging
+import functools as fnt
+
 
 from asteval import Interpreter
 from future.utils import iteritems
@@ -35,7 +37,7 @@ log = logging.getLogger(__name__)
 
 def pipe_filter(ranger, lasso, *pipe):
     """
-    Apply all call-specifiers one after another on the captured values.
+    A :term:`bulk-filter` that applies all call-specifiers one after another on the :term:`capture-rect` values.
 
     :param list pipe: the call-specifiers
     """
@@ -43,64 +45,6 @@ def pipe_filter(ranger, lasso, *pipe):
     for call_spec_values in pipe:
         call_spec = _parse.parse_call_spec(call_spec_values)
         lasso = ranger.make_call(lasso, *call_spec)
-
-    return lasso
-
-
-ast_log_writer = LoggerWriter(logging.getLogger('%s.eval' % __name__),
-                              logging.INFO)
-
-
-def eval_filter(ranger, lasso):
-    """
-    A :term:`filter` that uses :mod:`asteval` to evaluate a value as a (string) python expression.
-
-    The `expr` fecthed from `term:`capturing` may access read-write
-    all :func:`locals()` of this method(`ranger`, `lasso`), :mod:`numpy` funcs,
-    and the :mod:`pandalone.xleash` module under the `xlash` variable.
-
-    The `expr` may return either:
-        - the processed values, or
-        - an instance of the :class:`Lasso`, in which case only its `opt`
-          field is checked and replaced with original if missing.
-          So better user :func:`namedtuple._replace()` on the current `lasso`
-          which exists in the globals.
-
-    :param str expr: A python-expression using `xlash` variable.
-
-
-    Example::
-
-        >>> expr = '''
-        ... res = array([[0.5, 0.3, 0.1, 0.1]])
-        ... res * res.T
-        ... '''
-        >>> lasso = Lasso(values=expr, opts={})
-        >>> ranger = Ranger(None)
-        >>> eval_filter(ranger, lasso).values
-        array([[ 0.25,  0.15,  0.05,  0.05],
-               [ 0.15,  0.09,  0.03,  0.03],
-               [ 0.05,  0.03,  0.01,  0.01],
-               [ 0.05,  0.03,  0.01,  0.01]])
-    """
-    expr = str(lasso.values)
-    symtable = locals()
-    from .. import xleash
-    symtable.update({'xleash': xleash})
-    aeval = Interpreter(symtable, writer=ast_log_writer)
-    res = aeval.eval(expr)
-    if aeval.error:
-        msg = "While py-eval %r: %s(%s)"
-        if lasso.opts.get('lax', False):
-            for e in aeval.error:
-                log.error(msg, expr, *e.get_error())
-        else:
-            msg_args = (expr,) + aeval.error[0].get_error()
-            raise ValueError(msg % msg_args)
-    if isinstance(res, Lasso):
-        lasso = res._replace(opts=lasso.opts) if res.opts is None else res
-    else:
-        lasso = lasso._replace(values=res)
 
     return lasso
 
@@ -242,7 +186,7 @@ def xlwings_dims_call_spec():
 def redim_filter(ranger, lasso,
                  scalar=None, cell=None, row=None, col=None, table=None):
     """
-    Reshape and/or transpose captured values, depending on rect's shape.
+    A :term:`bulk-filter` that reshapes sand/or transpose captured values, depending on rect's shape.
 
     Each dimension might be a single int or None, or a pair [dim, transpose].
     """
@@ -265,54 +209,56 @@ ones were `None`.
 """
 
 
-def recursive_filter(ranger, lasso, *filters, **kwds):
+def _run_filter_elementwise(ranger, lasso, element_func, subfilters,
+                         include=None, exclude=None, depth=-1):
     """
-    Recursively expand any :term:`xl-ref` strings found by treating values as mappings (dicts, df, series) and/or nested lists.
+    Implement :term:`element-wise` filters strings found by treating values as mappings (dicts, df, series) and/or nested lists.
 
-    Note that in python-3 the signature woudl be::
-
-        def recursive_filter(ranger, lasso, *filters,
-                             include=None, exclude=None, depth=-1):
-
-    - The `include`/`exclude` filter args work only for dict-like objects
+    - The `include`/`exclude` filter args work only for "indexed" objects
       with ``items()`` or ``iteritems()`` and indexing methods,
-      i.e. Mappings, series and dataframes.
+      i.e. Mappings, Series and Ddataframes.
 
       - If no filter arg specified, expands for all keys.
       - If only `include` specified, rejects all keys not explicitly
         contained in this filter arg.
       - If only `exclude` specified, expands all keys not explicitly
         contained in this filter arg.
-      - When both `include`/`exclude` exist, only those explicitely
+      - When both `include`/`exclude` exist, only those explicitly
         included are accepted, unless also excluded.
 
     - Lower the :mod:`logging` level to see other than syntax-errors on
       recursion reported on :data:`log`.
     - Only those in :class:`Context` are passed recursively.
 
-    :param filters:
-            Any :term:`filters` to apply on the recursive-values.
+    :param list element_func:
+            A function implementing the element-wise :term:`filter`
+            and returning a 2-tuple ``(is_proccessed, new_val_or_lasso)``,
+            like that::
+
+                def element_func(ranger, lasso, context, vals, **kwds)
+                    proced = False
+                    try:
+                        vals = int(vals)
+                        proced = True
+                    except ValueError:
+                        pass
+                    return proced, vals
+
+            The `kwds` may contain the `include`, `exclude` and `depth`.
+    :param list subfilters:
+            Any :term:`filters` to apply after invoking the `element_func`.
     :param list or str include:
-            Items to include in the recursive-search.
-            See descritpion above.
+            Items to include when diving into "indexed" values.
+            See description above.
     :param list or str exclude:
-            Items to include in the recursive-search.
-            See descritpion above.
+            Items to exclude when diving into "indexed" values.
+            See description above.
     :param int or None depth:
-            How deep to dive into nested structures for parsing xl-refs.
+            How deep to dive into nested structures, "indexed" or lists.
             If `< 0`, no limit. If 0, stops completely.
     """
-    include = kwds.pop('include', None)
-    exclude = kwds.pop('exclude', None)
-    depth = kwds.pop('depth', -1)
-
     include = include and as_list(include)
     exclude = exclude and as_list(exclude)
-
-    def verbose(msg):
-        if lasso.opts.get('verbose', False):
-            msg = '%s \n    @Lasso: %s' % (msg, lasso)
-        return msg
 
     def is_included(key):
         ok = not include or key in include
@@ -327,29 +273,25 @@ def recursive_filter(ranger, lasso, *filters, **kwds):
                 base_coords = base_coords._replace(col=i)
         return base_coords
 
-    def invoke_recursively(vals, base_coords, cdepth):
+    def call_element_func(vals, base_coords, cdepth):
         context_kwds = dtz.keyfilter(lambda k: k in Context._fields,
                                      lasso._asdict())
         context_kwds['base_coords'] = base_coords
         context = Context(**context_kwds)
-        try:
-            rec_lasso = ranger.do_lasso(vals, **context_kwds)
+        proced, rec_lasso = element_func(ranger, lasso, context, vals)
+        if proced:
+            if not isinstance(rec_lasso, Lasso):
+                rec_lasso = lasso._replace(values=rec_lasso)
+
             if sub_call_spec:
                 rec_lasso = ranger.make_call(rec_lasso, *sub_call_spec)
             vals = rec_lasso and rec_lasso.values
-        except SyntaxError as ex:
-            msg = "Skipped non xl-ref(%s) due to: %s"
-            log.debug(msg, vals, ex)
-        except Exception as ex:
-            msg = "Lassoing  xl-ref(%s) at %s, %s stopped due to: \n  %s"
-            msg %= (vals, ) + context + (ex, )
-            raise ValueError(verbose(msg))
-        return vals
+
+        return proced, vals
 
     def dive_list(vals, base_coords, cdepth):
-        if isinstance(vals, basestring):
-            vals = invoke_recursively(vals, base_coords, cdepth)
-        elif isinstance(vals, list):
+        proced, vals = call_element_func(vals, base_coords, cdepth)
+        if not proced and isinstance(vals, list):
             for i, v in enumerate(vals):
                 nbc = new_base_coords(base_coords, cdepth, i)
                 vals[i] = dive_indexed(v, nbc, cdepth + 1)
@@ -377,10 +319,99 @@ def recursive_filter(ranger, lasso, *filters, **kwds):
 
         return vals
 
-    sub_call_spec = filters and _parse.parse_call_spec(filters)
+    sub_call_spec = subfilters and _parse.parse_call_spec(subfilters)
     values = dive_indexed(lasso.values, lasso.st, 0)
 
     return lasso._replace(values=values)
+
+
+def _recurse_element_func(ranger, lasso, context, vals, **kwds):
+    proced = False
+    try:
+        if isinstance(vals, basestring):
+            lasso = ranger.do_lasso(vals, **context._asdict())
+            proced = True
+    except SyntaxError as ex:
+        msg = "Skipped non xl-ref(%s) due to: %s"
+        log.debug(msg, vals, ex)
+    except Exception as ex:
+        msg = "Lassoing  xl-ref(%s) at %s, %s stopped due to: \n  %s"
+        msg %= (vals, ) + context + (ex, )
+        raise ValueError(msg)
+
+    return proced, lasso
+
+
+def recursive_filter(ranger, lasso, *subfilters, **kwds):
+    """
+    A :term:`element-wise-filter` that expand recursively any :term:`xl-ref` strings elements in :term:`capture-rect` values.
+
+    Note that in python-3 the signature woudl be::
+
+        def recursive_filter(ranger, lasso, element_func, subfilters,
+                             include=None, exclude=None, depth=-1):
+    """
+    include = kwds.pop('include', None)
+    exclude = kwds.pop('exclude', None)
+    depth = kwds.pop('depth', -1)
+    return _run_filter_elementwise(ranger, lasso, _recurse_element_func, subfilters,
+                                include=include, exclude=exclude, depth=depth)
+
+
+ast_log_writer = LoggerWriter(logging.getLogger('%s.eval' % __name__),
+                              logging.INFO)
+
+
+def eval_filter(ranger, lasso):
+    """
+    A :term:`element-wise-filter` that uses :mod:`asteval` to evaluate string values as python expressions.
+
+    The `expr` fecthed from `term:`capturing` may access read-write
+    all :func:`locals()` of this method(`ranger`, `lasso`), :mod:`numpy` funcs,
+    and the :mod:`pandalone.xleash` module under the `xlash` variable.
+
+    The `expr` may return either:
+        - the processed values, or
+        - an instance of the :class:`Lasso`, in which case only its `opt`
+          field is checked and replaced with original if missing.
+          So better user :func:`namedtuple._replace()` on the current `lasso`
+          which exists in the globals.
+
+
+    Example::
+
+        >>> expr = '''
+        ... res = array([[0.5, 0.3, 0.1, 0.1]])
+        ... res * res.T
+        ... '''
+        >>> lasso = Lasso(values=expr, opts={})
+        >>> ranger = Ranger(None)
+        >>> eval_filter(ranger, lasso).values
+        array([[ 0.25,  0.15,  0.05,  0.05],
+               [ 0.15,  0.09,  0.03,  0.03],
+               [ 0.05,  0.03,  0.01,  0.01],
+               [ 0.05,  0.03,  0.01,  0.01]])
+    """
+    expr = str(lasso.values)
+    symtable = locals()
+    from .. import xleash
+    symtable.update({'xleash': xleash})
+    aeval = Interpreter(symtable, writer=ast_log_writer)
+    res = aeval.eval(expr)
+    if aeval.error:
+        msg = "While py-eval %r: %s(%s)"
+        if lasso.opts.get('lax', False):
+            for e in aeval.error:
+                log.error(msg, expr, *e.get_error())
+        else:
+            msg_args = (expr,) + aeval.error[0].get_error()
+            raise ValueError(msg % msg_args)
+    if isinstance(res, Lasso):
+        lasso = res._replace(opts=lasso.opts) if res.opts is None else res
+    else:
+        lasso = lasso._replace(values=res)
+
+    return lasso
 
 
 def get_default_filters(overrides=None):
@@ -403,7 +434,7 @@ def get_default_filters(overrides=None):
         'pipe': {
             'func': pipe_filter,
         },
-        'eval': {
+        'peval': {
             'func': eval_filter,
         },
         'recurse': {

@@ -492,6 +492,16 @@ Definitions
         The last part of the `xl-ref` specifying predefined functions to
         apply for transforming the cell-values of `capture-rect`,
         abiding to the  **json** syntax.
+        They may be `bulk` or `element-wise`.
+
+    bulk
+    bulk-filter
+        A `filter` treating `capture-rect` values as a whole , i.e.
+        transposing arrays, is_empty
+
+    element-wise
+    element-wise-filter
+        A `filter` diving into `capture-rect` values, i.e. for python-eval.
 
     call-specifier
     call-spec
