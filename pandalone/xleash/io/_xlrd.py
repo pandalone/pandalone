@@ -7,14 +7,14 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
 Implements the *xlrd* backend of *xleash* that reads in-file Excel-spreadsheets.
+
+.. currentmodule:: pandalone.xleash
 """
 
 import datetime
 from distutils.version import LooseVersion
 import logging
 from os import path
-from pandalone.xleash._capture import ABCSheet, SheetId
-from pandalone.xleash._parse import Coords
 
 from future.moves.urllib import request
 from future.moves.urllib.parse import urlsplit
@@ -24,7 +24,9 @@ import xlrd
 
 import numpy as np
 
-from .. import utils
+from .. import Coords
+from ... import utils
+from ._sheets import ABCSheet, SheetId
 
 
 log = logging.getLogger(__name__)
@@ -148,11 +150,13 @@ def open_sheet(wb_url, sheet_id, opts):
     parts = filename = urlsplit(wb_url)
     if not parts.scheme or parts.scheme == 'file':
         fpath = path.abspath(path.expanduser(path.expandvars(parts.path)))
+        log.info('Opening book %r...', fpath)
         book = xlrd.open_workbook(fpath, **ropts)
     else:
         ropts.pop('on_demand', None)
         http_opts = ropts.get('http_opts', {})
         with request.urlopen(wb_url, **http_opts) as response:
+            log.info('Opening book %r...', filename)
             book = xlrd.open_workbook(
                 filename, file_contents=response, **ropts)
 

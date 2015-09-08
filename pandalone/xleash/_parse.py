@@ -63,13 +63,6 @@ class Cell(namedtuple('Cell', ('row', 'col', 'brow', 'bcol'))):
 Cell.__new__.__defaults__ = (None, None)
 """Make :class:`Cell` construct with missing 'brow', 'bcol' fields as `None`."""
 
-Coords = namedtuple('Coords', ['row', 'col'])
-"""
-A pair of 0-based integers denoting the "num" coordinates of a cell.
-
-The "A1" coords (1-based coordinates) are specified using :class:`Cell`.
-"""
-
 
 class Edge(namedtuple('Edge', ('land', 'mov', 'mod'))):
     """

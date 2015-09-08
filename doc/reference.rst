@@ -15,10 +15,25 @@ These are the modules in maturity order:
 Module: :mod:`pandalone.xleash`
 ===============================
 .. automodule:: pandalone.xleash
+    :members:
 
-Submodule: :mod:`pandalone.xleash._lasso`
------------------------------------------
-.. automodule:: pandalone.xleash._lasso
+Submodule: :mod:`pandalone.xleash._parse`
+-------------------------------------------
+.. automodule:: pandalone.xleash._parse
+    :members:
+
+Submodule: :mod:`pandalone.xleash.io`
+-------------------------------------------
+.. automodule:: pandalone.xleash.io
+
+Submodule: :mod:`pandalone.xleash.io._sheets`
+-----------------------------------------------
+.. automodule:: pandalone.xleash.io._sheets
+    :members:
+
+Submodule: :mod:`pandalone.xleash.io._xlrd`
+--------------------------------------------
+.. automodule:: pandalone.xleash.io._xlrd
     :members:
 
 Submodule: :mod:`pandalone.xleash._capture`
@@ -31,15 +46,9 @@ Submodule: :mod:`pandalone.xleash._filter`
 .. automodule:: pandalone.xleash._filter
     :members:
 
-Submodule: :mod:`pandalone.xleash._parse`
+Submodule: :mod:`pandalone.xleash._lasso`
 -----------------------------------------
-.. automodule:: pandalone.xleash._parse
-    :members:
-
-
-Submodule: :mod:`pandalone.xleash._xlrd`
-----------------------------------------
-.. automodule:: pandalone.xleash._xlrd
+.. automodule:: pandalone.xleash._lasso
     :members:
 
 Module: :mod:`pandalone.mappings`

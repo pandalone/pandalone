@@ -26,10 +26,10 @@ fi
 
 ## Check for warnings.
 #
-warns="$( echo "$out" | 
-    grep -v 'image' | 
+warns="$( echo "$out" |
+    grep -v 'image' |
     grep -v ' WARNING: more than one target found for cross-reference' |
-    grep 'WARNING' )" 
+    egrep 'WARNING|ERROR' )"
 if [ -n "$warns" ]; then
     die "$warns"
 fi

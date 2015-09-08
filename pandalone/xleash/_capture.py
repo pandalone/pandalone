@@ -13,17 +13,15 @@ Prefer accessing the public members from the parent module.
 
 from __future__ import unicode_literals
 
-from abc import abstractmethod, ABCMeta
-from collections import namedtuple
 import logging
-from pandalone.xleash import _parse
-from pandalone.xleash._parse import Cell, Coords
 from string import ascii_uppercase
 
 from future.builtins import str
-from future.utils import with_metaclass
 
 import numpy as np
+
+from . import Coords, _parse
+from ._parse import Cell
 
 
 log = logging.getLogger(__name__)
@@ -77,54 +75,6 @@ def coords2Cell(row, col):
         assert col >= 0, 'negative col!'
         col = xl_colname(col)
     return Cell(row=row, col=col)
-
-
-def _margin_coords_from_states_matrix(states_matrix):
-    """
-    Returns top-left/bottom-down margins of full cells from a :term:`state` matrix.
-
-    May be used by :meth:`ABCSheet.get_margin_coords()` if a backend
-    does not report the sheet-margins internally.
-
-    :param np.ndarray states_matrix:
-            A 2D-array with `False` wherever cell are blank or empty.
-            Use :meth:`ABCSheet.get_states_matrix()` to derrive it.
-    :return:    the 2 coords of the top-left & bottom-right full cells
-    :rtype:     (Coords, Coords)
-
-    Examples::
-
-        >>> states_matrix = np.asarray([
-        ...    [0, 0, 0],
-        ...    [0, 1, 0],
-        ...    [0, 1, 1],
-        ...    [0, 0, 1],
-        ... ])
-        >>> margins = _margin_coords_from_states_matrix(states_matrix)
-        >>> margins
-        (Coords(row=1, col=1), Coords(row=3, col=2))
-
-
-    Note that the botom-left cell is not the same as `states_matrix` matrix size::
-
-        >>> states_matrix = np.asarray([
-        ...    [0, 0, 0, 0],
-        ...    [0, 1, 0, 0],
-        ...    [0, 1, 1, 0],
-        ...    [0, 0, 1, 0],
-        ...    [0, 0, 0, 0],
-        ... ])
-        >>> _margin_coords_from_states_matrix(states_matrix) == margins
-        True
-
-    """
-    if not states_matrix.any():
-        c = Coords(0, 0)
-        return c, c
-    indices = np.array(np.where(states_matrix), dtype=np.int16).T
-
-    # return indices.min(0), indices.max(0)
-    return Coords(*indices.min(0)), Coords(*indices.max(0))
 
 
 def _row2num(coord):
@@ -341,7 +291,7 @@ def _resolve_cell(cell, up_coords, dn_coords, base_coords=None):
     To get the margin_coords, use one of:
 
     * :meth:`ABCSheet.get_margin_coords()`
-    * :func:`_margin_coords_from_states_matrix()`
+    * :func:`.io._sheets.margin_coords_from_states_matrix()`
 
     :param Cell cell:
             The "A1" cell to translate its coords.
@@ -717,7 +667,7 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
     To get the margin_coords, use one of:
 
     * :meth:`ABCSheet.get_margin_coords()`
-    * :func:`_margin_coords_from_states_matrix()`
+    * :func:`.io._sheets.margin_coords_from_states_matrix()`
 
     Its results can be fed into :func:`read_capture_values()`.
 
@@ -738,7 +688,7 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
     :rtype: tuple
 
     Examples::
-        >>> from pandalone.xleash import Edge
+        >>> from pandalone.xleash import Edge, margin_coords_from_states_matrix
 
         >>> states_matrix = np.array([
         ...     [0, 0, 0, 0, 0, 0],
@@ -747,7 +697,7 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
         ...     [0, 0, 1, 0, 0, 1],
         ...     [0, 0, 1, 1, 1, 1]
         ... ], dtype=bool)
-        >>> up, dn = _margin_coords_from_states_matrix(states_matrix)
+        >>> up, dn = margin_coords_from_states_matrix(states_matrix)
 
         >>> st_edge = Edge(Cell('1', 'A'), 'DR')
         >>> nd_edge = Edge(Cell('.', '.'), 'DR')
@@ -825,155 +775,3 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
             st, nd = tuple(Coords(*c) for c in rect)
 
     return st, nd
-
-SheetId = namedtuple('SheetId', ('book', 'ids'))
-
-
-class ABCSheet(with_metaclass(ABCMeta, object)):
-    """
-    A delegating to backend factory and sheet-wrapper with utility methods.
-
-    :param np.ndarray _states_matrix:
-            The :term:`states-matrix` cached, so recreate object
-            to refresh it.
-    :param dict _margin_coords:
-            limits used by :func:`_resolve_cell`, cached, so recreate object
-            to refresh it.
-
-    Resource management is outside of the scope of this class,
-    and must happen in the backend workbook/sheet instance.
-
-    *xlrd* examples::
-
-        >>> import xlrd                                       #  doctest: +SKIP
-        >>> with xlrd.open_workbook(self.tmp) as wb:          #  doctest: +SKIP
-        ...     sheet = xleash.xlrdSheet(wb.sheet_by_name('Sheet1'))
-        ...     ## Do whatever
-
-    *win32* examples::
-
-        >>> with dsgdsdsfsd as wb:          #  doctest: +SKIP
-        ...     sheet = xleash.win32Sheet(wb.sheet['Sheet1'])
-        TODO: Win32 Sheet example
-    """
-
-    _states_matrix = None
-    _margin_coords = None
-
-    def _close(self):
-        """ Override it to release resources for this sheet."""
-
-    def _close_all(self):
-        """ Override it to release resources this and all sibling sheets."""
-
-    @abstractmethod
-    def get_sheet_ids(self):
-        """
-        :return: a 2-tuple of its wb-name and a sheet-ids of this sheet i.e. name & indx
-        :rtype: SheetId or None
-        """
-
-    @abstractmethod
-    def open_sibling_sheet(self, sheet_id, opts=None):
-        """Return a sibling sheet by the given index or name"""
-
-    @abstractmethod
-    def _read_states_matrix(self):
-        """
-        Read the :term:`states-matrix` of the wrapped sheet.
-
-        :return:   A 2D-array with `False` wherever cell are blank or empty.
-        :rtype:     ndarray
-        """
-
-    def get_states_matrix(self):
-        """
-        Read and cache the :term:`states-matrix` of the wrapped sheet.
-
-        :return:   A 2D-array with `False` wherever cell are blank or empty.
-        :rtype:     ndarray
-        """
-        if self._states_matrix is None:
-            self._states_matrix = self._read_states_matrix()
-        return self._states_matrix
-
-    @abstractmethod
-    def read_rect(self, st, nd):
-        """
-        Fecth the actual values from the backend Excel-sheet.
-
-        :param Coords st:
-                the top-left edge, inclusive
-        :param Coords, None nd:
-                the bottom-right edge, inclusive(!); when `None`,
-                must return a scalar value.
-        :return:
-                Depends on whether both coords are given:
-                    - If both given, 2D list-lists with the values of the rect,
-                      which might be empty if beyond limits.
-                    - If only 1st given, the scalar value, and if
-                      beyond margins, raise error!
-
-        :rtype: list
-        """
-
-    def _read_margin_coords(self):
-        """
-        Override if possible to read (any of the) limits directly from the sheet.
-
-        :return:    the 2 coords of the top-left & bottom-right full cells;
-                    anyone coords can be None.
-                    By default returns ``(None, None)``.
-        :rtype:     (Coords, Coords)
-
-        """
-        return None, None  # pragma: no cover
-
-    def get_margin_coords(self):
-        """
-        Extract (and cache) margins either internally or from :func:`_margin_coords_from_states_matrix()`.
-
-        :return:    the resolved top-left and bottom-right :class:`.xleash.Coords`
-        :rtype:     tuple
-
-        """
-        if not self._margin_coords:
-            up, dn = self._read_margin_coords()
-            if up is None or dn is None:
-                sm = self.get_states_matrix()
-                up1, dn1 = _margin_coords_from_states_matrix(sm)
-                up = up or up1
-                dn = dn or dn1
-            self._margin_coords = up, dn
-
-        return self._margin_coords
-
-    def __repr__(self):
-        args = (type(self).__name__, ) + self.get_sheet_ids()
-        return '%s(book=%r, sheet_ids=%r)' % args
-
-
-class ArraySheet(ABCSheet):
-    """A sample :class:`ABCSheet` made out of 2D-list or numpy-arrays, for facilitating tests."""
-
-    def __init__(self, arr, ids=SheetId('wb', ['sh', 0])):
-        self._arr = np.asarray(arr)
-        self._ids = ids
-
-    def open_sibling_sheet(self, sheet_id):
-        raise NotImplementedError()
-
-    def get_sheet_ids(self):
-        return self._ids
-
-    def _read_states_matrix(self):
-        return ~np.equal(self._arr, None)
-
-    def read_rect(self, st, nd):
-        if nd is None:
-            return self._arr[st]
-        rect = np.array([st, nd]) + [[0, 0], [1, 1]]
-        return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])].tolist()
-
-    def __repr__(self):
-        return 'ArraySheet(%s, \n%s)' % (self.get_sheet_ids(), self._arr)

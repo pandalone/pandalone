@@ -52,15 +52,15 @@ Overview
 --------
 
 At the most fundamental level, an "execution" or a "run" of any data-processing
-can be thought like that ::
+can be thought like that::
 
-           .--------------.     _____________        .-------------.
-          ;  DataTree    ;    |             |      ;   DataTree   ;
-         ;--------------; ==> |  <cfunc_1>  | ==> ;--------------;
-        ; /some/data   ;      |  <cfunc_2>  |    ; /some/data   ;
-       ;  /some/other ;       |     ...     |   ;  /some/other ;
-      ;   /foo/bar   ;        |_____________|  ;   /foo/bar   ;
-     '--------------'                         '--------------.
+          .--------------.     _____________        .-------------.
+         ;  DataTree    ;    |             |      ;   DataTree   ;
+        ;--------------; ==> |  <cfunc_1>  | ==> ;--------------;
+       ; /some/data   ;      |  <cfunc_2>  |    ; /some/data   ;
+      ;  /some/other ;       |     ...     |   ;  /some/other ;
+     ;   /foo/bar   ;        |_____________|  ;   /foo/bar   ;
+    '--------------'                         '--------------.
 
 
 - The *data-tree* might come from *json*, *hdf5*, *excel-workbooks*, or

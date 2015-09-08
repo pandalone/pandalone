@@ -5,9 +5,7 @@
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
-from __future__ import unicode_literals
-
-__doc__ = """
+"""
 A mini-language for "throwing the rope" around rectangular areas of Excel-sheets.
 
 .. default-role:: term
@@ -25,6 +23,7 @@ even when the exact position of those tables are not known beforehand.
 An additional goal is to apply the same `lassoing` operation recursively,
 to  build *data-trees*. For that end, the syntax supports `filter`
 transformations such as:
+
     - setting the dimensionality of the result tables,
     - creating higher-level objects from 2D `capture-rect`
       (dictionaries, *numpy-arrays* & *dataframes*).
@@ -173,35 +172,33 @@ API
 
   .. currentmodule:: pandalone.xleash._lasso
   .. autosummary::
+
       lasso
       Ranger
       Ranger.do_lasso
       Lasso
-      SheetsFactory
       make_default_Ranger
       get_default_opts
-      get_default_filters
-      xlwings_dims_call_spec
 
 - Related to :term:`capturing` algorithm:
 
   .. currentmodule:: pandalone.xleash._capture
   .. autosummary::
+
       resolve_capture_rect
-      ABCSheet.read_rect
-      ArraySheet
-      ABCSheet
       coords2Cell
 
   .. currentmodule:: pandalone.xleash._filter
   .. autosummary::
-    get_default_filters,
-    xlwings_dims_call_spec,
+
+      get_default_filters
+      xlwings_dims_call_spec
 
 
 - Related to parsing and basic structure used throughout:
   .. currentmodule:: pandalone.xleash._parse
   .. autosummary::
+
       parse_xlref
       parse_expansion_moves
       parse_call_spec
@@ -209,13 +206,17 @@ API
       Coords
       Edge
 
-- **xlrd** back-end functionality:
+- **IO** back-end functionality:
 
-  .. currentmodule:: pandalone.xleash._xlrd
-
+  .. currentmodule:: pandalone.xleash.io
   .. autosummary::
-      XlrdSheet
-      open_sheet
+
+      _sheets.SheetsFactory
+      _sheets.ABCSheet.read_rect
+      _sheets.ArraySheet
+      _sheets.ABCSheet
+      _xlrd.XlrdSheet
+      _xlrd.open_sheet
 
 .. default-role:: term
 .. currentmodule:: pandalone.xleash
@@ -695,6 +696,9 @@ Example-refs are given below for capturing the 2 marked tables::
 .. default-role:: obj
 """
 
+
+from __future__ import unicode_literals
+
 from collections import namedtuple
 
 Lasso = namedtuple('Lasso',
@@ -736,31 +740,36 @@ All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger
 Lasso.__new__.__defaults__ = (None,) * len(Lasso._fields)
 """Make :class:`Lasso` construct with all missing fields as `None`."""
 
+Coords = namedtuple('Coords', ['row', 'col'])
+"""
+A pair of 0-based integers denoting the "num" coordinates of a cell.
 
-def _Lasso_to_edges_str(lasso):
-    st = lasso.st_edge if lasso.st_edge else ''
-    nd = lasso.nd_edge if lasso.nd_edge else ''
-    s = st if st and not nd else '%s:%s' % (st, nd)
-    exp = ':%s' % lasso.exp_moves.upper() if lasso.exp_moves else ''
-    return s + exp
+The "A1" coords (1-based coordinates) are specified using :class:`Cell`.
+"""
 
 
-from pandalone.xleash._capture import (
-    resolve_capture_rect, ABCSheet, ArraySheet, coords2Cell,
-)
-from pandalone.xleash._lasso import (
-    lasso, Ranger, SheetsFactory,
-    make_default_Ranger, get_default_opts,
-    log
-)
-from pandalone.xleash._parse import (
-    Cell, Coords, Edge, CallSpec,
+from ._parse import (
+    Cell, Edge, CallSpec,
     parse_xlref,
 )
 
-from pandalone.xleash._filter import (
+from .io._sheets import (
+    ABCSheet, ArraySheet, margin_coords_from_states_matrix,
+    SheetsFactory,
+)
+
+from ._capture import (
+    resolve_capture_rect, coords2Cell,
+)
+
+from ._filter import (
     get_default_filters,
     xlwings_dims_call_spec,
+)
+
+from ._lasso import (
+    lasso, Ranger,
+    make_default_Ranger, get_default_opts,
 )
 
 
@@ -770,7 +779,7 @@ __all__ = [
     'lasso', 'Ranger', 'SheetsFactory',
     'make_default_Ranger', 'get_default_opts', 'get_default_filters',
     'Lasso',
-    'xlwings_dims_call_spec', 'log',
+    'xlwings_dims_call_spec',
 
     'Cell', 'Coords', 'Edge', 'CallSpec',
     'parse_xlref',

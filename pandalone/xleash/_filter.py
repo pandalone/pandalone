@@ -16,11 +16,9 @@ Prefer accessing the public members from the parent module.
 from __future__ import unicode_literals
 
 from collections import namedtuple, OrderedDict
-import inspect
 import logging
 
 from asteval import Interpreter
-from future.backports import ChainMap
 from future.utils import iteritems
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
