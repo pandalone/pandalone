@@ -200,8 +200,8 @@ def redim_filter(ranger, lasso,
     return lasso
 
 
-ElementContext = namedtuple('ElementContext',
-                            ('sheet', 'st', 'nd', 'base_coords'))
+XLocation = namedtuple('XLocation',
+                       ('sheet', 'st', 'nd', 'base_coords'))
 """
 Fields denoting the position of a sheet/cell while running a :term:`element-wise-filter`.
 
@@ -214,38 +214,39 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
                            include=None, exclude=None, depth=-1,
                            *args, **kwds):
     """
-    Implement :term:`element-wise` filters strings found by treating values as mappings (dicts, df, series) and/or nested lists.
+    Runner of all :term:`element-wise-filters`.
+
+    It applies the `element_func` on elements extracted from ``lasso.values``
+    by treating the later first as "indexed" objects
+    (Mappings, Series and Dataframes.), and if that fails, as nested lists.
 
     - The `include`/`exclude` filter args work only for "indexed" objects
-      with ``items()`` or ``iteritems()`` and indexing methods,
-      i.e. Mappings, Series and Ddataframes.
-
-      - If no filter arg specified, expands for all keys.
-      - If only `include` specified, rejects all keys not explicitly
-        contained in this filter arg.
-      - If only `exclude` specified, expands all keys not explicitly
-        contained in this filter arg.
-      - When both `include`/`exclude` exist, only those explicitly
-        included are accepted, unless also excluded.
+      with ``items()`` or ``iteritems()`` and indexing methods.
+        - If no filter arg specified, expands for all keys.
+        - If only `include` specified, rejects all keys not explicitly
+          contained in this filter arg.
+        - If only `exclude` specified, expands all keys not explicitly
+          contained in this filter arg.
+        - When both `include`/`exclude` exist, only those explicitly
+          included are accepted, unless also excluded.
 
     - Lower the :mod:`logging` level to see other than syntax-errors on
       recursion reported on :data:`log`.
-    - Only those in :class:`ElementContext` are passed recursively.
+    - Only those in :class:`XLocation` are passed recursively.
 
     :param list element_func:
             A function implementing the element-wise :term:`filter`
             and returning a 2-tuple ``(is_proccessed, new_val_or_lasso)``,
             like that::
 
-                def element_func(ranger, lasso, context, vals,
-                                 args, kwds)
+                def element_func(ranger, lasso, context, elval)
                     proced = False
                     try:
-                        vals = int(vals)
+                        elval = int(elval)
                         proced = True
                     except ValueError:
                         pass
-                    return proced, vals
+                    return proced, elval
 
             Its `kwds` may contain the `include`, `exclude` and `depth` args.
             Any exception raised from `element_func` will cancel the diving.
@@ -281,16 +282,16 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
                 base_coords = base_coords._replace(col=base_coords.col + i)
         return base_coords
 
-    def call_element_func(vals, base_coords, cdepth):
-        context_kwds = dtz.keyfilter(lambda k: k in ElementContext._fields,
+    def call_element_func(elval, base_coords, cdepth):
+        context_kwds = dtz.keyfilter(lambda k: k in XLocation._fields,
                                      lasso._asdict())
         context_kwds['base_coords'] = base_coords
-        context = ElementContext(**context_kwds)
+        context = XLocation(**context_kwds)
         try:
-            proced, res_lasso = element_func(ranger, lasso, context, vals,
+            proced, res_lasso = element_func(ranger, lasso, context, elval,
                                              *args, **kwds)
         except Exception as ex:
-            msg_args = (vals, context, ex)
+            msg_args = (elval, context, ex)
             raise ValueError("Value(%r) at %s: \n    %s" % msg_args)
 
         if proced:
@@ -299,24 +300,24 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
 
             for call_spec in sub_call_specs:
                 res_lasso = ranger.make_call(res_lasso, *call_spec)
-            vals = res_lasso and res_lasso.values
+            elval = res_lasso and res_lasso.values
 
-        return proced, vals
+        return proced, elval
 
-    def dive_list(vals, base_coords, cdepth):
-        proced, vals = call_element_func(vals, base_coords, cdepth)
-        if not proced and isinstance(vals, list):
-            for i, v in enumerate(vals):
+    def dive_list(elval, base_coords, cdepth):
+        proced, elval = call_element_func(elval, base_coords, cdepth)
+        if not proced and isinstance(elval, list):
+            for i, v in enumerate(elval):
                 nbc = new_base_coords(base_coords, cdepth, i)
-                vals[i] = dive_indexed(v, nbc, cdepth + 1)
+                elval[i] = dive_indexed(v, nbc, cdepth + 1)
 
-        return vals
+        return elval
 
-    def dive_indexed(vals, base_coords, cdepth):
+    def dive_indexed(elval, base_coords, cdepth):
         if cdepth != depth:
             dived = False
             try:
-                items = iteritems(vals)
+                items = iteritems(elval)
             except:
                 pass  # Just to avoid chained ex.
             else:
@@ -324,14 +325,14 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
                     # Dict is not ordered, so cannot locate `base_coords`!
                     if is_included(k):
                         nbc = (None
-                               if isinstance(vals, dict)
+                               if isinstance(elval, dict)
                                else new_base_coords(base_coords, cdepth, i))
-                        vals[k] = dive_indexed(v, nbc, cdepth + 1)
+                        elval[k] = dive_indexed(v, nbc, cdepth + 1)
                 dived = True
             if not dived:
-                vals = dive_list(vals, base_coords, cdepth)
+                elval = dive_list(elval, base_coords, cdepth)
 
-        return vals
+        return elval
 
     sub_call_specs = [_parse.parse_call_spec(f) for f in filters]
     values = dive_indexed(lasso.values, lasso.st, 0)
@@ -339,15 +340,15 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
     return lasso._replace(values=values)
 
 
-def _recurse_element_func(ranger, lasso, context, vals):
+def _recurse_element_func(ranger, lasso, context, elval):
     proced = False
     try:
-        if isinstance(vals, basestring):
-            lasso = ranger.do_lasso(vals, **context._asdict())
+        if isinstance(elval, basestring):
+            lasso = ranger.do_lasso(elval, **context._asdict())
             proced = True
     except SyntaxError as ex:
-        msg = "Skipped non `xl-ref` value(%r) at %s due to: \n  %s"
-        msg_args = (vals, context, ex)
+        msg = "Skipped non `xl-ref` value(%r) \n  ++at %s \n  ++while lassoing %r \n  ++due to: %s"
+        msg_args = (elval, context, lasso.xl_ref, ex)
         log.debug(msg, *msg_args)
     except Exception as ex:
         msg = "Lassoing  `xl-ref` failed due to: %s"
@@ -392,10 +393,10 @@ ast_log_writer = LoggerWriter(logging.getLogger('%s.pyeval' % __name__),
                               logging.INFO)
 
 
-def _pyeval_element_func(ranger, lasso, context, vals, eval_all):
+def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
     proced = False
-    if isinstance(vals, basestring):
-        expr = str(vals)
+    if isinstance(elval, basestring):
+        expr = str(elval)
         symtable = locals()
         from .. import xleash
         symtable.update({'xleash': xleash})
@@ -408,8 +409,9 @@ def _pyeval_element_func(ranger, lasso, context, vals, eval_all):
                 msg_args = (len(aeval.error), expr) + error
                 raise ValueError(msg % msg_args)
             else:
-                msg = "Skipped py-evaluating value(%r) at %s due to %i errors: %s: %s"
-                msg_args = (vals, context, len(aeval.error)) + error
+                msg = "Skipped py-evaluating value(%r) \n  ++at %s \n  ++while lassoing %r \n  ++due to %i errors: %s: %s"
+                msg_args = (elval, context, lasso.xl_ref,
+                            len(aeval.error)) + error
                 log.warning(msg, *msg_args)
         else:
             if isinstance(res, Lasso):

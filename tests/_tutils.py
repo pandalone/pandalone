@@ -10,9 +10,10 @@ from contextlib import contextmanager
 from io import StringIO
 import logging
 import os
-import sys
 import re
+import sys
 from tempfile import mkdtemp
+from textwrap import dedent
 import unittest
 
 
@@ -157,26 +158,28 @@ class CustomAssertions(object):
             if not cond:
                 raise AssertionError(msg)
 
-    def assertStrippedStringsEqual(self, st, nd, msg=None, context_chars=20):
+    def assertStrippedStringsEqual(self, st, nd, msg=None, context_chars=30):
         regex = re.compile('\\s+', re.DOTALL)
         st1 = regex.sub('', st)
         nd1 = regex.sub('', nd)
-        msg = '%s\n--1st: %s \n--2nd: %s' % (msg or '', st, nd)
-        try:
-            self.assertSequenceEqual(st1, nd1, msg)
-        except AssertionError as ex:
-            err_msg = ex.args[0]
-            m = re.search(r"First differing element (\d+):", err_msg)
-            if m:
-                err_i = int(m.group(1))
-                s_slice = slice(
-                    max(0, err_i - context_chars), err_i + context_chars)
-                c1, c2 = st1[s_slice], nd1[s_slice]
-                err_msg += "\n\nContext: \n  --1st: %s\n%s^ \n  --2nd: %s" % (
-                    c1, ' ' * (2 + 7 + context_chars), c2)
-            raise AssertionError(err_msg)
-        except:
-            raise
+        if st1 != nd1:
+            err_i = len(os.path.commonprefix((st1, nd1)))
+            s_slice = slice(max(0, err_i - context_chars),
+                            err_i + context_chars)
+            c1, c2 = st1[s_slice], nd1[s_slice]
+            frmt = dedent("""\
+            Stripped-strings differ at char %i (lens: 1st=%i, 2nd=%s)!
+              --1st: %s
+                     %sX
+              --2nd: %s
+              ==1st original: %s
+              ==2nd original: %s
+            ----%s
+            """)
+            spcs = ' ' * context_chars
+            err_msg = frmt % (err_i, len(st1), len(nd1), c1, spcs, c2,
+                              st, nd, (msg or ''))
+            self.fail(err_msg)
 
 try:
     from tempfile import TemporaryDirectory  # @UnusedImport

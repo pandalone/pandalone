@@ -1918,19 +1918,19 @@ class T16Eval(unittest.TestCase, CustomAssertions):
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     @data(
         ("boo haha", """
-            Value('boo haha') at None, None:
-            1 errors while py-evaluating 'boo haha':
-            SyntaxError: boo haha Syntax Error
+            Value('boo haha') at XLocation(sheet=None, st=None, nd=None, base_coords=None):
+            1 errors while py-evaluating 'boo haha': SyntaxError:    boo haha
+            Syntax Error
          """),
         ("1-'tt'", """
-            Value("1-'tt'") at None, None:
-            3 errors while py-evaluating "1-'tt'":
-            TypeError: 1-'tt' unsupported operand type(s) for -: 'int' and 'str'
+            Value("1-'tt'") at XLocation(sheet=None, st=None, nd=None, base_coords=None):
+            3 errors while py-evaluating "1-'tt'": TypeError:    1-'tt'
+            unsupported operand type(s) for -: 'int' and 'str'
         """),
         ("int('g')", """
-            Value("int('g')") at None, None:
-            4 errors while py-evaluating "int('g')":
-            ValueError: int('g') Error running <class 'int'>
+            Value("int('g')") at XLocation(sheet=None, st=None, nd=None, base_coords=None):
+            4 errors while py-evaluating "int('g')": ValueError:    int('g')
+            Error running <class 'int'>
         """),
     )
     def test_syntaxErrors(self, case):
@@ -2005,17 +2005,9 @@ class T17RealFile(unittest.TestCase, CustomAssertions):
             ('P-eval',                  COL1        EVAL_COL  NO_EVAL
                                     0    foo               6     a'+4
                                     1    bar         [1,2,3]  bad boy
-                                    2    bus   {'a_dict': 1}     None),
-            ('PevalAll',               COL1       EVAL_COL  NO_EVAL
-                                    0  foo              6     a'+4
-                                    1  bar      [1, 2, 3]  bad boy
-                                    2  bus  {'a_dict': 1}     None)
+                                    2    bus   {'a_dict': 1}     None)
         ])
         """
-        # ('P-eval',                  COL1        EVAL_COL  NO_EVAL
-        #                         0    foo               6     a'+4
-        #                         1    bar         [1,2,3]  bad boy
-        #                         2    bus   {'a_dict': 1}     None)
         res = _l.lasso('recursive.xlsx#^^:"recurse"')
         self.assertStrippedStringsEqual(str(res), exp)
 
@@ -2029,11 +2021,23 @@ class T17RealFile(unittest.TestCase, CustomAssertions):
                 self.fail("'py' filter did not produce anything!")
 
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
+    def test_lasso_then_pyeval(self):
+        exp = """\
+                COL1        EVAL_COL  NO_EVAL
+            0    foo               6     a'+4
+            1    bar         [1,2,3]  bad boy
+            2    bus   {'a_dict': 1}     foo)
+        ])
+        """
+        res = _l.lasso('recursive.xlsx#e2!^^:"recurse"')
+        self.assertStrippedStringsEqual(str(res), exp)
+
+    @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
     def test_real_file_recurse_fail(self):
         err_msg = """
         Filtering xl-ref('recursive.xlsx#A_(U):"recurse"') failed due to:
             While invoking(recurse, args=[], kwds={}):
-                Value('#BAD1:"filter"') at XlrdSheet(book='recursive.xlsx', sheet_ids=['2', 0]), Coords(row=11, col=0):
+                Value('#BAD1:"filter"') at XLocation(sheet=XlrdSheet(book='recursive.xlsx', sheet_ids=['2', 0]), st=Coords(row=11, col=0), nd=None, base_coords=Coords(row=11, col=0)):
                     Lassoing  `xl-ref` failed due to:
                         array index out of range
         """
