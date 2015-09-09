@@ -6,4 +6,4 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """Authoritative project's version-info"""
 __version__ = "0.1.1"  # PEP 440 versioning. Also update README.rst's.
-__updated__ = "2015-09-07 15:24:30"
+__updated__ = "2015-09-09 12:47:59"

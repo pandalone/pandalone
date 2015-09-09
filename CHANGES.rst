@@ -23,7 +23,7 @@ TODOs
             - [ ] Expand meander `@`?
         - filters:
             - [ ] Slices and Index args on 'numpy' and 'df' filters.
-            - [ ] Impl  new `eval` filter with `asteval` lib
+            - [x] Impl  new `eval` filter with `asteval` lib
         - [ ] Xlrd-read with slices.
     - Struct:
         - [ ] Plugins for backends (& syntax?)
@@ -49,7 +49,13 @@ Rejected TODOs:
 Changelog
 =========
 
-- v0.1.0 (Sep-2015)
+- v0.1.1 (Sep-2015): **1st working release**
+	- FIX missing `xleash` package from wheel.
+    - Renamed package `xlasso`--> `xleash` and  splitted `_filters` packages.
+    - Added `py-eval` filter.
+
+- v0.1.0 (Sep-2015): **XLasso BROKEN!**
+    - 1st release in *pypi* but broken.
     - The `mappings` and `xlasso` packages are considered ready to be used.
 - v0.0.11 (XX-May-2015)
 - v0.0.1.dev1 (01-March-2015)
