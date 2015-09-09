@@ -27,7 +27,7 @@ from toolz import dicttoolz as dtz
 
 import numpy as np
 
-from . import Lasso, _parse
+from . import Lasso, Coords, _parse
 from ..utils import LoggerWriter
 from ..utils import as_list
 
@@ -214,7 +214,7 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
                            include=None, exclude=None, depth=-1,
                            *args, **kwds):
     """
-    Runner of all :term:`element-wise-filters`.
+    Runner of all :term:`element-wise` :term:`filters`.
 
     It applies the `element_func` on elements extracted from ``lasso.values``
     by treating the later first as "indexed" objects
@@ -269,20 +269,32 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
     include = include and as_list(include)
     exclude = exclude and as_list(exclude)
 
-    def is_included(key):
-        ok = not include or key in include
-        ok &= not exclude or key not in exclude
+    def is_included(elval, key, cdepth):
+        ok = True
+        if cdepth == 0 or isinstance(elval, dict):
+            ok &= not include or key in include
+            ok &= not exclude or key not in exclude
         return ok
 
-    def new_base_coords(base_coords, cdepth, i):
-        if base_coords:
-            if cdepth == 0:
-                base_coords = base_coords._replace(row=base_coords.row + i)
-            elif cdepth == 1:
-                base_coords = base_coords._replace(col=base_coords.col + i)
-        return base_coords
+    def upd_base_coords(elval, cdepth, base_coords, i):
+        if base_coords and not isinstance(elval, dict):
+            row, col = base_coords
+            try:
+                import pandas as pd
+            except ImportError:
+                if cdepth == 0:
+                    row += i
+                elif cdepth == 1:
+                    col += + i
+            else:
+                if isinstance(elval, pd.DataFrame):
+                    col += i
+                elif isinstance(elval, pd.Series):
+                    row += i
 
-    def call_element_func(elval, base_coords, cdepth):
+            return row, col
+
+    def call_element_func(elval, cdepth, base_coords):
         context_kwds = dtz.keyfilter(lambda k: k in XLocation._fields,
                                      lasso._asdict())
         context_kwds['base_coords'] = base_coords
@@ -304,16 +316,16 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
 
         return proced, elval
 
-    def dive_list(elval, base_coords, cdepth):
-        proced, elval = call_element_func(elval, base_coords, cdepth)
+    def dive_list(elval, cdepth, base_coords):
+        proced, elval = call_element_func(elval, cdepth, base_coords)
         if not proced and isinstance(elval, list):
             for i, v in enumerate(elval):
-                nbc = new_base_coords(base_coords, cdepth, i)
-                elval[i] = dive_indexed(v, nbc, cdepth + 1)
+                nbc = upd_base_coords(elval, cdepth, base_coords, i)
+                elval[i] = dive_indexed(v, cdepth + 1, nbc)
 
         return elval
 
-    def dive_indexed(elval, base_coords, cdepth):
+    def dive_indexed(elval, cdepth, base_coords):
         if cdepth != depth:
             dived = False
             try:
@@ -323,19 +335,17 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
             else:
                 for i, (k, v) in enumerate(items):
                     # Dict is not ordered, so cannot locate `base_coords`!
-                    if is_included(k):
-                        nbc = (None
-                               if isinstance(elval, dict)
-                               else new_base_coords(base_coords, cdepth, i))
-                        elval[k] = dive_indexed(v, nbc, cdepth + 1)
+                    if is_included(elval, k, cdepth):
+                        nbc = upd_base_coords(elval, cdepth, base_coords, i)
+                        elval[k] = dive_indexed(v, cdepth + 1, nbc)
                 dived = True
             if not dived:
-                elval = dive_list(elval, base_coords, cdepth)
+                elval = dive_list(elval, cdepth, base_coords)
 
         return elval
 
     sub_call_specs = [_parse.parse_call_spec(f) for f in filters]
-    values = dive_indexed(lasso.values, lasso.st, 0)
+    values = dive_indexed(lasso.values, 0, lasso.st)
 
     return lasso._replace(values=values)
 

@@ -32,7 +32,7 @@ import os
 import re
 import sys
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 __commit__ = ""
@@ -183,7 +183,7 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Utilities",
     ],
-    packages=[proj_name],
+    packages=find_packages(),
     #include_package_data = True,
     # package_data= {
     #    proj_name: ['*.vba', '*.ico'],

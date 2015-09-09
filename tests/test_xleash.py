@@ -2011,6 +2011,7 @@ class T17RealFile(unittest.TestCase, CustomAssertions):
         res = _l.lasso('recursive.xlsx#^^:"recurse"')
         self.assertStrippedStringsEqual(str(res), exp)
 
+    @unittest.skipIf(sys.version_info < (3, 4), "no `assertLogs` in Py2!")
     def test_subfilter(self):
         with self.assertLogs(level=logging.INFO) as logass:
             _l.lasso('recursive.xlsx#^^:"recurse"')
@@ -2026,8 +2027,7 @@ class T17RealFile(unittest.TestCase, CustomAssertions):
                 COL1        EVAL_COL  NO_EVAL
             0    foo               6     a'+4
             1    bar         [1,2,3]  bad boy
-            2    bus   {'a_dict': 1}     foo)
-        ])
+            2    bus   {'a_dict': 1}     foo
         """
         res = _l.lasso('recursive.xlsx#e2!^^:"recurse"')
         self.assertStrippedStringsEqual(str(res), exp)

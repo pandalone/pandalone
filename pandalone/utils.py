@@ -8,12 +8,11 @@
 
 from __future__ import division, unicode_literals
 
-import argparse
 import os
 import re
 import sys
 
-from future.moves import collections
+from future.moves.collections import Sequence  # @UnresolvedImport
 from past.types import basestring
 
 
@@ -87,7 +86,7 @@ def is_travis():  # pragma: no cover
 
 
 def as_list(o):
-    if isinstance(o, collections.Sequence) and not isinstance(o, basestring):
+    if isinstance(o, Sequence) and not isinstance(o, basestring):
         o = list(o)
     else:
         o = [o]
