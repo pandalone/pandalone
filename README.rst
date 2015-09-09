@@ -1,14 +1,18 @@
+###########################################################
+pandalone: process data-trees with reconfigurable-paths
+###########################################################
+|python-ver| |travis-status| |appveyor-status| |cover-status| |docs-status| \
+|pypi-ver| |dependencies| |downloads-count| |github-issues| |proj-license|
+
 .. image:: doc/_static/pandalone_logo.png
    :width: 300 px
    :align: center
 
-#######################################################
-pandalone: process data-trees with reconfigurable-paths
-#######################################################
-|dev-status| |travis-status| |appveyor-status| |cover-status| |docs-status| \
-|pypi-status| |downloads-count| |github-issues| |proj-license|
+**pandalone** is an open source Python 2/3 library for building
+*component-functions* to process *hierarchical-data* using
+*reconfigurable-paths*.
 
-:Release:       0.1.1
+:Release:       0.1.2
 :Documentation: https://pandalone.readthedocs.org/
 :Source:        https://github.com/pandalone/pandalone
 :PyPI repo:     https://pypi.python.org/pypi/pandalone
@@ -19,12 +23,7 @@ pandalone: process data-trees with reconfigurable-paths
                 <https://ec.europa.eu/jrc/en/institutes/iet>`_)
 :License:       `EUPL 1.1+ <https://joinup.ec.europa.eu/software/page/eupl>`_
 
-
-**pandalone** is an open source Python 2/3 library for building
-*component-functions* to process *hierarchical-data* using
-*reconfigurable-paths*.
-
-Currently only 2 portions of the envisioned functionality has been implemented:
+Currently only 2 portions of the envisioned functionality are ready for use:
 
 - **xleash**: A mini-language for "throwing the rope" around rectangular areas
   of Excel-sheets.
@@ -276,7 +275,7 @@ After installation, it is important that you check which version is visible in y
 .. code-block:: bash
 
     $ pndlcmd --version
-    0.1.1
+    0.1.2
 
 
 To install for different Python versions, repeat the procedure for every required version.
@@ -435,7 +434,7 @@ First run :command:`python` or :command:`ipython` and try to import the project 
     >>> import pandalone
 
     >>> pandalone.__version__           ## Check version once more.
-    '0.1.1'
+    '0.1.2'
 
     >>> pandalone.__file__              ## To check where it was installed.         # doctest: +SKIP
     /usr/local/lib/site-package/pandalone-...
@@ -756,19 +755,15 @@ Glossary
     :scale: 100%
     :target: https://readthedocs.org/builds/pandalone/
 
-.. |pypi-status| image::  https://pypip.in/v/pandalone/badge.png
+.. |pypi-ver| image::  https://img.shields.io/pypi/v/pandalone.svg
     :target: https://pypi.python.org/pypi/pandalone/
     :alt: Latest Version in PyPI
 
-.. |python-ver| image:: https://pypip.in/py_versions/pandalone/badge.svg
+.. |python-ver| image:: https://img.shields.io/pypi/pyversions/pandalone.svg
     :target: https://pypi.python.org/pypi/pandalone/
     :alt: Supported Python versions
 
-.. |dev-status| image:: https://pypip.in/status/pandalone/badge.svg
-    :target: https://pypi.python.org/pypi/pandalone/
-    :alt: Development Status
-
-.. |downloads-count| image:: https://pypip.in/download/pandalone/badge.svg?period=week
+.. |downloads-count| image:: https://img.shields.io/pypi/dm/pandalone.svg?period=month
     :target: https://pypi.python.org/pypi/pandalone/
     :alt: Downloads
 
@@ -779,3 +774,6 @@ Glossary
 .. |proj-license| image:: https://img.shields.io/badge/license-EUPL%201.1%2B-blue.svg
     :target: https://raw.githubusercontent.com/pandalone/pandalone/master/LICENSE.txt
     :alt: Project License
+
+.. |dependencies| image:: https://img.shields.io/requires/github/pandalone/pandalone.svg
+    :alt: Dependencies up-to-date?
