@@ -138,6 +138,7 @@ def Edge_new(row, col, mov=None, mod=None, default=None):
     return Edge(land=Cell(row, col),
                 mov=mov and mov.upper(), mod=mod)
 
+_encase_regex = re.compile(r'^\s*(?P<q>[/\\"$%&])(.+)(?P=q)\s*$', re.DOTALL)
 _regular_xlref_regex = re.compile(
     r"""
     ^\s*(?:(?P<sh_name>[^!]+)?!)?                            # xl sheet name
@@ -447,6 +448,25 @@ def _parse_xlref_fragment(xlref_fragment):
 
 
 def parse_xlref(xlref):
+    try:
+        res = _parse_xlref(xlref)
+    except SyntaxError as ex:
+        try:
+            m = _encase_regex.match(xlref)
+        except SyntaxError:
+            raise ex
+        else:
+            if m:
+                print(m.group(2))
+                res = _parse_xlref(m.group(2))
+                res['xl-ref'] = xlref
+            else:
+                raise ex
+
+    return res
+
+
+def _parse_xlref(xlref):
     """
     Parse a :term:`xl-ref` into a dict.
 
@@ -506,7 +526,8 @@ def parse_xlref(xlref):
     xlref = xlref.translate(_excel_str_translator)
     url_file, frag = urldefrag(xlref)
     if not frag:
-        raise SyntaxError("No fragment-part (starting with '#'): %s" % xlref)
+        raise SyntaxError(
+            "No fragment-part (starting with '#'): %s" % xlref)
     res = _parse_xlref_fragment(frag)
     frag = frag.strip()
     res['url_file'] = url_file.strip() or None

@@ -287,7 +287,7 @@ class T01Parse(unittest.TestCase):
                     if c.isalpha():
                         self.assertTrue(c.isupper(), '%s in %r' % (c, i))
 
-    def check_xlref(self, xlref, fields):
+    def check_xlref_frag(self, xlref, fields):
         res = _p._parse_xlref_fragment(xlref)
         res2 = dtz.keyfilter(lambda k: k in fields.keys(), res)
         e = 'EMPT|Y'
@@ -325,9 +325,9 @@ class T01Parse(unittest.TestCase):
         }
         ),
     )
-    def test_regular(self, case):
+    def test_regular_frag(self, case):
         xlref, fields = case
-        self.check_xlref(xlref, fields)
+        self.check_xlref_frag(xlref, fields)
 
     @data(*produce_xlref_field_combinations(
         ('A1:', {
@@ -348,9 +348,9 @@ class T01Parse(unittest.TestCase):
         }
         ),
     ))
-    def test_shortcuts(self, case):
+    def test_shortcuts_frag(self, case):
         xlref, fields = case
-        self.check_xlref(xlref, fields)
+        self.check_xlref_frag(xlref, fields)
 
     @data(
         ('', {}),  # Yes, empty allowed, but rejected earlier, after url-split.
@@ -371,7 +371,7 @@ class T01Parse(unittest.TestCase):
     )
     def test_shortcuts_strange(self, case):
         xlref, fields = case
-        self.check_xlref(xlref, fields)
+        self.check_xlref_frag(xlref, fields)
 
     @data(*list(itt.product(
         ['A1:B1', 'A1:B1:LURD',
@@ -417,16 +417,17 @@ class T01Parse(unittest.TestCase):
         res = _p.parse_xlref(url)
         self.assertEquals(res['url_file'], None)
 
+        res = _p.parse_xlref('$%s$' % url)
+        self.assertEquals(res['url_file'], None)
+        self.assertEquals(res['sh_name'], 'sheet_name')
+
     def test_xl_url_No_fragment(self):
         url = 'A1:B1'
         err_text = "No fragment-part"
         with assertRaisesRegex(self, SyntaxError, err_text):
             _p.parse_xlref(url)
-
-    def test_xl_url_emptyFile(self):
-        url = '  #A1'
-        res = _p.parse_xlref(url)
-        self.assertEquals(res['url_file'], None)
+        with assertRaisesRegex(self, SyntaxError, err_text):
+            _p.parse_xlref('$%s$' % url)
 
     def test_xl_url_emptySheet(self):
         url = 'file://path/to/file.xlsx#  !A1'
