@@ -222,6 +222,7 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
 
     - The `include`/`exclude` filter args work only for "indexed" objects
       with ``items()`` or ``iteritems()`` and indexing methods.
+
         - If no filter arg specified, expands for all keys.
         - If only `include` specified, rejects all keys not explicitly
           contained in this filter arg.

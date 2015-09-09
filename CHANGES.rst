@@ -49,7 +49,7 @@ Rejected TODOs:
 Changelog
 =========
 
-- v0.1.2 (Sep-2015):
+- v0.1.3 (Sep-2015):
     - Allow for perl-quoting xlrefs to avoid being treated as python-comments.
 
 - v0.1.1 (Sep-2015): **1st working release**
