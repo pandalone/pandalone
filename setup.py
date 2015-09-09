@@ -183,7 +183,7 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Utilities",
     ],
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests"]),
     #include_package_data = True,
     # package_data= {
     #    proj_name: ['*.vba', '*.ico'],

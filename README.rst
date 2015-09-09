@@ -24,6 +24,13 @@ pandalone: process data-trees with reconfigurable-paths
 *component-functions* to process *hierarchical-data* using
 *reconfigurable-paths*.
 
+Currently only 2 portions of the envisioned functionality has been implemented:
+
+- **xleash**: A mini-language for "throwing the rope" around rectangular areas
+  of Excel-sheets.
+- **mappings**: Hierarchical string-like objects that may be used for
+  indexing, facilitating renaming keys and column-names at a later stage.
+
 
 Our goal is to facilitate the composition of *engineering-models* from
 loosely-coupled *components*.

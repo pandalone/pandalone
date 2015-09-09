@@ -49,10 +49,14 @@ Rejected TODOs:
 Changelog
 =========
 
+- v0.1.2 (Sep-2015):
+	- Allow for perl-quoting xlrefs to avoid being treated as python-comments.
+
 - v0.1.1 (Sep-2015): **1st working release**
 	- FIX missing `xleash` package from wheel.
     - Renamed package `xlasso`--> `xleash` and  splitted `_filters` packages.
     - Added `py-eval` filter.
+    - Accept xl-refs quoted by any char.
 
 - v0.1.0 (Sep-2015): **XLasso BROKEN!**
     - 1st release in *pypi* but broken.
