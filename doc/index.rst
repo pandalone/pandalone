@@ -5,12 +5,12 @@
 ######################################################
 Process data-trees with reconfigurable-paths in Python
 ######################################################
-|dev-status| |travis-status| |appveyor-status| |cover-status| |docs-status| \
-|pypi-status| |downloads-count| |github-issues| |proj-license|
+|python-ver| |travis-status| |appveyor-status| |cover-status| |docs-status| \
+|pypi-ver| |dependencies| |downloads-count| |github-issues| |proj-license|
 
 
 .. include:: ../README.rst
-    :start-after: proj-license|
+    :start-after:  :align: center
     :end-before: _end-opening:
 
 .. toctree::

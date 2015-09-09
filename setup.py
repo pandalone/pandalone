@@ -207,13 +207,6 @@ setup(
             'mock',
         ],
     },
-    run_requires=[
-        # TODO: check when `run_requires` works.
-        {
-            "requires": ["pywin32 > 1.0", "xlwings", "easygui"],
-            "environment": "sys_platform == 'win32' or sys_platform == 'darwin'"
-        },
-    ],
     entry_points={
         'console_scripts': [
             'pndl = %s.__main__:main' % proj_name,
@@ -227,5 +220,14 @@ setup(
         'bdist_wheel': {
             'universal': True,
         },
-    }
+    },
+    platforms=['any'],
+    # TODO: check when `run_requires` works.
+    # run_requires=[
+    #     {
+    #         "requires": ["pywin32 > 1.0", "xlwings", "easygui"],
+    #         "environment": "sys_platform == 'win32' or sys_platform == 'darwin'"
+    #     },
+    # ],
+    # metadata_version="2.0",
 )

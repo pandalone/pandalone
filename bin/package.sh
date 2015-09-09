@@ -1,2 +1,2 @@
 rm -rf build/* dist/*
-python setup.py build sdist bdist_wheel
+python setup.py build bdist_wheel sdist 

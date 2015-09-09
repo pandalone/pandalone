@@ -34,26 +34,26 @@ TODOs
         - [ ] Clipboard
         - [ ] openpyxl
     - [ ] Split own project
-    	- [ ] README
+        - [ ] README
     - [ ] Check TODOs in code
 
 Rejected TODOs:
 ---------------
 - xleash
-	- Support cubic areas; pandas create dict-of-dfs from multiple sheets.
-	- Use *ast* library for filters; cannot extract safely opts.
-	- Build Lasso-structs trees on `recursive` filter for debugging; carefully
-	  crafted exception-messages is enough.
+    - Support cubic areas; pandas create dict-of-dfs from multiple sheets.
+    - Use *ast* library for filters; cannot extract safely opts.
+    - Build Lasso-structs trees on `recursive` filter for debugging; carefully
+      crafted exception-messages is enough.
 
 
 Changelog
 =========
 
 - v0.1.2 (Sep-2015):
-	- Allow for perl-quoting xlrefs to avoid being treated as python-comments.
+    - Allow for perl-quoting xlrefs to avoid being treated as python-comments.
 
 - v0.1.1 (Sep-2015): **1st working release**
-	- FIX missing `xleash` package from wheel.
+    - FIX missing `xleash` package from wheel.
     - Renamed package `xlasso`--> `xleash` and  splitted `_filters` packages.
     - Added `py-eval` filter.
     - Accept xl-refs quoted by any char.
