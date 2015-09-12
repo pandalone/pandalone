@@ -1,8 +1,8 @@
 ###########################################################
 pandalone: process data-trees with reconfigurable-paths
 ###########################################################
-|python-ver| |travis-status| |appveyor-status| |cover-status| |docs-status| \
-|pypi-ver| |dependencies| |downloads-count| |github-issues| |proj-license|
+|pypi-ver| |travis-status| |appveyor-status| |cover-status| |docs-status| \
+|dependencies| |downloads-count| |github-issues| |python-ver| |proj-license|
 
 .. image:: doc/_static/pandalone_logo.png
    :width: 300 px
@@ -763,7 +763,6 @@ Glossary
     :alt: Downloads
 
 .. |github-issues| image:: https://img.shields.io/github/issues/pandalone/pandalone.svg
-						   https://img.shields.io/github/issues/pandalone/pandalone.svg
     :target: https://github.com/pandalone/pandalone/issues
     :alt: Issues count
 
