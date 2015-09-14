@@ -194,6 +194,7 @@ setup(
         'setuptools-git >= 0.3',  # Gather package-data from all files in git.
         'sphinx>=1.3',
         'coveralls',
+        'flake8',
         'wheel',
     ],
     tests_require=[

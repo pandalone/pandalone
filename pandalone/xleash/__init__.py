@@ -14,7 +14,7 @@ A mini-language for "throwing the rope" around rectangular areas of Excel-sheets
 About
 =====
 Any *decent* dataset is stored in **csv**.
-Consequently, many datasets are in excel-sheets.
+Consequently, many datasets are still trapped in excel-sheets.
 
 *XLeash* defines a url-fragment notation (`xl-ref`) that renders
 the `capturing` of tables from sheets as practical as reading a **csv**,
@@ -792,6 +792,7 @@ from ._lasso import (
 
 __all__ = [
     'resolve_capture_rect', 'ABCSheet', 'ArraySheet', 'coords2Cell',
+    'EmptyCaptureException', 'margin_coords_from_states_matrix',
 
     'lasso', 'Ranger', 'SheetsFactory',
     'make_default_Ranger', 'get_default_opts', 'get_default_filters',

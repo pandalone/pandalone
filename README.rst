@@ -25,9 +25,9 @@ pandalone: process data-trees with reconfigurable-paths
 
 Currently only 2 portions of the envisioned functionality are ready for use:
 
-- **xleash**: A mini-language for "throwing the rope" around rectangular areas
+- :mod:`pandalone.xleash`: A mini-language for "throwing the rope" around rectangular areas
   of Excel-sheets.
-- **mappings**: Hierarchical string-like objects that may be used for
+- :mod:`pandalone.mappings`: Hierarchical string-like objects that may be used for
   indexing, facilitating renaming keys and column-names at a later stage.
 
 

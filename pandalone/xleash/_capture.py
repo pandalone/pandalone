@@ -37,11 +37,11 @@ except ImportError:
 CHECK_CELLTYPE = False
 """When `True`, most coord-functions accept any 2-tuples."""
 
+
 class EmptyCaptureException(Exception):
     """
     Thrown when :term:`targeting` fails.
     """
-
 
 _special_coord_symbols = {'^', '_', '.'}
 

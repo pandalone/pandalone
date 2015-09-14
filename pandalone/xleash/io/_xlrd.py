@@ -144,7 +144,7 @@ def open_sheet(wb_url, sheet_id, opts):
     ropts = opts.get('read', {})
     if ropts:
         ropts = ropts.copy()
-    if not 'logfile' in ropts:
+    if 'logfile' not in ropts:
         level = logging.INFO if opts.get('verbose', None) else logging.DEBUG
         ropts['logfile'] = utils.LoggerWriter(log, level)
     parts = filename = urlsplit(wb_url)
