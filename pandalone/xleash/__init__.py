@@ -187,6 +187,8 @@ API
 
       resolve_capture_rect
       coords2Cell
+      EmptyCaptureException
+
 
   .. currentmodule:: pandalone.xleash._filter
   .. autosummary::
@@ -364,7 +366,9 @@ Definitions
           follows the specified `target-moves`, and ends when a `state-change`
           is detected on an `exterior` column or row, according to the enacted
           `termination-rule`.
-        - Failure to identify a target-cell raises an error.
+        - Failure to identify any target-cell raises a :class:`EmptyCaptureException`
+          which is subsequently translated as *empty* `capture-rect` by :class:`Ranger`
+          when `opts` contain ``{"no_empty": false}`` (default).
         - The process is followed by `expansions` to identify the
           `capture-rect`.
 
@@ -661,7 +665,9 @@ a matrix of `full-cell`.
 So, both `move-modifier` apply only when `landing-cell` is `full-cell`
 , and ``-`` actually makes sense only when `2nd` edge is `dependent`.
 
-If the termination conditions is not met, it is considered an error.
+If the termination conditions is not met, an :class:`EmptyCaptureException`
+is raised, which is translated as *empty* `capture-rect` by :class:`Ranger`
+when `opts` contain ``{"no_empty": false}`` (default).
 
 
 
@@ -770,6 +776,7 @@ from .io._sheets import (
 
 from ._capture import (
     resolve_capture_rect, coords2Cell,
+    EmptyCaptureException,
 )
 
 from ._filter import (

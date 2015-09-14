@@ -17,7 +17,6 @@ from __future__ import unicode_literals
 
 from collections import namedtuple, OrderedDict
 import logging
-import functools as fnt
 
 
 from asteval import Interpreter
@@ -27,7 +26,7 @@ from toolz import dicttoolz as dtz
 
 import numpy as np
 
-from . import Lasso, Coords, _parse
+from . import Lasso, _parse
 from ..utils import LoggerWriter
 from ..utils import as_list
 

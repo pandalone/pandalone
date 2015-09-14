@@ -37,7 +37,11 @@ except ImportError:
 CHECK_CELLTYPE = False
 """When `True`, most coord-functions accept any 2-tuples."""
 
-"""The key for specifying options within :term:`filters`."""
+class EmptyCaptureException(Exception):
+    """
+    Thrown when :term:`targeting` fails.
+    """
+
 
 _special_coord_symbols = {'^', '_', '.'}
 
@@ -418,11 +422,13 @@ def _target_opposite(states_matrix, dn_coords, land, moves, edge_name=''):
 
         >>> _target_opposite(*(args + (Coords(0, 0), 'D')))
         Traceback (most recent call last):
-        ValueError: No opposite-target found while moving(D) from landing-Coords(row=0, col=0)!
+        pandalone.xleash._capture.EmptyCaptureException: No opposite-target found
+                        while moving(D) from landing-Coords(row=0, col=0)!
 
         >>> _target_opposite(*(args + (Coords(0, 0), 'UR')))
         Traceback (most recent call last):
-        ValueError: No opposite-target found while moving(UR) from landing-Coords(row=0, col=0)!
+        pandalone.xleash._capture.EmptyCaptureException: No opposite-target found
+                        while moving(UR) from landing-Coords(row=0, col=0)!
 
 
     But notice that the landing-cell maybe outside of bounds::
@@ -470,7 +476,7 @@ def _target_opposite(states_matrix, dn_coords, land, moves, edge_name=''):
             target += dv2
 
     msg = 'No opposite-target found while moving({}) from {}landing-{}!'
-    raise ValueError(msg.format(moves, edge_name, land))
+    raise EmptyCaptureException(msg.format(moves, edge_name, land))
 
 
 def _target_same_vector(states_matrix, dn_coords, land, mov):
@@ -536,11 +542,13 @@ def _target_same(states_matrix, dn_coords, land, moves, edge_name=''):
 
         >>> _target_same(*(args + (Coords(2, 2), 'DR')))
         Traceback (most recent call last):
-        ValueError: No same-target found while moving(DR) from landing-Coords(row=2, col=2)!
+        pandalone.xleash._capture.EmptyCaptureException: No same-target found
+                        while moving(DR) from landing-Coords(row=2, col=2)!
 
         >>> _target_same(*(args + (Coords(10, 3), 'U')))
         Traceback (most recent call last):
-        ValueError: No same-target found while moving(U) from landing-Coords(row=10, col=3)!
+        pandalone.xleash._capture.EmptyCaptureException: No same-target found
+                        while moving(U) from landing-Coords(row=10, col=3)!
 
     """
     assert not CHECK_CELLTYPE or isinstance(dn_coords, Coords), dn_coords
@@ -555,7 +563,7 @@ def _target_same(states_matrix, dn_coords, land, moves, edge_name=''):
 
         return Coords(*target)
     msg = 'No same-target found while moving({}) from {}landing-{}!'
-    raise ValueError(msg.format(moves, edge_name, land))
+    raise EmptyCaptureException(msg.format(moves, edge_name, land))
 
 
 def _sort_rect(r1, r2):
@@ -686,6 +694,9 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
     :return:    a ``(Coords, Coords)`` with the 1st and 2nd :term:`capture-cell`
                 ordered from top-left --> bottom-right.
     :rtype: tuple
+
+    :raises EmptyCaptureException:
+            When :term:`targeting` failed, and no :term:`target` cell identified.
 
     Examples::
         >>> from pandalone.xleash import Edge, margin_coords_from_states_matrix

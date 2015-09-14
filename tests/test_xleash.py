@@ -18,7 +18,7 @@ from pandalone.xleash import (_parse as _p,
                               _capture as _c,
                               _filter as _f,
                               _lasso as _l,
-                              Lasso, Coords)
+                              Lasso, Coords, EmptyCaptureException)
 import sys
 import tempfile
 from tests import _tutils
@@ -533,7 +533,7 @@ class T03TargetOpposite(unittest.TestCase):
             res = _c._target_opposite(*args)
             self.assertEqual(res, Coords(exp_row, exp_col), str(args))
         else:
-            with assertRaisesRegex(self, ValueError, "No \w+-target found",
+            with assertRaisesRegex(self, EmptyCaptureException, "No \w+-target found",
                                    msg=str(args)):
                 _c._target_opposite(*args)
 
@@ -1659,6 +1659,68 @@ class T14Lasso(unittest.TestCase):
         res = _l.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
                        sf)
         npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
+
+    missing_refs = (
+        ("#A1:A1",           [[None]]),
+        ("#A1:..",           [[None]]),
+        ("#A1:C1",           [[None, None, None]]),
+        ("#A1:A3",           [[None], [None], [None]]),
+        ("#A1:B2",           [[None, None], [None, None]]),
+    )
+
+    @data(*missing_refs)
+    def test_read_missing_values_onEmptySheet(self, case):
+        xlref, _ = case
+        sheet = _s.ArraySheet([[]])
+        res = _l.lasso(xlref, sheet=sheet)
+        npt.assert_array_equal(res, [[]])
+
+    @data(*missing_refs)
+    def test_read_missing_values_onSheetWithNones(self, case):
+        xlref, exp = case
+        sheet = _s.ArraySheet([[None] * 5] * 5)
+        res = _l.lasso(xlref, sheet=sheet)
+        npt.assert_array_equal(res, exp)
+
+    empty_refs = (
+        "#A1:A1(D)",
+        "#A1:..(D)",
+
+        "#A1(D):A1",
+        "#C3(D):C3(D)",
+
+        "#A1:A1(DR+)",
+        "#A1:..(L)",
+
+        "#A1(U+):A1",
+        "#C3(LU+):C3(D)",
+    )
+
+    @data(*empty_refs)
+    def test_read_empty_onEmptySheet(self, xlref):
+        sheet = _s.ArraySheet([[]])
+        res = _l.lasso(xlref, sheet=sheet)
+        self.assertEqual(res, [])
+
+    @data(*empty_refs)
+    def test_read_empty_onSheetWithNones(self, xlref):
+        sheet = _s.ArraySheet([[None] * 5] * 5)
+        res = _l.lasso(xlref, sheet=sheet)
+        self.assertEqual(res, [])
+
+    @data(*empty_refs)
+    def test_read_emptyScream_onEmptySheet(self, xlref):
+        sheet = _s.ArraySheet([[]])
+        err_msg = r"No \w+-target found"
+        with assertRaisesRegex(self, EmptyCaptureException, err_msg):
+            _l.lasso(xlref + ':{"opts": {"no_empty": true}}', sheet=sheet)
+
+    @data(*empty_refs)
+    def test_read_emptyScream_onSheetWithNones(self, xlref):
+        sheet = _s.ArraySheet([[None] * 5] * 5)
+        err_msg = r"No \w+-target found"
+        with assertRaisesRegex(self, EmptyCaptureException, err_msg):
+            _l.lasso(xlref + ':{"opts": {"no_empty": true}}', sheet=sheet)
 
     def test_read_asLasso(self):
         sf = _s.SheetsFactory()

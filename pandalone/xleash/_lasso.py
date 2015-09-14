@@ -24,7 +24,7 @@ from future.backports import ChainMap
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
 
-from . import Lasso, _parse, _capture, _filter
+from . import Lasso, EmptyCaptureException, _parse, _capture, _filter
 from .io import _sheets
 
 
@@ -197,6 +197,8 @@ class Ranger(object):
         return sheet
 
     def _resolve_capture_rect(self, lasso, sheet):
+        """Also handles :class:`EmptyCaptureException` in case ``opts['no_empty'] != False``."""
+
         try:
             st, nd = _capture.resolve_capture_rect(sheet.get_states_matrix(),
                                                    sheet.get_margin_coords(),
@@ -204,6 +206,10 @@ class Ranger(object):
                                                    lasso.nd_edge,
                                                    lasso.exp_moves,
                                                    lasso.base_coords)
+        except EmptyCaptureException:
+            if lasso.opts.get('no_empty', False):
+                raise
+            st, nd = None, None
         except Exception as ex:
             msg = "Resolving capture-rect(%r) failed due to: %s"
             raise ValueError(msg % (_Lasso_to_edges_str(lasso), ex))
@@ -255,7 +261,10 @@ class Ranger(object):
         st, nd = self._resolve_capture_rect(lasso, sheet)
         lasso = self._relasso(lasso, 'capture', st=st, nd=nd)
 
-        values = sheet.read_rect(st, nd)
+        if st or nd:
+            values = sheet.read_rect(st, nd)
+        else:
+            values = []
         lasso = self._relasso(lasso, 'read_rect', values=values)
 
         lasso = self._run_filters(lasso)

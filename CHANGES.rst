@@ -49,6 +49,9 @@ Rejected TODOs:
 Changelog
 =========
 
+- v0.1.4 (Sep-2015):
+    - Handle gracefully targeting-failures as *empty* captures.
+
 - v0.1.3 (Sep-2015):
     - Allow for perl-quoting xlrefs to avoid being treated as python-comments.
 
