@@ -49,7 +49,7 @@ Rejected TODOs:
 Changelog
 =========
 
-- v0.1.4 (Sep-2015):
+- v0.1.4 (Sep-2015): Temporarily-Hacked for not closing sibling-sheets.
     - Handle gracefully targeting-failures as *empty* captures.
 
 - v0.1.3 (Sep-2015):
