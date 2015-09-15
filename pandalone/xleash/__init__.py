@@ -307,7 +307,7 @@ Definitions
         - the whole procedure of `parsing` the `xl-ref` syntax,
           `capturing` values from spreadsheet rect-regions and sending them
           through any `filters` specified in the xl-ref;
-        - the :func:`lasso()` and/or :meth:`Ranger.lasso()` functions
+        - the :func:`lasso()` and/or :meth:`Ranger.do_lasso()` functions
           performing the above job;
         - the :class:`Lasso` storing intermediate and final results of the
           above algorithm.
@@ -445,14 +445,13 @@ Definitions
 
     dependent
     base-cell
-        Any `edge` `coordinate` identified with a dot(``.``), meaning that:
+        A `landing-cell` whose any `coordinate` is identified with a dot(``.``),
+        which resolves to the *base-coordinate* depending on which `edge`
+        it is referring to:
 
-            ``landing-cell coordinate := base-cell coordinate``
-
-        where the *base-coordinates* are:
-
-        - `1st` edge: the `target-cell` coordinates of the ``context_lasso``
-          arg given to the :meth:`Ranger.lasso()`; it is an error if ``None``.
+        - `1st` edge: The coordinates of the ``base_cell` field of the
+          `Lasso` given to the :meth:`Ranger.do_lasso()`;
+          it is an error if it is ``None``.
         - `2nd` edge: the `target-cell` coordinates of the `1st` edge.
 
         An `edge` might contain a "mix" of `absolute` and *dependent*
@@ -746,6 +745,12 @@ All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger
 :param values:
         The excel's table-values captured by the :term:`lasso`,
         populated after reading updated while applying :term:`filters`.
+:param call_spec:
+        The :term:`call-spec` derrived from the parsed filters, to be fed
+        into :meth:`Ranger.make_call()`.
+:param Coords base_coords:
+        On recursive calls it becomes the :term:`base-cell` for the :term:`1st`
+        :term:`edge`.
 :param dict or ChainMap opts:
         - Before `parsing`, they are just any 'opts' dict found in the
           :term:`filters`.
@@ -780,7 +785,7 @@ from ._capture import (
 )
 
 from ._filter import (
-    get_default_filters,
+    XLocation, get_default_filters,
     xlwings_dims_call_spec,
 )
 
@@ -795,7 +800,8 @@ __all__ = [
     'EmptyCaptureException', 'margin_coords_from_states_matrix',
 
     'lasso', 'Ranger', 'SheetsFactory',
-    'make_default_Ranger', 'get_default_opts', 'get_default_filters',
+    'make_default_Ranger',
+    'XLocation', 'get_default_opts', 'get_default_filters',
     'Lasso',
     'xlwings_dims_call_spec',
 

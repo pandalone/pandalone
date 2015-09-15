@@ -6,7 +6,7 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-Programmatically build paths and later *rename* or *relocate* them.
+Hierarchical string-like objects useful for indexing, that can be rename/relocated at a later stage.
 
 .. autosummary::
 
