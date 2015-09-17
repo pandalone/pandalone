@@ -49,7 +49,10 @@ Rejected TODOs:
 Changelog
 =========
 
-- v0.1.4 (Sep-2015): Temporarily-Hacked for not closing sibling-sheets.
+- v0.1.5 (Sep-2015): properly fix context-sheet on `Ranger` anf `SheetsFactory`.
+
+- v0.1.4 (Sep-2015): xleash fixes
+    - xleash: Temporarily-Hacked for not closing sibling-sheets.
     - xleash: handle gracefully targeting-failures as *empty* captures.
 
 - v0.1.3 (Sep-2015):
