@@ -1,5 +1,5 @@
 ###########################################################
-pandalone: process data-trees with reconfigurable-paths
+pandalone: process data-trees with relocatable-paths
 ###########################################################
 |pypi-ver| |travis-status| |appveyor-status| |cover-status| |docs-status| \
 |dependencies| |downloads-count| |github-issues| |python-ver| |proj-license|
@@ -8,9 +8,8 @@ pandalone: process data-trees with reconfigurable-paths
    :width: 300 px
    :align: center
 
-**pandalone** is an open source Python 2/3 library for building
-*component-functions* to process *hierarchical-data* using
-*reconfigurable-paths*.
+**pandalone** is a collection of utilities for working with *hierarchical-data*
+using *relocatable-paths*.
 
 :Release:       0.1.5
 :Documentation: https://pandalone.readthedocs.org/
@@ -38,8 +37,8 @@ with a *dependency-resolver*, every such model should auto-adapt and process
 only values available, and allow *remapping* of the paths accessing them,
 to run on renamed/relocated *value-trees* without component-code modifications.
 
-It is written for *python-3.4* but tested under both *python-2.7* and
-*python-3.3+*, for *Windows* and *Linux*.
+It is an open source library written for *python-3.4* but tested under both
+*python-2.7* and *python-3.3+*, for *Windows* and *Linux*.
 
 .. Note::
     The project, as of May-2015, is considered at an alpha-stage,
@@ -89,7 +88,7 @@ can be thought like that::
         df = datatree.get(pin.A)
         df[pon.A.B_std] = df[pin.A.B] / df[pin.A.B].std()
 
-- Notice the use of the *reconfigurable-paths* marked specifically as input or
+- Notice the use of the *relocatable-paths* marked specifically as input or
   output.
 
 - TODO: continue rough example in tutorial...
@@ -771,4 +770,5 @@ Glossary
     :alt: Project License
 
 .. |dependencies| image:: https://img.shields.io/requires/github/pandalone/pandalone.svg
+    :target: https://requires.io/github/pandalone/pandalone/requirements/
     :alt: Dependencies up-to-date?
