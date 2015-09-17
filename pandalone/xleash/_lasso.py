@@ -171,28 +171,11 @@ class Ranger(object):
 
         return init_lasso
 
-    def _fetch_sheet_from_lasso(self, sheet, url_file, sh_name, opts):
-        if sheet and url_file is None:
-            if sh_name is not None:
-                sheet = sheet.open_sibling_sheet(sh_name, opts)
-                if sheet and self.sheets_factory:
-                    self.sheets_factory.add_sheet(sheet,
-                                                  wb_ids=url_file,
-                                                  sh_ids=sh_name)
-            return sheet
-
     def _open_sheet(self, lasso):
         try:
-            sheet = self._fetch_sheet_from_lasso(lasso.sheet,
-                                                 lasso.url_file, lasso.sh_name,
-                                                 lasso.opts)
-            if not sheet:
-                if not self.sheets_factory:
-                    msg = "The xl-ref(%r) specifies 'url-file` part but Ranger has no sheet-factory!"
-                    raise Exception(msg % lasso.xl_ref)
-                sheet = self.sheets_factory.fetch_sheet(
-                    lasso.url_file, lasso.sh_name,
-                    lasso.opts)  # Maybe context had a Sheet already.
+            sheet = self.sheets_factory.fetch_sheet(
+                lasso.url_file, lasso.sh_name,
+                lasso.opts, base_sheet=lasso.sheet)
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
             raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))

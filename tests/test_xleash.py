@@ -1353,8 +1353,10 @@ class T10SheetFactory(unittest.TestCase):
         for wb_id, sh_ids in extra_ids:
             for sh_id in sh_ids:
                 self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
-                self.assertIs(sf.fetch_sheet(None, None), sheet)
-                self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
+                self.assertIs(sf.fetch_sheet(None, None, base_sheet=sheet),
+                              sheet)
+                self.assertIs(sf.fetch_sheet(None, sh_id, base_sheet=sheet),
+                              sheet)
                 self.assertIs(sf.fetch_sheet(*k1), sheet)
                 self.assertIs(sf.fetch_sheet(*k2), sheet)
 
@@ -1375,8 +1377,10 @@ class T10SheetFactory(unittest.TestCase):
         for wb_id, sh_ids in extra_ids:
             for sh_id in sh_ids:
                 self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
-                self.assertIs(sf.fetch_sheet(None, None), sheet)
-                self.assertIs(sf.fetch_sheet(None, sh_id), sheet)
+                self.assertIs(sf.fetch_sheet(None, None, base_sheet=sheet),
+                              sheet)
+                self.assertIs(sf.fetch_sheet(None, sh_id, base_sheet=sheet),
+                              sheet)
                 self.assertIs(sf.fetch_sheet(*k1), sheet)
                 self.assertIs(sf.fetch_sheet(*k2), sheet)
 
@@ -1608,28 +1612,27 @@ class T14Lasso(unittest.TestCase):
     def test_read_Colon(self):
         sf = _s.SheetsFactory()
         sf.add_sheet(_s.ArraySheet(self.m1()))
-        res = _l.lasso('#:', sf)
+        res = _l.lasso('wb#sh!:', sf)
         npt.assert_array_equal(res, self.m1().tolist())
 
     def test_read_ColonWithJson(self):
-        sf = _s.SheetsFactory()
-        sf.add_sheet(_s.ArraySheet(self.m1()))
+        sheet = _s.ArraySheet(self.m1())
         res = _l.lasso('''#::{
-            "opts": {"verbose": true},
-            "func": "pipe",
-            "args": [
-                ["redim", {"col": [2, 1]}],
-                "numpy"
-            ]
-        }''',
-                       sf)
+                            "opts": {"verbose": true},
+                            "func": "pipe",
+                            "args": [
+                                ["redim", {"col": [2, 1]}],
+                                "numpy"
+                            ]
+                        }''',
+                       sheet=sheet)
         self.assertIsInstance(res, np.ndarray)
         npt.assert_array_equal(res, self.m1())
 
     def test_read_A1(self):
         sf = _s.SheetsFactory()
         sf.add_sheet(_s.ArraySheet(self.m1()))
-        res = _l.lasso('''#A1:..(D):{
+        res = _l.lasso('''wb#sh!A1:..(D):{
             "opts": {"verbose": true},
             "func": "pipe",
             "args": [
@@ -1643,19 +1646,17 @@ class T14Lasso(unittest.TestCase):
 
     def test_read_RC(self):
         m1 = self.m1()
-        sf = _s.SheetsFactory()
-        sf.add_sheet(_s.ArraySheet(self.m1()))
+        sheet = _s.ArraySheet(m1)
         res = _l.lasso('#R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
-                       sf)
+                       sheet=sheet)
         self.assertIsInstance(res, list)
         npt.assert_array_equal(res, m1[:, 0].reshape((1, -1)))
 
     def test_read_RC_negative(self):
         m1 = self.m1()
-        sf = _s.SheetsFactory()
-        sf.add_sheet(_s.ArraySheet(self.m1()))
+        sheet = _s.ArraySheet(m1)
         res = _l.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
-                       sf)
+                       sheet=sheet)
         npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
 
     missing_refs = (
@@ -1721,23 +1722,22 @@ class T14Lasso(unittest.TestCase):
             _l.lasso(xlref + ':{"opts": {"no_empty": true}}', sheet=sheet)
 
     def test_read_asLasso(self):
-        sf = _s.SheetsFactory()
-        sf.add_sheet(_s.ArraySheet(self.m1()))
-        res = _l.lasso('''#A1:..(D)''', sf, return_lasso=True)
+        sheet = _s.ArraySheet(self.m1())
+        res = _l.lasso('''#A1:..(D)''', sheet=sheet, return_lasso=True)
         self.assertIsInstance(res, Lasso)
 
     def test_Ranger_intermediateLaso(self):
-        sf = _s.SheetsFactory()
-        sf.add_sheet(_s.ArraySheet(self.m1()))
-        ranger = _l.make_default_Ranger(sheets_factory=sf)
-        ranger.do_lasso(
-            '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]''')
+        sheet = _s.ArraySheet(self.m1())
+        ranger = _l.make_default_Ranger()
+        ranger.do_lasso('#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]',
+                        sheet=sheet)
         self.assertEqual(ranger.intermediate_lasso[0], 'numpy',
                          ranger.intermediate_lasso)
 
-        ranger = _l.make_default_Ranger(sheets_factory=sf)
+        ranger = _l.make_default_Ranger()
         self.assertRaises(ValueError, ranger.do_lasso,
-                          '''#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["dab_func"]]]''')
+                          '#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["dab_func"]]]',
+                          sheet=sheet)
         self.assertEqual(ranger.intermediate_lasso[0], 'dab_func',
                          ranger.intermediate_lasso, )
 
@@ -1765,11 +1765,9 @@ class T14Lasso(unittest.TestCase):
             [None, 0.,    1.,   2.,   None],  # 5
             [None, 1.,    None, 6.1,  7.1]    # 6
         ])
-        sheetsFact = _s.SheetsFactory()
-        sheetsFact.add_sheet(_s.ArraySheet(table), 'wb', 'sheet1')
-
+        sheet = _s.ArraySheet(table)
         dims = _f.xlwings_dims_call_spec()
-        self.assertEqual(_l.lasso(xlref % dims, sheetsFact), res)
+        self.assertEqual(_l.lasso(xlref % dims, sheet=sheet), res)
 
 
 @ddt
