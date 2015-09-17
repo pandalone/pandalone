@@ -77,6 +77,8 @@ class Ranger(object):
 
     def __init__(self, sheets_factory,
                  base_opts=None, available_filters=None):
+        if not sheets_factory:
+            raise ValueError("Please specify a non-null sheets-factory!")
         self.sheets_factory = sheets_factory
         if base_opts is None:
             base_opts = {}

@@ -50,20 +50,23 @@ Changelog
 =========
 
 - v0.1.4 (Sep-2015): Temporarily-Hacked for not closing sibling-sheets.
-    - Handle gracefully targeting-failures as *empty* captures.
+    - xleash: handle gracefully targeting-failures as *empty* captures.
 
 - v0.1.3 (Sep-2015):
-    - Allow for perl-quoting xlrefs to avoid being treated as python-comments.
+    - xleash: perl-quoting xlrefs to avoid being treated as python-comments.
 
 - v0.1.1 (Sep-2015): **1st working release**
-    - FIX missing `xleash` package from wheel.
-    - Renamed package `xlasso`--> `xleash` and  splitted `_filters` packages.
-    - Added `py-eval` filter.
-    - Accept xl-refs quoted by any char.
+    - xleash:
+        - FIX missing `xleash` package from wheel.
+        - Renamed package `xlasso`--> `xleash` and  factor-out `_filters`
+          module.
+        - Added `py-eval` filter.
+        - Accept xl-refs quoted by any char.
 
 - v0.1.0 (Sep-2015): **XLasso BROKEN!**
-    - 1st release in *pypi* but broken.
+    - Release in *pypi* broken, missing xlasso.
     - The `mappings` and `xlasso` packages are considered ready to be used.
+
 - v0.0.11 (XX-May-2015)
 - v0.0.1.dev1 (01-March-2015)
 
