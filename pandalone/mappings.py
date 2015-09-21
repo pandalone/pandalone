@@ -860,6 +860,22 @@ def _join_paths(*steps):
     else:
         return '/'.join(nsteps)
 
+_forbidden_pstep_attrs = ('get_values', 'Series')
+"""
+Psteps attributes excluded from magic-creation, because searched by pandas's indexing code.
+"""
+
+def _clone_attrs(obj):
+    """Clone deeply any collection attributes of the passed-in object."""
+    attrs = vars(obj).copy()
+    ccsteps = attrs.get('_csteps', None)
+    if ccsteps:
+        attrs['_csteps'] = ccsteps.copy()
+    ctags = attrs['_tags']
+    if ctags:
+        attrs['_tags'] = attrs['_tags'].copy()
+    return attrs
+
 
 class Pstep(str):
 
@@ -1030,7 +1046,7 @@ class Pstep(str):
             else:
                 assert isinstance(_proto_or_pmod, Pstep), (
                     'Invalid type(%s) for `_proto_or_pmod`!' % _proto_or_pmod)
-                attrs = _proto_or_pmod.__clone_attrs()
+                attrs = _clone_attrs(_proto_or_pmod)
         if alias is None:
             alias = pname
         self = str.__new__(cls, alias)
@@ -1043,17 +1059,6 @@ class Pstep(str):
         }
 
         return self
-
-    def __clone_attrs(self):
-        """Clone deeply any collection attributes."""
-        attrs = self.__dict__.copy()
-        ccsteps = attrs.get('_csteps', None)
-        if ccsteps:
-            attrs['_csteps'] = ccsteps.copy()
-        ctags = attrs['_tags']
-        if ctags:
-            attrs['_tags'] = attrs['_tags'].copy()
-        return attrs
 
     def __make_cstep(self, ckey, alias=None, existing_cstep=None):
         csteps = self._csteps
@@ -1075,12 +1080,14 @@ class Pstep(str):
         return child
 
     def __getattr__(self, attr):
-        if attr.startswith('_'):
-            msg = "'%s' object has no attribute '%s'"
-            raise AttributeError(msg % (self, attr))
-        csteps = self._csteps
-        child = csteps and csteps.get(attr, None)
-        return child or self.__make_cstep(attr)
+        try:
+            return str.__getattr__(self, attr)
+        except AttributeError as ex:
+            if attr.startswith('_') or attr in _forbidden_pstep_attrs:
+                raise
+            csteps = self._csteps
+            child = csteps and csteps.get(attr, None)
+            return child or self.__make_cstep(attr)
 
     def __setattr__(self, attr, value):
         if attr.startswith('_'):

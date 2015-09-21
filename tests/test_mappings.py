@@ -10,17 +10,19 @@ from __future__ import division, unicode_literals
 
 import doctest
 import json
-from pandalone.mappings import (
-    Pmod, pmods_from_tuples, Pstep, _join_paths, _append_step)
-import pandalone.mappings
 import re
 import sre_constants
 import sys
-from tests._tutils import _init_logging
-from textwrap import dedent
 import unittest
 
+from numpy import testing as npt
+
 import functools as ft
+from pandalone.mappings import (
+    Pmod, pmods_from_tuples, Pstep, _join_paths, _append_step)
+import pandalone.mappings
+import pandas as pd
+from tests._tutils import _init_logging
 
 
 log = _init_logging(__name__)
@@ -1154,6 +1156,11 @@ class TestPstep(unittest.TestCase):
         self.assertSequenceEqual(sorted(p._paths()), ['/a/aa/aaa', '/b/c'])
         self.assertSequenceEqual(sorted(p._paths(tag='t')), [])
         self.assertSequenceEqual(sorted(p._paths(tag='u')), [])
+
+    def test_as_pandas_index(self):
+        df = pd.DataFrame([1, 3], columns=['a'])
+        s = Pstep('a')
+        npt.assert_array_equal(df[s], [1, 3])
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
