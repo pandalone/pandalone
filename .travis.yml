@@ -55,6 +55,7 @@ script:
 
     - |
         echo "+++  Checking archives for PyPI repo..."
+        pip install wheel #Why fails on Travis?
         python setup.py sdist bdist_wheel
 
     - |

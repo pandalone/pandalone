@@ -49,6 +49,10 @@ Rejected TODOs:
 Changelog
 =========
 
+- v0.1.6 (Sep-2015): 
+    - xleash: Minor forgotten regression from previous fix context-sheet.
+    - pstep: Make steps work as pandas-indexes.
+    
 - v0.1.5 (Sep-2015): properly fix context-sheet on `Ranger` anf `SheetsFactory`.
 
 - v0.1.4 (Sep-2015): xleash fixes
