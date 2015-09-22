@@ -53,11 +53,12 @@ script:
         echo "+++ Checking site...."
         python setup.py build_sphinx
 
-    #Why started failing on Travis since v0.1.6?
-    #- |
-    #
-    #    echo "+++  Checking archives for PyPI repo..."
-    #    python setup.py sdist bdist_wheel
+    - |
+    
+        echo "+++  Checking archives for PyPI repo..."
+        pip uninstall -y wheel
+        pip install wheel -UI
+        python setup.py sdist bdist_wheel
 
     - |
         if [[ "$TRAVIS_PYTHON_VERSION" = '3.4' ]]; then

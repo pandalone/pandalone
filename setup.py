@@ -135,8 +135,8 @@ install_requires = [
     'future >= 0.15.0',
     'toolz',
     'jsonschema > 2.4',  # TODO: Upgrade jsonschema to +>= 2.5.
-    'numpy >= 1.7',
-    'pandas >= 0.15.0',
+    'numpy',
+    'pandas',
     'xlrd',
     'openpyxl==1.8.6',  # TODO: openpyxl-444 & pandas-10125
     'asteval',
