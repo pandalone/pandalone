@@ -18,12 +18,11 @@ TODOs
     - Core:
         - Syntax:
             - [ ] Notation for specifying the "last-sheet".
-            - [ ] Extend RC-coords: ^-1, _-6, .-4
+            - [ ] Extend RC-coords: ^-1, _[-6], .-4
                 - [ ] Cell becomes 4-tuple.
             - [ ] Expand meander `@`?
         - filters:
             - [ ] Slices and Index args on 'numpy' and 'df' filters.
-            - [x] Impl  new `eval` filter with `asteval` lib
         - [ ] Xlrd-read with slices.
     - Struct:
         - [ ] Plugins for backends (& syntax?)
@@ -33,6 +32,7 @@ TODOs
         - [ ] xlwings
         - [ ] Clipboard
         - [ ] openpyxl
+        - [ ] google-drive sheets
     - [ ] Split own project
         - [ ] README
     - [ ] Check TODOs in code
@@ -49,10 +49,13 @@ Rejected TODOs:
 Changelog
 =========
 
-- v0.1.6 (Sep-2015): 
+- v0.1.7 (Sep-2015):
+    - deps: Do not enforce pandas/numpy version.
+
+- v0.1.6 (Sep-2015):
     - xleash: Minor forgotten regression from previous fix context-sheet.
     - pstep: Make steps work as pandas-indexes.
-    
+
 - v0.1.5 (Sep-2015): properly fix context-sheet on `Ranger` anf `SheetsFactory`.
 
 - v0.1.4 (Sep-2015): xleash fixes
