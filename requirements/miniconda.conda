@@ -3,7 +3,7 @@
 ##
 ##      conda install --file requirements/miniconda.conda
 ##
-## To install the rest deps of the project use the "standard"::
+## To install the rest deps of the project, use AFTERWARDS the "standard"::
 ##
 ##      pip install -r requirements/execution.pip
 ##

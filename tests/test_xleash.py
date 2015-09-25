@@ -1595,6 +1595,22 @@ class T13Ranger(unittest.TestCase):
             'Sibl', ChainMap())
         self.assertEqual(res.values, 4)
 
+    def test_open_sheet_same_sheet_twice(self):
+        sf = _s.SheetsFactory()
+        sh1 = _s.ArraySheet([[1, 2], [3, 4]],
+                            ids=_s.SheetId('wb1', ['sh1', 0]))
+        sf.add_sheet(sh1)
+        sh2 = _s.ArraySheet([[5], [6]],
+                            ids=_s.SheetId('wb2', ['sh2', 0]))
+        sf.add_sheet(sh2)
+
+        ranger = _l.Ranger(sf)
+        res11 = ranger.do_lasso('wb1#sh1!:')
+        res2 = ranger.do_lasso('wb2#sh2!:')
+        self.assertNotEqual(res11, res2)
+        res12 = ranger.do_lasso('wb1#sh1!:')
+        self.assertEqual(res11, res12)
+
 
 @ddt
 class T14Lasso(unittest.TestCase):

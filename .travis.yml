@@ -37,9 +37,9 @@ install:
     ## TODO: Check if FIXED ``python setup.py nosetests`` failing with conda:
     #   https://github.com/ContinuumIO/anaconda-issues/issues/280
     - |
-        pip uninstall -y nose
-        pip uninstall -y nose
-        pip install -UI nose
+        pip uninstall -y nose wheel
+        pip uninstall -y nose wheel
+        pip install -UI nose wheel
 
     # - "python setup.py develop" ## NO, pip installed in "develop' mode, above.
     - python setup.py build
@@ -54,10 +54,8 @@ script:
         python setup.py build_sphinx
 
     - |
-    
+
         echo "+++  Checking archives for PyPI repo..."
-        pip uninstall -y wheel
-        pip install wheel -UI
         python setup.py sdist bdist_wheel
 
     - |
