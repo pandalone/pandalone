@@ -49,6 +49,9 @@ Rejected TODOs:
 Changelog
 =========
 
+- v0.1.8 (Sep-2015):
+    - deps: Do not require flake8.
+
 - v0.1.7 (Sep-2015):
     - deps: Do not enforce pandas/numpy version.
 
