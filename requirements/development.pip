@@ -10,4 +10,3 @@ nose
 ddt
 coverage
 coveralls
-flake8
