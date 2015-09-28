@@ -2216,8 +2216,6 @@ class T19VsXlwings(unittest.TestCase):
         xlrd_wb = xlrd.open_workbook(self.tmp_excel_fname)
         self.sheet = xd.XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'),
                                   self.tmp_excel_fname)
-        self.sheetsFact = _s.SheetsFactory()
-        self.sheetsFact.add_sheet(self.sheet, 'wb', 'sheet1')
 
     def tearDown(self):
         del self.sheet
@@ -2240,7 +2238,8 @@ class T19VsXlwings(unittest.TestCase):
         import xlwings as xw  # @UnresolvedImport
         # load Workbook for --> xlwings
         with xw_Workbook(self.tmp_excel_fname):
-            res = res(xw)
+            xlwings_res = res(xw)
 
         dims = _f.xlwings_dims_call_spec()
-        self.assertEqual(_l.lasso(xlref % dims, self.sheetsFact), res)
+        xleash_res = _l.lasso(xlref % dims, sheet=self.sheet)
+        self.assertEqual(xleash_res, xlwings_res)
