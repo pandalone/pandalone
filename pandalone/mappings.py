@@ -865,6 +865,7 @@ _forbidden_pstep_attrs = ('get_values', 'Series')
 Psteps attributes excluded from magic-creation, because searched by pandas's indexing code.
 """
 
+
 def _clone_attrs(obj):
     """Clone deeply any collection attributes of the passed-in object."""
     attrs = vars(obj).copy()
@@ -1283,6 +1284,34 @@ class Pstep(str):
     def _schema_exists(self):
         """Always use this to avoid needless schema-instantiations."""
         return '_schema' in vars(self)
+
+
+def pstep_from_df(columns_df, name_col='names'):
+    """
+    Creates a :class:`Pstep` instances from a dataframe.
+
+    :param pd.DataFrame columns_df:
+            pstep's mapped-names in `name_col` column, indexed by paths, and
+            any additional pstep-attributes in the rest columns.
+
+            example::
+
+                ========  =========  ===================
+                paths     names      renames
+                ========  =========  ===================
+                /A        foo        ['FOO', 'LL']
+                /B        bar        []
+                ========  =========  ===================
+    """
+    p = pmods_from_tuples(zip(columns_df.index, columns_df[name_col])).step()
+    cdf = columns_df.drop(name_col, axis=1, errors='ignore')
+    attributes = cdf.columns
+    for path, *attr_values in cdf.itertuples():
+        cstep = getattr(p, path[1:])
+        for attr, aval in zip(attributes, attr_values):
+            setattr(cstep, '_%s' % attr, aval)
+
+    return p
 
 
 if __name__ == '__main__':  # pragma: no cover
