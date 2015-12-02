@@ -10,16 +10,10 @@ from __future__ import division, print_function, unicode_literals
 
 import contextlib
 from datetime import datetime
+from distutils.version import LooseVersion
 import doctest
 import logging
 import os
-from pandalone import xleash
-from pandalone.xleash import (_parse as _p,
-                              _capture as _c,
-                              _filter as _f,
-                              _lasso as _l,
-                              Lasso, Coords, EmptyCaptureException)
-from pandalone.xleash.io import (_sheets as _s, _xlrd as xd)
 import sys
 import tempfile
 from tests import _tutils
@@ -30,6 +24,13 @@ from ddt import ddt, data
 from future import utils as fututis  # @UnresolvedImport
 from future.backports import ChainMap
 from numpy import testing as npt
+from pandalone import xleash
+from pandalone.xleash import (_parse as _p,
+                              _capture as _c,
+                              _filter as _f,
+                              _lasso as _l,
+                              Lasso, Coords, EmptyCaptureException)
+from pandalone.xleash.io import (_sheets as _s, _xlrd as xd)
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
 import xlrd
@@ -2153,14 +2154,17 @@ class T18VsPandas(unittest.TestCase, CustomAssertions):
         [9,    True,   43,    'str', dt],    # 4
     ])
 
+    @unittest.skipIf(LooseVersion(pd.__version__) >= LooseVersion('0.17.0'),
+                     "df-->excel support multiindex after pandas-v0.17.0.")
     def test_pandas_can_write_multicolumn(self):
+
         df = pd.DataFrame([1, 2])
         df.columns = pd.MultiIndex.from_arrays([list('A'), list('a')])
         err = "Writing as Excel with a MultiIndex is not yet implemented."
-        msg = """\n\nTIP: Pandas-%s probably saves DFs with MultiIndex columns now.
+        msg = """\n\nTIP: Pandas-%s probably saves excels with MultiIndex columns now.
                 Update _xlref._to_df() accordingly!
                 See GH4679, GH10967, GH10564
-                    """
+        """
         with assertRaisesRegex(self, NotImplementedError, err,
                                msg=msg % pd.__version__):
             try:
