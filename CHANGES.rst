@@ -49,6 +49,9 @@ Rejected TODOs:
 Changelog
 =========
 
+- v0.1.9 (Dec-2015):
+    - pstep: Add ``pstep_from_df()`` utility.
+
 - v0.1.8 (Sep-2015):
     - deps: Do not require flake8.
 
