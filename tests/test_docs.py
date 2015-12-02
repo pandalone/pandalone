@@ -44,7 +44,6 @@ class Doctest(unittest.TestCase):
 
     def test_README_version_cmdline(self):
         ver = pandalone.__version__
-        header_len = 20
         mydir = os.path.dirname(__file__)
         with open(readme_path) as fd:
             ftext = fd.read()

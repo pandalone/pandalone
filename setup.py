@@ -172,6 +172,7 @@ setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "Intended Audience :: Manufacturing",
+        'Environment :: Console',
         "License :: OSI Approved :: European Union Public Licence 1.1 (EUPL 1.1)",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: Microsoft :: Windows",

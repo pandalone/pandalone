@@ -448,6 +448,11 @@ def _parse_xlref_fragment(xlref_fragment):
 
 
 def parse_xlref(xlref):
+    """
+    Like ``_parse_xlref()`` but tries also if `xlreaf` is encased by delimiter chars ``/\\"$%&``.
+
+    .. seealso:: _encase_regex
+    """
     try:
         res = _parse_xlref(xlref)
     except SyntaxError as ex:
