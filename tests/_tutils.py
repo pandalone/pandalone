@@ -200,7 +200,8 @@ except ImportError:
               http://stackoverflow.com/a/19299884/548792
         """
 
-        def __init__(self, suffix="", prefix="tmp", dir=None):
+        def __init__(self, suffix="", prefix="tmp",
+                     dir=None):  # @ReservedAssignment
             self._closed = False
             self.name = None  # Handle mkdtemp raising an exception
             self.name = mkdtemp(suffix, prefix, dir)
