@@ -24,7 +24,7 @@ from future.utils import with_metaclass
 import itertools as itt
 import numpy as np
 
-from .. import Coords
+from .. import Coords, _capture
 from ...utils import as_list
 
 
@@ -143,6 +143,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
 
         :return:   A 2D-array with `False` wherever cell are blank or empty.
         :rtype:     ndarray
+        :raise: EmptyCaptureException if sheet empty
         """
         if self._states_matrix is None:
             self._states_matrix = self._read_states_matrix()
@@ -158,6 +159,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
         :param Coords, None nd:
                 the bottom-right edge, inclusive(!); when `None`,
                 must return a scalar value.
+        :type nd: Coords, None
         :return:
                 Depends on whether both coords are given:
                     - If both given, 2D list-lists with the values of the rect,
@@ -166,6 +168,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
                       beyond margins, raise error!
 
         :rtype: list
+        :raise: EmptyCaptureException (optionally) if sheet empty
         """
 
     def _read_margin_coords(self):
@@ -176,7 +179,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
                     anyone coords can be None.
                     By default returns ``(None, None)``.
         :rtype:     (Coords, Coords)
-
+        :raise: EmptyCaptureException if sheet empty
         """
         return None, None  # pragma: no cover
 
@@ -186,7 +189,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
 
         :return:    the resolved top-left and bottom-right :class:`.xleash.Coords`
         :rtype:     tuple
-
+        :raise: EmptyCaptureException if sheet empty
         """
         if not self._margin_coords:
             up, dn = self._read_margin_coords()
@@ -218,9 +221,13 @@ class ArraySheet(ABCSheet):
         return self._ids
 
     def _read_states_matrix(self):
+        if not self._arr.size:
+            raise _capture.EmptyCaptureException('empty sheet')
         return ~np.equal(self._arr, None)
 
     def read_rect(self, st, nd):
+        if not self._arr.size:
+            raise _capture.EmptyCaptureException('empty sheet')
         if nd is None:
             return self._arr[st]
         rect = np.array([st, nd]) + [[0, 0], [1, 1]]

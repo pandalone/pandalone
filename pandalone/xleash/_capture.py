@@ -273,9 +273,9 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coords=None):
         else:
             rcoord = cfunc(coord)
 
-        # Resolve negatives as from the end.
-        if rcoord < 0:
-            rcoord = dn_coord + rcoord + 1
+            # Resolve negatives as from the end.
+            if rcoord < 0:
+                rcoord = dn_coord + rcoord + 1
 
         return rcoord
     except Exception as ex:

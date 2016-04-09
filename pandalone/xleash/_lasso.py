@@ -194,7 +194,7 @@ class Ranger(object):
         except EmptyCaptureException:
             if lasso.opts.get('no_empty', False):
                 raise
-            st, nd = None, None
+            st = nd = None
         except Exception as ex:
             msg = "Resolving capture-rect(%r) failed due to: %s"
             raise ValueError(msg % (_Lasso_to_edges_str(lasso), ex))

@@ -24,7 +24,7 @@ import xlrd
 
 import numpy as np
 
-from .. import Coords
+from .. import EmptyCaptureException, Coords
 from ... import utils
 from ._sheets import ABCSheet, SheetId
 
@@ -200,7 +200,11 @@ class XlrdSheet(ABCSheet):
         return (types != XL_CELL_EMPTY) & (types != XL_CELL_BLANK)
 
     def _read_margin_coords(self):
-        return None, Coords(self._sheet.nrows - 1, self._sheet.ncols - 1)
+        nrows = self._sheet.nrows - 1
+        ncols = self._sheet.ncols - 1
+        if nrows < 0 or ncols < 0:
+            raise EmptyCaptureException('empty sheet')
+        return None, Coords(nrows, ncols)
 
     def read_rect(self, st, nd):
         """See super-method. """

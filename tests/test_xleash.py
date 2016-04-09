@@ -1690,7 +1690,7 @@ class T14Lasso(unittest.TestCase):
         xlref, _ = case
         sheet = _s.ArraySheet([[]])
         res = _l.lasso(xlref, sheet=sheet)
-        npt.assert_array_equal(res, [[]])
+        npt.assert_array_equal(res, [])
 
     @ddt.data(*missing_refs)
     def test_read_missing_values_onSheetWithNones(self, case):
@@ -1728,7 +1728,7 @@ class T14Lasso(unittest.TestCase):
     @ddt.data(*empty_refs)
     def test_read_emptyScream_onEmptySheet(self, xlref):
         sheet = _s.ArraySheet([[]])
-        err_msg = r"No \w+-target found"
+        err_msg = r"empty sheet"
         with _tutils.assertRaisesRegex(self, EmptyCaptureException, err_msg):
             _l.lasso(xlref + ':{"opts": {"no_empty": true}}', sheet=sheet)
 
