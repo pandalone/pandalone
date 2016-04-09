@@ -51,8 +51,6 @@ is_excel_installed = _tutils.check_excell_installed()
 _l.CHECK_CELLTYPE = True
 mydir = osp.dirname(__file__)
 
-os.chdir(osp.join(mydir, '..'))
-
 
 def _write_sample_sheet(path, matrix, sheet_name, **kwds):
     df = pd.DataFrame(matrix)
@@ -2059,6 +2057,10 @@ _recurse_val = [['COL1'], ['foo'], ['bar'], ['bus']]
 
 class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
 
+    @classmethod
+    def setUpClass(cls):
+        os.chdir(osp.join(mydir, '..'))
+
     def setUp(self):
         logging.basicConfig(level=0)
         logging.getLogger().setLevel(0)
@@ -2148,6 +2150,10 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
 
 @ddt.ddt
 class T18EmptyExcel(unittest.TestCase, _tutils.CustomAssertions):
+
+    @classmethod
+    def setUpClass(cls):
+        os.chdir(osp.join(mydir, '..'))
 
     _shfact = _s.SheetsFactory()
 

@@ -14,7 +14,8 @@ Implements the *xlrd* backend of *xleash* that reads in-file Excel-spreadsheets.
 import datetime
 from distutils.version import LooseVersion
 import logging
-from os import path
+import os
+import sys
 
 from future.moves.urllib import request
 from future.moves.urllib.parse import urlsplit
@@ -23,6 +24,7 @@ from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
 import xlrd
 
 import numpy as np
+import os.path as osp
 
 from .. import EmptyCaptureException, Coords
 from ... import utils
@@ -148,14 +150,14 @@ def open_sheet(wb_url, sheet_id, opts):
         level = logging.INFO if opts.get('verbose', None) else logging.DEBUG
         ropts['logfile'] = utils.LoggerWriter(log, level)
     parts = filename = urlsplit(wb_url)
-    if not parts.scheme or parts.scheme == 'file':
-        fpath = path.abspath(path.expanduser(path.expandvars(parts.path)))
+    if osp.isfile(wb_url) or not parts.scheme or parts.scheme == 'file':
+        fpath = osp.abspath(osp.expanduser(osp.expandvars(parts.path)))
         log.info('Opening book %r...', fpath)
         book = xlrd.open_workbook(fpath, **ropts)
     else:
         ropts.pop('on_demand', None)
         http_opts = ropts.get('http_opts', {})
-        with request.urlopen(wb_url, **http_opts) as response:
+        with request.urlopen('file://' + wb_url, **http_opts) as response:
             log.info('Opening book %r...', filename)
             book = xlrd.open_workbook(
                 filename, file_contents=response, **ropts)
