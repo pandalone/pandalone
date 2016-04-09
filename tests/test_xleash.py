@@ -2053,6 +2053,10 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         ranger.make_call(lasso, 'pyeval', (), kwds)
 
 
+_recurse_rect = 'eval sheet!B1:..(D)'
+_recurse_val = [['COL1'], ['foo'], ['bar'], ['bus']]
+
+
 class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
 
     def setUp(self):
@@ -2060,8 +2064,20 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         logging.getLogger().setLevel(0)
         pass
 
+    def test_real_absolute_file(self):
+        fpath = osp.abspath('tests/recursive.xlsx')
+        res = _l.lasso('%s#%s' % (fpath, _recurse_rect))
+        self.assertEqual(res, _recurse_val)
+
+    def test_real_file_url(self):
+        fpath = 'file://' + osp.abspath('tests/recursive.xlsx')
+        if os.name == 'nt' or sys.platform == 'cygwin':
+            fpath = fpath.replace('\\', '/')
+        res = _l.lasso('%s#%s' % (fpath, _recurse_rect))
+        self.assertEqual(res, _recurse_val)
+
     @unittest.skipIf(sys.version_info < (3, 4), "String comparisons here!")
-    def test_real_file(self):
+    def test_real_file_recurse(self):
         exp = """\
         OrderedDict([
             ('table in this sheet',      A     B
