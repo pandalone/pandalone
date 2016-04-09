@@ -334,7 +334,7 @@ Definitions
         - the bounding cells of the `target-rect`;
         - the bounding cells of the `capture-rect`.
 
-        In all cases above there are 2 instances, the `1st` and `2nd`.
+        In all cases above there are 2 instances; the `1st` and `2nd`.
 
     1st
     2nd
@@ -397,12 +397,9 @@ Definitions
 
     coordinate
     coordinates
-        It might refer to:
-
-            - the first part of the `edge` syntax;
-            - any pair of a cell/column *coordinates* specifying cell positions,
-              i.e. `landing-cell`, `target-cell`, bounds of the `capture-rect`.
-
+        Any pair of a cell/column *coordinates* specifying cell positions,
+        (i.e. `landing-cell`, `target-cell`, bounds of the `capture-rect`)
+        written as the first part of the `edge` syntax, or implicitely resolved.
         They can be expressed in ``A1`` or ``RC`` format or as a zero-based
         ``(row, col)`` tuple (*num*).
         Each *coordinate* might be `absolute` or `dependent`, independently.
@@ -449,9 +446,8 @@ Definitions
         which resolves to the *base-coordinate* depending on which `edge`
         it is referring to:
 
-        - `1st` edge: The coordinates of the ``base_cell` field of the
-          `Lasso` given to the :meth:`Ranger.do_lasso()`;
-          it is an error if it is ``None``.
+        - `1st` edge: The coordinates of the `base_cell` field of the
+          `Lasso` given to the :meth:`Ranger.do_lasso()`; must not be ``None``.
         - `2nd` edge: the `target-cell` coordinates of the `1st` edge.
 
         An `edge` might contain a "mix" of `absolute` and *dependent*
