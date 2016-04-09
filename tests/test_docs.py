@@ -8,11 +8,10 @@
 
 import doctest
 import os
+import pandalone
 import re
 import sys
 import unittest
-
-import pandalone
 
 
 mydir = os.path.dirname(__file__)
@@ -41,6 +40,18 @@ class Doctest(unittest.TestCase):
                 elif i >= header_len:
                     msg = "Version(%s) not found in README %s header-lines!"
                     raise AssertionError(msg % (ver, header_len))
+
+    def test_README_reldate_opening(self):
+        reldate = pandalone.__updated__
+        header_len = 20
+        mydir = os.path.dirname(__file__)
+        with open(readme_path) as fd:
+            for _, l in zip(range(header_len), fd):
+                if reldate in l:
+                    break
+            else:
+                msg = "Version(%s) not found in README first %s header-lines!"
+                raise AssertionError(msg % (reldate, header_len))
 
     def test_README_version_cmdline(self):
         ver = pandalone.__version__
