@@ -133,7 +133,7 @@ extensions = [
 
 # Prevent Sphinx from doctesting python-modules doctests,
 # they will be checked separately with `nose` plugin.
-doctest_test_doctest_blocks = False
+#doctest_test_doctest_blocks = 'default'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -246,9 +246,9 @@ html_static_path = ['_static']
 # directly to the root of the documentation.
 #html_extra_path = []
 
-# If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
+# If not None, a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
-html_last_updated_fmt = '%b %d, %Y, %H:%M:%S'
+html_last_updated_fmt = ''
 
 # If true, SmartyPants will be used to convert quotes and dashes to
 # typographically correct entities.

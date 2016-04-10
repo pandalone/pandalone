@@ -132,9 +132,12 @@ download_url = 'https://github.com/%s/%s/tarball/v%s' % (
     proj_name, proj_name, proj_ver)
 
 install_requires = [
+    'setuptools-git >= 0.3',  # Gather package-data from all files in git.
+    'sphinx>=1.4',
+    'wheel',
     'future >= 0.15.0',
     'toolz',
-    'jsonschema > 2.4',  # TODO: Upgrade jsonschema to +>= 2.5.
+    'jsonschema >= 2.5',
     'numpy',
     'pandas',
     'xlrd',
@@ -144,6 +147,8 @@ install_requires = [
     'doit >= 0.28',
     'easygui',
 ]
+if not os.environ.get('READTHEDOCS') == 'True':
+    install_requires.append('sphinx_rtd_theme')
 
 setup(
     name=proj_name,
@@ -192,15 +197,12 @@ setup(
     install_requires=install_requires,
     setup_requires=[
         'setuptools',
-        'setuptools-git >= 0.3',  # Gather package-data from all files in git.
-        'sphinx>=1.3',
-        'coveralls',
-        'wheel',
     ],
     tests_require=[
         'nose',
         'ddt',
         'coverage',
+        'coveralls',
     ],
     test_suite='nose.collector',
     extras_require={

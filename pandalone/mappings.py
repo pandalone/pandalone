@@ -1306,7 +1306,8 @@ def pstep_from_df(columns_df, name_col='names'):
     p = pmods_from_tuples(zip(columns_df.index, columns_df[name_col])).step()
     cdf = columns_df.drop(name_col, axis=1, errors='ignore')
     attributes = cdf.columns
-    for path, *attr_values in cdf.itertuples():
+    for rows in cdf.itertuples():
+        path, attr_values = rows[1], rows[1:]
         cstep = getattr(p, path[1:])
         for attr, aval in zip(attributes, attr_values):
             setattr(cstep, '_%s' % attr, aval)
