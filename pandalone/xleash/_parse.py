@@ -425,6 +425,9 @@ def _parse_xlref_fragment(xlref_fragment):
     gs['st_edge'] = _parse_edge(gs, 'st', is_colon and _topleft_Edge)
     gs['nd_edge'] = _parse_edge(gs, 'nd', is_colon and _bottomright_Edge)
     assert is_colon or not gs['nd_edge'], (xlref_fragment, gs['nd_edge'])
+    if gs['st_edge'] == gs['nd_edge'] == None:
+        gs['st_edge'] = _topleft_Edge
+        gs['nd_edge'] = _bottomright_Edge
 
     exp_moves = gs['exp_moves']
     gs['exp_moves'] = exp_moves

@@ -89,7 +89,8 @@ Which means:
 Basic Usage
 -----------
 The simplest way to `lasso` a `xl-ref` is through :func:`lasso()`.
-A common task is capturing all sheet data but without any bordering nulls::
+A common task is to  capture all non-empty cells of the 1st workbook-sheet but
+without any bordering nulls::
 
     >>> from pandalone import xleash
 
@@ -107,9 +108,19 @@ would be a 2D *list-of-lists* with the values contained in ``C2:E4``::
     5    └─────┘
 
 
+If another sheet is desired, add its name or 0-based ordinal immediately after ``#``
+separated by a ``!`` with the rest of the `xl-ref` - which inthat case
+might be empty::
+
+    >>> lasso = xleash.lasso
+    >>> lasso('Book.xlsx#Sheet1!') == lasso('Book.xlsx#0!') == lasso('Book.xlsx#:') # doctest: +SKIP
+    True
+
+
 If you do not wish to let the library read your workbooks, you can
 invoke the function with a pre-loaded sheet.
-Here we will use the utility :class:`ArraySheet`::
+Here we will use the utility :class:`ArraySheet` with a more complicated
+`xl-ref` expression::
 
     >>> sheet = xleash.ArraySheet([[None, None,  'A',   None],
     ...                          [None, 2.2,   'foo', None],

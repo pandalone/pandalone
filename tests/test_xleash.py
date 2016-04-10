@@ -353,21 +353,18 @@ class T01Parse(unittest.TestCase):
         self.check_xlref_frag(xlref, fields)
 
     @ddt.data(
-        ('', {}),  # Yes, empty allowed, but rejected earlier, after url-split.
+        ('',
+         {'st_edge': _p._topleft_Edge, 'nd_edge': _p._bottomright_Edge}),
         ('a33(DL)', {
-            'st_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'),
-        }),
+            'st_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'), }),
         ('a33(DL):"func"', {
             'st_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'),
-            'call_spec': _p.CallSpec('func'),
-        }),
+            'call_spec': _p.CallSpec('func'), }),
         ('a33(DL)::{"func": "func", "opts": {"a": 1}}', {
             'st_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'),
             'nd_edge': _p._bottomright_Edge,
             'call_spec': _p.CallSpec('func'),
-            'opts': {"a": 1},
-        }),
-        ('', {}),  # Yes, empty allowed, but rejected earlier, after url-split.
+            'opts': {"a": 1}, }),
     )
     def test_shortcuts_strange(self, case):
         xlref, fields = case
