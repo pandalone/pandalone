@@ -93,9 +93,9 @@ def parse_value_with_units(arg):
         >>> parse_value_with_units('<only units>')
         United(name='', units='only units')
 
-        >>> parse_value_with_units(None)
+        >>> parse_value_with_units(None)  # doctest:+ELLIPSIS
         Traceback (most recent call last):
-        TypeError: expected string or buffer
+        TypeError: expected string or ...
 
     """
 

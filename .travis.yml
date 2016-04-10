@@ -6,6 +6,7 @@ python:
   - "2.7"
   - "3.3"
   - "3.4"
+  - "3.5"
 before_install:
     ## From: http://conda.pydata.org/docs/travis.htm
     ## Another one: https://gist.github.com/dan-blanchard/7045057

@@ -10,6 +10,9 @@ from __future__ import division, unicode_literals
 
 import doctest
 import json
+from pandalone.mappings import (
+    Pmod, pmods_from_tuples, Pstep, _join_paths, _append_step)
+import pandalone.mappings
 import re
 import sre_constants
 import sys
@@ -18,14 +21,7 @@ import unittest
 from numpy import testing as npt
 
 import functools as ft
-from pandalone.mappings import (
-    Pmod, pmods_from_tuples, Pstep, _join_paths, _append_step)
-import pandalone.mappings
 import pandas as pd
-from tests._tutils import _init_logging
-
-
-log = _init_logging(__name__)
 
 
 def pmod2regexstrs(pmod):
@@ -1161,6 +1157,17 @@ class TestPstep(unittest.TestCase):
         df = pd.DataFrame([1, 3], columns=['a'])
         s = Pstep('a')
         npt.assert_array_equal(df[s], [1, 3])
+
+    def test_from_pandas(self):
+        cdf = pd.DataFrame([
+            ('fc',      'CO2 [g/km]'),
+            ('jobno',   'Job [-]'),
+        ], columns=['colkey', 'colname'])
+        cdf['colkey'] = '/' + cdf['colkey']
+        c = pmods_from_tuples(cdf[['colkey', 'colname']].values).step()
+        self.assertEqual(c.fc, 'CO2 [g/km]', c._csteps)
+        self.assertEqual(c.jobno, 'Job [-]', c._csteps)
+
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
