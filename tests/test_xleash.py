@@ -169,7 +169,7 @@ class T011Structs(unittest.TestCase):
         cell, exp = case
         self.assertEqual(str(cell), exp)
 
-    @unittest.skipIf(sys.version_info[:2] <= (3, 4), "String comparisons here!")
+    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     @ddt.data(
         (_p.Cell('1', 'a'), "Cell(row='1', col='A')"),
         (_p.Cell('1', '1'), "Cell(row='1', col='1')"),
@@ -1992,7 +1992,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         res = _f.pyeval_filter(ranger, lasso)
         self.assertEqual(res, exp)
 
-    @unittest.skipIf(sys.version_info[:2] <= (3, 4), "String comparisons here!")
+    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     @ddt.data(
         ("boo haha", """
             Value('boo haha') at XLocation(sheet=None, st=None, nd=None, base_coords=None):
@@ -2080,7 +2080,7 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         res = _l.lasso('%s#%s' % (fpath, _recurse_rect))
         self.assertEqual(res, _recurse_val)
 
-    #@unittest.skipIf(sys.version_info[:2] <= (3, 4), "String comparisons here!")
+    #@unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     @unittest.skipIf(sys.version_info[:2] != (3, 4), "https://github.com/newville/asteval/issues/16")
     def test_real_file_recurse(self):
         exp = """\
@@ -2112,18 +2112,17 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         self.assertStrippedStringsEqual(str(res), exp)
 
     #@unittest.skipIf(sys.version_info < (3, 4), "no `assertLogs` in Py2!")
-    @unittest.skipIf(sys.version_info[:2] != (3, 4), "https://github.com/newville/asteval/issues/16")
+    @unittest.skip("https://github.com/newville/asteval/issues/16")
     def test_subfilter(self):
         with self.assertLogs(level=logging.INFO) as logass:
             _l.lasso('tests/recursive.xlsx#^^:"recurse"')
-            print('FF' + str(logass.output))
             for s in logass.output:
                 if '4.14' in s:
                     break
             else:
                 self.fail("'py' filter did not produce anything!")
 
-    @unittest.skipIf(sys.version_info[:2] <= (3, 4), "String comparisons here!")
+    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     def test_lasso_then_pyeval(self):
         exp = """\
                 COL1        EVAL_COL  NO_EVAL
@@ -2134,7 +2133,7 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         res = _l.lasso('tests/recursive.xlsx#e2!^^:"recurse"')
         self.assertStrippedStringsEqual(str(res), exp)
 
-    @unittest.skipIf(sys.version_info[:2] <= (3, 4), "String comparisons here!")
+    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     def test_real_file_recurse_fail(self):
         err_msg = """
         Filtering xl-ref('tests/recursive.xlsx#A_(U):"recurse"') failed due to:
