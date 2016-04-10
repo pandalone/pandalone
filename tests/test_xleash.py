@@ -2081,7 +2081,7 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         self.assertEqual(res, _recurse_val)
 
     #@unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
-    @unittest.skipIf(sys.version_info[:2] != (3, 4), "https://github.com/newville/asteval/issues/16")
+    @unittest.skip("https://github.com/newville/asteval/issues/16")
     def test_real_file_recurse(self):
         exp = """\
         OrderedDict([
@@ -2122,7 +2122,8 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
             else:
                 self.fail("'py' filter did not produce anything!")
 
-    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
+    #@unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
+    @unittest.skip("https://github.com/newville/asteval/issues/16")
     def test_lasso_then_pyeval(self):
         exp = """\
                 COL1        EVAL_COL  NO_EVAL

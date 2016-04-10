@@ -457,7 +457,7 @@ Definitions
         which resolves to the *base-coordinate* depending on which `edge`
         it is referring to:
 
-        - `1st` edge: The coordinates of the `base_cell` field of the
+        - `1st` edge: The coordinates of the `base-cell` field of the
           `Lasso` given to the :meth:`Ranger.do_lasso()`; must not be ``None``.
         - `2nd` edge: the `target-cell` coordinates of the `1st` edge.
 

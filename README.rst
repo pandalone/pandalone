@@ -244,7 +244,7 @@ by typing the :command:`pip` in the console:
       $ pip install pandalone
 
 - If you want to install a *pre-release* version (the version-string is not plain numbers, but
-  ends with ``alpha``, ``beta.2`` or something else), use additionally :option:`--pre`.
+  ends with ``alpha``, ``beta.2`` or something else), use additionally option ``--pre``.
 
 .. code-block:: bash
 
@@ -257,7 +257,7 @@ by typing the :command:`pip` in the console:
       $ pip install git+git://github.com/pandalone/pandalone.git  --pre
 
 - If you want to upgrade an existing installation along with all its dependencies,
-  add also :option:`--upgrade` (or :option:`-U` equivalently), but then the build might take some
+  add also option ``--upgrade`` (or option ``-U`` equivalently), but then the build might take some
   considerable time to finish.  Also there is the possibility the upgraded libraries might break
   existing programs(!) so use it with caution, or from within a |virtualenv|_.
 
@@ -300,7 +300,7 @@ Of course you can substitute `v0.0.9-alpha.3.1` with any slug from "commits", "b
 that you will find on project's `github-repo <https://github.com/pandalone/pandalone>`_).
 
 .. Note::
-    If you have another version already installed, you have to use :option:`--ignore-installed` (or :option:`-I`).
+    If you have another version already installed, you have to use option ``--ignore-installed`` (or option ``-I``).
     For using the specific version, check this (untested)
     `stackoverflow question
     <http://stackoverflow.com/questions/6445167/force-python-to-use-an-older-version-of-module-than-what-i-have-installed-now>`_.
@@ -494,7 +494,7 @@ First you need to download the latest sources:
     (this is recommended for *Linux*/*Mac OS*).
 
     .. Attention::
-        If you decide to reuse stystem-installed packages using  :option:`--system-site-packages`
+        If you decide to reuse stystem-installed packages using  option ``--system-site-packages``
         with ``virtualenv <= 1.11.6``
         (to avoid, for instance, having to reinstall *numpy* and *pandas* that require native-libraries)
         you may be bitten by `bug #461 <https://github.com/pypa/virtualenv/issues/461>`_ which
