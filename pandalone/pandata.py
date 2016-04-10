@@ -1131,10 +1131,11 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
     """
     Resolve a ``jsonpointer`` within the referenced ``doc``.
 
-    :param doc: the referrant document
-    :param str jsonpointer: a jsonpointer to resolve within document
-    :return: the resolved doc-item or raises :class:`RefResolutionError`
-    :raises: RefResolutionError (if cannot resolve jsonpointer path)
+    :param doc:      the referrant document
+    :param str path: a jsonpointer to resolve within document
+    :param default:  A value to return if path does not resolve.
+    :return:         the resolved doc-item or raises :class:`RefResolutionError`
+    :raises:     RefResolutionError (if cannot resolve path and no `default`)
 
     Examples:
 
@@ -1173,6 +1174,68 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
                     "Unresolvable JSON pointer(%r)@(%s)" % (jsonpointer, part))
             else:
                 return default
+
+    return doc
+
+
+def resolve_path(doc, path, default=_scream, root=None):
+    """
+    Like :func:`resolve_jsonpointer` also for relative-paths & attribute-branches.
+
+    :param doc:      the referrant document
+    :param str path: An abdolute or relative path to resolve within document.
+    :param default:  A value to return if path does not resolve.
+    :param root:     Document for absolute paths, assumed `doc` if missing.
+    :return:         the resolved doc-item or raises :class:`RefResolutionError`
+    :raises:     RefResolutionError (if cannot resolve path and no `default`)
+
+    Examples:
+
+        >>> dt = {
+        ...     'pi':3.14,
+        ...     'foo':'bar',
+        ...     'df': pd.DataFrame(np.ones((3,2)), columns=list('VN')),
+        ...     'sub': {
+        ...         'sr': pd.Series({'abc':'def'}),
+        ...     }
+        ... }
+        >>> resolve_path(dt, '/pi', default=_scream)
+        3.14
+
+        >>> resolve_path(dt, 'df/V')
+        0    1
+        1    1
+        2    1
+        Name: V, dtype: float64
+
+        >>> resolve_path(dt, '/pi/BAD', 'Hi!')
+        'Hi!'
+
+    :author: Julian Berman, ankostis
+    """
+    def resolve_root(d, p):
+        if not p:
+            return root or doc
+        raise ValueError()
+    part_resolvers = [
+        lambda d, p: d[int(p)],
+        lambda d, p: d[p],
+        lambda d, p: getattr(d, p),
+        resolve_root,
+    ]
+    for part in iter_jsonpointer_parts_relaxed(path):
+        start_i = 0 if isinstance(doc, Sequence) else 1
+        for resolver in part_resolvers[start_i:]:
+            try:
+                doc = resolver(doc, part)
+                break
+            except (ValueError, TypeError, LookupError, AttributeError):
+                pass
+        else:
+            if default is _scream:
+                raise RefResolutionError(
+                    "Unresolvable path(%r)@(%s)" % (path, part))
+            return default
 
     return doc
 
