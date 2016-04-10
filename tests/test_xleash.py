@@ -1645,6 +1645,12 @@ class T14Lasso(unittest.TestCase):
         self.assertIsInstance(res, np.ndarray)
         npt.assert_array_equal(res, self.m1())
 
+    def test_only_sheet(self):
+        sf = _s.SheetsFactory()
+        sf.add_sheet(_s.ArraySheet(self.m1()))
+        res = _l.lasso('wb#sh!', sf)
+        npt.assert_array_equal(res, self.m1().tolist())
+
     def test_read_A1(self):
         sf = _s.SheetsFactory()
         sf.add_sheet(_s.ArraySheet(self.m1()))
