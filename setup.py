@@ -142,13 +142,14 @@ install_requires = [
     'pandas',
     'xlrd',
     'openpyxl==1.8.6',  # TODO: openpyxl-444 & pandas-10125
-    'asteval',
     'Pillow',  # For UI About boxes
     'doit >= 0.28',
     'easygui',
 ]
 if not os.environ.get('READTHEDOCS') == 'True':
     install_requires.append('sphinx_rtd_theme')
+install_requires.append('asteval>=0.9.7'  # https://github.com/newville/asteval/issues/16
+                        if py_ver[:2] >= (3, 5) else 'asteval')
 
 setup(
     name=proj_name,

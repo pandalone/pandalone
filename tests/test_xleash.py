@@ -1974,7 +1974,6 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
 
         self.assertEqual(res, exp)
 
-    @unittest.skipIf(sys.version_info[:2] == (3, 5), "https://github.com/newville/asteval/issues/16")
     @ddt.data(
         ("xleash.Lasso(values=1)",        Lasso(values=1)),
         ("xleash.Lasso(values=True)",      Lasso(values=True)),
@@ -1990,24 +1989,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         res = _f.pyeval_filter(ranger, lasso)
         self.assertEqual(res, exp)
 
-    @unittest.skipIf(sys.version_info[:2] != (3, 5), "https://github.com/newville/asteval/issues/16")
-    @ddt.data(
-        ("xleash.Lasso(values=1)",        Lasso(values=1)),
-        ("xleash.Lasso(values=True)",      Lasso(values=True)),
-        ("xleash.Lasso(values=[12,3])",    Lasso(values=[12, 3])),
-        ("xleash.Lasso(values={12:3})",    Lasso(values={12: 3})),
-    )
-    def test_ok_basicTypes_asLasso_py35_REMEMBER_TO_UPDATE_WHEN_FIXED(self, case):
-        expr, exp = case
-        exp = exp._replace(opts={})
-
-        ranger = _l.Ranger(_s.SheetsFactory())
-        lasso = Lasso(values=expr, opts={})
-        res = _f.pyeval_filter(ranger, lasso)
-        self.assertNotEqual(res, exp)
-
-    #@unittest.skipIf(sys.version_info[:2] <= (3, 4), "String comparisons here!")
-    @unittest.skipIf(sys.version_info[:2] != (3, 4), "https://github.com/newville/asteval/issues/16")
+    @unittest.skipIf(sys.version_info[:2] <= (3, 4), "String comparisons here!")
     @ddt.data(
         ("boo haha", """
             Value('boo haha') at XLocation(sheet=None, st=None, nd=None, base_coords=None):
@@ -2138,8 +2120,7 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
             else:
                 self.fail("'py' filter did not produce anything!")
 
-    #@unittest.skipIf(sys.version_info[:2] <= (3, 4), "String comparisons here!")
-    @unittest.skipIf(sys.version_info[:2] != (3, 4), "https://github.com/newville/asteval/issues/16")
+    @unittest.skipIf(sys.version_info[:2] <= (3, 4), "String comparisons here!")
     def test_lasso_then_pyeval(self):
         exp = """\
                 COL1        EVAL_COL  NO_EVAL

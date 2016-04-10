@@ -170,7 +170,7 @@ class CustomAssertions(object):
             frmt = dedent("""\
             Stripped-strings differ at char %i (lens: 1st=%i, 2nd=%s)!
               --1st: %s
-                     %sX
+                     %s^
               --2nd: %s
               ==1st original: %s
               ==2nd original: %s
