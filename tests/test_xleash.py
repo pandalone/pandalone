@@ -2080,8 +2080,7 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         res = _l.lasso('%s#%s' % (fpath, _recurse_rect))
         self.assertEqual(res, _recurse_val)
 
-    #@unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
-    @unittest.skip("https://github.com/newville/asteval/issues/16")
+    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     def test_real_file_recurse(self):
         exp = """\
         OrderedDict([
@@ -2111,8 +2110,7 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         res = _l.lasso('tests/recursive.xlsx#^^:"recurse"')
         self.assertStrippedStringsEqual(str(res), exp)
 
-    #@unittest.skipIf(sys.version_info < (3, 4), "no `assertLogs` in Py2!")
-    @unittest.skip("https://github.com/newville/asteval/issues/16")
+    @unittest.skipIf(sys.version_info < (3, 4), "no `assertLogs` in Py2!")
     def test_subfilter(self):
         with self.assertLogs(level=logging.INFO) as logass:
             _l.lasso('tests/recursive.xlsx#^^:"recurse"')
@@ -2122,8 +2120,7 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
             else:
                 self.fail("'py' filter did not produce anything!")
 
-    #@unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
-    @unittest.skip("https://github.com/newville/asteval/issues/16")
+    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     def test_lasso_then_pyeval(self):
         exp = """\
                 COL1        EVAL_COL  NO_EVAL
@@ -2204,8 +2201,6 @@ class T19VsPandas(unittest.TestCase, _tutils.CustomAssertions):
         [9,    True,   43,    'str', dt],    # 4
     ])
 
-    @unittest.skipIf(LooseVersion(pd.__version__) >= LooseVersion('0.17.0'),
-                     "df-->excel support multiindex after pandas-v0.17.0.")
     def test_pandas_can_write_multicolumn(self):
 
         df = pd.DataFrame([1, 2])
