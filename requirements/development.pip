@@ -2,8 +2,11 @@
 
 -r execution.pip
 
-## Setup + Test requirements.
+## Setup + Build + Dev + Test requirements.
 setuptools
+setuptools-git >= 0.3
+wheel
+sphinx>=1.4
 nose
 ddt
 coverage

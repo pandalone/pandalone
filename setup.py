@@ -196,18 +196,18 @@ setup(
     setup_requires=[
         'setuptools',
     ],
-    build_requires=[
-        # PEP426-field actually not used by `pip` them, hence
-        # included in /requirements/developmnet.pip.
-        'setuptools',
-        'setuptools-git >= 0.3',  # Gather package-data from all files in git.
-        'wheel',
-    ],
-    dev_requires=[
-        # PEP426-field actually not used by `pip` them, hence
-        # included in /requirements/developmnet.pip.
-        'sphinx>=1.4',
-    ],
+    #     build_requires=[
+    #         # PEP426-field actually not used by `pip` them, hence
+    #         # included in /requirements/developmnet.pip.
+    #         'setuptools',
+    #         'setuptools-git >= 0.3',  # Gather package-data from all files in git.
+    #         'wheel',
+    #     ],
+    #     dev_requires=[
+    #         # PEP426-field actually not used by `pip` them, hence
+    #         # included in /requirements/developmnet.pip.
+    #         'sphinx>=1.4',
+    #     ],
     tests_require=[
         'ddt',
         'nose',
