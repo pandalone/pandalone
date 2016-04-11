@@ -49,11 +49,15 @@ Rejected TODOs:
 Changelog
 =========
 
+- v0.1.11 (Apr-2016):
+    - Fix regression on install-dependencies.
+
 - v0.1.10 (Apr-2016):
-    - xleash,#6,#8: Gracefully hanle absolute-paths & file-URLs, sheets without
+    - xleash,#6,#8: Gracefully handle absolute-paths & file-URLs, sheets without
       rects, and always return ``[]`` on empty sheets.
     - pandata: Add ``resolve_path()`` supporting also relative-paths.
     - TravisCI: Run TCs also on *py3.5*, stop testing on *py3.3*.
+    - Known issues: Dev-dependencies required for installation (regression).
 
 - v0.1.9 (Dec-2015):
     - pstep: Add ``pstep_from_df()`` utility.

@@ -132,9 +132,6 @@ download_url = 'https://github.com/%s/%s/tarball/v%s' % (
     proj_name, proj_name, proj_ver)
 
 install_requires = [
-    'setuptools-git >= 0.3',  # Gather package-data from all files in git.
-    'sphinx>=1.4',
-    'wheel',
     'future >= 0.15.0',
     'toolz',
     'jsonschema >= 2.5',
@@ -199,9 +196,21 @@ setup(
     setup_requires=[
         'setuptools',
     ],
+    build_requires=[
+        # PEP426-field actually not used by `pip` them, hence
+        # included in /requirements/developmnet.pip.
+        'setuptools',
+        'setuptools-git >= 0.3',  # Gather package-data from all files in git.
+        'wheel',
+    ],
+    dev_requires=[
+        # PEP426-field actually not used by `pip` them, hence
+        # included in /requirements/developmnet.pip.
+        'sphinx>=1.4',
+    ],
     tests_require=[
-        'nose',
         'ddt',
+        'nose',
         'coverage',
         'coveralls',
     ],
