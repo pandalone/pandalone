@@ -250,11 +250,11 @@ class T01Parse(unittest.TestCase):
     def test_BAD(self, xlref):
         err_msg = "Not an `xl-ref` syntax:"
         with _tutils.assertRaisesRegex(self, SyntaxError, err_msg, msg=xlref):
-            _p._parse_xlref_fragment(xlref)
+            _p.parse_xlref_fragment(xlref)
 
     def test_xl_ref_Cell_types(self):
         xl_ref = 'b1:C2'
-        res = _p._parse_xlref_fragment(xl_ref)
+        res = _p.parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         self.assertIsInstance(st_edge.land.row, basestring)
@@ -264,7 +264,7 @@ class T01Parse(unittest.TestCase):
 
     def test_xl_ref_Cell_col_row_order(self):
         xl_ref = 'b1:C2'
-        res = _p._parse_xlref_fragment(xl_ref)
+        res = _p.parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         self.assertTrue(st_edge.land.row.isalnum())
@@ -274,7 +274,7 @@ class T01Parse(unittest.TestCase):
 
     def test_xl_ref_all_upper(self):
         xl_ref = 'b1(uL):C2(Dr):Lur2D'
-        res = _p._parse_xlref_fragment(xl_ref)
+        res = _p.parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
         items = [
@@ -288,7 +288,7 @@ class T01Parse(unittest.TestCase):
                         self.assertTrue(c.isupper(), '%s in %r' % (c, i))
 
     def check_xlref_frag(self, xlref, fields):
-        res = _p._parse_xlref_fragment(xlref)
+        res = _p.parse_xlref_fragment(xlref)
         res2 = dtz.keyfilter(lambda k: k in fields.keys(), res)
         e = 'EMPT|Y'
         self.assertEqual(str(res2.pop('exp_moves', e)),
@@ -385,8 +385,8 @@ class T01Parse(unittest.TestCase):
     )))
     def test_shortcut_vs_regular_fieldsCount(self, case):
         regular, shortcut = case
-        res1 = _p._parse_xlref_fragment(regular)
-        res2 = _p._parse_xlref_fragment(shortcut)
+        res1 = _p.parse_xlref_fragment(regular)
+        res2 = _p.parse_xlref_fragment(shortcut)
         self.assertEquals(len(res1), len(res2), (res1, res2))
 
     @ddt.data(':{"opts": "..."}', ':{"opts": [2]}',
@@ -394,7 +394,7 @@ class T01Parse(unittest.TestCase):
     def test_xl_ref_BadOpts(self, xlref):
         err_msg = 'must be a json-object\(dictionary\)'
         _tutils.assertRaisesRegex(self, ValueError, err_msg,
-                                  _p._parse_xlref_fragment, xlref)
+                                  _p.parse_xlref_fragment, xlref)
 
     def test_xl_url_Ok(self):
         url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D):{"func":"foo"}'

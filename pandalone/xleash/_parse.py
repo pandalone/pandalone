@@ -361,9 +361,9 @@ def _parse_edge(gs, prefix, default_edge):
                     gs.pop('%s_mod' % prefix), default_edge)
 
 
-def _parse_xlref_fragment(xlref_fragment):
+def parse_xlref_fragment(xlref_fragment):
     """
-    Parses a :term:`xl-ref` fragment.
+    Parses a :term:`xl-ref` fragment, anything to the left of the hash(`#`).
 
     :param str xlref_fragment:
             the url-fragment part of the :term:`xl-ref` string,
@@ -385,7 +385,7 @@ def _parse_xlref_fragment(xlref_fragment):
 
     Examples::
 
-        >>> res = _parse_xlref_fragment('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:'
+        >>> res = parse_xlref_fragment('Sheet1!A1(DR+):Z20(UL):L1U2R1D1:'
         ...                             '{"opts":{}, "func": "foo"}')
         >>> sorted(res.items())
         [('call_spec', CallSpec(func='foo', args=[], kwds={})),
@@ -397,7 +397,7 @@ def _parse_xlref_fragment(xlref_fragment):
 
     Shortcut for all sheet from top-left to bottom-right full-cells::
 
-        >>> res=_parse_xlref_fragment(':')
+        >>> res = parse_xlref_fragment(':')
         >>> sorted(res.items())
         [('call_spec', None),
          ('exp_moves', None),
@@ -409,7 +409,7 @@ def _parse_xlref_fragment(xlref_fragment):
 
     Errors::
 
-        >>> _parse_xlref_fragment('A1(DR)Z20(UL)')
+        >>> parse_xlref_fragment('A1(DR)Z20(UL)')
         Traceback (most recent call last):
         SyntaxError: Not an `xl-ref` syntax: A1(DR)Z20(UL)
 
@@ -536,7 +536,7 @@ def _parse_xlref(xlref):
     if not frag:
         raise SyntaxError(
             "No fragment-part (starting with '#'): %s" % xlref)
-    res = _parse_xlref_fragment(frag)
+    res = parse_xlref_fragment(frag)
     frag = frag.strip()
     res['url_file'] = url_file.strip() or None
     res['xl_ref'] = xlref
