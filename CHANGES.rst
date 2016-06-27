@@ -49,6 +49,10 @@ Rejected TODOs:
 Changelog
 =========
 
+- v0.1.12 (Apr-2016):
+    - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
+    - Mark as "beta" in python trove-classifiers - del non-release opening note.
+
 - v0.1.11 (Apr-2016):
     - Fix regression on install-dependencies.
 

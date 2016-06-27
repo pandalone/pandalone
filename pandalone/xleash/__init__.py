@@ -245,7 +245,7 @@ the exact `coordinates`::
 
       A B C D E
     1  ┌───────┐     Β2:E4          ## Exact referencing.
-    2  │  X X X│     ^^.__          ## From top-left full-cell to bottom-right.
+    2  │  X X X│     ^^.__  or :    ## From top-left full-cell to bottom-right.
     3  │X X X X│     A1(DR):__:U1   ## Start from A1 and move down and right
     3  │X X X X│                    #    until B3; capture till bottom-left;
     4  │X X X X│                    #    expand once upwards (to header row).
@@ -736,6 +736,12 @@ All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger
         The full url, populated on parsing.
 :param str sh_name:
         Parsed sheet name (or index, but still as string), populated on parsing.
+
+        .. Note::
+            If you need the name of the *captured* sheet, use::
+
+                lasso.sheet.get_sheet_ids().ids[0]
+
 :param Edge st_edge:
         The 1st edge, populated on parsing.
 :param Edge nd_edge:

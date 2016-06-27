@@ -11,3 +11,4 @@ nose
 ddt
 coverage
 coveralls
+collective.checkdocs
