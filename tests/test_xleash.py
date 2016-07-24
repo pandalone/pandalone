@@ -12,15 +12,9 @@ import contextlib
 from datetime import datetime
 from distutils.version import LooseVersion
 import doctest
+import json
 import logging
 import os
-from pandalone import xleash
-from pandalone.xleash import (_parse as _p,
-                              _capture as _c,
-                              _filter as _f,
-                              _lasso as _l,
-                              Lasso, Coords, EmptyCaptureException)
-from pandalone.xleash.io import (_sheets as _s, _xlrd as xd)
 import sys
 import tempfile
 import unittest
@@ -29,15 +23,23 @@ import ddt
 from future import utils as fututis
 from future.backports import ChainMap
 from numpy import testing as npt
+from pandalone import xleash
+from pandalone.xleash import (_parse as _p,
+                              _capture as _c,
+                              _filter as _f,
+                              _lasso as _l,
+                              Lasso, Coords, EmptyCaptureException)
+from pandalone.xleash.io import (_sheets as _s, _xlrd as xd)
+from pandas.util.testing import assert_frame_equal
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
 import xlrd
 
-from tests import _tutils
 import itertools as itt
 import numpy as np
 import os.path as osp
 import pandas as pd
+from tests import _tutils
 
 
 try:
@@ -52,8 +54,9 @@ _l.CHECK_CELLTYPE = True
 mydir = osp.dirname(__file__)
 
 
-def _write_sample_sheet(path, matrix, sheet_name, **kwds):
-    df = pd.DataFrame(matrix)
+def _write_sample_sheet(path, df, sheet_name, **kwds):
+    if not isinstance(df, pd.DataFrame):
+        df = pd.DataFrame(df)
     with pd.ExcelWriter(path) as w:
         if isinstance(sheet_name, tuple):
             for s in sheet_name:
@@ -2203,37 +2206,16 @@ class T19VsPandas(unittest.TestCase, _tutils.CustomAssertions):
         [9,    True,   43,    'str', dt],    # 4
     ])
 
-    def test_pandas_can_write_multicolumn(self):
-
-        df = pd.DataFrame([1, 2])
-        df.columns = pd.MultiIndex.from_arrays([list('A'), list('a')])
-        err = "Writing as Excel with a MultiIndex is not yet implemented."
-        msg = """\n\nTIP: Pandas-%s probably saves excels with MultiIndex columns now.
-                Update _xlref._to_df() accordingly!
-                See GH4679, GH10967, GH10564
-        """
-        with _tutils.assertRaisesRegex(self, NotImplementedError, err,
-                                       msg=msg % pd.__version__):
-            try:
-                tmp_file = '%s.xlsx' % tempfile.mktemp()
-                df.to_excel(tmp_file)
-            finally:
-                try:
-                    os.unlink(tmp_file)
-                except:
-                    pass
-
-    def check_vs_read_df(self, table, st, nd, write_df_kwds={}, parse_df_kwds={}):
+    def _check_vs_read_df(self, table, st, nd, write_df_kwds={}, parse_df_kwds={}):
         with self.sample_xl_file(table, **write_df_kwds) as xl_file:
             pd_df = pd.read_excel(xl_file, 'Sheet1')
             pd_df = pd_df.iloc[
                 slice(st[0], nd[0] + 1), slice(st[1], nd[1] + 1)]
             xlrd_book = xlrd.open_workbook(xl_file)
-            self.sheet = xd.XlrdSheet(
+            sheet = xd.XlrdSheet(
                 xlrd_book.sheet_by_name('Sheet1'), xl_file)
-            xlref_res = self.sheet.read_rect(st, nd)
-            lasso = Lasso(
-                st=st, nd=nd, values=xlref_res, opts=ChainMap())
+            xlref_res = sheet.read_rect(st, nd)
+            lasso = Lasso(st=st, nd=nd, values=xlref_res, opts=ChainMap())
 
             lasso1 = _f.redim_filter(None, lasso, row=[2, True])
 
@@ -2242,13 +2224,56 @@ class T19VsPandas(unittest.TestCase, _tutils.CustomAssertions):
 
             xlref_df = lasso2.values
 
-            msg = '\n---\n%s\n--\n%s\n-\n%s' % (xlref_res, xlref_df, pd_df)
-            self.assertTrue(xlref_df.equals(pd_df), msg=msg)
+            if all(isinstance(df, pd.DataFrame) for df in (xlref_df, pd_df)):
+                assert_frame_equal(xlref_df, pd_df)
+            else:
+                msg = '\n---\n%s\n--\n%s\n-\n%s' % (xlref_res, xlref_df, pd_df)
+                self.assertTrue(xlref_df.equal(pd_df), msg=msg)
 
     def test_vs_read_df(self):
-        self.check_vs_read_df(self.m1.tolist(),
-                              Coords(0, 0), Coords(4, 5),
-                              parse_df_kwds=dict(header=0))
+        self._check_vs_read_df(self.m1.tolist(),
+                               Coords(0, 0), Coords(4, 5),
+                               parse_df_kwds=dict(header=0))
+
+    def _check_vs_read_df_multiindex(self, table, xlref, pd_write_kwds={}, pd_read_kwds={}):
+        with self.sample_xl_file(table, **pd_write_kwds) as xl_file:
+            pd_df = pd.read_excel(xl_file, 'Sheet1', **pd_read_kwds)
+
+            xlrd_book = xlrd.open_workbook(xl_file)
+            sheet = xd.XlrdSheet(xlrd_book.sheet_by_name('Sheet1'), xl_file)
+            js = json.dumps(['df', pd_read_kwds])
+            xlref_df = _l.lasso(xlref + js, sheet=sheet)
+            print(xlref_df, pd_df, sep='\n')
+            assert_frame_equal(xlref_df, pd_df)
+
+    @ddt.data(
+        (1, 0, 0, 0, '#:', {}, {}),
+        (1, 0, 1, 0, '#:', {}, {}),
+        (1, 0, 0, 0, '#:', {}, {'index_col': [0, 1]}),
+        (0, 1, 0, 0, '#:', {}, {'header': [0, 1]}),
+        (0, 1, 0, 1, '#:', {}, {'header': [0, 1]}),
+        (1, 1, 0, 0, '#:', {}, {'header': [0, 1]}),
+        (1, 1, 1, 0, '#:', {}, {'header': [0, 1]}),
+        (1, 1, 0, 1, '#:', {}, {'header': [0, 1]}),
+        (1, 1, 1, 1, '#:', {}, {'header': [0, 1]}),
+        (1, 1, 1, 1, '#:', {}, {'index_col': [0, 1], 'header': [0, 1]}),
+    )
+    def test_vs_read_df_multiindex(self, case):
+        ax0, ax1, name0, name1, xlref, pd_write_kwds, pd_read_kwds = case
+        table = pd.DataFrame(self.m1)
+        if ax0:
+            table.index = pd.MultiIndex.from_arrays(
+                ([list('aabb'), list('ABAB')]))
+            if name0:
+                table.index.names = ['R1', 'R2']
+        if ax1:
+            table.columns = pd.MultiIndex.from_arrays(
+                ([list('ccdde'), list('CDCDC')]))
+            if name1:
+                table.columns.names = ['C1', 'C2']
+        self._check_vs_read_df_multiindex(table, xlref,
+                                          pd_write_kwds=pd_write_kwds,
+                                          pd_read_kwds=pd_read_kwds)
 
 
 @unittest.skipIf(not is_excel_installed, "Cannot test xlwings without MS Excel.")
