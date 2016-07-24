@@ -2112,13 +2112,15 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
 
     @unittest.skipIf(sys.version_info < (3, 4), "no `assertLogs` in Py2!")
     def test_subfilter(self):
+        search_str = '4.14'
         with self.assertLogs(level=logging.INFO) as logass:
             _l.lasso('tests/recursive.xlsx#^^:"recurse"')
             for s in logass.output:
-                if '4.14' in s:
+                if search_str in s:
                     break
             else:
-                self.fail("'py' filter did not produce anything!")
+                self.fail("'py' filter did not produce %s! %s" %
+                          (search_str, logass.output))
 
     @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     def test_lasso_then_pyeval(self):
