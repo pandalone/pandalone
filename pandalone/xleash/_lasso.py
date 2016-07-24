@@ -288,14 +288,20 @@ def make_default_Ranger(sheets_factory=None,
             a new :class:`SheetsFactory` is created.
             Remember to invoke its :meth:`SheetsFactory.close()` to clear
             resources from any opened sheets.
-    :param dict or None base_opts:
+
+    :param base_opts:
             Default opts to affect the lassoing, to be merged with defaults;
             uses :func:`get_default_opts()`.
 
             Read the code to be sure what are the available choices :-(.
-    :param dict or None available_filters:
+    :type base_opts:
+            dict or None
+
+    :param available_filters:
             The available :term:`filters` to specify a :term:`xl-ref`.
             Uses :func:`get_default_filters()` if unspecified.
+    :type available_filters:
+            dict or None
 
 
     For instance, to make you own sheets-factory and override options,
@@ -337,16 +343,23 @@ def lasso(xlref,
             the new :class:`SheetsFactory` created is closed afterwards.
             Delegated to :func:`make_default_Ranger()`, so items override
             default ones; use a new :class:`Ranger` if that is not desired.
-    :ivar dict or None base_opts:
+
+    :ivar base_opts:
             Opts affecting the lassoing procedure that are deep-copied and used
             as the base-opts for every :meth:`Ranger.do_lasso()`, whether invoked
             directly or recursively by :func:`recursive_filter()`.
             Read the code to be sure what are the available choices.
             Delegated to :func:`make_default_Ranger()`, so items override
             default ones; use a new :class:`Ranger` if that is not desired.
-    :param dict or None available_filters:
+    :type base_opts:
+            dict or None
+
+    :param available_filters:
             Delegated to :func:`make_default_Ranger()`, so items override
             default ones; use a new :class:`Ranger` if that is not desired.
+    :type available_filters:
+            dict or None
+
     :param bool return_lasso:
             If `True`, values are contained in the returned Lasso instance,
             along with all other artifacts of the :term:`lassoing` procedure.
@@ -368,8 +381,6 @@ def lasso(xlref,
     factory_is_mine = not sheets_factory
     if base_opts is None:
         base_opts = get_default_opts()
-    if available_filters is None:
-        available_filters = _filter.get_default_filters()
 
     try:
         ranger = make_default_Ranger(sheets_factory=sheets_factory,
