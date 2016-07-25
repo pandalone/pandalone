@@ -15,10 +15,10 @@ import unittest
 from pandalone.components import (Assembly, FuncComponent, Pstep)
 import pandalone.components
 from pandalone.mappings import pmods_from_tuples
-from tests._tutils import _init_logging
+from tests._tutils import init_logging
 
 
-log = _init_logging(__name__)
+log = init_logging(__name__)
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")

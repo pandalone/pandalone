@@ -24,7 +24,7 @@ DEFAULT_LOG_LEVEL = logging.INFO
 
 
 # TODO: Make it public
-def _init_logging(module_name, loglevel=DEFAULT_LOG_LEVEL):
+def init_logging(module_name, loglevel=DEFAULT_LOG_LEVEL):
     logging.basicConfig(level=loglevel)
     logging.getLogger().setLevel(level=loglevel)
 

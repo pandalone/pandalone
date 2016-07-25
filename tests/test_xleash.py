@@ -48,7 +48,7 @@ except ImportError:
     from mock import MagicMock, sentinel
 
 
-log = _tutils._init_logging(__name__)
+log = _tutils.init_logging(__name__)
 is_excel_installed = _tutils.check_excell_installed()
 _l.CHECK_CELLTYPE = True
 mydir = osp.dirname(__file__)

@@ -12,7 +12,7 @@ import unittest
 
 from future import utils as fututils  # @UnresolvedImport
 from pandalone import utils
-from tests._tutils import _init_logging
+from tests._tutils import init_logging
 
 
 try:
@@ -22,7 +22,7 @@ except (ImportError, NotImplementedError):
     pass
 
 
-log = _init_logging(__name__)
+log = init_logging(__name__)
 
 
 @unittest.skip("Development paused temporarily.")

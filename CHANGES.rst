@@ -49,8 +49,12 @@ Rejected TODOs:
 Changelog
 =========
 
-- v0.1.12 (Apr-2016):
-    - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
+- v0.1.12 (July-2016):
+    - xleash:
+      - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
+      - FIX #7, updating ``"df"`` filter to read multi-index excel-tables
+        that is supported since ``pandas-v0.16.x```.
+
     - Mark as "beta" in python trove-classifiers - del non-release opening note.
 
 - v0.1.11 (Apr-2016):

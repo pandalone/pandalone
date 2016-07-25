@@ -22,10 +22,10 @@ from pandalone.pandata import (JSONCodec, iter_jsonpointer_parts,
                                iter_jsonpointer_parts_relaxed, escape_jsonpointer_part,
                                unescape_jsonpointer_part)
 import pandas as pd
-from tests._tutils import _init_logging
+from tests._tutils import init_logging
 
 
-log = _init_logging(__name__)
+log = init_logging(__name__)
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
