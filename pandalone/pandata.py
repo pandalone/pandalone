@@ -1203,9 +1203,9 @@ def resolve_path(doc, path, default=_scream, root=None):
         3.14
 
         >>> resolve_path(dt, 'df/V')
-        0    1
-        1    1
-        2    1
+        0    1.0
+        1    1.0
+        2    1.0
         Name: V, dtype: float64
 
         >>> resolve_path(dt, '/pi/BAD', 'Hi!')

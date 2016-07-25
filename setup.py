@@ -65,20 +65,22 @@ def read_text_lines(fname):
         return fd.readlines()
 
 
-def yield_sphinx_only_markup(lines):
+def yield_rst_only_markup(lines):
     """
     :param file_inp:     a `filename` or ``sys.stdin``?
     :param file_out:     a `filename` or ``sys.stdout`?`
 
     """
+    # TODO: Change role substitution from Sphinx black-list to RsT white-list.
     substs = [
         # Selected Sphinx-only Roles.
         #
         (r':abbr:`([^`]+)`',        r'\1'),
-        (r':ref:`([^`]+)`',         r'ref:`\1`_'),
+        (r':ref:`([^`]+)`',         r'ref: *\1*'),
         (r':term:`([^`]+)`',        r'**\1**'),
         (r':dfn:`([^`]+)`',         r'**\1**'),
-        (r':(samp|guilabel|menuselection):`([^`]+)`',        r'``\2``'),
+        (r':(samp|guilabel|menuselection|doc|file|func|mod|class'
+         r'|program|envvar|command):`([^`]+)`', r'\1``\2``'),
 
 
         # Sphinx-only roles:
@@ -86,7 +88,7 @@ def yield_sphinx_only_markup(lines):
         #        :a:foo:`bar` XXX afoo(``bar``)
         #
         #(r'(:(\w+))?:(\w+):`([^`]*)`', r'\2\3(``\4``)'),
-        (r':(\w+):`([^`]*)`', r'\1(`\2`)'),
+        #(r':(\w+):`([^`]*)`', r'\1(`\2`)'),
 
 
         # Sphinx-only Directives.
@@ -126,7 +128,7 @@ proj_ver = read_project_version()
 
 readme_lines = read_text_lines('README.rst')
 description = readme_lines[1]
-long_desc = ''.join(yield_sphinx_only_markup(readme_lines))
+long_desc = ''.join(yield_rst_only_markup(readme_lines))
 # Trick from: http://peterdowns.com/posts/first-time-with-pypi.html
 download_url = 'https://github.com/%s/%s/tarball/v%s' % (
     proj_name, proj_name, proj_ver)
@@ -141,7 +143,7 @@ install_requires = [
     'openpyxl==1.8.6',  # TODO: openpyxl-444 & pandas-10125
     'Pillow',  # For UI About boxes
     'doit >= 0.28',
-    'easygui',
+    'easygui != 0.98',
 ]
 if not os.environ.get('READTHEDOCS') == 'True':
     install_requires.append('sphinx_rtd_theme')

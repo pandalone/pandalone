@@ -8,15 +8,20 @@
 
 import doctest
 import os
-import pandalone
 import re
+import subprocess
 import sys
+import os.path as osp
 import unittest
+from unittest.mock import patch
+
+import pandalone
 
 
-mydir = os.path.dirname(__file__)
-readme_path = os.path.join(mydir, '..', 'README.rst')
-tutorial_path = os.path.join(mydir, '..', 'doc', 'tutorial.rst')
+mydir = osp.dirname(__file__)
+proj_path = osp.normpath(osp.join(mydir, '..'))
+readme_path = osp.join(proj_path, 'README.rst')
+tutorial_path = osp.join(proj_path, 'doc', 'tutorial.rst')
 
 
 @unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
@@ -32,7 +37,7 @@ class Doctest(unittest.TestCase):
     def test_README_version_opening(self):
         ver = pandalone.__version__
         header_len = 20
-        mydir = os.path.dirname(__file__)
+        mydir = osp.dirname(__file__)
         with open(readme_path) as fd:
             for i, l in enumerate(fd):
                 if ver in l:
@@ -44,7 +49,7 @@ class Doctest(unittest.TestCase):
     def test_README_reldate_opening(self):
         reldate = pandalone.__updated__
         header_len = 20
-        mydir = os.path.dirname(__file__)
+        mydir = osp.dirname(__file__)
         with open(readme_path) as fd:
             for _, l in zip(range(header_len), fd):
                 if reldate in l:
@@ -55,7 +60,7 @@ class Doctest(unittest.TestCase):
 
     def test_README_version_cmdline(self):
         ver = pandalone.__version__
-        mydir = os.path.dirname(__file__)
+        mydir = osp.dirname(__file__)
         with open(readme_path) as fd:
             ftext = fd.read()
             m = re.search(
@@ -63,3 +68,17 @@ class Doctest(unittest.TestCase):
             self.assertIsNotNone(m,
                                  "Version(%s) not found in README cmd-line version-check!" %
                                  ver)
+
+    def test_README_as_PyPi_landing_page(self):
+        from docutils import core as dcore
+
+        long_desc = subprocess.check_output(
+            'python setup.py --long-description'.split(),
+            cwd=proj_path)
+        self.assertIsNotNone(long_desc, 'Long_desc is null!')
+
+        with patch('sys.exit'):
+            dcore.publish_string(long_desc, enable_exit_status=False,
+                                 settings_overrides={  # see `docutils.frontend` for more.
+                                     'halt_level': 2  # 2=WARN, 1=INFO
+                                 })
