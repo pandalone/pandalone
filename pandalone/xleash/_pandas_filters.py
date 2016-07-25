@@ -162,6 +162,9 @@ def _df_filter(ranger, lasso, header=0, skiprows=None, names=None,
     if pdcom.is_list_like(header) and len(header) > 1:
         has_index_names = True
 
+    # Pandaas expect '' instead of `None`!
+    data = [['' if c is None else c for c in r] for r in data]
+
     # GH 12292 : error when read one empty column from excel file
     try:
         parser = pdparsers.TextParser(data, header=header, index_col=index_col,

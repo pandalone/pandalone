@@ -2242,8 +2242,9 @@ class T19VsPandas(unittest.TestCase, _tutils.CustomAssertions):
             xlrd_book = xlrd.open_workbook(xl_file)
             sheet = xd.XlrdSheet(xlrd_book.sheet_by_name('Sheet1'), xl_file)
             js = json.dumps(['df', pd_read_kwds])
-            xlref_df = _l.lasso(xlref + js, sheet=sheet)
-            print(xlref_df, pd_df, sep='\n')
+            xlref += js
+            xlref_df = _l.lasso(xlref, sheet=sheet)
+            #print(xlref_df, pd_df, sep='\n')
             assert_frame_equal(xlref_df, pd_df)
 
     @ddt.data(
