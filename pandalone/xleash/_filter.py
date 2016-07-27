@@ -367,7 +367,8 @@ def _recurse_element_func(ranger, lasso, context, elval):
     return proced, lasso
 
 
-def recursive_filter(ranger, lasso, *filters, **kwds):
+def recursive_filter(ranger, lasso, filters=(), include=None, exclude=None,
+                     depth=-1):
     """
     A :term:`element-wise-filter` that expand recursively any :term:`xl-ref` strings elements in :term:`capture-rect` values.
 
@@ -384,19 +385,9 @@ def recursive_filter(ranger, lasso, *filters, **kwds):
             If `< 0`, no limit. If 0, stops completely.
             See :func:`run_filter_elementwise()`.
 
-    Note that in python-3 the signature would be::
-
-        def recursive_filter(ranger, lasso, element_func, filters,
-                             include=None, exclude=None, depth=-1):
     """
-    include = kwds.pop('include', None)
-    exclude = kwds.pop('exclude', None)
-    depth = kwds.pop('depth', -1)
     return run_filter_elementwise(ranger, lasso, _recurse_element_func,
-                                  filters,
-                                  include=include,
-                                  exclude=exclude,
-                                  depth=depth)
+                                  filters, include, exclude, depth)
 
 
 ast_log_writer = LoggerWriter(logging.getLogger('%s.pyeval' % __name__),
@@ -445,7 +436,8 @@ def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
     return proced, lasso
 
 
-def pyeval_filter(ranger, lasso, *filters, **kwds):
+def pyeval_filter(ranger, lasso, filters=(), eval_all=False,
+                  include=None, exclude=None, depth=-1):
     """
     A :term:`element-wise-filter` that uses :mod:`asteval` to evaluate string values as python expressions.
 
@@ -477,11 +469,6 @@ def pyeval_filter(ranger, lasso, *filters, **kwds):
             If `< 0`, no limit. If 0, stops completely.
             See :func:`run_filter_elementwise()`.
 
-    Note that in python-3 the signature woudl be::
-
-        def pyeval_filter(ranger, lasso, element_func, filters,
-                             include=None, exclude=None, depth=-1):
-
     Example::
 
         >>> expr = '''
@@ -496,15 +483,8 @@ def pyeval_filter(ranger, lasso, *filters, **kwds):
                [ 0.05,  0.03,  0.01,  0.01],
                [ 0.05,  0.03,  0.01,  0.01]])
     """
-    include = kwds.pop('include', None)
-    exclude = kwds.pop('exclude', None)
-    depth = kwds.pop('depth', -1)
-    eval_all = kwds.pop('eval_all', False)
     return run_filter_elementwise(ranger, lasso, _pyeval_element_func,
-                                  filters,
-                                  include=include,
-                                  exclude=exclude,
-                                  depth=depth,
+                                  filters, include, exclude, depth,
                                   eval_all=eval_all)
 
 

@@ -248,24 +248,10 @@ class SheetsFactory(object):
     - To avoid opening non-trivial workbooks, use the :meth:`add_sheet()`
       to pre-populate this cache with them.
 
-    - The last sheet added becomes the *current-sheet*, and will be
-      served when :term:`xl-ref` does not specify any workbook and sheet.
-
-      .. Tip::
-          For the simplest API usage, try this::
-
-              >>> sf = SheetsFactory()
-              >>> sf.add_sheet(some_sheet)              # doctest: +SKIP
-              >>> lasso('A1:C3(U)', sf)                 # doctest: +SKIP
-
-    - The *current-sheet* is served only when wokbook-id is `None`, that is,
-      the id-pair ``('foo.xlsx', None)`` does not hit it, so those ids
-      are send to the cache as they are.
-
     - To add another backend, modify the opening-sheets logic (ie clipboard),
       override :meth:`_open_sheet()`.
 
-    - It is a resource-manager for contained sheets, wo it can be used wth
+    - It is a resource-manager for contained sheets, so it can be used wth
       a `with` statement.
 
     """
