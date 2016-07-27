@@ -1036,7 +1036,7 @@ class T08Sheet(unittest.TestCase):
         def get_sheet_ids(self):
             raise NotImplementedError()
 
-        def list_sibling_sheetnames(self):
+        def list_sheetnames(self):
             return []
 
         def read_rect(self, st, nd):

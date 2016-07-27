@@ -203,7 +203,7 @@ class XlrdSheet(ABCSheet):
                                             self.book_fname, sheet_id,
                                             opts)
 
-    def list_sibling_sheetnames(self):
+    def list_sheetnames(self):
         return self._sheet.book.sheet_names()
 
     def _read_states_matrix(self):

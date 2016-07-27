@@ -21,7 +21,6 @@ TODOs
             - [ ] Extend RC-coords: ^-1, _[-6], .-4
                 - [ ] Cell becomes 4-tuple.
             - [ ] Expand meander `@`?
-            - [X] API returning sheet-names.
         - filters:
             - [ ] Slices and Index args on 'numpy' and 'df' filters.
         - [ ] Xlrd-read with slices.
@@ -45,6 +44,8 @@ Rejected TODOs:
     - Use *ast* library for filters; cannot extract safely opts.
     - Build Lasso-structs trees on `recursive` filter for debugging; carefully
       crafted exception-messages is enough.
+    - Add API for returning sheet-names: ``SheetsFactory.list_sheetnames()``
+      and ``Sheet.list_sheetnames()``.
 
 
 Changelog

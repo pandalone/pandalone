@@ -129,7 +129,7 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
         """Return a sibling sheet by the given index or name"""
 
     @abstractmethod
-    def list_sibling_sheetnames(self, opts=None):
+    def list_sheetnames(self, opts=None):
         """Return a list of names"""
 
     @abstractmethod
@@ -224,7 +224,7 @@ class ArraySheet(ABCSheet):
     def get_sheet_ids(self):
         return self._ids
 
-    def list_sibling_sheetnames(self):
+    def list_sheetnames(self):
         return [self._ids.ids[0]]
 
     def _read_states_matrix(self):
