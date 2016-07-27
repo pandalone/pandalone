@@ -1036,6 +1036,9 @@ class T08Sheet(unittest.TestCase):
         def get_sheet_ids(self):
             raise NotImplementedError()
 
+        def list_sibling_sheetnames(self):
+            return []
+
         def read_rect(self, st, nd):
             return [[]]
 
@@ -2070,6 +2073,12 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         logging.basicConfig(level=0)
         logging.getLogger().setLevel(0)
         pass
+
+    def test_list_sibling_sheetnames(self):
+        fpath = osp.abspath('tests/recursive.xlsx')
+        shfac = _s.SheetsFactory()
+        shnames = shfac.list_sheetnames(fpath)
+        self.assertEqual(shnames, ['2', '3', 'Sheet4', 'eval sheet', 'e2'])
 
     def test_real_absolute_file(self):
         fpath = osp.abspath('tests/recursive.xlsx')

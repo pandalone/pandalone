@@ -165,6 +165,13 @@ def open_sheet(wb_url, sheet_id, opts):
     return _open_sheet_by_name_or_index(book, wb_url, sheet_id, opts)
 
 
+def list_sheetnames(wb_id, opts=None):
+    if not opts:
+        opts = {}
+    # TODO: QnD list_sheetnames()!
+    return xlrd.open_workbook(wb_id, **opts).sheet_names()
+
+
 class XlrdSheet(ABCSheet):
     """
     The *xlrd* workbook wrapper required by xleash library.
@@ -195,6 +202,9 @@ class XlrdSheet(ABCSheet):
         return _open_sheet_by_name_or_index(self._sheet.book,
                                             self.book_fname, sheet_id,
                                             opts)
+
+    def list_sibling_sheetnames(self):
+        return self._sheet.book.sheet_names()
 
     def _read_states_matrix(self):
         """See super-method. """

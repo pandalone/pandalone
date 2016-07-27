@@ -129,6 +129,10 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
         """Return a sibling sheet by the given index or name"""
 
     @abstractmethod
+    def list_sibling_sheetnames(self, opts=None):
+        """Return a list of names"""
+
+    @abstractmethod
     def _read_states_matrix(self):
         """
         Read the :term:`states-matrix` of the wrapped sheet.
@@ -219,6 +223,9 @@ class ArraySheet(ABCSheet):
 
     def get_sheet_ids(self):
         return self._ids
+
+    def list_sibling_sheetnames(self):
+        return [self._ids.ids[0]]
 
     def _read_states_matrix(self):
         if not self._arr.size:
@@ -365,7 +372,12 @@ class SheetsFactory(object):
 
         return sheet
 
-    def _open_sheet(self, wb_id, sheet_id, opts):
+    def list_sheetnames(self, wb_id, opts=None):
+        """OVERRIDE THIS to change backend."""
+        from . import _xlrd
+        return _xlrd.list_sheetnames(wb_id, opts)
+
+    def _open_sheet(self, wb_id, sheet_id, opts):  # =None):
         """OVERRIDE THIS to change backend."""
         from . import _xlrd
         return _xlrd.open_sheet(wb_id, sheet_id, opts)

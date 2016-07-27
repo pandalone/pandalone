@@ -21,7 +21,7 @@ TODOs
             - [ ] Extend RC-coords: ^-1, _[-6], .-4
                 - [ ] Cell becomes 4-tuple.
             - [ ] Expand meander `@`?
-            - [ ] API returning sheet-names.
+            - [X] API returning sheet-names.
         - filters:
             - [ ] Slices and Index args on 'numpy' and 'df' filters.
         - [ ] Xlrd-read with slices.
