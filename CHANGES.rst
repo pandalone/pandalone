@@ -51,7 +51,7 @@ Rejected TODOs:
 Changelog
 =========
 
-- v0.1.12 (July-2016):
+- v0.1.12 (July-2016): Finikounta release
     - xleash:
       - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
       - #7: FIX ``"df"`` filter to read multi-index excel-tables
