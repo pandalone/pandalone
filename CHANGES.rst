@@ -21,6 +21,7 @@ TODOs
             - [ ] Extend RC-coords: ^-1, _[-6], .-4
                 - [ ] Cell becomes 4-tuple.
             - [ ] Expand meander `@`?
+            - [ ] API returning sheet-names.
         - filters:
             - [ ] Slices and Index args on 'numpy' and 'df' filters.
         - [ ] Xlrd-read with slices.
@@ -52,23 +53,32 @@ Changelog
 - v0.1.12 (July-2016):
     - xleash:
       - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
-      - FIX #7, updating ``"df"`` filter to read multi-index excel-tables
+      - #7: FIX ``"df"`` filter to read multi-index excel-tables
         that is supported since ``pandas-v0.16.x```.
 
     - Mark as "beta" in python trove-classifiers - del non-release opening note.
 
+
 - v0.1.11 (Apr-2016):
     - Fix regression on install-dependencies.
 
+
 - v0.1.10 (Apr-2016):
-    - xleash,#6,#8: Gracefully handle absolute-paths & file-URLs, sheets without
-      rects, and always return ``[]`` on empty sheets.
+    - xleash:
+      - #6: Gracefully handle absolute-paths & file-URLs.
+      - #8: Accept xlrefs with only sheets (without rect edges)s.
+      - #9: always return [] on empty sheets.
+      - **Known issues:** TCs related to asteval and pandas-multi-indexing fail
+        and need investigation/fixing respectively.
+
     - pandata: Add ``resolve_path()`` supporting also relative-paths.
     - TravisCI: Run TCs also on *py3.5*, stop testing on *py3.3*.
-    - Known issues: Dev-dependencies required for installation (regression).
+    - **Known issues:** Dev-dependencies required for installation (regression).
+
 
 - v0.1.9 (Dec-2015):
     - pstep: Add ``pstep_from_df()`` utility.
+
 
 - v0.1.8 (Sep-2015):
     - deps: Do not require flake8.
