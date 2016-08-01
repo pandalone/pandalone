@@ -42,10 +42,23 @@ conditional `traversing` operations, based on the cell's empty/full `state`.
 For instance, to extract a contigious table near the ``A1`` cell,
 and make a ``pandas.DataFrame`` out of it use this::
 
-    from pandalone import xleash
+    from pandalone import xleash, SheetsFactory
 
-    df = xleash.lasso('path/to/workbook.xlsx#A1(DR):..(DR):LU:["df"]')
+    shfac = SheetsFactory()
+    shfac.list_sheetnames(''path/to/workbook.xlsx')
+    [Sheet1', ...]
 
+    ## Search and capture the first contiguous table from the 1st sheet
+    #  as a pandas-DataFrame:
+    df = xleash.lasso('path/to/workbook.xlsx#0!A1(DR):..(DR):RLDU:["df"]',
+                      sheets_factory=shfac)
+
+    ## Assuming the sheet contain a single table, a lone `:` fetches
+    #  the same contents.  Additionally, it is possible
+    #  to skip the sheetname/sheet-index (1st 1st sheet implied).
+    df = xleash.lasso('#:["df"]',
+                      url_file=path/to/workbook.xlsx,
+                      sheets_factory=shfac)
 
 Xl-ref Syntax
 -------------

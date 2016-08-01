@@ -24,6 +24,8 @@ TODOs
         - filters:
             - [ ] Slices and Index args on 'numpy' and 'df' filters.
         - [ ] Xlrd-read with slices.
+        - [x] Add API for returning sheet-names.
+        - [ ] Use weak-refs for SheetsFactory (thanks Vinz)
     - Struct:
         - [ ] Plugins for backends (& syntax?)
     - TCs
@@ -40,41 +42,44 @@ TODOs
 Rejected TODOs:
 ---------------
 - xleash
-    - Support cubic areas; pandas create dict-of-dfs from multiple sheets.
-    - Use *ast* library for filters; cannot extract safely opts.
-    - Build Lasso-structs trees on `recursive` filter for debugging; carefully
-      crafted exception-messages is enough.
-    - Add API for returning sheet-names: ``SheetsFactory.list_sheetnames()``
-      and ``Sheet.list_sheetnames()``.
+  - Support cubic areas; pandas create dict-of-dfs from multiple sheets.
+  - Use *ast* library for filters; cannot extract safely opts.
+  - Build Lasso-structs trees on `recursive` filter for debugging; carefully
+    crafted exception-messages is enough.
 
 
 Changelog
 =========
 
-- v0.1.12 (July-2016): Finikounta release
-    - xleash:
-      - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
-      - #7: FIX ``"df"`` filter to read multi-index excel-tables
-        that is supported since ``pandas-v0.16.x```.
+v0.1.12 (July-2016): Finikounta release
+----------------------------------------
+- xleash:
+  - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
+  - #7: FIX ``"df"`` filter to read multi-index excel-tables
+    that is supported since ``pandas-v0.16.x```.
+- Add API for returning sheet-names: ``SheetsFactory.list_sheetnames()``
+  and ``Sheet.list_sheetnames()``.
 
-    - Mark as "beta" in python trove-classifiers - del non-release opening note.
+- Mark as "beta" in python trove-classifiers - del non-release opening note.
 
 
-- v0.1.11 (Apr-2016):
-    - Fix regression on install-dependencies.
+v0.1.11 (Apr-2016):
+----------------------------------------
+  - Fix regression on install-dependencies.
 
 
-- v0.1.10 (Apr-2016):
-    - xleash:
-      - #6: Gracefully handle absolute-paths & file-URLs.
-      - #8: Accept xlrefs with only sheets (without rect edges)s.
-      - #9: always return [] on empty sheets.
-      - **Known issues:** TCs related to asteval and pandas-multi-indexing fail
-        and need investigation/fixing respectively.
+v0.1.10 (Apr-2016):
+----------------------------------------
+- xleash:
+  - #6: Gracefully handle absolute-paths & file-URLs.
+  - #8: Accept xlrefs with only sheets (without rect edges)s.
+  - #9: always return [] on empty sheets.
+  - **Known issues:** TCs related to asteval and pandas-multi-indexing fail
+    and need investigation/fixing respectively.
 
-    - pandata: Add ``resolve_path()`` supporting also relative-paths.
-    - TravisCI: Run TCs also on *py3.5*, stop testing on *py3.3*.
-    - **Known issues:** Dev-dependencies required for installation (regression).
+- pandata: Add ``resolve_path()`` supporting also relative-paths.
+- TravisCI: Run TCs also on *py3.5*, stop testing on *py3.3*.
+- **Known issues:** Dev-dependencies required for installation (regression).
 
 
 - v0.1.9 (Dec-2015):
