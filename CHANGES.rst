@@ -56,10 +56,9 @@ v0.1.12 (July-2016): Finikounta release
 - xleash:
   - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
   - #7: FIX ``"df"`` filter to read multi-index excel-tables
-    that is supported since ``pandas-v0.16.x```.
+    that is supported since ``pandas-v0.16.x``.
 - Add API for returning sheet-names: ``SheetsFactory.list_sheetnames()``
   and ``Sheet.list_sheetnames()``.
-
 - Mark as "beta" in python trove-classifiers - del non-release opening note.
 
 

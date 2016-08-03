@@ -140,7 +140,7 @@ install_requires = [
     'numpy',
     'pandas',
     'xlrd',
-    'openpyxl==1.8.6',  # TODO: openpyxl-444 & pandas-10125
+    'openpyxl>=2.2',
     'Pillow',  # For UI About boxes
     'doit >= 0.28',
     'easygui != 0.98',
