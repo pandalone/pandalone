@@ -27,7 +27,9 @@ TODOs
         - [x] Add API for returning sheet-names.
         - [ ] Use weak-refs for SheetsFactory (thanks Vinz)
     - Struct:
-        - [ ] Plugins for backends (& syntax?)
+        - [x] Plugins for backends (& syntax?)
+        - [ ] Plugins for filters.
+        - [ ] Plugins for syntax?
     - TCs
         - [ ] More TCs.
     - Backends:
@@ -51,7 +53,13 @@ Rejected TODOs:
 Changelog
 =========
 
-v0.1.12 (July-2016): Finikounta release
+v0.1.13 (Aug-2016)
+----------------------------------------
+- xleash:
+  - Plugins for backends.
+
+
+v0.1.12 (1-Aug-2016): Finikounta release
 ----------------------------------------
 - xleash:
   - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).

@@ -24,8 +24,29 @@ from future.utils import with_metaclass
 import itertools as itt
 import numpy as np
 
-from .. import Coords, _capture
+from .. import Coords, _capture, io_backends
 from ...utils import as_list
+
+
+class ABCBackend(with_metaclass(ABCMeta, object)):
+    """Backend lugins should implement and add instances into :data:`io_backends`."""
+
+    @abstractmethod
+    def bid(self, wb_url, opts=None):
+        """
+        Return an integer to signify willingness to handle a workbook.
+
+        Bigger integers take precendance.
+        Return `None` to signify invalidness.
+        """
+
+    @abstractmethod
+    def open_sheet(self, wb_url, sheet_id, opts):
+        """Open a :class:`ABCSheet` subclass, if "decided"."""
+
+    @abstractmethod
+    def list_sheetnames(self, wb_id, opts=None):
+        """Returns a list of sheet-names, if bids "decided" this backend."""
 
 
 def margin_coords_from_states_matrix(states_matrix):
@@ -372,15 +393,27 @@ class SheetsFactory(object):
 
         return sheet
 
+    def _decide_backend(self, wb_id, opts=None):
+        bids = [(be, be.bid(wb_id, opts=opts))
+                for be in io_backends]
+        bids = [(be, score) for be, score in bids if score is not None]
+        if not bids:
+            raise ValueError("No suitable xleash-backend found!"
+                             "\n  Have you installed `xlrd` extra with this command?"
+                             "\n    pip install pandalone[xlrd]")
+        winner = sorted(bids, key=lambda x: x[1])[-1][0]
+        assert isinstance(winner, ABCBackend),  (
+            "Invalid backend(%r) class!" % winner)
+
+        return winner
+
     def list_sheetnames(self, wb_id, opts=None):
-        """OVERRIDE THIS to change backend."""
-        from . import _xlrd
-        return _xlrd.list_sheetnames(wb_id, opts)
+        be = self._decide_backend(wb_id, opts=opts)
+        return be.list_sheetnames(wb_id, opts)
 
     def _open_sheet(self, wb_id, sheet_id, opts):  # =None):
-        """OVERRIDE THIS to change backend."""
-        from . import _xlrd
-        return _xlrd.open_sheet(wb_id, sheet_id, opts)
+        be = self._decide_backend(wb_id, opts=opts)
+        return be.open_sheet(wb_id, sheet_id, opts)
 
     def __enter__(self):
         return self

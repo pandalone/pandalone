@@ -89,10 +89,10 @@ def obj2bool(v):
 
     Example::
 
-        >>> obj2bool(None) == obj2bool('') == False == obj2bool(0) == False
+        >>> obj2bool(None) == obj2bool('') == obj2bool(0) == False
         True
     """
-    return v and str2bool(v)
+    return bool(v) and str2bool(v)
 
 
 def is_travis():  # pragma: no cover

@@ -733,7 +733,7 @@ Plugin Extensions
 The *xleash* library already uses `setuptools entry-points
 <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_
 to attach backend :class:`Sheet` and pandas `filters`.
-Read :class:`PluginManager` to learn how to implement other plugins.
+Read :func:`init_plugins` to learn how to implement other plugins.
 
 .. default-role:: obj
 """
@@ -814,6 +814,8 @@ from ._parse import (
     parse_xlref,
 )
 
+io_backends = []
+"""Hook for plugins to append backends."""
 from .io._sheets import (
     ABCSheet, ArraySheet, margin_coords_from_states_matrix,
     SheetsFactory,
@@ -824,6 +826,8 @@ from ._capture import (
     EmptyCaptureException,
 )
 
+filters = []
+"""Hook for plugins to append filters."""
 from ._filter import (
     XLocation, get_default_filters,
     xlwings_dims_call_spec,
@@ -835,8 +839,13 @@ from ._lasso import (
 )
 
 
-class PluginManager(object):
-    """Discover, Load, activate and store *setuptools* plugins.
+_PLUGIN_GROUP_NAME = 'pandalone.xleash.plugins'
+"""Used to discover *setuptools* extension-points."""
+
+
+def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
+    """
+    Discover and load plugins.
 
     The *xleash* library already uses `setuptools entry-points
     <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_
@@ -852,102 +861,34 @@ class PluginManager(object):
             # ...
             entry_points = {
                 'pandalone.xleash.plugins': [
-                    '<plugin-name> = <my.plugin.module>:<plugin-load-func>
+                    'plugin_1 = <foo.plugin.module>:<plugin-load-func>
+                    'plugin_2 = <bar.plugin.module>
                 ]
             }
         )
 
-    The plugins are initialzed during *import time* in :meth:`init_plugins()`
-    using, optinally, a 2-stage procedure.  The 2nd-stage is for plugins
-    requiring to modify other plugins or performing complex
-    The 1st-stage, below, explains the semantics of the `<plugin-load-func>`
-    function.
 
-    1st plugin-stage: Loading
-    -------------------------
-    Invoke the ``<plugin-load-func>`` on each plugin-module and, if successfull,
-    append into :attr:`loaded_plugins` list.  The ``<plugin-load-func>`` must
-    return ``None`` or a 2-tuple like this::
+    Implementing a plugin
+    ---------------------
+    The plugins are initialzed during *import time* in :func:`init_plugins()`.
+    A plugin MAY specify a ``<plugin-load-func>`` to be called after loading
+    its module, which must have this signature::
 
-        def <plugin-load-func>(plugin_manager) --> (<plugin-instance>, <priority-integer>)
+        def <plugin-load-func>()
 
-    - If ``<plugin-load-func>`` return ``None``, then the 2nd-stage
-      is not executed, and the plugin is assumed to be already activated.
-    - If ``<plugin-load-func>`` return a 2-tuple, then the <plugin-instance>
-      must support the ``activate`` method as explained in the 2nd-stage, below.
-    - The ``<priority-integer>`` defines the order of invocations for the
-      2nd stage.
-    - The order of invocation in this phase is unspecified (the one returned
-      by *setuptools*).
-    - Do not perform any configuration-tasks here - it is just for defining the
-      order of activation.
-
-
-    2nd plugin-stage: Activation
-    ----------------------------
-    Store and invoke ``activate(plugin_manager)`` on all non-null ``<plugin-instance>``
-    collected during phase-1 above, and if successfull, append their infos into
-    :attr:`activated_plugins` list.
-
-    - The order of invocation respects the ``<priority-integer>``; smaller values
-      take precendence.
-    - Regular plugin configuration tasks must happen here, eg. updating hooks,.
-      including the detection of presence and/or modification of other plugins
-      present in the :attr:`loaded_plugins` list.
     """
 
-    loaded_plugins = []
-    """
-    A list of 3-tuple ``( <plugin-load-func>, <priority-integer>, <plugin-activator> )``
-    populated during the 1st-stage by :meth:`init_plugins()`; the order
-    is insignificant.
-    """
-    activated_plugins = []
-    """
-    All activated plugins instances, sorted by ``<priority-integer>`` and
-    populated during the 2nd-stage by :meth:`init_plugins()`.
-    """
+    for ep in pkg_resources.working_set.iter_entry_points(plugin_group_name):
+        try:
+            plugin_loader = ep.load()
+            if callable(plugin_loader):
+                plugin_loader()
+            log.info('Loaded plugin(%r@%s).', ep, ep.dist)
+        except Exception as ex:
+            log.error('Failed loading plugin(%r) due to: %s',
+                      ep, ex, exc_info=1)
 
-    def __init__(self, plugin_group_name):
-        self.plugin_group_name = plugin_group_name
-
-    def init_plugins(self):
-        """Discover, load and activate plugins."""
-        for ep in pkg_resources.working_set.iter_entry_points(
-                self.plugin_group_name):
-            try:
-                plugin_loader = ep.load()
-                res = plugin_loader(self)
-                if res:
-                    plugin_activator, priority = res
-                    self.loaded_plugins.append(
-                        (ep, priority, plugin_activator))
-            except Exception as ex:
-                log.error('Failed LOADING plugin(%r) due to: %s',
-                          ep, ex, exc_info=1)
-
-        for ep, priority, plugin in sorted(self.loaded_plugins,
-                                           key=lambda p: p[1]):
-            try:
-                plugin.activate(self)
-                self.activated_plugins.append(plugin)
-            except Exception as ex:
-                log.error('Failed ACTIVATING plugin(%r) due to: %s',
-                          ep, ex, exc_info=1)
-
-
-_PLUGIN_GROUP_NAME = 'pandalone.xleash.plugins'
-"""Used to discover *setuptools* extension-points."""
-
-
-def _init_plugins(plugin_group_name=None):
-    pm = PluginManager(plugin_group_name or _PLUGIN_GROUP_NAME)
-    pm.init_plugins()
-
-    return pm
-
-
-_plugin_manager = _init_plugins()
+_init_plugins()
 
 __all__ = [
     'resolve_capture_rect', 'ABCSheet', 'ArraySheet', 'coords2Cell',
