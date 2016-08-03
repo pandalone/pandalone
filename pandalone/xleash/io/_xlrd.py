@@ -40,49 +40,6 @@ else:
     _xlrd_0_9_3 = False
 
 
-def load_plugin():
-    io_backends.append(Backend())
-
-
-class Backend(ABCBackend):
-
-    def bid(self, wb_url, opts=None):
-        return 100
-
-    def open_sheet(self, wb_url, sheet_id, opts):
-        """
-        Opens the local or remote `wb_url` *xlrd* workbook wrapped as :class:`XlrdSheet`.
-        """
-        assert wb_url, (wb_url, sheet_id, opts)
-        ropts = opts.get('read', {})
-        if ropts:
-            ropts = ropts.copy()
-        if 'logfile' not in ropts:
-            level = logging.INFO if opts.get(
-                'verbose', None) else logging.DEBUG
-            ropts['logfile'] = utils.LoggerWriter(log, level)
-        parts = filename = urlsplit(wb_url)
-        if osp.isfile(wb_url) or not parts.scheme or parts.scheme == 'file':
-            fpath = osp.abspath(osp.expanduser(osp.expandvars(parts.path)))
-            log.info('Opening book %r...', fpath)
-            book = xlrd.open_workbook(fpath, **ropts)
-        else:
-            ropts.pop('on_demand', None)
-            http_opts = ropts.get('http_opts', {})
-            with request.urlopen('file://' + wb_url, **http_opts) as response:
-                log.info('Opening book %r...', filename)
-                book = xlrd.open_workbook(
-                    filename, file_contents=response, **ropts)
-
-        return _open_sheet_by_name_or_index(book, wb_url, sheet_id, opts)
-
-    def list_sheetnames(self, wb_id, opts=None):
-        if not opts:
-            opts = {}
-        # TODO: QnD list_sheetnames()!
-        return xlrd.open_workbook(wb_id, **opts).sheet_names()
-
-
 def _parse_cell(xcell, epoch1904=False):
     """
     Parse a xl-xcell.
@@ -252,3 +209,46 @@ class XlrdSheet(ABCSheet):
                 row.append(None)
 
         return table
+
+
+class XlrdBackend(ABCBackend):
+
+    def bid(self, wb_url, opts=None):
+        return 100
+
+    def open_sheet(self, wb_url, sheet_id, opts):
+        """
+        Opens the local or remote `wb_url` *xlrd* workbook wrapped as :class:`XlrdSheet`.
+        """
+        assert wb_url, (wb_url, sheet_id, opts)
+        ropts = opts.get('read', {})
+        if ropts:
+            ropts = ropts.copy()
+        if 'logfile' not in ropts:
+            level = logging.INFO if opts.get(
+                'verbose', None) else logging.DEBUG
+            ropts['logfile'] = utils.LoggerWriter(log, level)
+        parts = filename = urlsplit(wb_url)
+        if osp.isfile(wb_url) or not parts.scheme or parts.scheme == 'file':
+            fpath = osp.abspath(osp.expanduser(osp.expandvars(parts.path)))
+            log.info('Opening book %r...', fpath)
+            book = xlrd.open_workbook(fpath, **ropts)
+        else:
+            ropts.pop('on_demand', None)
+            http_opts = ropts.get('http_opts', {})
+            with request.urlopen('file://' + wb_url, **http_opts) as response:
+                log.info('Opening book %r...', filename)
+                book = xlrd.open_workbook(
+                    filename, file_contents=response, **ropts)
+
+        return _open_sheet_by_name_or_index(book, wb_url, sheet_id, opts)
+
+    def list_sheetnames(self, wb_id, opts=None):
+        if not opts:
+            opts = {}
+        # TODO: QnD list_sheetnames()!
+        return xlrd.open_workbook(wb_id, **opts).sheet_names()
+
+
+def load_plugin():
+    io_backends.append(XlrdBackend())
