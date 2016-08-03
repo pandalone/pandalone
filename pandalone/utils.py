@@ -51,15 +51,13 @@ def str2bool(v):
 
     Example::
 
-        >>> str2bool('ON')
+        >>> str2bool('ON') == str2bool('on') == str2bool('12') == True
         True
-        >>> str2bool('no')
-        False
 
-        >>> str2bool('')
-        False
-        >>> str2bool('  ')
-        False
+        >>> str2bool('') == str2bool('  ') == str2bool('0') == False
+        True
+        >>> str2bool('no') == str2bool('off') == str2bool('off') == False
+        True
 
         >>> str2bool(0)
         Traceback (most recent call last):
@@ -73,12 +71,28 @@ def str2bool(v):
         vv = v.strip().lower()
         if (vv in ("yes", "true", "on")):
             return True
-        if (vv in ("no", "false", "off")):
+        if (vv in ("no", "false", "off", '0')):
             return False
         return bool(vv)
     except Exception as ex:
         msg = 'Invalid str-boolean(%s) due to: %s'
         raise ValueError(msg % (v, ex))
+
+
+def obj2bool(v):
+    """
+    Utility for parsing anything to bool.
+
+    :param v:
+            any of (case insensitive): yes/no, true/false, on/off, `None`,
+            or object, optionally with :meth:``__bool__``.
+
+    Example::
+
+        >>> obj2bool(None) == obj2bool('') == False == obj2bool(0) == False
+        True
+    """
+    return v and str2bool(v)
 
 
 def is_travis():  # pragma: no cover

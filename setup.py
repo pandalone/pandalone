@@ -228,6 +228,9 @@ setup(
         'console_scripts': [
             'pndl = %s.__main__:main' % proj_name,
         ],
+        'pandalone.xleash.plugins': [
+            'pndl = %s.xleash.io._xlrd:load_plugin' % proj_name,
+        ],
     },
     zip_safe=True,
     options={

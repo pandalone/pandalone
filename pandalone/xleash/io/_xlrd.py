@@ -40,6 +40,10 @@ else:
     _xlrd_0_9_3 = False
 
 
+def load_plugin(plugin_manager):
+    return object(), 0
+
+
 def _parse_cell(xcell, epoch1904=False):
     """
     Parse a xl-xcell.
