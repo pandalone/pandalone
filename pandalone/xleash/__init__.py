@@ -217,6 +217,7 @@ API
   .. currentmodule:: pandalone.xleash._filter
   .. autosummary::
 
+      _init_plugins
       get_default_filters
       xlwings_dims_call_spec
 
@@ -826,7 +827,7 @@ from ._capture import (
     EmptyCaptureException,
 )
 
-filters = []
+avail_filters = {}
 """Hook for plugins to append filters."""
 from ._filter import (
     XLocation, get_default_filters,
@@ -851,6 +852,8 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
     <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_
     to attach backend :class:`Sheet` and pandas `filters`.
 
+    You may re-invoke after some ``pip install <some-xleash-plugin>``.
+
     `setup.py` configurations
     -------------------------
     To implement a new plugin, you have to package your code as a regular
@@ -872,31 +875,46 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
     ---------------------
     The plugins are initialzed during *import time* in :func:`init_plugins()`.
     A plugin MAY specify a ``<plugin-load-func>`` to be called after loading
-    its module, which must have this signature::
+    all modules, which must have this signature::
 
         def <plugin-load-func>()
 
-    """
+    .. Tip::
+       When appending into "hook" lists, remember to avoid re-inserting
+       duplicate items.
 
+    """
+    plugin_loaders = []
     for ep in pkg_resources.working_set.iter_entry_points(plugin_group_name):
         try:
             plugin_loader = ep.load()
             if callable(plugin_loader):
-                plugin_loader()
+                plugin_loaders.append((ep, plugin_loader))
             log.info('Loaded plugin(%r@%s).', ep, ep.dist)
         except Exception as ex:
-            log.error('Failed loading plugin(%r) due to: %s',
-                      ep, ex, exc_info=1)
+            log.error('Failed LOADING plugin(%r@%s) due to: %s',
+                      ep, ep.dist, ex, exc_info=1)
+
+    for ep, plugin_loader in plugin_loaders:
+        try:
+            plugin_loader()
+            log.info('Launched plugin(%r@%s).', ep, ep.dist)
+        except Exception as ex:
+            log.error('Failed LAUNCHING plugin(%r@%s) due to: %s',
+                      ep, ep.dist, ex, exc_info=1)
 
 _init_plugins()
 
 __all__ = [
+    '_init_plugins', '_PLUGIN_GROUP_NAME',
+
     'resolve_capture_rect', 'ABCSheet', 'ArraySheet', 'coords2Cell',
     'EmptyCaptureException', 'margin_coords_from_states_matrix',
 
-    'lasso', 'Ranger', 'SheetsFactory',
+    'lasso', 'Ranger', 'SheetsFactory', 'io_backends',
     'make_default_Ranger',
-    'XLocation', 'get_default_opts', 'get_default_filters',
+    'XLocation', 'get_default_opts',
+    'avail_filters', 'get_default_filters',
     'Lasso',
     'xlwings_dims_call_spec',
 
