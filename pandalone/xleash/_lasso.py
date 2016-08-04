@@ -67,8 +67,9 @@ class Ranger(object):
             empty dict.
             See :func:`get_default_opts()`.
     :ivar dict or None available_filters:
-            No filters exist if unspecified.
-            See :func:`get_default_filters()`.
+            The :term:`filters` available for a :term:`xl-ref` to use.
+            If `None`, then uses those from :func:`_get_available_filters()`.
+            Use an empty dict not to use any filters.
     :ivar Lasso intermediate_lasso:
             A ``('stage', Lasso)`` pair with the last :class:`Lasso` instance
             produced during the last execution of the :meth:`do_lasso()`.
@@ -83,7 +84,9 @@ class Ranger(object):
         if base_opts is None:
             base_opts = {}
         self.base_opts = base_opts
-        self.available_filters = available_filters
+        self.available_filters = (_filter._get_available_filters()
+                                  if available_filters is None
+                                  else available_filters)
         self.intermediate_lasso = None
 
     def _relasso(self, lasso, stage, **kwds):
@@ -298,8 +301,8 @@ def make_default_Ranger(sheets_factory=None,
             dict or None
 
     :param available_filters:
-            The available :term:`filters` to specify a :term:`xl-ref`.
-            Uses :func:`get_default_filters()` if unspecified.
+            The :term:`filters` available for a :term:`xl-ref` to use.
+            (:func:`_get_available_filters()` used if unspecified).
     :type available_filters:
             dict or None
 
@@ -316,7 +319,7 @@ def make_default_Ranger(sheets_factory=None,
     """
     return Ranger(sheets_factory or _sheets.SheetsFactory(),
                   base_opts or get_default_opts(),
-                  available_filters or _filter.get_default_filters())
+                  available_filters)
 
 
 def lasso(xlref,

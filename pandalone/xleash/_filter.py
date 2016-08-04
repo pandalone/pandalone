@@ -527,7 +527,7 @@ def py_filter(ranger, lasso, expr):
     return lasso
 
 
-def get_default_filters(overrides=None):
+def _get_available_filters(overrides=None):
     """
    The default available :term:`filters` used by :func:`lasso()` when constructing its internal :class:`Ranger`.
 

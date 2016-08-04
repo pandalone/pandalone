@@ -232,6 +232,7 @@ setup(
         ],
         'pandalone.xleash.plugins': [
             'xlrd_be = pandalone.xleash.io._xlrd:load_plugin [xlrd]',
+            'pandas_filters = pandalone.xleash._pandas_filters:load_plugin [pandas]',
         ],
     },
     zip_safe=True,

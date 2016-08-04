@@ -28,7 +28,8 @@ from pandalone.xleash import (_parse as _p,
                               _capture as _c,
                               _filter as _f,
                               _lasso as _l,
-                              Lasso, Coords, EmptyCaptureException)
+                              Lasso, Coords, EmptyCaptureException,
+                              avail_filters)
 from pandalone.xleash.io import (_sheets as _s, _xlrd as xd)
 from pandas.util.testing import assert_frame_equal
 from past.builtins import basestring
@@ -1583,13 +1584,13 @@ class T13Ranger(unittest.TestCase):
 
     def test_context_sheet(self):
         sf = _s.SheetsFactory()
-        ranger = _l.Ranger(sf)
+        ranger = _l.Ranger(sf, available_filters={})
         res = ranger.do_lasso('#B2', sheet=_s.ArraySheet([[1, 2], [3, 4]]))
         self.assertEqual(res.values, 4)
 
     def test_context_sibling(self):
         sf = _s.SheetsFactory()
-        ranger = _l.Ranger(sf)
+        ranger = _l.Ranger(sf, available_filters={})
         sheet = _s.ArraySheet([[1, 2], [3, 4]])
         sheet.open_sibling_sheet = MagicMock(name='open_sibling_sheet()',
                                              return_value=sheet)
@@ -1607,7 +1608,7 @@ class T13Ranger(unittest.TestCase):
                             ids=_s.SheetId('wb2', ['sh2', 0]))
         sf.add_sheet(sh2)
 
-        ranger = _l.Ranger(sf)
+        ranger = _l.Ranger(sf, available_filters={})
         res11 = ranger.do_lasso('wb1#sh1!:')
         res2 = ranger.do_lasso('wb2#sh2!:')
         self.assertNotEqual(res11, res2)
@@ -1808,7 +1809,7 @@ class T15Recursive(unittest.TestCase):
         [[], [1, 'a', 'b'], [11, list('abc')]],
     )
     def test_dontExpand_nonDicts(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(name='do_lasso()',
                                     side_effect=lambda x, **kwds: Lasso(values=x))
         lasso = Lasso(values=vals, opts={})
@@ -1822,7 +1823,7 @@ class T15Recursive(unittest.TestCase):
         [[], [1, 'a', 'b'], [11, list('abc')]],
     )
     def test_expandNestedStrings(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1836,7 +1837,7 @@ class T15Recursive(unittest.TestCase):
         [[], set([1, 'a', 'b']), [11, tuple('abc')]],
     )
     def test_dontExpandNonLists(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1850,7 +1851,7 @@ class T15Recursive(unittest.TestCase):
         [{4: ['str', 'a', {4: [list('ab')]}]}],
     )
     def test_expandDicts_nonStrKeys(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1865,7 +1866,7 @@ class T15Recursive(unittest.TestCase):
         [{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
     )
     def test_expandDicts_preservingKeys(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1896,7 +1897,7 @@ class T15Recursive(unittest.TestCase):
         vals = [{
             'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}],
             'key11': 'bang'}]
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1915,7 +1916,7 @@ class T15Recursive(unittest.TestCase):
         [pd.DataFrame({'key1': list('abc'), 'key2': list('def')})],
     )
     def test_expandDFs(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1943,7 +1944,7 @@ class T15Recursive(unittest.TestCase):
     )
     def test_expandDicts_IncExcFilters(self, case):
         vals, incexc, exist, missing = case
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1977,7 +1978,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         expr, exp = case
         exp = exp._replace(opts={})
 
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         lasso = Lasso(values=expr, opts={})
         res = _f.pyeval_filter(ranger, lasso)
 
@@ -1993,7 +1994,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         expr, exp = case
         exp = exp._replace(opts={})
 
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         lasso = Lasso(values=expr, opts={})
         res = _f.pyeval_filter(ranger, lasso)
         self.assertEqual(res, exp)
@@ -2019,7 +2020,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
     def test_syntaxErrors(self, case):
         expr, err_msg = case
 
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         lasso = Lasso(values=expr, opts={})
         try:
             _f.pyeval_filter(ranger, lasso, eval_all=True)
@@ -2033,7 +2034,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
     @ddt.data("boo haha", "1-'tt'", "int('g')")
     def test_syntaxErrors_suppresed(self, expr):
         sf = _s.SheetsFactory()
-        ranger = _l.Ranger(sf, available_filters=_f.get_default_filters())
+        ranger = _l.Ranger(sf)
 
         lasso = Lasso(values=expr, opts={})
         _f.pyeval_filter(ranger, lasso, eval_all=False)
@@ -2042,7 +2043,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
     @ddt.data("boo haha", "1-'tt'", "int('g')")
     def test_syntaxErrors_laxing(self, expr):
         sf = _s.SheetsFactory()
-        ranger = _l.Ranger(sf, available_filters=_f.get_default_filters())
+        ranger = _l.Ranger(sf)
 
         lasso = Lasso(values=expr, opts={})
         kwds = {'lax': True}
@@ -2228,7 +2229,7 @@ class T19VsPandas(unittest.TestCase, _tutils.CustomAssertions):
 
             lasso1 = _f.redim_filter(None, lasso, row=[2, True])
 
-            df_filter = _f.get_default_filters()['df']['func']
+            df_filter = _f._get_available_filters()['df']['func']
             lasso2 = df_filter(None, lasso1, **parse_df_kwds)
 
             xlref_df = lasso2.values

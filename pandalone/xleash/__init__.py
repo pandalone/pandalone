@@ -197,10 +197,10 @@ API
   .. currentmodule:: pandalone.xleash._lasso
   .. autosummary::
 
+      Lasso
       lasso
       Ranger
       Ranger.do_lasso
-      Lasso
       make_default_Ranger
       get_default_opts
 
@@ -217,8 +217,7 @@ API
   .. currentmodule:: pandalone.xleash._filter
   .. autosummary::
 
-      _init_plugins
-      get_default_filters
+      _get_available_filters
       xlwings_dims_call_spec
 
 
@@ -244,6 +243,12 @@ API
       _sheets.ABCSheet
       _xlrd.XlrdSheet
       _xlrd.open_sheet
+
+- Plugin related
+  .. autosummary::
+      _init_plugins
+     _plugins_installed
+     _PLUGIN_GROUP_NAME
 
 .. default-role:: term
 .. currentmodule:: pandalone.xleash
@@ -830,7 +835,7 @@ from ._capture import (
 avail_filters = {}
 """Hook for plugins to append filters."""
 from ._filter import (
-    XLocation, get_default_filters,
+    XLocation, _get_available_filters,
     xlwings_dims_call_spec,
 )
 
@@ -876,11 +881,14 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
     The plugins are initialized during *import time* in a 2-stage procedure
     by :func:`init_plugins()`.
     A plugin is *loaded* and optionally *installed* if the *setup-configuration*
-    above specifies a no-args ``<plugin-install-func>`` callable.to be called
+    above specifies a no-args ``<plugin-install-func>`` callable.
     Any collected ``<plugin-install-func>`` callables are invoked AFTER all
     plugin-modules have finished loading.
 
     .. Tip::
+       For example, study this project how it sets backend and filters.
+
+    .. Warning::
        When appending into "hook" lists during installation, remember to avoid
        re-inserting duplicate items.  In general try to well-behave even when
        **plugins are initialized multiple times**!
@@ -936,7 +944,7 @@ __all__ = [
     'lasso', 'Ranger', 'SheetsFactory', 'io_backends',
     'make_default_Ranger',
     'XLocation', 'get_default_opts',
-    'avail_filters', 'get_default_filters',
+    'avail_filters', '_get_available_filters',
     'Lasso',
     'xlwings_dims_call_spec',
 
