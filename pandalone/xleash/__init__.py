@@ -488,6 +488,26 @@ Definitions
         :func:`lasso()` and those extracted from `filters` by the 'opts' key,
         and they are stored in the :class:`Lasso`.
 
+    backend
+    backends
+        *IO* level objects which provide the actual source of spreadsheet cells
+        for `capturing`.
+        Each *backend* may provide for its workbooks and sheets corresponding to
+        - to different implementations (e.g.``xlrd`` or ``xlwings`` library), or
+        - to different origins (e.g. file-based, network-based per url ).
+
+        The decision which *backend* to use is taken by the `sheet-factory` and
+        is like a "bidding" process: all *backends* are asked to provide their
+        willingness to handle some `xl-ref`.
+        For a *sibling* sheet, always the same *backend* is used.
+
+    sheets-factory
+        *IO* level object acting as the caching manager for `spreadsheets`
+        fetched from different `backends`.  The caching happens per
+        *spreadsheet*.
+
+    spreadsheet
+        *IO* level object that acts as the container of cells.
 
 Details
 =======
@@ -673,7 +693,7 @@ Plugin Extensions
 =================
 The *xleash* library already uses `setuptools entry-points
 <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_
-to attach backend :class:`Sheet` and pandas `filters`.
+to attach `backends` and pandas `filters`.
 Read :func:`init_plugins` to learn how to implement other plugins.
 
 .. default-role:: obj
@@ -822,7 +842,7 @@ from ._parse import (
 
 io_backends = []
 """Hook for plugins to append backends."""
-from .io._sheets import (
+from pandalone.xleash.io._backend import (
     ABCSheet, ArraySheet, margin_coords_from_states_matrix,
     SheetsFactory,
 )

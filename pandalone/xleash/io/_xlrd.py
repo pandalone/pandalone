@@ -28,7 +28,7 @@ import os.path as osp
 
 from .. import EmptyCaptureException, Coords, io_backends
 from ... import utils
-from ._sheets import ABCBackend, ABCSheet, SheetId
+from pandalone.xleash.io._backend import ABCBackend, ABCSheet, SheetId
 
 
 log = logging.getLogger(__name__)

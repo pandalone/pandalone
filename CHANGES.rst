@@ -28,7 +28,7 @@ TODOs
         - [ ] Use weak-refs for SheetsFactory (thanks Vinz)
     - Struct:
         - [x] Plugins for backends (& syntax?)
-        - [ ] Plugins for filters.
+        - [x] Plugins for filters.
         - [ ] Plugins for syntax?
     - TCs
         - [ ] More TCs.
@@ -56,8 +56,12 @@ Changelog
 v0.1.13 (Aug-2016)
 ----------------------------------------
 - xleash:
-  - Plugins for backends.
-
+  - Plugins for backends and filters.
+  - Packaging now supports 3 extras:
+    - ``pandas`` for filters plugins,
+    - ``xlrd`` for the typical backend plugin,
+    - ``xlwings`` for excel-utils & tests.
+  - Rename ``io._sheets --> _backend``.
 
 v0.1.12 (1-Aug-2016): Finikounta release
 ----------------------------------------

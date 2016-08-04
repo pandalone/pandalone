@@ -29,7 +29,7 @@ from pandalone.xleash import (_parse as _p,
                               _filter as _f,
                               _lasso as _l,
                               Lasso, Coords, EmptyCaptureException)
-from pandalone.xleash.io import (_sheets as _s, _xlrd as xd)
+from pandalone.xleash.io import (_backend as _s, _xlrd as xd)
 from pandas.util.testing import assert_frame_equal
 from past.builtins import basestring
 from toolz import dicttoolz as dtz

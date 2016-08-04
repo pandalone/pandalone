@@ -6,7 +6,7 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-The algorithmic part of :term:`capturing`.
+The manager and the base for all :term:`backends` fecthing cells from actual workbooks and sheets.
 
 Prefer accessing the public members from the parent module.
 
@@ -29,7 +29,7 @@ from ...utils import as_list
 
 
 class ABCBackend(with_metaclass(ABCMeta, object)):
-    """Backend lugins should implement and add instances into :data:`io_backends`."""
+    """Backend plugins should implement and add instances into :data:`io_backends`."""
 
     @abstractmethod
     def bid(self, wb_url, opts=None):
