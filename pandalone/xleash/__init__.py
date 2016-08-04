@@ -864,8 +864,8 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
             # ...
             entry_points = {
                 'pandalone.xleash.plugins': [
-                    'plugin_1 = <foo.plugin.module>:<plugin-load-func>
-                    'plugin_2 = <bar.plugin.module>
+                    'plugin_1 = <foo.plugin.module>:<plugin-install-func> ## Load & install.
+                    'plugin_2 = <bar.plugin.module>                       ## Load only.
                 ]
             }
         )
@@ -873,15 +873,16 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
 
     Implementing a plugin
     ---------------------
-    The plugins are initialzed during *import time* in :func:`init_plugins()`.
-    A plugin MAY specify a ``<plugin-load-func>`` to be called after loading
-    all modules, which must have this signature::
-
-        def <plugin-load-func>()
+    The plugins are initialized during *import time* in a 2-stage procedure
+    by :func:`init_plugins()`.
+    A plugin is *loaded* and optionally *installed* if the *setup-configuration*
+    above specifies a no-args ``<plugin-install-func>`` callable.to be called
+    Any collected ``<plugin-install-func>`` callables are invoked AFTER all
+    plugin-modules have finished loading.
 
     .. Tip::
-       When appending into "hook" lists, remember to avoid re-inserting
-       duplicate items, and in general to well-behave even when
+       When appending into "hook" lists during installation, remember to avoid
+       re-inserting duplicate items.  In general try to well-behave even when
        **plugins are initialized multiple times**!
 
     """
@@ -891,7 +892,13 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
         return "%r@%s" % (ep, ep.dist)
 
     plugin_loaders = []
-    for ep in pkg_resources.working_set.iter_entry_points(plugin_group_name):
+    entry_points = list(pkg_resources.working_set.iter_entry_points(
+        plugin_group_name))
+    if not entry_points:
+        raise ValueError("No xleash-plugins found!"
+                         "\n  Have you installed AT LEAST `xlrd` extra with this command?"
+                         "\n    pip install pandalone[xlrd]")
+    for ep in entry_points:
         try:
             _plugins_installed[stringify_EntryPoint(ep)] = 0
             plugin_loader = ep.load()
@@ -907,7 +914,7 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
             plugin_loader()
             _plugins_installed[stringify_EntryPoint(ep)] = 2
         except Exception as ex:
-            log.error('Failed LAUNCHING plugin(%r@%s) due to: %s',
+            log.error('Failed INSTALLING plugin(%r@%s) due to: %s',
                       ep, ep.dist, ex, exc_info=1)
 
 _plugins_installed = OrderedDict()

@@ -231,7 +231,7 @@ setup(
             'pndl = %s.__main__:main' % proj_name,
         ],
         'pandalone.xleash.plugins': [
-            'io_xlrd = pandalone.xleash.io._xlrd:load_plugin [xlrd]',
+            'xlrd_be = pandalone.xleash.io._xlrd:load_plugin [xlrd]',
         ],
     },
     zip_safe=True,

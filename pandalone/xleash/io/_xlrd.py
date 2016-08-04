@@ -251,4 +251,6 @@ class XlrdBackend(ABCBackend):
 
 
 def load_plugin():
-    io_backends.append(XlrdBackend())
+    loaded = [be for be in io_backends if isinstance(be, XlrdBackend)]
+    if not loaded:
+        io_backends.insert(0, XlrdBackend())
