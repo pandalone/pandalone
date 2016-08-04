@@ -28,8 +28,7 @@ from pandalone.xleash import (_parse as _p,
                               _capture as _c,
                               _filter as _f,
                               _lasso as _l,
-                              Lasso, Coords, EmptyCaptureException,
-                              avail_filters)
+                              Lasso, Coords, EmptyCaptureException)
 from pandalone.xleash.io import (_sheets as _s, _xlrd as xd)
 from pandas.util.testing import assert_frame_equal
 from past.builtins import basestring
@@ -2229,7 +2228,7 @@ class T19VsPandas(unittest.TestCase, _tutils.CustomAssertions):
 
             lasso1 = _f.redim_filter(None, lasso, row=[2, True])
 
-            df_filter = _f._get_available_filters()['df']['func']
+            df_filter = xleash.available_filters['df']['func']
             lasso2 = df_filter(None, lasso1, **parse_df_kwds)
 
             xlref_df = lasso2.values

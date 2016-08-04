@@ -527,23 +527,14 @@ def py_filter(ranger, lasso, expr):
     return lasso
 
 
-def _get_available_filters(overrides=None):
+def install_default_filters(filters_dict):
     """
-   The default available :term:`filters` used by :func:`lasso()` when constructing its internal :class:`Ranger`.
+   Updates the default available :term:`filters` used by :func:`lasso()` when constructing its internal :class:`Ranger`.
 
-    :param dict or None overrides:
-            Any items to update the default ones.
-
-    :return:
-            a dict-of-dicts with 2 items:
-
-            - *func*: a function with args: ``(Ranger, Lasso, *args, **kwds)``
-            - *desc*:  help-text replaced by ``func.__doc__`` if missing.
-
-    :rtype:
-            dict
+    :param dict filters_dict:
+            The dictionary to update with the default filters.
     """
-    filters = {
+    filters_dict.update({
         'pipe': {
             'func': pipe_filter,
         },
@@ -579,16 +570,4 @@ def _get_available_filters(overrides=None):
                 values=sorted(lasso.values, *args, **kwds)),
             'desc': sorted.__doc__,
         },
-    }
-
-    try:
-        from pandalone.xleash import _pandas_filters
-        filters = _pandas_filters.install_filters(filters)
-    except ImportError as ex:
-        msg = "The 'df' and 'series' filters were not installed, due to: %s"
-        log.info(msg, ex)
-
-    if overrides:
-        filters.update(overrides)
-
-    return filters
+    })

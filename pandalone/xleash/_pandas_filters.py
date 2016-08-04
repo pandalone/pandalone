@@ -19,6 +19,7 @@ from collections import OrderedDict
 import pandas as pd
 from pandas.io import parsers as pdparsers, excel as pdexcel, common as pdiocom
 import pandas.core.common as pdcom
+from . import available_filters
 
 import logging
 
@@ -192,9 +193,8 @@ def _df_filter(ranger, lasso, header=0, skiprows=None, names=None,
     return lasso
 
 
-def install_filters(filters):
-
-    filters.update({
+def install_filters(filters_dict):
+    filters_dict.update({
         'df': {
             'func': _df_filter,
         },
@@ -206,4 +206,6 @@ def install_filters(filters):
         }
     })
 
-    return filters
+
+def load_as_xleash_plugin():
+    install_filters(available_filters)

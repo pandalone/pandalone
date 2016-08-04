@@ -24,7 +24,8 @@ from future.backports import ChainMap
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
 
-from . import Lasso, EmptyCaptureException, _parse, _capture, _filter
+from .. import xleash
+from . import (Lasso, EmptyCaptureException, _parse, _capture, _filter)
 from .io import _sheets
 
 
@@ -68,7 +69,7 @@ class Ranger(object):
             See :func:`get_default_opts()`.
     :ivar dict or None available_filters:
             The :term:`filters` available for a :term:`xl-ref` to use.
-            If `None`, then uses those from :func:`_get_available_filters()`.
+            If `None`, then uses :data:`xleash.available_filters`.
             Use an empty dict not to use any filters.
     :ivar Lasso intermediate_lasso:
             A ``('stage', Lasso)`` pair with the last :class:`Lasso` instance
@@ -84,7 +85,7 @@ class Ranger(object):
         if base_opts is None:
             base_opts = {}
         self.base_opts = base_opts
-        self.available_filters = (_filter._get_available_filters()
+        self.available_filters = (xleash.available_filters
                                   if available_filters is None
                                   else available_filters)
         self.intermediate_lasso = None
@@ -302,7 +303,7 @@ def make_default_Ranger(sheets_factory=None,
 
     :param available_filters:
             The :term:`filters` available for a :term:`xl-ref` to use.
-            (:func:`_get_available_filters()` used if unspecified).
+            (:data:`xleash.available_filters` used if unspecified).
     :type available_filters:
             dict or None
 

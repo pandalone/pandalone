@@ -188,71 +188,6 @@ Alternatively you can call the :func:`make_default_Ranger` for extending
 library's defaults.
 
 
-API
----
-.. default-role:: obj
-
-- User-facing higher-level functionality:
-
-  .. currentmodule:: pandalone.xleash._lasso
-  .. autosummary::
-
-      Lasso
-      lasso
-      Ranger
-      Ranger.do_lasso
-      make_default_Ranger
-      get_default_opts
-
-- Related to :term:`capturing` algorithm:
-
-  .. currentmodule:: pandalone.xleash._capture
-  .. autosummary::
-
-      resolve_capture_rect
-      coords2Cell
-      EmptyCaptureException
-
-
-  .. currentmodule:: pandalone.xleash._filter
-  .. autosummary::
-
-      _get_available_filters
-      xlwings_dims_call_spec
-
-
-- Related to parsing and basic structure used throughout:
-  .. currentmodule:: pandalone.xleash._parse
-  .. autosummary::
-
-      parse_xlref
-      parse_expansion_moves
-      parse_call_spec
-      Cell
-      Coords
-      Edge
-
-- **IO** back-end functionality:
-
-  .. currentmodule:: pandalone.xleash.io
-  .. autosummary::
-
-      _sheets.SheetsFactory
-      _sheets.ABCSheet.read_rect
-      _sheets.ArraySheet
-      _sheets.ABCSheet
-      _xlrd.XlrdSheet
-      _xlrd.open_sheet
-
-- Plugin related
-  .. autosummary::
-      _init_plugins
-     _plugins_installed
-     _PLUGIN_GROUP_NAME
-
-.. default-role:: term
-.. currentmodule:: pandalone.xleash
-
 
 More Syntax Examples
 --------------------
@@ -742,6 +677,71 @@ to attach backend :class:`Sheet` and pandas `filters`.
 Read :func:`init_plugins` to learn how to implement other plugins.
 
 .. default-role:: obj
+
+
+API
+===
+
+- User-facing higher-level functionality:
+
+  .. currentmodule:: pandalone.xleash._lasso
+  .. autosummary::
+
+      Lasso
+      lasso
+      Ranger
+      Ranger.do_lasso
+      make_default_Ranger
+      get_default_opts
+
+- Related to :term:`capturing` algorithm:
+
+  .. currentmodule:: pandalone.xleash._capture
+  .. autosummary::
+
+      resolve_capture_rect
+      coords2Cell
+      EmptyCaptureException
+
+
+  .. currentmodule:: pandalone.xleash._filter
+  .. autosummary::
+
+      available_filters
+      xlwings_dims_call_spec
+
+
+- Related to parsing and basic structure used throughout:
+  .. currentmodule:: pandalone.xleash._parse
+  .. autosummary::
+
+      parse_xlref
+      parse_expansion_moves
+      parse_call_spec
+      Cell
+      Coords
+      Edge
+
+- **IO** back-end functionality:
+
+  .. currentmodule:: pandalone.xleash.io
+  .. autosummary::
+
+      io_backends
+      _sheets.SheetsFactory
+      _sheets.ABCSheet.read_rect
+      _sheets.ArraySheet
+      _sheets.ABCSheet
+      _xlrd.XlrdSheet
+      _xlrd.open_sheet
+
+- Plugin related
+  .. autosummary::
+      _init_plugins
+     _plugins_installed
+     _PLUGIN_GROUP_NAME
+
+.. currentmodule:: pandalone.xleash
 """
 
 
@@ -832,12 +832,14 @@ from ._capture import (
     EmptyCaptureException,
 )
 
-avail_filters = {}
+available_filters = {}
 """Hook for plugins to append filters."""
 from ._filter import (
-    XLocation, _get_available_filters,
+    XLocation,
     xlwings_dims_call_spec,
+    install_default_filters
 )
+install_default_filters(available_filters)
 
 from ._lasso import (
     lasso, Ranger,
@@ -904,8 +906,9 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
         plugin_group_name))
     if not entry_points:
         raise ValueError("No xleash-plugins found!"
-                         "\n  Have you installed AT LEAST `xlrd` extra with this command?"
-                         "\n    pip install pandalone[xlrd]")
+                         "\n  You have to install AT LEAST on backend plugin."
+                         '\n  Try `xlrd` "extras" with this command?\n'
+                         "\n      pip install pandalone[xlrd]")
     for ep in entry_points:
         try:
             _plugins_installed[stringify_EntryPoint(ep)] = 0
@@ -944,7 +947,7 @@ __all__ = [
     'lasso', 'Ranger', 'SheetsFactory', 'io_backends',
     'make_default_Ranger',
     'XLocation', 'get_default_opts',
-    'avail_filters', '_get_available_filters',
+    'available_filters',
     'Lasso',
     'xlwings_dims_call_spec',
 

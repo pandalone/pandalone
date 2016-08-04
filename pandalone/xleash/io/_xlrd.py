@@ -250,7 +250,7 @@ class XlrdBackend(ABCBackend):
         return xlrd.open_workbook(wb_id, **opts).sheet_names()
 
 
-def load_plugin():
+def load_as_xleash_plugin():
     loaded = [be for be in io_backends if isinstance(be, XlrdBackend)]
     if not loaded:
         io_backends.insert(0, XlrdBackend())
