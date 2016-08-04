@@ -138,8 +138,6 @@ install_requires = [
     'toolz',
     'jsonschema >= 2.5',
     'numpy',
-    'pandas',
-    'xlrd',
     'openpyxl>=2.2',
     'Pillow',  # For UI About boxes
     'doit >= 0.28',
@@ -216,6 +214,8 @@ setup(
         'nose',
         'coverage',
         'coveralls',
+        'pandas',
+        'xlrd',
     ],
     test_suite='nose.collector',
     extras_require={
@@ -223,13 +223,15 @@ setup(
             'mock',
         ],
         'xlwings': ['xlwings'],
+        'pandas': ['pandas'],
+        'xlrd': ['xlrd'],
     },
     entry_points={
         'console_scripts': [
             'pndl = %s.__main__:main' % proj_name,
         ],
         'pandalone.xleash.plugins': [
-            'pndl = %s.xleash.io._xlrd:load_plugin' % proj_name,
+            'io_xlrd = pandalone.xleash.io._xlrd:load_plugin [xlrd]',
         ],
     },
     zip_safe=True,

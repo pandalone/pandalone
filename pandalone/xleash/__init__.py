@@ -742,7 +742,7 @@ Read :func:`init_plugins` to learn how to implement other plugins.
 
 from __future__ import unicode_literals
 
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 import logging
 import os
 import pkg_resources
@@ -881,16 +881,23 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
 
     .. Tip::
        When appending into "hook" lists, remember to avoid re-inserting
-       duplicate items.
+       duplicate items, and in general to well-behave even when
+       **plugins are initialized multiple times**!
 
     """
+    global _plugins_installed
+
+    def stringify_EntryPoint(ep):
+        return "%r@%s" % (ep, ep.dist)
+
     plugin_loaders = []
     for ep in pkg_resources.working_set.iter_entry_points(plugin_group_name):
         try:
+            _plugins_installed[stringify_EntryPoint(ep)] = 0
             plugin_loader = ep.load()
+            _plugins_installed[stringify_EntryPoint(ep)] = 1
             if callable(plugin_loader):
                 plugin_loaders.append((ep, plugin_loader))
-            log.info('Loaded plugin(%r@%s).', ep, ep.dist)
         except Exception as ex:
             log.error('Failed LOADING plugin(%r@%s) due to: %s',
                       ep, ep.dist, ex, exc_info=1)
@@ -898,10 +905,18 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
     for ep, plugin_loader in plugin_loaders:
         try:
             plugin_loader()
-            log.info('Launched plugin(%r@%s).', ep, ep.dist)
+            _plugins_installed[stringify_EntryPoint(ep)] = 2
         except Exception as ex:
             log.error('Failed LAUNCHING plugin(%r@%s) due to: %s',
                       ep, ep.dist, ex, exc_info=1)
+
+_plugins_installed = OrderedDict()
+"""
+A list of 2-tuples for each plugin installed of :class:`pkg_resources.EntryPoint`
+and the number of completed stages (integer).
+
+The *EntryPoint* gets stringified to avoid memory-leaks.
+"""
 
 _init_plugins()
 
