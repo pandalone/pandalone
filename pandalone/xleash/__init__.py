@@ -490,22 +490,22 @@ Definitions
 
     backend
     backends
-        *IO* level objects which provide the actual source of spreadsheet cells
-        for `capturing`.
-        Each *backend* may provide for its workbooks and sheets corresponding to
-        - to different implementations (e.g.``xlrd`` or ``xlwings`` library), or
-        - to different origins (e.g. file-based, network-based per url ).
+        *IO* level object providing the actual spreadsheet cells for `capturing`.
+        Each *backend* may provide for its workbooks and sheets corresponding to:
+        - different implementations (e.g.``xlrd`` or ``xlwings`` library), or
+        - different origins (e.g. file-based, network-based per url ).
 
-        The decision which *backend* to use is taken by the `sheet-factory` and
-        is like a "bidding" process: all *backends* are asked to provide their
-        willingness to handle some `xl-ref`.
-        For a *sibling* sheet, always the same *backend* is used.
+        The decision which *backend* to use is taken by the `sheet-factory`
+        following a "bidding" process where all *backends* are asked to provide
+        their willingness to handle some `xl-ref` (see :meth:`decide_backend`.
+        For a *sibling* sheet, always the parent *backend* is used.
 
     sheets-factory
         *IO* level object acting as the caching manager for `spreadsheets`
         fetched from different `backends`.  The caching happens per
         *spreadsheet*.
 
+    sheet
     spreadsheet
         *IO* level object that acts as the container of cells.
 
@@ -841,7 +841,7 @@ from ._parse import (
 )
 
 io_backends = []
-"""Hook for plugins to append backends."""
+"""Hook for plugins to append :class:`ABCBackend` instances."""
 from pandalone.xleash.io._backend import (
     ABCSheet, ArraySheet, margin_coords_from_states_matrix,
     SheetsFactory,
@@ -853,7 +853,7 @@ from ._capture import (
 )
 
 available_filters = {}
-"""Hook for plugins to append filters."""
+"""Hook for plugins to append :term:`filters`."""
 from ._filter import (
     XLocation,
     xlwings_dims_call_spec,

@@ -6,7 +6,7 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 """
-The manager and the base for all :term:`backends` fecthing cells from actual workbooks and sheets.
+The manager and the base for all :term:`backends` fetching cells from actual workbooks and sheets.
 
 Prefer accessing the public members from the parent module.
 
@@ -29,7 +29,7 @@ from ...utils import as_list
 
 
 class ABCBackend(with_metaclass(ABCMeta, object)):
-    """Backend plugins should implement and add instances into :data:`io_backends`."""
+    """A plugin for a :term:`backend` must implement and add instances into :data:`io_backends`."""
 
     @abstractmethod
     def bid(self, wb_url, opts=None):
@@ -284,7 +284,15 @@ class SheetsFactory(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, backends=None):
+        """
+        :param backends:
+                The list of :class:`backends` to cinsider when opening sheets.
+                If it evaluates to false, :data:`io_backends` assumed.
+        :typ backends:
+                list or None
+        """
+        self.backends = backends or io_backends
         self._cached_sheets = {}
 
     def _cache_get(self, key):
@@ -393,9 +401,10 @@ class SheetsFactory(object):
 
         return sheet
 
-    def _decide_backend(self, wb_id, opts=None):
+    def decide_backend(self, wb_id, opts=None):
+        """Asks all :attr:`backends` to bid for handling a :term:`xl-ref`. """
         bids = [(be, be.bid(wb_id, opts=opts))
-                for be in io_backends]
+                for be in self.backends]
         bids = [(be, score) for be, score in bids if score is not None]
         if not bids:
             raise ValueError("No suitable xleash-backend found!"
@@ -408,11 +417,11 @@ class SheetsFactory(object):
         return winner
 
     def list_sheetnames(self, wb_id, opts=None):
-        be = self._decide_backend(wb_id, opts=opts)
+        be = self.decide_backend(wb_id, opts=opts)
         return be.list_sheetnames(wb_id, opts)
 
     def _open_sheet(self, wb_id, sheet_id, opts):  # =None):
-        be = self._decide_backend(wb_id, opts=opts)
+        be = self.decide_backend(wb_id, opts=opts)
         return be.open_sheet(wb_id, sheet_id, opts)
 
     def __enter__(self):
