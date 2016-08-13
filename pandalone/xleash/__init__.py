@@ -922,8 +922,9 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
         return "%r@%s" % (ep, ep.dist)
 
     plugin_loaders = []
-    entry_points = list(pkg_resources.working_set.iter_entry_points(
-        plugin_group_name))
+    entry_points = sorted(
+        pkg_resources.working_set.iter_entry_points(plugin_group_name),
+        key=lambda ep: ep.name)
     if not entry_points:
         raise ValueError("No xleash-plugins found!"
                          "\n  You have to install AT LEAST on backend plugin."
