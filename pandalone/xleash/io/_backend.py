@@ -265,7 +265,68 @@ class ArraySheet(ABCSheet):
         return 'ArraySheet(%s, \n%s)' % (self.get_sheet_ids(), self._arr)
 
 
-class SheetsFactory(object):
+class SimpleSheetsFactory(object):
+    """
+    Asks :term:`backends` to bid for creating :class:`ABCSheet` instances - client should handle resources.
+
+    Backends are taken from :data:`io_backends` or specified during construction.
+    """
+
+    def __init__(self, backends=None):
+        """
+        :param backends:
+                The list of :class:`backends` to consider when opening sheets.
+                If it evaluates to false, :data:`io_backends` assumed.
+        :typ backends:
+                list or None
+        """
+        self.backends = backends or io_backends
+
+    def fetch_sheet(self, wb_id, sheet_id, opts={}, base_sheet=None):
+        """
+        :param ABCSheet base_sheet:
+            The sheet used when unspecified `wb_id`.
+        """
+        if wb_id is None:
+            if not base_sheet:
+                msg = "No `base_sheet` given! Specify a Workbook."
+                raise ValueError(msg)
+
+            if sheet_id is None:
+                return base_sheet
+
+            sheet = base_sheet.open_sibling_sheet(sheet_id, opts)
+        else:
+            sheet = self._open_sheet(wb_id, sheet_id, opts)
+
+        assert sheet, (wb_id, sheet_id, opts)
+        return sheet
+
+    def decide_backend(self, wb_id, opts=None):
+        """Asks all :attr:`backends` to bid for handling a :term:`xl-ref`. """
+        bids = [(be, be.bid(wb_id, opts=opts))
+                for be in self.backends]
+        bids = [(be, score) for be, score in bids if score is not None]
+        if not bids:
+            raise ValueError("No suitable xleash-backend found!"
+                             "\n  Have you installed `xlrd` extra with this command?"
+                             "\n    pip install pandalone[xlrd]")
+        winner = sorted(bids, key=lambda x: x[1])[-1][0]
+        assert isinstance(winner, ABCBackend),  (
+            "Invalid backend(%r) class!" % winner)
+
+        return winner
+
+    def list_sheetnames(self, wb_id, opts=None):
+        be = self.decide_backend(wb_id, opts=opts)
+        return be.list_sheetnames(wb_id, opts)
+
+    def _open_sheet(self, wb_id, sheet_id, opts):  # =None):
+        be = self.decide_backend(wb_id, opts=opts)
+        return be.open_sheet(wb_id, sheet_id, opts)
+
+
+class SheetsFactory(SimpleSheetsFactory):
     """
     A caching-store of :class:`ABCSheet` instances, serving them based on (workbook, sheet) IDs, optionally creating them from backends.
 
@@ -276,9 +337,6 @@ class SheetsFactory(object):
     - To avoid opening non-trivial workbooks, use the :meth:`add_sheet()`
       to pre-populate this cache with them.
 
-    - To add another backend, modify the opening-sheets logic (ie clipboard),
-      override :meth:`_open_sheet()`.
-
     - It is a resource-manager for contained sheets, so it can be used wth
       a `with` statement.
 
@@ -287,12 +345,12 @@ class SheetsFactory(object):
     def __init__(self, backends=None):
         """
         :param backends:
-                The list of :class:`backends` to cinsider when opening sheets.
+                The list of :class:`backends` to consider when opening sheets.
                 If it evaluates to false, :data:`io_backends` assumed.
         :typ backends:
                 list or None
         """
-        self.backends = backends or io_backends
+        super(SheetsFactory, self).__init__(backends)
         self._cached_sheets = {}
 
     def _cache_get(self, key):
@@ -400,29 +458,6 @@ class SheetsFactory(object):
                 self.add_sheet(sheet, wb_id, sheet_id)
 
         return sheet
-
-    def decide_backend(self, wb_id, opts=None):
-        """Asks all :attr:`backends` to bid for handling a :term:`xl-ref`. """
-        bids = [(be, be.bid(wb_id, opts=opts))
-                for be in self.backends]
-        bids = [(be, score) for be, score in bids if score is not None]
-        if not bids:
-            raise ValueError("No suitable xleash-backend found!"
-                             "\n  Have you installed `xlrd` extra with this command?"
-                             "\n    pip install pandalone[xlrd]")
-        winner = sorted(bids, key=lambda x: x[1])[-1][0]
-        assert isinstance(winner, ABCBackend),  (
-            "Invalid backend(%r) class!" % winner)
-
-        return winner
-
-    def list_sheetnames(self, wb_id, opts=None):
-        be = self.decide_backend(wb_id, opts=opts)
-        return be.list_sheetnames(wb_id, opts)
-
-    def _open_sheet(self, wb_id, sheet_id, opts):  # =None):
-        be = self.decide_backend(wb_id, opts=opts)
-        return be.open_sheet(wb_id, sheet_id, opts)
 
     def __enter__(self):
         return self
