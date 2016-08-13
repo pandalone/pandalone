@@ -23,34 +23,6 @@ __commit__ = ""
 
 log = logging.getLogger(__name__)
 
-# Probably Windows-only:
-#    TODO: Should become a class-method on xw.Workbook
-# when/if it works reliably, see github/xlwings #30.
-
-
-def get_active_workbook():
-    from win32com.client import dynamic
-    import xlwings as xw
-
-    com_app = dynamic.Dispatch('Excel.Application')
-    com_wb = com_app.ActiveWorkbook
-    wb = xw.Workbook(xl_workbook=com_wb)
-
-    return wb
-
-
-def get_Workbook(wrkb_fname):
-    """
-    :param str wrkb_fname: if missing return the active excel-workbook
-    """
-    import xlwings as xw
-
-    if wrkb_fname:
-        wb = xw.Workbook(wrkb_fname)
-    else:
-        wb = get_active_workbook()
-    return wb
-
 
 def _get_xl_vb_project(xl_wb):
     """
@@ -210,8 +182,9 @@ def import_files_into_excel_workbook(infiles_wildcard, wrkb_fname=None, new_fnam
     :param str new_fname: a macro-enabled (`.xlsm`, `.xltm`) filepath for updated workbook,
                             `.xlsm` gets appended if current not a macro-enabled excel-format
     """
+    import xlwings as xw
 
-    wb = get_Workbook(wrkb_fname=None)
+    wb = xw.books.active
     xl_wb = wb.get_xl_workbook(wb)
     xl_vbp = _get_xl_vb_project(xl_wb)
     xl_vbcs = xl_vbp.VBComponents

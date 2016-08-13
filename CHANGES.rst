@@ -53,6 +53,7 @@ Rejected TODOs:
 Changelog
 =========
 
+
 v0.1.13 (Aug-2016)
 ----------------------------------------
 - xleash:
@@ -62,9 +63,16 @@ v0.1.13 (Aug-2016)
     - ``xlrd`` for the typical backend plugin,
     - ``xlwings`` for excel-utils & tests.
   - Rename ``io._sheets --> _backend``.
+- xlutils, deps: Upgraded to ``xlwings-0.9.x`` released Aug/2/2016
+  (see `migration guide` <http://docs.xlwings.org/en/stable/migrate_to_0.9.html>`_)
+  - Drop or rename util-functions provided by now `xlwings`:
+    - ``xlutils.get_active_workbook()``
+    - ``xlutils.get_workbook()``
+    - ``tests._tutils.xw_Workbook()`` --> ``tests._tutils.xw_no_save_Workbook()``
 
-v0.1.12 (1-Aug-2016): Finikounta release
-----------------------------------------
+
+v0.1.12 (1-Aug-2016): Stegh release
+-----------------------------------
 - xleash:
   - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
   - #7: FIX ``"df"`` filter to read multi-index excel-tables

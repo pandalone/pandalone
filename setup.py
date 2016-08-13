@@ -222,7 +222,7 @@ setup(
         ':python_version == "2.7"': [  # See PEP-426
             'mock',
         ],
-        'xlwings': ['xlwings'],
+        'xlwings': ['xlwings>=0.9.2'],
         'pandas': ['pandas'],
         'xlrd': ['xlrd'],
     },

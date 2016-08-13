@@ -12,3 +12,4 @@ ddt
 coverage
 coveralls
 collective.checkdocs
+#xlwings>=0.9.0 # FAIL on Linux!
