@@ -496,14 +496,18 @@ Definitions
         - different origins (e.g. file-based, network-based per url ).
 
         The decision which *backend* to use is taken by the `sheet-factory`
-        following a "bidding" process where all *backends* are asked to provide
-        their willingness to handle some `xl-ref` (see :meth:`decide_backend`.
-        For a *sibling* sheet, always the parent *backend* is used.
+        following a `bidding` process.
 
     sheets-factory
         *IO* level object acting as the caching manager for `spreadsheets`
         fetched from different `backends`.  The caching happens per
         *spreadsheet*.
+
+    bid
+    backend-bidding
+        All *backends* are asked to provide their willingness to handle
+        some `xl-ref` (see :meth:`SimpleSheetFactory.decide_backend`)).
+        For a *sibling* sheet, always the parent *backend* is used.
 
     sheet
     spreadsheet

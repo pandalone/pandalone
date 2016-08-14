@@ -297,6 +297,8 @@ def xw_close_workbook(wb):
         app = wb.app
         wb.close()
         if not app.books:
+            # TODO: Workaround
+            # https://github.com/ZoomerAnalytics/xlwings/issues/548
             app.quit()
     except Exception:
         log.warning('Minor failure while closing Workbook!', exc_info=True)

@@ -186,6 +186,7 @@ class Ranger(object):
             raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
         return sheet
 
+    # TODO: Move _resolve_capture_rect into ABCSheet
     def _resolve_capture_rect(self, lasso, sheet):
         """Also handles :class:`EmptyCaptureException` in case ``opts['no_empty'] != False``."""
 

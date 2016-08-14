@@ -23,6 +23,7 @@ from future.utils import with_metaclass
 
 import itertools as itt
 import numpy as np
+from future.moves.urllib.parse import urljoin
 
 from .. import Coords, _capture, io_backends
 from ...utils import as_list
@@ -34,15 +35,23 @@ class ABCBackend(with_metaclass(ABCMeta, object)):
     @abstractmethod
     def bid(self, wb_url, opts=None):
         """
-        Return an integer to signify willingness to handle a workbook.
+        Express the willingness to handle a workbook when deciding backends.
 
-        Bigger integers take precendance.
-        Return `None` to signify invalidness.
+        :param wb_url:
+                a full-url of a workbook, local('file://) or remote('http://')
+        :return:
+                - an integer signifying willingness; bigger integers take precedence.
+                - `None` signifies invalidness.
         """
 
     @abstractmethod
     def open_sheet(self, wb_url, sheet_id, opts):
-        """Open a :class:`ABCSheet` subclass, if "decided"."""
+        """
+        Open a :class:`ABCSheet` subclass, if backend has won the bid.
+
+        :param wb_url:
+                a full-url of a workbook, local('file://) or remote('http://')
+        """
 
     @abstractmethod
     def list_sheetnames(self, wb_id, opts=None):
@@ -71,30 +80,31 @@ class SimpleSheetsFactory(object):
         :param ABCSheet base_sheet:
             The sheet used when unspecified `wb_id`.
         """
-        if wb_id is None:
-            if not base_sheet:
-                msg = "No `base_sheet` given! Specify a Workbook."
-                raise ValueError(msg)
-
+        if wb_id is None and base_sheet:
             if sheet_id is None:
-                return base_sheet
-
-            sheet = base_sheet.open_sibling_sheet(sheet_id, opts)
+                sheet = base_sheet
+            else:
+                base_sheet.open_sibling_sheet(sheet_id, opts)
         else:
             sheet = self._open_sheet(wb_id, sheet_id, opts)
 
         assert sheet, (wb_id, sheet_id, opts)
         return sheet
 
+    def _path2url(self, path):
+        return path and urljoin('file://', path)
+
     def decide_backend(self, wb_id, opts=None):
-        """Asks all :attr:`backends` to bid for handling a :term:`xl-ref`. """
+        """Asks all :attr:`backends` to :term:`bid` for handling a :term:`xl-ref`. """
+        wb_id = self._path2url(wb_id)
         bids = [(be, be.bid(wb_id, opts=opts))
                 for be in self.backends]
         bids = [(be, score) for be, score in bids if score is not None]
         if not bids:
-            raise ValueError("No suitable xleash-backend found!"
+            raise ValueError("No suitable xleash-backend found for(%r) with opts(%r)!"
                              "\n  Have you installed `xlrd` extra with this command?"
-                             "\n    pip install pandalone[xlrd]")
+                             "\n    pip install pandalone[xlrd]" %
+                             (wb_id, opts))
         winner = sorted(bids, key=lambda x: x[1])[-1][0]
         assert isinstance(winner, ABCBackend),  (
             "Invalid backend(%r) class!" % winner)
@@ -102,12 +112,17 @@ class SimpleSheetsFactory(object):
         return winner
 
     def list_sheetnames(self, wb_id, opts=None):
+        wb_id = self._path2url(wb_id)
         be = self.decide_backend(wb_id, opts=opts)
         return be.list_sheetnames(wb_id, opts)
 
     def _open_sheet(self, wb_id, sheet_id, opts):  # =None):
         be = self.decide_backend(wb_id, opts=opts)
-        return be.open_sheet(wb_id, sheet_id, opts)
+        sheet = be.open_sheet(wb_id, sheet_id, opts)
+        if not sheet:
+            raise ValueError("Backend(%s) found no sheet for(%r) with opts(%r)!"
+                             % (be, wb_id, opts))
+        return sheet
 
 
 class SheetsFactory(SimpleSheetsFactory):
@@ -215,32 +230,29 @@ class SheetsFactory(SimpleSheetsFactory):
         :param ABCSheet base_sheet:
             The sheet used when unspecified `wb_id`.
         """
-        if wb_id is None:
-            if not base_sheet:
-                msg = "No `base_sheet` given! Specify a Workbook."
-                raise ValueError(msg)
-
+        if wb_id is None and base_sheet:
             if sheet_id is None:
-                return base_sheet
+                sheet = base_sheet
+            else:
+                wb_id, _c_sh_ids = base_sheet.get_sheet_ids()
 
-            wb_id, _c_sh_ids = base_sheet.get_sheet_ids()
-            assert wb_id is not None, (base_sheet, _c_sh_ids)
+                key = self._build_sheet_key(wb_id, sheet_id)
+                sheet = self._cache_get(key)
 
-            key = self._build_sheet_key(wb_id, sheet_id)
-            sheet = self._cache_get(key)
-
-            if not sheet:
-                sheet = base_sheet.open_sibling_sheet(sheet_id, opts)
-                assert sheet, (wb_id, sheet_id, opts)
-                self.add_sheet(sheet, wb_id, sheet_id)
+                if not sheet:
+                    sheet = base_sheet.open_sibling_sheet(sheet_id, opts)
+                    self.add_sheet(sheet, wb_id, sheet_id)
         else:
-            key = self._build_sheet_key(wb_id, sheet_id)
-            sheet = self._cache_get(key)
-            if not sheet:
+            if wb_id is None:
                 sheet = self._open_sheet(wb_id, sheet_id, opts)
-                assert sheet, (wb_id, sheet_id, opts)
-                self.add_sheet(sheet, wb_id, sheet_id)
+            else:
+                key = self._build_sheet_key(wb_id, sheet_id)
+                sheet = self._cache_get(key)
+                if not sheet:
+                    sheet = self._open_sheet(wb_id, sheet_id, opts)
+                    self.add_sheet(sheet, wb_id, sheet_id)
 
+        assert sheet, (wb_id, sheet_id, opts)
         return sheet
 
     def __enter__(self):
