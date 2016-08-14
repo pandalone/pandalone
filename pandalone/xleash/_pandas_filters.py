@@ -19,7 +19,7 @@ from collections import OrderedDict
 import pandas as pd
 from pandas.io import parsers as pdparsers, excel as pdexcel, common as pdiocom
 import pandas.core.common as pdcom
-from . import available_filters
+from . import installed_filters
 
 import logging
 
@@ -208,4 +208,4 @@ def install_filters(filters_dict):
 
 
 def load_as_xleash_plugin():
-    install_filters(available_filters)
+    install_filters(installed_filters)

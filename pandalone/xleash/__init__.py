@@ -727,7 +727,7 @@ API
   .. currentmodule:: pandalone.xleash._filter
   .. autosummary::
 
-      available_filters
+      installed_filters
       xlwings_dims_call_spec
 
 
@@ -852,14 +852,14 @@ from ._capture import (
     EmptyCaptureException,
 )
 
-available_filters = {}
+installed_filters = {}
 """Hook for plugins to append :term:`filters`."""
 from ._filter import (
     XLocation,
     xlwings_dims_call_spec,
     install_default_filters
 )
-install_default_filters(available_filters)
+install_default_filters(installed_filters)
 
 from ._lasso import (
     lasso, Ranger,
@@ -968,7 +968,7 @@ __all__ = [
     'lasso', 'Ranger', 'SheetsFactory', 'io_backends',
     'make_default_Ranger',
     'XLocation', 'get_default_opts',
-    'available_filters',
+    'installed_filters',
     'Lasso',
     'xlwings_dims_call_spec',
 

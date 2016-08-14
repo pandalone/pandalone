@@ -10,19 +10,10 @@ from __future__ import division, print_function, unicode_literals
 
 import contextlib
 from datetime import datetime
-from distutils.version import LooseVersion
 import doctest
 import json
 import logging
 import os
-import sys
-import tempfile
-import unittest
-
-import ddt
-from future import utils as fututis
-from future.backports import ChainMap
-from numpy import testing as npt
 from pandalone import xleash
 from pandalone.xleash import (_parse as _p,
                               _capture as _c,
@@ -30,6 +21,15 @@ from pandalone.xleash import (_parse as _p,
                               _lasso as _l,
                               Lasso, Coords, EmptyCaptureException)
 from pandalone.xleash.io import (_backend as _s, _xlrd as xd)
+import sys
+import tempfile
+from tests import _tutils
+import unittest
+
+import ddt
+from future import utils as fututis
+from future.backports import ChainMap
+from numpy import testing as npt
 from pandas.util.testing import assert_frame_equal
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
@@ -39,7 +39,6 @@ import itertools as itt
 import numpy as np
 import os.path as osp
 import pandas as pd
-from tests import _tutils
 
 
 try:
@@ -2228,7 +2227,7 @@ class T19VsPandas(unittest.TestCase, _tutils.CustomAssertions):
 
             lasso1 = _f.redim_filter(None, lasso, row=[2, True])
 
-            df_filter = xleash.available_filters['df']['func']
+            df_filter = xleash.installed_filters['df']['func']
             lasso2 = df_filter(None, lasso1, **parse_df_kwds)
 
             xlref_df = lasso2.values
