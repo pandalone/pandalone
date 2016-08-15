@@ -62,14 +62,17 @@ v0.1.13 (Aug-2016)
     - ``pandas`` for filters plugins,
     - ``xlrd`` for the typical backend plugin,
     - ``xlwings`` for excel-utils & tests.
+
+  - Always convert xl-ref paths a "local" or "remote" urls to facilitate
+    backends & use their `url.params` instead of filter-opts.
   - Rename ``io._sheets --> _backend``.
+
 - xlutils, deps: Upgraded to ``xlwings-0.9.x`` released Aug/2/2016
-  (see `migration guide` <http://docs.xlwings.org/en/stable/migrate_to_0.9.html>`_)
-  - Drop or rename util-functions provided by now `xlwings`:
+  (see `migration guide <http://docs.xlwings.org/en/stable/migrate_to_0.9.html>`_)
+  - Dropped util-functions (provided by now `xlwings`) or renamed:
     - ``xlutils.get_active_workbook()``
     - ``xlutils.get_workbook()``
-    - ``tests._tutils.xw_Workbook()`` --> ``tests._tutils.xw_no_save_Workbook()``
-
+    - ``tests._tutils.xw_Workbook() --> tests._tutils.xw_no_save_Workbook()``
 
 v0.1.12 (1-Aug-2016): Stegh release
 -----------------------------------

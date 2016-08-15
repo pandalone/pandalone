@@ -21,7 +21,6 @@ import logging
 import textwrap
 
 from future.backports import ChainMap
-from future.utils import raise_from
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
 
@@ -151,8 +150,6 @@ class Ranger(object):
 
         :param Lasso init_lasso:
                 Default values to be overridden by non-nulls.
-                Note that ``init_lasso.opts`` must be a `ChainMap`,
-                as returned by :math:`_make_init_Lasso()`.
 
         :return: a Lasso with any non `None` parsed-fields updated
         """
@@ -160,9 +157,6 @@ class Ranger(object):
 
         try:
             parsed_fields = _parse.parse_xlref(xlref)
-            parsed_opts = parsed_fields.pop('opts', None)
-            if parsed_opts:
-                init_lasso.opts.maps.insert(0, parsed_opts)
             filled_fields = dtz.valfilter(lambda v: v is not None,
                                           parsed_fields)
             init_lasso = init_lasso._replace(**filled_fields)
@@ -180,12 +174,10 @@ class Ranger(object):
     def _open_sheet(self, lasso):
         try:
             sheet = self.sheets_factory.fetch_sheet(
-                lasso.url_file, lasso.sh_name,
-                lasso.opts, base_sheet=lasso.sheet)
+                lasso.url_file, lasso.sh_name, base_sheet=lasso.sheet)
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
-            raise_from(ValueError(msg % (lasso.url_file, lasso.sh_name, ex)),
-                       ex)
+            raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
         return sheet
 
     # TODO: Move _resolve_capture_rect into ABCSheet

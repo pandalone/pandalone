@@ -35,7 +35,7 @@ class ABCBackend(with_metaclass(ABCMeta, object)):
     """A plugin for a :term:`backend` must implement and add instances into :data:`io_backends`."""
 
     @abstractmethod
-    def bid(self, wb_url, opts=None):
+    def bid(self, wb_url):
         """
         Express the willingness to handle a workbook when deciding backends.
 
@@ -47,7 +47,7 @@ class ABCBackend(with_metaclass(ABCMeta, object)):
         """
 
     @abstractmethod
-    def open_sheet(self, wb_url, sheet_id, opts):
+    def open_sheet(self, wb_url, sheet_id):
         """
         Open a :class:`ABCSheet` subclass, if backend has won the bid.
 
@@ -56,7 +56,7 @@ class ABCBackend(with_metaclass(ABCMeta, object)):
         """
 
     @abstractmethod
-    def list_sheetnames(self, wb_id, opts=None):
+    def list_sheetnames(self, wb_url):
         """Returns a list of sheet-names, if bids "decided" this backend."""
 
 
@@ -77,51 +77,49 @@ class SimpleSheetsFactory(object):
         """
         self.backends = backends or io_backends
 
-    def fetch_sheet(self, wb_id, sheet_id, opts={}, base_sheet=None):
+    def fetch_sheet(self, wb_url, sheet_id, base_sheet=None):
         """
         :param ABCSheet base_sheet:
-            The sheet used when unspecified `wb_id`.
+            The sheet used when unspecified `wb_url`.
         """
-        if wb_id is None and base_sheet:
+        if wb_url is None and base_sheet:
             if sheet_id is None:
                 sheet = base_sheet
             else:
-                base_sheet.open_sibling_sheet(sheet_id, opts)
+                base_sheet.open_sibling_sheet(sheet_id)
         else:
-            url = utils.path2url(wb_id)
-            sheet = self._open_sheet(url, sheet_id, opts)
+            url = utils.path2url(wb_url)
+            sheet = self._open_sheet(url, sheet_id)
 
-        assert sheet, (wb_id, sheet_id, opts)
+        assert sheet, (wb_url, sheet_id)
         return sheet
 
-    def decide_backend(self, wb_id, opts=None):
+    def decide_backend(self, wb_url):
         """Asks all :attr:`backends` to :term:`bid` for handling a :term:`xl-ref`. """
-        wb_id = utils.path2url(wb_id)
-        bids = [(be, be.bid(wb_id, opts=opts))
+        wb_url = utils.path2url(wb_url)
+        bids = [(be, be.bid(wb_url))
                 for be in self.backends]
         bids = [(be, score) for be, score in bids if score is not None]
         if not bids:
-            raise ValueError("No suitable xleash-backend found for(%r) with opts(%r)!"
+            raise ValueError("No suitable xleash-backend found for(%r)!"
                              "\n  Have you installed `xlrd` extra with this command?"
-                             "\n    pip install pandalone[xlrd]" %
-                             (wb_id, opts))
+                             "\n    pip install pandalone[xlrd]" % wb_url)
         winner = sorted(bids, key=lambda x: x[1])[-1][0]
         assert isinstance(winner, ABCBackend),  (
             "Invalid backend(%r) class!" % winner)
 
         return winner
 
-    def list_sheetnames(self, wb_id, opts=None):
+    def list_sheetnames(self, wb_id):
         url = utils.path2url(wb_id)
-        be = self.decide_backend(url, opts=opts)
-        return be.list_sheetnames(url, opts)
+        be = self.decide_backend(url)
+        return be.list_sheetnames(url)
 
-    def _open_sheet(self, url, sheet_id, opts):  # =None):
-        be = self.decide_backend(url, opts=opts)
-        sheet = be.open_sheet(url, sheet_id, opts)
+    def _open_sheet(self, url, sheet_id):  # =None):
+        be = self.decide_backend(url)
+        sheet = be.open_sheet(url, sheet_id)
         if not sheet:
-            raise ValueError("Backend(%s) found no sheet for(%r) with opts(%r)!"
-                             % (be, url, opts))
+            raise ValueError("Backend(%s) found no sheet for(%r)!" % (be, url))
         return sheet
 
 
@@ -225,7 +223,7 @@ class SheetsFactory(SimpleSheetsFactory):
                 self._close_sheet(k)
             self._cache_put(k, sheet)
 
-    def fetch_sheet(self, wb_id, sheet_id, opts={}, base_sheet=None):
+    def fetch_sheet(self, wb_id, sheet_id, base_sheet=None):
         """
         :param ABCSheet base_sheet:
             The sheet used when unspecified `wb_id`.
@@ -240,20 +238,20 @@ class SheetsFactory(SimpleSheetsFactory):
                 sheet = self._cache_get(key)
 
                 if not sheet:
-                    sheet = base_sheet.open_sibling_sheet(sheet_id, opts)
+                    sheet = base_sheet.open_sibling_sheet(sheet_id)
                     self.add_sheet(sheet, wb_id, sheet_id)
         else:
             url = utils.path2url(wb_id)
             if wb_id is None:
-                sheet = self._open_sheet(url, sheet_id, opts)
+                sheet = self._open_sheet(url, sheet_id)
             else:
                 key = self._build_sheet_key(wb_id, sheet_id)
                 sheet = self._cache_get(key)
                 if not sheet:
-                    sheet = self._open_sheet(url, sheet_id, opts)
+                    sheet = self._open_sheet(url, sheet_id)
                     self.add_sheet(sheet, wb_id, sheet_id)
 
-        assert sheet, (wb_id, sheet_id, opts)
+        assert sheet, (wb_id, sheet_id)
         return sheet
 
     def __enter__(self):
@@ -360,11 +358,11 @@ class ABCSheet(with_metaclass(ABCMeta, object)):
         """
 
     @abstractmethod
-    def open_sibling_sheet(self, sheet_id, opts=None):
+    def open_sibling_sheet(self, sheet_id):
         """Return a sibling sheet by the given index or name"""
 
     @abstractmethod
-    def list_sheetnames(self, opts=None):
+    def list_sheetnames(self):
         """Return a list of names"""
 
     @abstractmethod

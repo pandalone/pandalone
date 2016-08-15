@@ -1593,8 +1593,7 @@ class T13Ranger(unittest.TestCase):
         sheet.open_sibling_sheet = MagicMock(name='open_sibling_sheet()',
                                              return_value=sheet)
         res = ranger.do_lasso('#Sibl!B2', sheet=sheet)
-        sheet.open_sibling_sheet.assert_called_once_with(
-            'Sibl', ChainMap())
+        sheet.open_sibling_sheet.assert_called_once_with('Sibl')
         self.assertEqual(res.values, 4)
 
     def test_open_sheet_same_sheet_twice(self):

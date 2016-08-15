@@ -18,7 +18,7 @@ import os
 import sys
 
 from future.moves.urllib import request
-from future.moves.urllib.parse import urlsplit
+from future.moves.urllib.parse import urlparse
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
                   XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER)
 import xlrd
@@ -113,12 +113,10 @@ def _parse_cell(xcell, epoch1904=False):
                      (xcell.ctype, xcell.value))
 
 
-def _open_sheet_by_name_or_index(xlrd_book, wb_id, sheet_id, opts=None):
+def _open_sheet_by_name_or_index(xlrd_book, wb_id, sheet_id):
     """
     :param int or str or None sheet_id:
             If `None`, opens 1st sheet.
-    :param dict opts:
-            does nothing with them
     """
     if sheet_id is None:
         sheet_id = 0
@@ -162,11 +160,10 @@ class XlrdSheet(ABCSheet):
         return SheetId(self.book_fname or sh.book.filestr,
                        [sh.name, sh.number])
 
-    def open_sibling_sheet(self, sheet_id, opts=None):
+    def open_sibling_sheet(self, sheet_id):
         """Gets by-index only if `sheet_id` is `int`, otherwise tries both by name and index."""
         return _open_sheet_by_name_or_index(self._sheet.book,
-                                            self.book_fname, sheet_id,
-                                            opts)
+                                            self.book_fname, sheet_id)
 
     def list_sheetnames(self):
         return self._sheet.book.sheet_names()
@@ -212,34 +209,28 @@ class XlrdSheet(ABCSheet):
 
 class XlrdBackend(ABCBackend):
 
-    def bid(self, wb_url, opts=None):
+    def bid(self, wb_url):
         return 100
 
-    def open_sheet(self, wb_url, sheet_id, opts):
+    def open_sheet(self, wb_url, sheet_id):
         """
         Opens the local or remote `wb_url` *xlrd* workbook wrapped as :class:`XlrdSheet`.
         """
-        assert wb_url, (wb_url, sheet_id, opts)
-        book = self._open_book(wb_url, opts)
+        assert wb_url, (wb_url, sheet_id)
+        book = self._open_book(wb_url)
 
-        return _open_sheet_by_name_or_index(book, wb_url, sheet_id, opts)
+        return _open_sheet_by_name_or_index(book, wb_url, sheet_id)
 
-    def list_sheetnames(self, wb_url, opts=None):
-        if not opts:
-            opts = {}
+    def list_sheetnames(self, wb_url):
         # TODO: QnD list_sheetnames()!
-        book = self._open_book(wb_url, opts)
+        book = self._open_book(wb_url)
         return book.sheet_names()
 
-    def _open_book(self, url, opts):
-        ropts = opts.get('read', {})
-        if ropts:
-            ropts = ropts.copy()
+    def _open_book(self, url):
+        parts = filename = urlparse(url)
+        ropts = parts.params or {}
         if 'logfile' not in ropts:
-            level = logging.INFO if opts.get(
-                'verbose', None) else logging.DEBUG
-            ropts['logfile'] = utils.LoggerWriter(log, level)
-        parts = filename = urlsplit(url)
+            ropts['logfile'] = utils.LoggerWriter(log, logging.DEBUG)
         if parts.scheme == 'file':
             path = utils.urlpath2path(parts.path)
             log.info('Opening book(%r)...', path)
