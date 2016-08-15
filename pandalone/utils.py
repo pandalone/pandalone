@@ -111,47 +111,74 @@ def as_list(o):
     return o
 
 _file_drive_regex = re.compile(r'^([a-z]):(/)?(.*)$', re.I)
-_denormpath_regex = re.compile(r'[^/\\][/\\]$', re.I)
+_is_dir_regex = re.compile(r'[^/\\][/\\]$')
 _unc_prefix = '\\\\?\\'
 
 
 def _normpath(path):
+    """Like :func:`osp.normpath()`, but preserving last slash."""
     p = osp.normpath(path)
-    if _denormpath_regex.search(path):
+    if _is_dir_regex.search(path) and p[-1] != os.sep:
         p = p + '/'
     return p
 
 
-def path2url(path):
-    """
-    Converts Windows-path to a local('file:') URL, or preserves remote URLs.
+def _pathname2url(path):
+    """Like :func:`ur.pathname2url()`, but aliminiating UNC(\\\\?\\) and preserving last slash."""
+    if path.startswith(_unc_prefix):
+        path = path[3:]
+    u = ur.pathname2url(path)
+    if _is_dir_regex.search(path) and u[-1] != '/':
+        u = u + '/'
+    return u
 
-    - REL WITHOUT drive-letter     --> LOCAL ABS on CWD
-    - REL WITH drive-letter        --> LOCAL ABS(!)
-    - ABS WITHOUT drive-letter     --> LOCAL ABS (which drive??)
-    - ABS WITH drive-letter        --> LOCAL ABS
-    - remote REL/ABS WITH/WITHOUT drive-letter pass through.
-    - local/remote ABS UNC-paths   --> LOCAL/REMOTE ABS
+
+def _url2pathname(url):
+    """Like :func:`ur.url2pathname()`, but prefixing with UNC(\\\\?\\) long paths and preserving last slash."""
+    p = ur.url2pathname(url)
+    if _is_dir_regex.search(url) and p[-1] != os.sep:
+        p = p + osp.sep
+    if len(p) > 200:
+        p += _unc_prefix
+    return p
+
+
+def path2url(path, expandvars=False, expanduser=False):
+    """
+    Converts path to local('file:') URL, while remote (http:) URLs pass through.
+
+    Windows cases handled are:
+
+      - foo/bar/                     --> file:///D:/CWD/foo/bar/
+      - D:foo/bar                    --> file:///D:/foo/bar
+      - /foo/bar                     --> file:///D:/foo/bar    ## (drive from CWD)
+      - ABS WITH drive-letter        --> LOCAL ABS
+      - remote REL/ABS WITH/WITHOUT drive-letter pass through.
+      - local/remote ABS UNC-paths   --> LOCAL/REMOTE ABS
 
     :param str path: anything descrbed above
 
     Complexity because Bill Gates copied the methods of Methodios and Kyrilos.
     """
     if path:
+        if expandvars:
+            path = osp.expandvars(path)
+
         # Trim UNCs, urljoin() makes nonsense, pathname2url() just fails.
         if path.startswith(_unc_prefix):
             path = path[3:]
 
-        # UNIXize resiliently and join with base-URL,
-        # UNLESS it start with drive-letter (not to be assumed as schema).
+        # UNIXize *safely* and join with base-URL,
+        # UNLESS it start with drive-letter (not to assume it as schema).
         #
         path = path.replace('\\', '/')
         m = _file_drive_regex.match(path)
         if m:
-            # Eliminate those pesky drive-relative paths...
+            # A pesky Drive-relative path...assume it absolute!
+            #
             if not m.group(2):
                 path = '%s:/%s' % (m.group(1), m.group(3))
-            path = 'file:///%s' % up.quote(path)
+            path = 'file:///%s' % path
         else:
             # Use CWD as  URL-base to make it absolute.
             #
@@ -162,8 +189,8 @@ def path2url(path):
         # Expand vars, conditionally on remote or local URL.
         #
         parts = up.urlsplit(path)
-        p = osp.expandvars(parts.path)
-        if parts.scheme == 'file':
+        p = parts.path
+        if parts.scheme == 'file' and expanduser:
             p = osp.expanduser(p)
         p = _normpath(p).replace('\\', '/')
         path = up.urlunsplit(parts._replace(path=p))
@@ -172,8 +199,8 @@ def path2url(path):
 
 
 def url2path(url):
-    parts = up.urlsplit(url)
-    cwd = ur.url2pathname('%s/' % os.getcwd())
+    purl = up.urlsplit(url)
+    return _url2pathname(purl.path)
 
 
 def generate_filenames(filename):

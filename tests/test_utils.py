@@ -123,15 +123,15 @@ class TPath2Prl(unittest.TestCase):
         self.assertEqual(utils.path2url(path), url, path)
 
     @ddt.data(
-        ('D:\\', 'file:///D%3A/'),
-        ('d:\\foo', 'file:///d%3A/foo'),
-        ('C:\\foo\\', 'file:///C%3A/foo/'),
-        ('c:\\foo\\bar', 'file:///c%3A/foo/bar'),
+        ('D:\\', 'file:///D:/'),
+        ('d:\\foo', 'file:///d:/foo'),
+        ('C:\\foo\\', 'file:///C:/foo/'),
+        ('c:\\foo\\bar', 'file:///c:/foo/bar'),
 
-        ('D:', 'file:///D%3A/'),  # NOTE: destroy Windows per drive cwd!
-        ('d:foo', 'file:///d%3A/foo'),
-        ('C:foo\\', 'file:///C%3A/foo/'),
-        ('c:foo\\bar', 'file:///c%3A/foo/bar'),
+        ('D:', 'file:///D:/'),  # NOTE: destroy Windows per drive cwd!
+        ('d:foo', 'file:///d:/foo'),
+        ('C:foo\\', 'file:///C:/foo/'),
+        ('c:foo\\bar', 'file:///c:/foo/bar'),
     )
     def test_drive(self, case):
         path, url = case
@@ -146,24 +146,48 @@ class TPath2Prl(unittest.TestCase):
         self.assertEqual(utils.path2url(path), url, path)
 
     @ddt.data(
-        ('~/', 'file://%s/' % os.environ['HOMEPATH']),
-        ('~/', 'http://~/'),
-        ('/%TTT%/', 'file:///UUU'),
-        ('/$TTT/', 'file:///UUU'),
-        ('/${TTT}/', 'file:///UUU'),
+        ('/%REL%', 'file:///RRR'),
+        ('/$REL', 'file:///RRR'),
+        ('/${REL}', 'file:///RRR'),
+
+        ('/%REL%/', 'file:///RRR/'),
+        ('/$REL/', 'file:///RRR/'),
+        ('/${REL}/', 'file:///RRR/'),
+
+        ('%ABS%', 'file:///AAA'),
+        ('$ABS', 'file:///AAA'),
+        ('${ABS}', 'file:///AAA'),
+
+        ('%ABS%/', 'file:///AAA/'),
+        ('$ABS/', 'file:///AAA/'),
+        ('${ABS}/', 'file:///AAA/'),
     )
-    def test_expansion(self, case):
+    def test_expansion_vars(self, case):
         path, url = case
-        os.environ['TTT'] = 'UUU'
-        self.assertEqual(utils.path2url(path), url, path)
+        os.environ['REL'] = 'RRR'
+        os.environ['ABS'] = '/AAA'
+        self.assertEqual(utils.path2url(path, 1, 1), url, path)
 
     @ddt.data(
-        ('http://D:\\',     'http:///D%3A/'),
-        ('http://d:\\foo',  'http:///d%3A/foo'),
-        ('http:///',        'http:///'),
-        ('http://\\',       'http:///'),
-        ('http://\\foo',    'http:///foo'),
-        ('https:///foo',    'https:///foo'),
+        ('~/a', '/a'),
+        ('~\\a', '/a'),
+        ('~/a/', '/a/'),
+        ('~\\a\\', '/a/'),
+    )
+    def test_expansion_user(self, case):
+        path, end = case
+        url = utils.path2url(path, 0, 1)
+        self.assertFalse(url.startswith('~'), (url, path))
+        self.assertTrue(url.endswith(end), (url, path))
+
+        url = utils.path2url(path, 0, 0)
+        # NO, turned into absolute!
+        ##self.assertTrue(url.startswith('~'), (url, path))
+
+    @ddt.data(
+        ('http://ser/D:\\',     'http://ser/D:/'),
+        ('http://ser/d:\\foo',  'http://ser/d:/foo'),
+        ('http://ser/foo/', 'http://ser/foo/'),
     )
     def test_remote(self, case):
         path, url = case
