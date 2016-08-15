@@ -15,18 +15,20 @@ Prefer accessing the public members from the parent module.
 
 from __future__ import unicode_literals
 
-from future.utils import iteritems
 from abc import abstractmethod, ABCMeta
 from collections import namedtuple
+import os
+import re
 
+from future.utils import iteritems
 from future.utils import with_metaclass
 
 import itertools as itt
 import numpy as np
-from future.moves.urllib.parse import urljoin
+import os.path as osp
 
 from .. import Coords, _capture, io_backends
-from ...utils import as_list
+from ... import utils
 
 
 class ABCBackend(with_metaclass(ABCMeta, object)):
@@ -86,17 +88,15 @@ class SimpleSheetsFactory(object):
             else:
                 base_sheet.open_sibling_sheet(sheet_id, opts)
         else:
-            sheet = self._open_sheet(wb_id, sheet_id, opts)
+            url = utils.path2url(wb_id)
+            sheet = self._open_sheet(url, sheet_id, opts)
 
         assert sheet, (wb_id, sheet_id, opts)
         return sheet
 
-    def _path2url(self, path):
-        return path and urljoin('file://', path)
-
     def decide_backend(self, wb_id, opts=None):
         """Asks all :attr:`backends` to :term:`bid` for handling a :term:`xl-ref`. """
-        wb_id = self._path2url(wb_id)
+        wb_id = utils.path2url(wb_id)
         bids = [(be, be.bid(wb_id, opts=opts))
                 for be in self.backends]
         bids = [(be, score) for be, score in bids if score is not None]
@@ -112,16 +112,16 @@ class SimpleSheetsFactory(object):
         return winner
 
     def list_sheetnames(self, wb_id, opts=None):
-        wb_id = self._path2url(wb_id)
-        be = self.decide_backend(wb_id, opts=opts)
-        return be.list_sheetnames(wb_id, opts)
+        url = utils.path2url(wb_id)
+        be = self.decide_backend(url, opts=opts)
+        return be.list_sheetnames(url, opts)
 
-    def _open_sheet(self, wb_id, sheet_id, opts):  # =None):
-        be = self.decide_backend(wb_id, opts=opts)
-        sheet = be.open_sheet(wb_id, sheet_id, opts)
+    def _open_sheet(self, url, sheet_id, opts):  # =None):
+        be = self.decide_backend(url, opts=opts)
+        sheet = be.open_sheet(url, sheet_id, opts)
         if not sheet:
             raise ValueError("Backend(%s) found no sheet for(%r) with opts(%r)!"
-                             % (be, wb_id, opts))
+                             % (be, url, opts))
         return sheet
 
 
@@ -181,8 +181,8 @@ class SheetsFactory(SimpleSheetsFactory):
         """
         wb_id, sh_ids2 = sheet.get_sheet_ids()
         assert wb_id is not None, (wb_id, sh_ids2)
-        wb_ids = [wb_id] + as_list(wb_ids)
-        sh_ids = sh_ids2 + as_list(sh_ids)
+        wb_ids = [wb_id] + utils.as_list(wb_ids)
+        sh_ids = sh_ids2 + utils.as_list(sh_ids)
 
         key_pairs = itt.product(wb_ids, sh_ids)
         keys = list(set(self._build_sheet_key(*p)
@@ -243,13 +243,14 @@ class SheetsFactory(SimpleSheetsFactory):
                     sheet = base_sheet.open_sibling_sheet(sheet_id, opts)
                     self.add_sheet(sheet, wb_id, sheet_id)
         else:
+            url = utils.path2url(wb_id)
             if wb_id is None:
-                sheet = self._open_sheet(wb_id, sheet_id, opts)
+                sheet = self._open_sheet(url, sheet_id, opts)
             else:
                 key = self._build_sheet_key(wb_id, sheet_id)
                 sheet = self._cache_get(key)
                 if not sheet:
-                    sheet = self._open_sheet(wb_id, sheet_id, opts)
+                    sheet = self._open_sheet(url, sheet_id, opts)
                     self.add_sheet(sheet, wb_id, sheet_id)
 
         assert sheet, (wb_id, sheet_id, opts)

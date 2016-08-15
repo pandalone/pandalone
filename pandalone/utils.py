@@ -123,8 +123,8 @@ def _normpath(path):
     return p
 
 
-def _pathname2url(path):
-    """Like :func:`ur.pathname2url()`, but aliminiating UNC(\\\\?\\) and preserving last slash."""
+def path2urlpath(path):
+    """Like :func:`ur.path2urlpath()`, but aliminiating UNC(\\\\?\\) and preserving last slash."""
     if path.startswith(_unc_prefix):
         path = path[3:]
     u = ur.pathname2url(path)
@@ -133,8 +133,8 @@ def _pathname2url(path):
     return u
 
 
-def _url2pathname(url):
-    """Like :func:`ur.url2pathname()`, but prefixing with UNC(\\\\?\\) long paths and preserving last slash."""
+def urlpath2path(url):
+    """Like :func:`ur.urlpath2path()`, but prefixing with UNC(\\\\?\\) long paths and preserving last slash."""
     p = ur.url2pathname(url)
     if _is_dir_regex.search(url) and p[-1] != os.sep:
         p = p + osp.sep
@@ -164,7 +164,7 @@ def path2url(path, expandvars=False, expanduser=False):
         if expandvars:
             path = osp.expandvars(path)
 
-        # Trim UNCs, urljoin() makes nonsense, pathname2url() just fails.
+        # Trim UNCs, urljoin() makes nonsense, path2urlpath() just fails.
         if path.startswith(_unc_prefix):
             path = path[3:]
 
@@ -196,11 +196,6 @@ def path2url(path, expandvars=False, expanduser=False):
         path = up.urlunsplit(parts._replace(path=p))
 
     return path
-
-
-def url2path(url):
-    purl = up.urlsplit(url)
-    return _url2pathname(purl.path)
 
 
 def generate_filenames(filename):

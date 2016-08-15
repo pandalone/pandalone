@@ -24,7 +24,6 @@ from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
 import xlrd
 
 import numpy as np
-import os.path as osp
 
 from .. import EmptyCaptureException, Coords, io_backends
 from ... import utils
@@ -221,6 +220,18 @@ class XlrdBackend(ABCBackend):
         Opens the local or remote `wb_url` *xlrd* workbook wrapped as :class:`XlrdSheet`.
         """
         assert wb_url, (wb_url, sheet_id, opts)
+        book = self._open_book(wb_url, opts)
+
+        return _open_sheet_by_name_or_index(book, wb_url, sheet_id, opts)
+
+    def list_sheetnames(self, wb_url, opts=None):
+        if not opts:
+            opts = {}
+        # TODO: QnD list_sheetnames()!
+        book = self._open_book(wb_url, opts)
+        return book.sheet_names()
+
+    def _open_book(self, url, opts):
         ropts = opts.get('read', {})
         if ropts:
             ropts = ropts.copy()
@@ -228,26 +239,20 @@ class XlrdBackend(ABCBackend):
             level = logging.INFO if opts.get(
                 'verbose', None) else logging.DEBUG
             ropts['logfile'] = utils.LoggerWriter(log, level)
-        parts = filename = urlsplit(wb_url)
-        if osp.isfile(wb_url) or not parts.scheme or parts.scheme == 'file':
-            fpath = osp.abspath(osp.expanduser(osp.expandvars(parts.path)))
-            log.info('Opening book %r...', fpath)
-            book = xlrd.open_workbook(fpath, **ropts)
+        parts = filename = urlsplit(url)
+        if parts.scheme == 'file':
+            path = utils.urlpath2path(parts.path)
+            log.info('Opening book(%r)...', path)
+            book = xlrd.open_workbook(path, **ropts)
         else:
             ropts.pop('on_demand', None)
             http_opts = ropts.get('http_opts', {})
-            with request.urlopen('file://' + wb_url, **http_opts) as response:
-                log.info('Opening book %r...', filename)
+            with request.urlopen(url, **http_opts) as response:
+                log.info('Opening book(%r)...', filename)
                 book = xlrd.open_workbook(
                     filename, file_contents=response, **ropts)
 
-        return _open_sheet_by_name_or_index(book, wb_url, sheet_id, opts)
-
-    def list_sheetnames(self, wb_id, opts=None):
-        if not opts:
-            opts = {}
-        # TODO: QnD list_sheetnames()!
-        return xlrd.open_workbook(wb_id, **opts).sheet_names()
+        return book
 
 
 def load_as_xleash_plugin():

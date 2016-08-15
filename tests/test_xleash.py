@@ -1227,7 +1227,7 @@ class T09ReadRect(unittest.TestCase):
 
 
 @ddt.ddt
-class T10SheetFactory(unittest.TestCase):
+class T10SheetManager(unittest.TestCase):
 
     @ddt.data(
         (('wb1', ['sh1', 0]), None, None,     [('wb1', 'sh1'), ('wb1', 0),
@@ -2149,14 +2149,12 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         err_msg = """
         Filtering xl-ref('tests/recursive.xlsx#A_(U):"recurse"') failed due to:
             While invoking(recurse, args=[], kwds={}):
-                Value('#BAD1:"filter"') at XLocation(sheet=XlrdSheet(book='tests/recursive.xlsx', sheet_ids=['2', 0]), st=Coords(row=11, col=0), nd=None, base_coords=Coords(row=11, col=0)):
-                    Lassoing  `xl-ref` failed due to:
-                        array index out of range
+                Value('#BAD1:"filter"') at XLocation(sheet=
         """
         try:
             _l.lasso('tests/recursive.xlsx#A_(U):"recurse"')
         except ValueError as ex:
-            self.assertStrippedStringsEqual(str(ex), err_msg)
+            self.assertStrippedStringsStartsWith(str(ex), err_msg)
         except:
             raise
         else:

@@ -21,6 +21,7 @@ import logging
 import textwrap
 
 from future.backports import ChainMap
+from future.utils import raise_from
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
 
@@ -183,7 +184,8 @@ class Ranger(object):
                 lasso.opts, base_sheet=lasso.sheet)
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
-            raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
+            raise_from(ValueError(msg % (lasso.url_file, lasso.sh_name, ex)),
+                       ex)
         return sheet
 
     # TODO: Move _resolve_capture_rect into ABCSheet

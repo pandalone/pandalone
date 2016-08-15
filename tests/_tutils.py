@@ -181,6 +181,29 @@ class CustomAssertions(object):
                               st, nd, (msg or ''))
             self.fail(err_msg)
 
+    def assertStrippedStringsStartsWith(self, st, nd, msg=None, context_chars=30):
+        regex = re.compile('\\s+', re.DOTALL)
+        st1 = regex.sub('', st)
+        nd1 = regex.sub('', nd)
+        if not st1.startswith(nd1):
+            err_i = len(os.path.commonprefix((st1, nd1)))
+            s_slice = slice(max(0, err_i - context_chars),
+                            err_i + context_chars)
+            c1, c2 = st1[s_slice], nd1[s_slice]
+            frmt = dedent("""\
+            Stripped-strings differ at char %i (lens: 1st=%i, 2nd=%s)!
+              --1st: %s
+                     %s^
+              --2nd: %s
+              ==1st original: %s
+              ==2nd original: %s
+            ----%s
+            """)
+            spcs = ' ' * context_chars
+            err_msg = frmt % (err_i, len(st1), len(nd1), c1, spcs, c2,
+                              st, nd, (msg or ''))
+            self.fail(err_msg)
+
 try:
     from tempfile import TemporaryDirectory  # @UnusedImport
 except ImportError:

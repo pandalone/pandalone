@@ -20,7 +20,7 @@ import logging
 
 
 import asteval
-from future.utils import iteritems
+from future.utils import iteritems, raise_from
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
 
@@ -362,7 +362,7 @@ def _recurse_element_func(ranger, lasso, context, elval):
         log.debug(msg, *msg_args)
     except Exception as ex:
         msg = "Lassoing  `xl-ref` failed due to: %s"
-        raise ValueError(msg % ex)
+        raise_from(ValueError(msg % ex), ex)
 
     return proced, lasso
 
