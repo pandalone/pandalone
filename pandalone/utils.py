@@ -15,6 +15,10 @@ import sys
 from future.moves.collections import Sequence  # @UnresolvedImport
 from past.types import basestring
 
+import future.moves.urllib.parse as up
+import future.moves.urllib.request as ur
+import os.path as osp
+
 
 __commit__ = ""
 
@@ -105,6 +109,71 @@ def as_list(o):
     else:
         o = [o]
     return o
+
+_file_drive_regex = re.compile(r'^([a-z]):(/)?(.*)$', re.I)
+_denormpath_regex = re.compile(r'[^/\\][/\\]$', re.I)
+_unc_prefix = '\\\\?\\'
+
+
+def _normpath(path):
+    p = osp.normpath(path)
+    if _denormpath_regex.search(path):
+        p = p + '/'
+    return p
+
+
+def path2url(path):
+    """
+    Converts Windows-path to a local('file:') URL, or preserves remote URLs.
+
+    - REL WITHOUT drive-letter     --> LOCAL ABS on CWD
+    - REL WITH drive-letter        --> LOCAL ABS(!)
+    - ABS WITHOUT drive-letter     --> LOCAL ABS (which drive??)
+    - ABS WITH drive-letter        --> LOCAL ABS
+    - remote REL/ABS WITH/WITHOUT drive-letter pass through.
+    - local/remote ABS UNC-paths   --> LOCAL/REMOTE ABS
+
+    :param str path: anything descrbed above
+
+    Complexity because Bill Gates copied the methods of Methodios and Kyrilos.
+    """
+    if path:
+        # Trim UNCs, urljoin() makes nonsense, pathname2url() just fails.
+        if path.startswith(_unc_prefix):
+            path = path[3:]
+
+        # UNIXize resiliently and join with base-URL,
+        # UNLESS it start with drive-letter (not to be assumed as schema).
+        #
+        path = path.replace('\\', '/')
+        m = _file_drive_regex.match(path)
+        if m:
+            # Eliminate those pesky drive-relative paths...
+            if not m.group(2):
+                path = '%s:/%s' % (m.group(1), m.group(3))
+            path = 'file:///%s' % up.quote(path)
+        else:
+            # Use CWD as  URL-base to make it absolute.
+            #
+            cwd = ur.pathname2url('%s/' % os.getcwd())
+            baseurl = up.urljoin('file:', cwd)
+            path = up.urljoin(baseurl, path)
+
+        # Expand vars, conditionally on remote or local URL.
+        #
+        parts = up.urlsplit(path)
+        p = osp.expandvars(parts.path)
+        if parts.scheme == 'file':
+            p = osp.expanduser(p)
+        p = _normpath(p).replace('\\', '/')
+        path = up.urlunsplit(parts._replace(path=p))
+
+    return path
+
+
+def url2path(url):
+    parts = up.urlsplit(url)
+    cwd = ur.url2pathname('%s/' % os.getcwd())
 
 
 def generate_filenames(filename):
