@@ -538,7 +538,7 @@ def _parse_xlref(xlref):
             "No fragment-part (starting with '#'): %s" % xlref)
     res = parse_xlref_fragment(frag)
     frag = frag.strip()
-    res['url_file'] = url_file.strip() or None
+    res['url_file'] = url_file or None
     res['xl_ref'] = xlref
 
     return res

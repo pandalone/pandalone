@@ -24,6 +24,26 @@ __commit__ = ""
 log = logging.getLogger(__name__)
 
 
+_xl_extensions = re.compile(r'\.xl((s[xm]?|t[xm]?)|w|m)\b', re.IGNORECASE)
+
+
+_xl_installed = None
+
+
+def check_excell_installed():
+    """Checks once and returns `True` if Excel-app is installed in the system."""
+    global _xl_installed
+    if _xl_installed is None:
+        try:
+            from win32com.client import dynamic  # @UnresolvedImport
+            dynamic.Dispatch('Excel.Application')
+            _xl_installed = True
+        except Exception:  # pragma: no cover
+            _xl_installed = False
+
+    return _xl_installed
+
+
 def _get_xl_vb_project(xl_wb):
     """
     To allow updating Excel's VBA, follow instructions at:

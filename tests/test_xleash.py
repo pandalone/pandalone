@@ -14,7 +14,7 @@ import doctest
 import json
 import logging
 import os
-from pandalone import xleash
+from pandalone import xlsutils, xleash
 from pandalone.xleash import (_parse as _p,
                               _capture as _c,
                               _filter as _f,
@@ -48,7 +48,7 @@ except ImportError:
 
 
 log = _tutils.init_logging(__name__)
-is_excel_installed = _tutils.check_excell_installed()
+is_excel_installed = xlsutils.check_excell_installed()
 _l.CHECK_CELLTYPE = True
 mydir = osp.dirname(__file__)
 

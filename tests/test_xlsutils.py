@@ -6,7 +6,11 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 import os
+from pandalone import xlsutils
 import sys
+from tests._tutils import (
+    init_logging, TemporaryDirectory, xw_no_save_Workbook,
+    xw_close_workbook)
 import unittest
 
 from numpy import testing as npt
@@ -14,13 +18,10 @@ from pandas.core.generic import NDFrame
 
 import numpy as np
 import pandas as pd
-from tests._tutils import (
-    init_logging, TemporaryDirectory, check_excell_installed, xw_no_save_Workbook,
-    xw_close_workbook)
 
 
 log = init_logging(__name__)
-is_excel_installed = check_excell_installed()
+is_excel_installed = xlsutils.check_excell_installed()
 
 
 def from_my_path(*parts):

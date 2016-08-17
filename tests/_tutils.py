@@ -33,8 +33,6 @@ def init_logging(module_name, loglevel=DEFAULT_LOG_LEVEL):
 
     return log
 
-_xl_installed = None
-
 ##############
 #  Compatibility
 #
@@ -42,20 +40,6 @@ try:  # pragma: no cover
     assertRaisesRegex = unittest.TestCase.assertRaisesRegex
 except:  # pragma: no cover
     assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
-
-
-def check_excell_installed():
-    """Checks once and returns `True` if Excel-app is installed in the system."""
-    global _xl_installed
-    if _xl_installed is None:
-        try:
-            from win32com.client import dynamic  # @UnresolvedImport
-            dynamic.Dispatch('Excel.Application')
-            _xl_installed = True
-        except Exception:  # pragma: no cover
-            _xl_installed = False
-
-    return _xl_installed
 
 
 class CustomAssertions(object):
