@@ -846,7 +846,7 @@ from ._parse import (
 
 io_backends = []
 """Hook for plugins to append :class:`ABCBackend` instances."""
-from pandalone.xleash.io._backend import (
+from pandalone.xleash.io.backend import (
     ABCSheet, ArraySheet, margin_coords_from_states_matrix,
     SheetsFactory,
 )

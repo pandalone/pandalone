@@ -20,7 +20,7 @@ from pandalone.xleash import (_parse as _p,
                               _filter as _f,
                               _lasso as _l,
                               Lasso, Coords, EmptyCaptureException)
-from pandalone.xleash.io import (_backend as _s, _xlrd as xd)
+from pandalone.xleash.io import (backend as _s, _xlrd as xd)
 import sys
 import tempfile
 from tests import _tutils

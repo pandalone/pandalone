@@ -27,7 +27,7 @@ from toolz import dicttoolz as dtz
 from . import installed_filters
 
 from . import (Lasso, EmptyCaptureException, _parse, _capture)
-from pandalone.xleash.io import _backend
+from pandalone.xleash.io import backend
 
 
 log = logging.getLogger(__name__)
@@ -314,7 +314,7 @@ def make_default_Ranger(sheets_factory=None,
         <pandalone.xleash._lasso.Ranger object at
         ...
     """
-    return Ranger(sheets_factory or _backend.SheetsFactory(),
+    return Ranger(sheets_factory or backend.SheetsFactory(),
                   base_opts or get_default_opts(),
                   available_filters)
 

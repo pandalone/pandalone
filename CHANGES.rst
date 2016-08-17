@@ -59,13 +59,13 @@ v0.1.13 (Aug-2016)
 - xleash:
   - Plugins for backends and filters.
   - Packaging now supports 3 extras:
-    - ``pandas`` for filters plugins,
     - ``xlrd`` for the typical backend plugin,
-    - ``xlwings`` for excel-utils & tests.
+    - ``xlwings`` for the new backend, excel-utils & tests,
+    - ``pandas`` for filters plugins.
 
   - Always convert xl-ref paths a "local" or "remote" urls to facilitate
-    backends & use their `url.params` instead of filter-opts.
-  - Rename ``io._sheets --> _backend``.
+    backends & use their `url.params` instead of filter `opts`.
+  - Rename ``io._sheets --> io.backend``.
 
 - xlutils, deps: Upgraded to ``xlwings-0.9.x`` released Aug/2/2016
   (see `migration guide <http://docs.xlwings.org/en/stable/migrate_to_0.9.html>`_)

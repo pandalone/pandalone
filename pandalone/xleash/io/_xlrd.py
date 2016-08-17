@@ -14,7 +14,7 @@ Implements the *xlrd* backend of *xleash* that reads in-file Excel-spreadsheets.
 import datetime
 from distutils.version import LooseVersion
 import logging
-from pandalone.xleash.io._backend import ABCBackend, ABCSheet, SheetId
+from pandalone.xleash.io.backend import ABCBackend, ABCSheet, SheetId
 
 from future.moves.urllib import request
 from future.moves.urllib.parse import urlparse

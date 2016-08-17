@@ -17,15 +17,12 @@ from __future__ import unicode_literals
 
 from abc import abstractmethod, ABCMeta
 from collections import namedtuple
-import os
-import re
 
 from future.utils import iteritems
 from future.utils import with_metaclass
 
 import itertools as itt
 import numpy as np
-import os.path as osp
 
 from .. import Coords, _capture, io_backends
 from ... import utils
@@ -275,8 +272,6 @@ def margin_coords_from_states_matrix(states_matrix):
     :rtype:     (Coords, Coords)
 
     Examples::
-        >>> from io._sheets import margin_coords_from_states_matrix
-
         >>> states_matrix = np.asarray([
         ...    [0, 0, 0],
         ...    [0, 1, 0],
