@@ -63,6 +63,7 @@ v0.1.13 (Aug-2016)
     - ``xlwings`` for the new backend, excel-utils & tests,
     - ``pandas`` for filters plugins.
 
+  - FIX & rename pandas-filter ``series --> sr`` - did not return a ``Lasso``.
   - Always convert xl-ref paths a "local" or "remote" urls to facilitate
     backends & use their `url.params` instead of filter `opts`.
   - Rename ``io._sheets --> io.backend``.

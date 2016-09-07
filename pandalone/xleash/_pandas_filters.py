@@ -198,9 +198,9 @@ def install_filters(filters_dict):
         'df': {
             'func': _df_filter,
         },
-        'series': {
-            'func': lambda ranger, lasso, *args, **kwds: pd.Series(OrderedDict(lasso.values),
-                                                                   *args, **kwds),
+        'sr': {
+            'func': lambda ranger, lasso, *args, **kwds: lasso._replace(
+                values=pd.Series(OrderedDict(lasso.values), *args, **kwds)),
             'desc': ("Converts a 2-columns list-of-lists into pd.Series.\n" +
                      pd.Series.__doc__),
         }
