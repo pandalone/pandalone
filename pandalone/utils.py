@@ -110,21 +110,76 @@ def as_list(o):
         o = [o]
     return o
 
+
+_camel_to_snake_regex = re.compile(
+    '(?<=[a-z0-9])([A-Z]+)')  # ('(?!^)([A-Z]+)')
+
+
+def camel_to_snake_case(s):
+    """Turns `'CO2DiceApp' --> 'co2_dice_app'. """
+    return _camel_to_snake_regex.sub(r'_\1', s).lower()
+
+
+def camel_to_cmd_name(s):
+    """Turns `'CO2DiceApp' --> 'co2-dice-app'. """
+    return camel_to_snake_case(s).replace('_', '-')
+
+
+# def format_pairs(items: Sequence[Tuple[Text, Any]], indent=16):
+def format_pairs(items, indent=16):
+    def format_item(k, v):
+        nk = len(k)
+        ntabs = max(1, int(nk / indent) + bool(nk % indent))
+        key_width = ntabs * indent
+        item_pattern = '%%-%is = %%s' % key_width
+        return item_pattern % (k, v)
+    dic = [format_item(*i) for i in items]
+
+    return '\n'.join(dic)
+
+
+def first_line(doc):
+    for l in doc.split('\n'):
+        if l.strip():
+            return l.strip()
+
+
 _file_drive_regex = re.compile(r'^([a-z]):(/)?(.*)$', re.I)
 _is_dir_regex = re.compile(r'[^/\\][/\\]$')
 _unc_prefix = '\\\\?\\'
 
 
-def _normpath(path):
+def normpath(path):
     """Like :func:`osp.normpath()`, but preserving last slash."""
     p = osp.normpath(path)
     if _is_dir_regex.search(path) and p[-1] != os.sep:
-        p = p + '/'
+        p = p + osp.sep
     return p
 
 
+def abspath(path):
+    """Like :func:`osp.abspath()`, but preserving last slash."""
+    p = osp.abspath(path)
+    if _is_dir_regex.search(path) and p[-1] != os.sep:
+        p = p + osp.sep
+    return p
+
+
+def convpath(fpath, abs_path=True, exp_user=True, exp_vars=True):
+    """Without any flags, just pass through :func:`osp.normpath`. """
+    if exp_user:
+        fpath = osp.expanduser(fpath)
+    if exp_vars:
+        # Mask UNC '\\server\share$\path` from expansion.
+        fpath = fpath.replace('$\\', '_UNC_PATH_HERE_')
+        fpath = osp.expandvars(fpath)
+        fpath = fpath.replace('_UNC_PATH_HERE_', '$\\')
+    fpath = abspath(fpath) if abs_path else normpath(fpath)
+    return fpath
+
+
 def path2urlpath(path):
-    """Like :func:`ur.path2urlpath()`, but aliminiating UNC(\\\\?\\) and preserving last slash."""
+    r"""Like :func:`ur.path2urlpath()`, but eliminiating UNC(\\?\) and preserving last slash."""
     if path.startswith(_unc_prefix):
         path = path[3:]
     u = ur.pathname2url(path)
@@ -134,7 +189,7 @@ def path2urlpath(path):
 
 
 def urlpath2path(url):
-    """Like :func:`ur.urlpath2path()`, but prefixing with UNC(\\\\?\\) long paths and preserving last slash."""
+    """Like :func:`ur.url2pathname()`, but prefixing with UNC(\\\\?\\) long paths and preserving last slash."""
     p = ur.url2pathname(url)
     if _is_dir_regex.search(url) and p[-1] != os.sep:
         p = p + osp.sep
@@ -149,9 +204,9 @@ def path2url(path, expandvars=False, expanduser=False):
 
     Windows cases handled are:
 
-      - foo/bar/                     --> file:///D:/CWD/foo/bar/
+      - foo/bar/                     --> file:///D:/CWD/foo/bar/  ## (prefix CWD)
       - D:foo/bar                    --> file:///D:/foo/bar
-      - /foo/bar                     --> file:///D:/foo/bar    ## (drive from CWD)
+      - /foo/bar                     --> file:///D:/foo/bar       ## (drive from CWD)
       - ABS WITH drive-letter        --> LOCAL ABS
       - remote REL/ABS WITH/WITHOUT drive-letter pass through.
       - local/remote ABS UNC-paths   --> LOCAL/REMOTE ABS
@@ -192,7 +247,7 @@ def path2url(path, expandvars=False, expanduser=False):
         p = parts.path
         if parts.scheme == 'file' and expanduser:
             p = osp.expanduser(p)
-        p = _normpath(p).replace('\\', '/')
+        p = normpath(p).replace('\\', '/')
         path = up.urlunsplit(parts._replace(path=p))
 
     return path
@@ -229,6 +284,65 @@ def ensure_file_ext(fname, ext):
     if e != ext:
         return '%s%s' % (fname, ext)
     return fname
+
+
+def ensure_dir_exists(path, mode=0o755):
+    """ensure that a directory exists
+
+    If it doesn't exist, try to create it and protect against a race condition
+    if another process is doing the same.
+
+    The default permissions are 755, which differ from os.makedirs default of 777.
+    """
+    import errno
+
+    if not os.path.exists(path):
+        try:
+            os.makedirs(path, mode=mode)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+    elif not os.path.isdir(path):
+        raise IOError("%r exists but is not a directory" % path)
+
+
+def py_where(program, path=None):
+    # From: http://stackoverflow.com/a/377028/548792
+    winprog_exts = ('.bat', 'com', '.exe')
+
+    def is_exec(fpath):
+        return osp.isfile(fpath) and os.access(fpath, os.X_OK) and (
+            os.name != 'nt' or fpath.lower()[-4:] in winprog_exts)
+
+    progs = []
+    if not path:
+        path = os.environ["PATH"]
+    for folder in path.split(osp.pathsep):
+        folder = folder.strip('"')
+        if folder:
+            exe_path = osp.join(folder, program)
+            for f in [exe_path] + ['%s%s' % (exe_path, e) for e in winprog_exts]:
+                if is_exec(f):
+                    progs.append(f)
+    return progs
+
+
+def where(program):
+    import subprocess
+    try:
+        res = subprocess.check_output('where "%s"' % program,
+                                      universal_newlines=True)
+        return res and [s.strip()
+                        for s in res.split('\n') if s.strip()]
+    except subprocess.CalledProcessError:
+        return []
+    except:
+        return py_where(program)
+
+
+def which(program):
+    res = where(program)
+    return res[0] if res else None
 
 
 def open_file_with_os(fpath):  # pragma: no cover

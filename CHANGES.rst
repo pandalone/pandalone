@@ -75,6 +75,10 @@ v0.1.13 (Aug-2016)
     - ``xlutils.get_workbook()``
     - ``tests._tutils.xw_Workbook() --> tests._tutils.xw_no_save_Workbook()``
 
+- utils: Add mre file/str functions from co2mpas-sampling
+  (which/where, convpath, convert to/from came_case, publicize norm/abs paths)
+
+
 v0.1.12 (1-Aug-2016): Stegh release
 -----------------------------------
 - xleash:
