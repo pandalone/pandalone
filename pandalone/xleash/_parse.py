@@ -465,7 +465,6 @@ def parse_xlref(xlref):
             raise ex
         else:
             if m:
-                print(m.group(2))
                 res = _parse_xlref(m.group(2))
                 res['xl-ref'] = xlref
             else:
