@@ -2308,22 +2308,26 @@ class T20VsXlwings(unittest.TestCase):
         os.remove(self.tmp_excel_fname)
 
     @ddt.data(
-        ('#R7C4:..(D):%s', lambda xw: xw.Range("Sheet1", "D7").vertical.value),
-        ('#R6C5:..(D):%s', lambda xw: xw.Range("Sheet1", "E6").vertical.value),
-        ('#R6C5:..(R):%s', lambda xw: xw.Range("Sheet1",
-                                               "E6").horizontal.value),
-        ('#R6C5:..(RD):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
-        ('#R6C5:..(DR):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
-        ('#R8C6:R6C4:%s', lambda xw: xw.Range("Sheet1", "D6:F8").value),
-        ('#R8C6:R1C1:%s', lambda xw: xw.Range("Sheet1", "A1:F8").value),
-        ('#R7C1:R7C4:%s', lambda xw: xw.Range("Sheet1", "A7:D7").value),
-        ('#R9C4:R3C4:%s', lambda xw: xw.Range("Sheet1", "D3:D9").value),
+        ('#R7C4:..(D):%s', lambda xw:
+         xw.Sheet("Sheet1").range("D7").expand('down').value),
+        ('#R6C5:..(D):%s', lambda xw:
+         xw.Sheet("Sheet1").range("E6").expand('down').value),
+        ('#R6C5:..(R):%s', lambda xw:
+         xw.Sheet("Sheet1").range("E6").expand('right').value),
+        ('#R6C5:..(RD):%s', lambda xw:
+         xw.Sheet("Sheet1").range("E6").expand('table').value),
+        ('#R6C5:..(DR):%s', lambda xw:
+         xw.Sheet("Sheet1").range("E6").expand('table').value),
+        ('#R8C6:R6C4:%s', lambda xw: xw.Sheet("Sheet1").range("D6:F8").value),
+        ('#R8C6:R1C1:%s', lambda xw: xw.Sheet("Sheet1").range("A1:F8").value),
+        ('#R7C1:R7C4:%s', lambda xw: xw.Sheet("Sheet1").range("A7:D7").value),
+        ('#R9C4:R3C4:%s', lambda xw: xw.Sheet("Sheet1").range("D3:D9").value),
     )
     def test_vs_xlwings(self, case):
         xlref, res = case
         import xlwings as xw  # @UnresolvedImport
         # load Workbook for --> xlwings
-        with _tutils.xw_Workbook(self.tmp_excel_fname):
+        with _tutils.xw_no_save_Workbook(self.tmp_excel_fname):
             xlwings_res = res(xw)
 
         dims = _f.xlwings_dims_call_spec()

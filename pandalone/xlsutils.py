@@ -210,9 +210,12 @@ def import_files_into_excel_workbook(infiles_wildcard, wrkb_fname=None, new_fnam
     :param str new_fname: a macro-enabled (`.xlsm`, `.xltm`) filepath for updated workbook,
                             `.xlsm` gets appended if current not a macro-enabled excel-format
     """
+    import xlwings as xw
 
-    wb = get_Workbook(wrkb_fname=None)
-    xl_wb = wb.get_xl_workbook(wb)
+    wb = wrkb_fname and xw.Book(wrkb_fname) or xw.books.active
+    if not wb:
+        raise ValueError("No active workbook found!")
+    xl_wb = wb.api
     xl_vbp = _get_xl_vb_project(xl_wb)
     xl_vbcs = xl_vbp.VBComponents
 

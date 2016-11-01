@@ -294,18 +294,22 @@ def chdir(dirname=None):
 
 def xw_close_workbook(wb):
     try:
+        app = wb.app
         wb.close()
+        if not app.books:
+            # TODO: Workaround
+            # https://github.com/ZoomerAnalytics/xlwings/issues/548
+            app.quit()
     except Exception:
         log.warning('Minor failure while closing Workbook!', exc_info=True)
 
 
 @contextmanager
-def xw_Workbook(*args, **kws):
-    import xlwings
+def xw_no_save_Workbook(wb_name=None):
+    import xlwings as xw
 
-    wb = xlwings.Workbook(*args, **kws)
+    wb = xw.Book(wb_name)
     try:
-        # app = wb.application TODO: Upgrade xlwings
         yield wb
     finally:
         xw_close_workbook(wb)
