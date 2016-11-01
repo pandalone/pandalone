@@ -7,16 +7,11 @@
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 import os
 from pandalone import xlsutils
-import sys
 from tests._tutils import (
     init_logging, TemporaryDirectory, xw_no_save_Workbook,
     xw_close_workbook)
 import unittest
 
-from numpy import testing as npt
-from pandas.core.generic import NDFrame
-
-import numpy as np
 import pandas as pd
 
 
@@ -32,14 +27,12 @@ def from_my_path(*parts):
 class TestExcel(unittest.TestCase):
 
     def test_build_excel(self):
-        from pandalone import xlsutils
-
         with TemporaryDirectory() as tmpdir:
-            wb_inp_fname = from_my_path('..', 'excel', 'ExcelRunner.xlsm')
+            wb_inp_fname = from_my_path('empty.xlsx')
             wb_out_fname = from_my_path(tmpdir, 'ExcelRunner.xlsm')
-            vba_wildcard = from_my_path('..', 'excel', '*.vba')
+            vba_wildcard = from_my_path('..', 'pandalone', 'excel', '*.vba')
             try:
-                wb = xlsutils.import_files_into_excel_workbook(
+                wb = xlsutils.import_vba_into_excel_workbook(
                     vba_wildcard, wb_inp_fname, wb_out_fname)
             finally:
                 if 'wb' in locals():

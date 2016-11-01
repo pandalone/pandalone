@@ -193,7 +193,7 @@ def _save_excel_as_macro_enabled(xl_wb, new_fname=None):
     return new_fname
 
 
-def import_files_into_excel_workbook(infiles_wildcard, wrkb_fname=None, new_fname=None):
+def import_vba_into_excel_workbook(infiles_wildcard, wrkb_fname=None, new_fname=None):
     """
     Add or update *xmlwings* VBA-code of a Workbook.
 
@@ -204,7 +204,9 @@ def import_files_into_excel_workbook(infiles_wildcard, wrkb_fname=None, new_fnam
     """
     import xlwings as xw
 
-    wb = xw.books.active
+    wb = wrkb_fname and xw.Book(wrkb_fname) or xw.books.active
+    if not wb:
+        raise ValueError("No active workbook found!")
     xl_wb = wb.api
     xl_vbp = _get_xl_vb_project(xl_wb)
     xl_vbcs = xl_vbp.VBComponents
@@ -258,7 +260,7 @@ def main(*argv):
             exit('Unknown option(%s)! \n%s' %
                  (argv[1], dedent(main.__doc__.format(cmd=cmd))))
 
-        import_files_into_excel_workbook(*argv[1:])
+        import_vba_into_excel_workbook(*argv[1:])
 
 
 if __name__ == '__main__':
