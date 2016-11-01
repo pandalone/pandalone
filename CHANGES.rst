@@ -33,6 +33,7 @@ TODOs
     - TCs
         - [ ] More TCs.
     - Backends:
+        - [ ] Invert wrapping of impl-sheets --> attach attribute, to reuse them.
         - [ ] xlwings
         - [ ] Clipboard
         - [ ] openpyxl
@@ -54,8 +55,8 @@ Changelog
 =========
 
 
-v0.2.0
-----------
+v0.2.0 (2-Nov-2016): "Really?" release
+---------------------------------------
 - xleash:
   - Plugins for backends and filters.
   - Packaging now supports 3 extras:
@@ -67,7 +68,6 @@ v0.2.0
   - Always convert xl-ref paths a "local" or "remote" urls to facilitate
     backends & use their `url.params` instead of filter `opts`.
   - Rename ``io._sheets --> io.backend``.
-  - TODO: Invert wrapping of impl-sheets --> attach attribute, to reuse them.
 
 - xlutils, deps: Upgraded to ``xlwings-0.9.x`` released Aug/2/2016
   (see `migration guide <http://docs.xlwings.org/en/stable/migrate_to_0.9.html>`_)
@@ -83,6 +83,7 @@ v0.2.0
 v0.1.13 (1-Nov-2016):
 ---------------------
 - chore(deps): unpin OpenPyXL==1.8.6, openpyxl-444 & pandas-10125 have been fixed.
+- fix(pandas): FIX pandas-v0.19+ dataframe-filter reading code
 
 v0.1.12 (July-2016): "Stegh" release
 -----------------------------------
