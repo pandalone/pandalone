@@ -54,6 +54,7 @@ Changelog
 v0.1.13 (1-Nov-2016):
 ---------------------
 - chore(deps): unpin OpenPyXL==1.8.6, openpyxl-444 & pandas-10125 have been fixed.
+- fix(pandas): FIX pandas-v0.19+ dataframe-filter reading code
 
 
 v0.1.12 (July-2016): Finikounta release
