@@ -34,7 +34,7 @@ install:
         python -c "import struct; print(struct.calcsize('P') * 8)"
 
     - ps: |
-        if ($IS_CONDA =eq "true") {
+        if ($IS_CONDA -eq "true") {
             conda info -a
             $condadeps = type "requirements/miniconda.conda" | select-string -Not -Pattern '#'
             conda install --yes --quiet $condadeps

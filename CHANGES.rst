@@ -44,7 +44,7 @@ TODOs
 
 Rejected TODOs:
 ---------------
-- xleash
+- xleash:
   - Support cubic areas; pandas create dict-of-dfs from multiple sheets.
   - Use *ast* library for filters; cannot extract safely opts.
   - Build Lasso-structs trees on `recursive` filter for debugging; carefully
@@ -79,8 +79,10 @@ v0.2.0 (2-Nov-2016): "Really?" release
     - ``xlutils.get_workbook()``
     - ``tests._tutils.xw_Workbook() --> tests._tutils.xw_no_save_Workbook()``
 
-- utils: Add mre file/str functions from co2mpas-sampling
+- utils: Add more file/str functions from co2mpas-sampling
   (which/where, convpath, convert to/from came_case, publicize norm/abs paths)
+- Unfortunately, Travis were down during the release (actually logs did not work),
+  so TCs fail :-(
 
 
 v0.1.13 (1-Nov-2016):
