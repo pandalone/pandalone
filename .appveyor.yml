@@ -7,10 +7,17 @@ environment:
       - PYTHON: "C:\\Python27-conda32"
         PYTHON_VERSION: "2.7"
         PYTHON_ARCH: "32"
+        IS_CONDA: "true"
 
       - PYTHON: "C:\\Python34-conda64"
         PYTHON_VERSION: "3.4"
         PYTHON_ARCH: "64"
+        IS_CONDA: "true"
+
+      - PYTHON: "C:\\Python35-x64"
+        PYTHON_VERSION: "3.5"
+        PYTHON_ARCH: "64"
+        IS_CONDA: "false"
 
 install:
     - ps: ./bin/install_python.ps1
@@ -25,20 +32,24 @@ install:
     - |
         python --version
         python -c "import struct; print(struct.calcsize('P') * 8)"
-        conda info -a
 
     - ps: |
-        $condadeps = type "requirements/miniconda.conda" | select-string -Not -Pattern '#'
-        conda install --yes --quiet $condadeps
-
-    ## `win32` dep not includeed in miniconda for it will fail in linux.
-    - conda install --yes --quiet pywin32
+        if ($IS_CONDA =eq "true") {
+            conda info -a
+            $condadeps = type "requirements/miniconda.conda" | select-string -Not -Pattern '#'
+            conda install --yes --quiet $condadeps
+            ## `win32` dep not includeed in requirements.txt for they will fail in linux.
+            conda install --yes --quiet pywin32
+            ## TODO: Check if FIXED ``python setup.py nosetests`` failing with conda:
+            #   https://github.com/ContinuumIO/anaconda-issues/issues/280
+            pip uninstall -y nose; pip uninstall -y nose; pip install -UI nose
+        } else {
+            ## `win32` dep not includeed in requirements.txt for they will fail in linux.
+            pip install pywin32
+        }
 
     - pip install -r requirements\\development.pip
 
-    ## TODO: Check if FIXED ``python setup.py nosetests`` failing with conda:
-    #   https://github.com/ContinuumIO/anaconda-issues/issues/280
-    - pip uninstall -y nose & pip uninstall -y nose & pip install -UI nose
 
     # - "python setup.py develop" ## NO, pip installed in "develop' mode, above.
     - python setup.py build
