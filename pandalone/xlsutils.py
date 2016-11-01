@@ -205,7 +205,7 @@ def import_files_into_excel_workbook(infiles_wildcard, wrkb_fname=None, new_fnam
     import xlwings as xw
 
     wb = xw.books.active
-    xl_wb = wb.get_xl_workbook(wb)
+    xl_wb = wb.api
     xl_vbp = _get_xl_vb_project(xl_wb)
     xl_vbcs = xl_vbp.VBComponents
 
