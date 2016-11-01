@@ -135,10 +135,18 @@ def _df_filter(ranger, lasso, header=0, skiprows=None, names=None,
     if header is not None:
         if pdcom.is_list_like(header):
             header_names = []
+            control_row = [True for _ in data[0]]
             for row in header:
                 if pdcom.is_integer(skiprows):
                     row += skiprows
-                data[row] = pdexcel._fill_mi_header(data[row])
+                try:
+                    data[row] = pdexcel._fill_mi_header(data[row], control_row)
+                except TypeError:
+                    ## Arg `control_row` introduced in pandas-v0.19.0 to fix
+                    #  https://github.com/pandas-dev/pandas/issues/12453
+                    #  https://github.com/pandas-dev/pandas/commit/67b72e3cbbaeb89a5b9c780b2fe1c8d5eaa9c505
+                    data[row] = pdexcel._fill_mi_header(data[row])
+
                 header_name, data[row] = pdexcel._pop_header_name(
                     data[row], index_col)
                 header_names.append(header_name)
