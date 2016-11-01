@@ -51,6 +51,11 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.1.13 (1-Nov-2016):
+---------------------
+- chore(deps): unpin OpenPyXL==1.8.6, openpyxl-444 & pandas-10125 have been fixed.
+
+
 v0.1.12 (July-2016): Finikounta release
 ----------------------------------------
 - xleash:
