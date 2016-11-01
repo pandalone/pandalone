@@ -15,6 +15,8 @@ import re
 import sys
 import unittest
 
+import ddt
+
 import pandalone.utils as utils
 
 
@@ -77,3 +79,116 @@ class TestUtils(unittest.TestCase):
         with self.assertLogs(logname, level):
             lw.write('Hehe')
         lw.flush()
+
+
+@unittest.skipIf(os.name != 'nt', "Cannot test Windows paths.")
+@ddt.ddt
+class TPath2Url(unittest.TestCase):
+
+    @ddt.data(
+        ('foo', 'file:%s/foo'),
+        ('foo/', 'file:%s/foo/'),
+        ('foo/bar', 'file:%s/foo/bar'),
+
+        ('foo\\', 'file:%s/foo/'),
+        ('foo\\bar', 'file:%s/foo/bar'),
+
+        ('./foo', 'file:%s/foo'),
+        ('./foo/', 'file:%s/foo/'),
+        ('./foo/bar', 'file:%s/foo/bar'),
+
+        ('.\\foo', 'file:%s/foo'),
+        ('.\\foo\\', 'file:%s/foo/'),
+        ('.\\foo/bar', 'file:%s/foo/bar'),
+    )
+    def test_relative(self, case):
+        from future.moves.urllib.request import pathname2url
+        path, url = case
+        cwd = pathname2url(os.getcwd())
+        self.assertEqual(utils.path2url(path), url % cwd, path)
+
+    @ddt.data(
+        ('/', 'file:///'),
+        ('/foo', 'file:///foo'),
+        ('/foo/', 'file:///foo/'),
+        ('/foo/bar', 'file:///foo/bar'),
+
+        ('\\', 'file:///'),
+        ('\\foo', 'file:///foo'),
+        ('\\foo\\', 'file:///foo/'),
+        ('\\foo\\bar', 'file:///foo/bar'),
+    )
+    def test_absolute(self, case):
+        path, url = case
+        self.assertEqual(utils.path2url(path), url, path)
+
+    @ddt.data(
+        ('D:\\', 'file:///D:/'),
+        ('d:\\foo', 'file:///d:/foo'),
+        ('C:\\foo\\', 'file:///C:/foo/'),
+        ('c:\\foo\\bar', 'file:///c:/foo/bar'),
+
+        ('D:', 'file:///D:/'),  # NOTE: destroy Windows per drive cwd!
+        ('d:foo', 'file:///d:/foo'),
+        ('C:foo\\', 'file:///C:/foo/'),
+        ('c:foo\\bar', 'file:///c:/foo/bar'),
+    )
+    def test_drive(self, case):
+        path, url = case
+        self.assertEqual(utils.path2url(path), url, path)
+
+    @ddt.data(
+        ('d:../foo', 'file:///foo'),
+        ('D:../../foo', 'file:///foo'),
+    )
+    def test_corner_cases(self, case):
+        path, url = case
+        self.assertEqual(utils.path2url(path), url, path)
+
+    @ddt.data(
+        ('/%REL%', 'file:///RRR'),
+        ('/$REL', 'file:///RRR'),
+        ('/${REL}', 'file:///RRR'),
+
+        ('/%REL%/', 'file:///RRR/'),
+        ('/$REL/', 'file:///RRR/'),
+        ('/${REL}/', 'file:///RRR/'),
+
+        ('%ABS%', 'file:///AAA'),
+        ('$ABS', 'file:///AAA'),
+        ('${ABS}', 'file:///AAA'),
+
+        ('%ABS%/', 'file:///AAA/'),
+        ('$ABS/', 'file:///AAA/'),
+        ('${ABS}/', 'file:///AAA/'),
+    )
+    def test_expansion_vars(self, case):
+        path, url = case
+        os.environ['REL'] = 'RRR'
+        os.environ['ABS'] = '/AAA'
+        self.assertEqual(utils.path2url(path, 1, 1), url, path)
+
+    @ddt.data(
+        ('~/a', '/a'),
+        ('~\\a', '/a'),
+        ('~/a/', '/a/'),
+        ('~\\a\\', '/a/'),
+    )
+    def test_expansion_user(self, case):
+        path, end = case
+        url = utils.path2url(path, 0, 1)
+        self.assertFalse(url.startswith('~'), (url, path))
+        self.assertTrue(url.endswith(end), (url, path))
+
+        url = utils.path2url(path, 0, 0)
+        # NO, turned into absolute!
+        ##self.assertTrue(url.startswith('~'), (url, path))
+
+    @ddt.data(
+        ('http://ser/D:\\', 'http://ser/D:/'),
+        ('http://ser/d:\\foo', 'http://ser/d:/foo'),
+        ('http://ser/foo/', 'http://ser/foo/'),
+    )
+    def test_remote(self, case):
+        path, url = case
+        self.assertEqual(utils.path2url(path), url, path)

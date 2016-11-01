@@ -24,8 +24,10 @@ from future.backports import ChainMap
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
 
-from . import Lasso, EmptyCaptureException, _parse, _capture, _filter
-from .io import _sheets
+from . import installed_filters
+
+from . import (Lasso, EmptyCaptureException, _parse, _capture)
+from pandalone.xleash.io import backend
 
 
 log = logging.getLogger(__name__)
@@ -67,8 +69,9 @@ class Ranger(object):
             empty dict.
             See :func:`get_default_opts()`.
     :ivar dict or None available_filters:
-            No filters exist if unspecified.
-            See :func:`get_default_filters()`.
+            The :term:`filters` available for a :term:`xl-ref` to use.
+            If `None`, then uses :data:`xleash.installed_filters`.
+            Use an empty dict not to use any filters.
     :ivar Lasso intermediate_lasso:
             A ``('stage', Lasso)`` pair with the last :class:`Lasso` instance
             produced during the last execution of the :meth:`do_lasso()`.
@@ -83,7 +86,9 @@ class Ranger(object):
         if base_opts is None:
             base_opts = {}
         self.base_opts = base_opts
-        self.available_filters = available_filters
+        self.available_filters = (installed_filters
+                                  if available_filters is None
+                                  else available_filters)
         self.intermediate_lasso = None
 
     def _relasso(self, lasso, stage, **kwds):
@@ -145,8 +150,6 @@ class Ranger(object):
 
         :param Lasso init_lasso:
                 Default values to be overridden by non-nulls.
-                Note that ``init_lasso.opts`` must be a `ChainMap`,
-                as returned by :math:`_make_init_Lasso()`.
 
         :return: a Lasso with any non `None` parsed-fields updated
         """
@@ -154,9 +157,6 @@ class Ranger(object):
 
         try:
             parsed_fields = _parse.parse_xlref(xlref)
-            parsed_opts = parsed_fields.pop('opts', None)
-            if parsed_opts:
-                init_lasso.opts.maps.insert(0, parsed_opts)
             filled_fields = dtz.valfilter(lambda v: v is not None,
                                           parsed_fields)
             init_lasso = init_lasso._replace(**filled_fields)
@@ -174,13 +174,13 @@ class Ranger(object):
     def _open_sheet(self, lasso):
         try:
             sheet = self.sheets_factory.fetch_sheet(
-                lasso.url_file, lasso.sh_name,
-                lasso.opts, base_sheet=lasso.sheet)
+                lasso.url_file, lasso.sh_name, base_sheet=lasso.sheet)
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
             raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
         return sheet
 
+    # TODO: Move _resolve_capture_rect into ABCSheet
     def _resolve_capture_rect(self, lasso, sheet):
         """Also handles :class:`EmptyCaptureException` in case ``opts['no_empty'] != False``."""
 
@@ -298,8 +298,8 @@ def make_default_Ranger(sheets_factory=None,
             dict or None
 
     :param available_filters:
-            The available :term:`filters` to specify a :term:`xl-ref`.
-            Uses :func:`get_default_filters()` if unspecified.
+            The :term:`filters` available for a :term:`xl-ref` to use.
+            (:data:`xleash.installed_filters` used if unspecified).
     :type available_filters:
             dict or None
 
@@ -314,9 +314,9 @@ def make_default_Ranger(sheets_factory=None,
         <pandalone.xleash._lasso.Ranger object at
         ...
     """
-    return Ranger(sheets_factory or _sheets.SheetsFactory(),
+    return Ranger(sheets_factory or backend.SheetsFactory(),
                   base_opts or get_default_opts(),
-                  available_filters or _filter.get_default_filters())
+                  available_filters)
 
 
 def lasso(xlref,

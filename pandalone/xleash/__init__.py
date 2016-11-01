@@ -188,65 +188,6 @@ Alternatively you can call the :func:`make_default_Ranger` for extending
 library's defaults.
 
 
-API
----
-.. default-role:: obj
-
-- User-facing higher-level functionality:
-
-  .. currentmodule:: pandalone.xleash._lasso
-  .. autosummary::
-
-      lasso
-      Ranger
-      Ranger.do_lasso
-      Lasso
-      make_default_Ranger
-      get_default_opts
-
-- Related to :term:`capturing` algorithm:
-
-  .. currentmodule:: pandalone.xleash._capture
-  .. autosummary::
-
-      resolve_capture_rect
-      coords2Cell
-      EmptyCaptureException
-
-
-  .. currentmodule:: pandalone.xleash._filter
-  .. autosummary::
-
-      get_default_filters
-      xlwings_dims_call_spec
-
-
-- Related to parsing and basic structure used throughout:
-  .. currentmodule:: pandalone.xleash._parse
-  .. autosummary::
-
-      parse_xlref
-      parse_expansion_moves
-      parse_call_spec
-      Cell
-      Coords
-      Edge
-
-- **IO** back-end functionality:
-
-  .. currentmodule:: pandalone.xleash.io
-  .. autosummary::
-
-      _sheets.SheetsFactory
-      _sheets.ABCSheet.read_rect
-      _sheets.ArraySheet
-      _sheets.ABCSheet
-      _xlrd.XlrdSheet
-      _xlrd.open_sheet
-
-.. default-role:: term
-.. currentmodule:: pandalone.xleash
-
 
 More Syntax Examples
 --------------------
@@ -547,6 +488,30 @@ Definitions
         :func:`lasso()` and those extracted from `filters` by the 'opts' key,
         and they are stored in the :class:`Lasso`.
 
+    backend
+    backends
+        *IO* level object providing the actual spreadsheet cells for `capturing`.
+        Each *backend* may provide for its workbooks and sheets corresponding to:
+        - different implementations (e.g.``xlrd`` or ``xlwings`` library), or
+        - different origins (e.g. file-based, network-based per url ).
+
+        The decision which *backend* to use is taken by the `sheet-factory`
+        following a `bidding` process.
+
+    sheets-factory
+        *IO* level object acting as the caching manager for `spreadsheets`
+        fetched from different `backends`.  The caching happens per
+        *spreadsheet*.
+
+    bid
+    backend-bidding
+        All *backends* are asked to provide their willingness to handle
+        some `xl-ref` (see :meth:`SimpleSheetFactory.decide_backend`)).
+        For a *sibling* sheet, always the parent *backend* is used.
+
+    sheet
+    spreadsheet
+        *IO* level object that acts as the container of cells.
 
 Details
 =======
@@ -728,13 +693,92 @@ Example-refs are given below for capturing the 2 marked tables::
     - The '1' and '2' signify the identified target-cells.
 
 
+Plugin Extensions
+=================
+The *xleash* library already uses `setuptools entry-points
+<https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_
+to attach `backends` and pandas `filters`.
+Read :func:`init_plugins` to learn how to implement other plugins.
+
 .. default-role:: obj
+
+
+API
+===
+
+- User-facing higher-level functionality:
+
+  .. currentmodule:: pandalone.xleash._lasso
+  .. autosummary::
+
+      Lasso
+      lasso
+      Ranger
+      Ranger.do_lasso
+      make_default_Ranger
+      get_default_opts
+
+- Related to :term:`capturing` algorithm:
+
+  .. currentmodule:: pandalone.xleash._capture
+  .. autosummary::
+
+      resolve_capture_rect
+      coords2Cell
+      EmptyCaptureException
+
+
+  .. currentmodule:: pandalone.xleash._filter
+  .. autosummary::
+
+      installed_filters
+      xlwings_dims_call_spec
+
+
+- Related to parsing and basic structure used throughout:
+  .. currentmodule:: pandalone.xleash._parse
+  .. autosummary::
+
+      parse_xlref
+      parse_expansion_moves
+      parse_call_spec
+      Cell
+      Coords
+      Edge
+
+- **IO** back-end functionality:
+
+  .. currentmodule:: pandalone.xleash.io
+  .. autosummary::
+
+      io_backends
+      _sheets.SheetsFactory
+      _sheets.ABCSheet.read_rect
+      _sheets.ArraySheet
+      _sheets.ABCSheet
+      _xlrd.XlrdSheet
+      _xlrd.open_sheet
+
+- Plugin related
+  .. autosummary::
+      _init_plugins
+     _plugins_installed
+     _PLUGIN_GROUP_NAME
+
+.. currentmodule:: pandalone.xleash
 """
 
 
 from __future__ import unicode_literals
 
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
+import logging
+import os
+import pkg_resources
+
+from .. import utils as pndlutils
+
+log = logging.getLogger(__name__)
 
 Lasso = namedtuple('Lasso',
                    ('xl_ref', 'url_file', 'sh_name',
@@ -800,7 +844,9 @@ from ._parse import (
     parse_xlref,
 )
 
-from .io._sheets import (
+io_backends = []
+"""Hook for plugins to append :class:`ABCBackend` instances."""
+from pandalone.xleash.io.backend import (
     ABCSheet, ArraySheet, margin_coords_from_states_matrix,
     SheetsFactory,
 )
@@ -810,10 +856,14 @@ from ._capture import (
     EmptyCaptureException,
 )
 
+installed_filters = {}
+"""Hook for plugins to append :term:`filters`."""
 from ._filter import (
-    XLocation, get_default_filters,
+    XLocation,
     xlwings_dims_call_spec,
+    install_default_filters
 )
+install_default_filters(installed_filters)
 
 from ._lasso import (
     lasso, Ranger,
@@ -821,13 +871,108 @@ from ._lasso import (
 )
 
 
+_PLUGIN_GROUP_NAME = 'pandalone.xleash.plugins'
+"""Used to discover *setuptools* extension-points."""
+
+
+def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
+    """
+    Discover and load plugins.
+
+    The *xleash* library already uses `setuptools entry-points
+    <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_
+    to attach backend :class:`Sheet` and pandas `filters`.
+
+    You may re-invoke after some ``pip install <some-xleash-plugin>``.
+
+    `setup.py` configurations
+    -------------------------
+    To implement a new plugin, you have to package your code as a regular
+    python distribution and add the following declaration inside its
+    :file:`setup.py`::
+
+        setup(
+            # ...
+            entry_points = {
+                'pandalone.xleash.plugins': [
+                    'plugin_1 = <foo.plugin.module>:<plugin-install-func> ## Load & install.
+                    'plugin_2 = <bar.plugin.module>                       ## Load only.
+                ]
+            }
+        )
+
+
+    Implementing a plugin
+    ---------------------
+    The plugins are initialized during *import time* in a 2-stage procedure
+    by :func:`init_plugins()`.
+    A plugin is *loaded* and optionally *installed* if the *setup-configuration*
+    above specifies a no-args ``<plugin-install-func>`` callable.
+    Any collected ``<plugin-install-func>`` callables are invoked AFTER all
+    plugin-modules have finished loading.
+
+    .. Tip::
+       For example, study this project how it sets backend and filters.
+
+    .. Warning::
+       When appending into "hook" lists during installation, remember to avoid
+       re-inserting duplicate items.  In general try to well-behave even when
+       **plugins are initialized multiple times**!
+
+    """
+    global _plugins_installed
+
+    def stringify_EntryPoint(ep):
+        return "%r@%s" % (ep, ep.dist)
+
+    plugin_loaders = []
+    entry_points = sorted(
+        pkg_resources.working_set.iter_entry_points(plugin_group_name),
+        key=lambda ep: ep.name)
+    if not entry_points:
+        raise ValueError("No xleash-plugins found!"
+                         "\n  You have to install AT LEAST on backend plugin."
+                         '\n  Try `xlrd` "extras" with this command?\n'
+                         "\n      pip install pandalone[xlrd]")
+    for ep in entry_points:
+        try:
+            _plugins_installed[stringify_EntryPoint(ep)] = 0
+            plugin_loader = ep.load()
+            _plugins_installed[stringify_EntryPoint(ep)] = 1
+            if callable(plugin_loader):
+                plugin_loaders.append((ep, plugin_loader))
+        except Exception as ex:
+            log.error('Failed LOADING plugin(%r@%s) due to: %s',
+                      ep, ep.dist, ex, exc_info=1)
+
+    for ep, plugin_loader in plugin_loaders:
+        try:
+            plugin_loader()
+            _plugins_installed[stringify_EntryPoint(ep)] = 2
+        except Exception as ex:
+            log.error('Failed INSTALLING plugin(%r@%s) due to: %s',
+                      ep, ep.dist, ex, exc_info=1)
+
+_plugins_installed = OrderedDict()
+"""
+A list of 2-tuples for each plugin installed of :class:`pkg_resources.EntryPoint`
+and the number of completed stages (integer).
+
+The *EntryPoint* gets stringified to avoid memory-leaks.
+"""
+
+_init_plugins()
+
 __all__ = [
+    '_init_plugins', '_PLUGIN_GROUP_NAME',
+
     'resolve_capture_rect', 'ABCSheet', 'ArraySheet', 'coords2Cell',
     'EmptyCaptureException', 'margin_coords_from_states_matrix',
 
-    'lasso', 'Ranger', 'SheetsFactory',
+    'lasso', 'Ranger', 'SheetsFactory', 'io_backends',
     'make_default_Ranger',
-    'XLocation', 'get_default_opts', 'get_default_filters',
+    'XLocation', 'get_default_opts',
+    'installed_filters',
     'Lasso',
     'xlwings_dims_call_spec',
 

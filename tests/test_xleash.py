@@ -10,26 +10,26 @@ from __future__ import division, print_function, unicode_literals
 
 import contextlib
 from datetime import datetime
-from distutils.version import LooseVersion
 import doctest
 import json
 import logging
 import os
+from pandalone import xlsutils, xleash
+from pandalone.xleash import (_parse as _p,
+                              _capture as _c,
+                              _filter as _f,
+                              _lasso as _l,
+                              Lasso, Coords, EmptyCaptureException)
+from pandalone.xleash.io import (backend as _s, _xlrd as xd)
 import sys
 import tempfile
+from tests import _tutils
 import unittest
 
 import ddt
 from future import utils as fututis
 from future.backports import ChainMap
 from numpy import testing as npt
-from pandalone import xleash
-from pandalone.xleash import (_parse as _p,
-                              _capture as _c,
-                              _filter as _f,
-                              _lasso as _l,
-                              Lasso, Coords, EmptyCaptureException)
-from pandalone.xleash.io import (_sheets as _s, _xlrd as xd)
 from pandas.util.testing import assert_frame_equal
 from past.builtins import basestring
 from toolz import dicttoolz as dtz
@@ -39,7 +39,6 @@ import itertools as itt
 import numpy as np
 import os.path as osp
 import pandas as pd
-from tests import _tutils
 
 
 try:
@@ -49,7 +48,7 @@ except ImportError:
 
 
 log = _tutils.init_logging(__name__)
-is_excel_installed = _tutils.check_excell_installed()
+is_excel_installed = xlsutils.check_excell_installed()
 _l.CHECK_CELLTYPE = True
 mydir = osp.dirname(__file__)
 
@@ -1228,7 +1227,7 @@ class T09ReadRect(unittest.TestCase):
 
 
 @ddt.ddt
-class T10SheetFactory(unittest.TestCase):
+class T10SheetManager(unittest.TestCase):
 
     @ddt.data(
         (('wb1', ['sh1', 0]), None, None,     [('wb1', 'sh1'), ('wb1', 0),
@@ -1583,19 +1582,18 @@ class T13Ranger(unittest.TestCase):
 
     def test_context_sheet(self):
         sf = _s.SheetsFactory()
-        ranger = _l.Ranger(sf)
+        ranger = _l.Ranger(sf, available_filters={})
         res = ranger.do_lasso('#B2', sheet=_s.ArraySheet([[1, 2], [3, 4]]))
         self.assertEqual(res.values, 4)
 
     def test_context_sibling(self):
         sf = _s.SheetsFactory()
-        ranger = _l.Ranger(sf)
+        ranger = _l.Ranger(sf, available_filters={})
         sheet = _s.ArraySheet([[1, 2], [3, 4]])
         sheet.open_sibling_sheet = MagicMock(name='open_sibling_sheet()',
                                              return_value=sheet)
         res = ranger.do_lasso('#Sibl!B2', sheet=sheet)
-        sheet.open_sibling_sheet.assert_called_once_with(
-            'Sibl', ChainMap())
+        sheet.open_sibling_sheet.assert_called_once_with('Sibl')
         self.assertEqual(res.values, 4)
 
     def test_open_sheet_same_sheet_twice(self):
@@ -1607,7 +1605,7 @@ class T13Ranger(unittest.TestCase):
                             ids=_s.SheetId('wb2', ['sh2', 0]))
         sf.add_sheet(sh2)
 
-        ranger = _l.Ranger(sf)
+        ranger = _l.Ranger(sf, available_filters={})
         res11 = ranger.do_lasso('wb1#sh1!:')
         res2 = ranger.do_lasso('wb2#sh2!:')
         self.assertNotEqual(res11, res2)
@@ -1808,7 +1806,7 @@ class T15Recursive(unittest.TestCase):
         [[], [1, 'a', 'b'], [11, list('abc')]],
     )
     def test_dontExpand_nonDicts(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(name='do_lasso()',
                                     side_effect=lambda x, **kwds: Lasso(values=x))
         lasso = Lasso(values=vals, opts={})
@@ -1822,7 +1820,7 @@ class T15Recursive(unittest.TestCase):
         [[], [1, 'a', 'b'], [11, list('abc')]],
     )
     def test_expandNestedStrings(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1836,7 +1834,7 @@ class T15Recursive(unittest.TestCase):
         [[], set([1, 'a', 'b']), [11, tuple('abc')]],
     )
     def test_dontExpandNonLists(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1850,7 +1848,7 @@ class T15Recursive(unittest.TestCase):
         [{4: ['str', 'a', {4: [list('ab')]}]}],
     )
     def test_expandDicts_nonStrKeys(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1865,7 +1863,7 @@ class T15Recursive(unittest.TestCase):
         [{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
     )
     def test_expandDicts_preservingKeys(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1896,7 +1894,7 @@ class T15Recursive(unittest.TestCase):
         vals = [{
             'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}],
             'key11': 'bang'}]
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1915,7 +1913,7 @@ class T15Recursive(unittest.TestCase):
         [pd.DataFrame({'key1': list('abc'), 'key2': list('def')})],
     )
     def test_expandDFs(self, vals):
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1943,7 +1941,7 @@ class T15Recursive(unittest.TestCase):
     )
     def test_expandDicts_IncExcFilters(self, case):
         vals, incexc, exist, missing = case
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
             name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
         lasso = Lasso(values=vals, opts={})
@@ -1977,7 +1975,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         expr, exp = case
         exp = exp._replace(opts={})
 
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         lasso = Lasso(values=expr, opts={})
         res = _f.pyeval_filter(ranger, lasso)
 
@@ -1993,7 +1991,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         expr, exp = case
         exp = exp._replace(opts={})
 
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         lasso = Lasso(values=expr, opts={})
         res = _f.pyeval_filter(ranger, lasso)
         self.assertEqual(res, exp)
@@ -2019,7 +2017,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
     def test_syntaxErrors(self, case):
         expr, err_msg = case
 
-        ranger = _l.Ranger(_s.SheetsFactory())
+        ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         lasso = Lasso(values=expr, opts={})
         try:
             _f.pyeval_filter(ranger, lasso, eval_all=True)
@@ -2033,7 +2031,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
     @ddt.data("boo haha", "1-'tt'", "int('g')")
     def test_syntaxErrors_suppresed(self, expr):
         sf = _s.SheetsFactory()
-        ranger = _l.Ranger(sf, available_filters=_f.get_default_filters())
+        ranger = _l.Ranger(sf)
 
         lasso = Lasso(values=expr, opts={})
         _f.pyeval_filter(ranger, lasso, eval_all=False)
@@ -2042,7 +2040,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
     @ddt.data("boo haha", "1-'tt'", "int('g')")
     def test_syntaxErrors_laxing(self, expr):
         sf = _s.SheetsFactory()
-        ranger = _l.Ranger(sf, available_filters=_f.get_default_filters())
+        ranger = _l.Ranger(sf)
 
         lasso = Lasso(values=expr, opts={})
         kwds = {'lax': True}
@@ -2150,14 +2148,12 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         err_msg = """
         Filtering xl-ref('tests/recursive.xlsx#A_(U):"recurse"') failed due to:
             While invoking(recurse, args=[], kwds={}):
-                Value('#BAD1:"filter"') at XLocation(sheet=XlrdSheet(book='tests/recursive.xlsx', sheet_ids=['2', 0]), st=Coords(row=11, col=0), nd=None, base_coords=Coords(row=11, col=0)):
-                    Lassoing  `xl-ref` failed due to:
-                        array index out of range
+                Value('#BAD1:"filter"') at XLocation(sheet=
         """
         try:
             _l.lasso('tests/recursive.xlsx#A_(U):"recurse"')
         except ValueError as ex:
-            self.assertStrippedStringsEqual(str(ex), err_msg)
+            self.assertStrippedStringsStartsWith(str(ex), err_msg)
         except:
             raise
         else:
@@ -2228,7 +2224,7 @@ class T19VsPandas(unittest.TestCase, _tutils.CustomAssertions):
 
             lasso1 = _f.redim_filter(None, lasso, row=[2, True])
 
-            df_filter = _f.get_default_filters()['df']['func']
+            df_filter = xleash.installed_filters['df']['func']
             lasso2 = df_filter(None, lasso1, **parse_df_kwds)
 
             xlref_df = lasso2.values
@@ -2308,22 +2304,27 @@ class T20VsXlwings(unittest.TestCase):
         os.remove(self.tmp_excel_fname)
 
     @ddt.data(
-        ('#R7C4:..(D):%s', lambda xw: xw.Range("Sheet1", "D7").vertical.value),
-        ('#R6C5:..(D):%s', lambda xw: xw.Range("Sheet1", "E6").vertical.value),
-        ('#R6C5:..(R):%s', lambda xw: xw.Range("Sheet1",
-                                               "E6").horizontal.value),
-        ('#R6C5:..(RD):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
-        ('#R6C5:..(DR):%s', lambda xw: xw.Range("Sheet1", "E6").table.value),
-        ('#R8C6:R6C4:%s', lambda xw: xw.Range("Sheet1", "D6:F8").value),
-        ('#R8C6:R1C1:%s', lambda xw: xw.Range("Sheet1", "A1:F8").value),
-        ('#R7C1:R7C4:%s', lambda xw: xw.Range("Sheet1", "A7:D7").value),
-        ('#R9C4:R3C4:%s', lambda xw: xw.Range("Sheet1", "D3:D9").value),
+        ('#R7C4:..(D):%s', lambda xw:
+         xw.Sheet("Sheet1").range("D7").expand('down').value),
+        ('#R6C5:..(D):%s', lambda xw:
+         xw.Sheet("Sheet1").range("E6").expand('down').value),
+        ('#R6C5:..(R):%s', lambda xw:
+         xw.Sheet("Sheet1").range("E6").expand('right').value),
+        ('#R6C5:..(RD):%s', lambda xw:
+         xw.Sheet("Sheet1").range("E6").expand('table').value),
+        ('#R6C5:..(DR):%s', lambda xw:
+         xw.Sheet("Sheet1").range("E6").expand('table').value),
+        ('#R8C6:R6C4:%s', lambda xw: xw.Sheet("Sheet1").range("D6:F8").value),
+        ('#R8C6:R1C1:%s', lambda xw: xw.Sheet("Sheet1").range("A1:F8").value),
+        ('#R7C1:R7C4:%s', lambda xw: xw.Sheet("Sheet1").range("A7:D7").value),
+        ('#R9C4:R3C4:%s', lambda xw: xw.Sheet("Sheet1").range("D3:D9").value),
     )
     def test_vs_xlwings(self, case):
-        xlref, res = case
         import xlwings as xw  # @UnresolvedImport
+
+        xlref, res = case
         # load Workbook for --> xlwings
-        with _tutils.xw_Workbook(self.tmp_excel_fname):
+        with _tutils.xw_no_save_Workbook(self.tmp_excel_fname):
             xlwings_res = res(xw)
 
         dims = _f.xlwings_dims_call_spec()

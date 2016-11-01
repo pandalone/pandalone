@@ -33,8 +33,6 @@ def init_logging(module_name, loglevel=DEFAULT_LOG_LEVEL):
 
     return log
 
-_xl_installed = None
-
 ##############
 #  Compatibility
 #
@@ -42,20 +40,6 @@ try:  # pragma: no cover
     assertRaisesRegex = unittest.TestCase.assertRaisesRegex
 except:  # pragma: no cover
     assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
-
-
-def check_excell_installed():
-    """Checks once and returns `True` if Excel-app is installed in the system."""
-    global _xl_installed
-    if _xl_installed is None:
-        try:
-            from win32com.client import dynamic  # @UnresolvedImport
-            dynamic.Dispatch('Excel.Application')
-            _xl_installed = True
-        except Exception:  # pragma: no cover
-            _xl_installed = False
-
-    return _xl_installed
 
 
 class CustomAssertions(object):
@@ -163,6 +147,29 @@ class CustomAssertions(object):
         st1 = regex.sub('', st)
         nd1 = regex.sub('', nd)
         if st1 != nd1:
+            err_i = len(os.path.commonprefix((st1, nd1)))
+            s_slice = slice(max(0, err_i - context_chars),
+                            err_i + context_chars)
+            c1, c2 = st1[s_slice], nd1[s_slice]
+            frmt = dedent("""\
+            Stripped-strings differ at char %i (lens: 1st=%i, 2nd=%s)!
+              --1st: %s
+                     %s^
+              --2nd: %s
+              ==1st original: %s
+              ==2nd original: %s
+            ----%s
+            """)
+            spcs = ' ' * context_chars
+            err_msg = frmt % (err_i, len(st1), len(nd1), c1, spcs, c2,
+                              st, nd, (msg or ''))
+            self.fail(err_msg)
+
+    def assertStrippedStringsStartsWith(self, st, nd, msg=None, context_chars=30):
+        regex = re.compile('\\s+', re.DOTALL)
+        st1 = regex.sub('', st)
+        nd1 = regex.sub('', nd)
+        if not st1.startswith(nd1):
             err_i = len(os.path.commonprefix((st1, nd1)))
             s_slice = slice(max(0, err_i - context_chars),
                             err_i + context_chars)
@@ -294,18 +301,22 @@ def chdir(dirname=None):
 
 def xw_close_workbook(wb):
     try:
+        app = wb.app
         wb.close()
+        if not app.books:
+            # TODO: Workaround
+            # https://github.com/ZoomerAnalytics/xlwings/issues/548
+            app.quit()
     except Exception:
         log.warning('Minor failure while closing Workbook!', exc_info=True)
 
 
 @contextmanager
-def xw_Workbook(*args, **kws):
-    import xlwings
+def xw_no_save_Workbook(wb_name=None):
+    import xlwings as xw
 
-    wb = xlwings.Workbook(*args, **kws)
+    wb = xw.Book(wb_name)
     try:
-        # app = wb.application TODO: Upgrade xlwings
         yield wb
     finally:
         xw_close_workbook(wb)

@@ -6,7 +6,11 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 import os
+from pandalone import xlsutils
 import sys
+from tests._tutils import (
+    init_logging, TemporaryDirectory, xw_no_save_Workbook,
+    xw_close_workbook)
 import unittest
 
 from numpy import testing as npt
@@ -14,24 +18,14 @@ from pandas.core.generic import NDFrame
 
 import numpy as np
 import pandas as pd
-from tests._tutils import (
-    init_logging, TemporaryDirectory, check_excell_installed, xw_Workbook,
-    xw_close_workbook)
 
 
 log = init_logging(__name__)
-is_excel_installed = check_excell_installed()
+is_excel_installed = xlsutils.check_excell_installed()
 
 
 def from_my_path(*parts):
     return os.path.join(os.path.dirname(__file__), *parts)
-
-
-def _make_sample_sheet(wb, sheetname, addr, value):
-    import xlwings as xw
-
-    xw.Sheet(1).name = sheetname
-    xw.Range(addr).value = value
 
 
 @unittest.skipIf(not is_excel_installed, "Cannot test xlwings without MS Excel.")
@@ -56,7 +50,7 @@ class TestExcel(unittest.TestCase):
         sheetname = 'shitt'
         addr = 'f6'
         table = pd.DataFrame([[1, 2], [True, 'off']], columns=list('ab'))
-        with xw_Workbook() as wb:  # FIXME: Ugrade xlwings, Leaves exel open.
+        with xw_no_save_Workbook() as wb:
             xw.Sheet(1).name = sheetname
             xw.Range(addr).value = table
 

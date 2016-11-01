@@ -27,7 +27,9 @@ TODOs
         - [x] Add API for returning sheet-names.
         - [ ] Use weak-refs for SheetsFactory (thanks Vinz)
     - Struct:
-        - [ ] Plugins for backends (& syntax?)
+        - [x] Plugins for backends (& syntax?)
+        - [x] Plugins for filters.
+        - [ ] Plugins for syntax?
     - TCs
         - [ ] More TCs.
     - Backends:
@@ -51,13 +53,39 @@ Rejected TODOs:
 Changelog
 =========
 
+
+v0.2.0
+----------
+- xleash:
+  - Plugins for backends and filters.
+  - Packaging now supports 3 extras:
+    - ``xlrd`` for the typical backend plugin,
+    - ``xlwings`` for the new backend, excel-utils & tests,
+    - ``pandas`` for filters plugins.
+
+  - FIX & rename pandas-filter ``series --> sr`` - did not return a ``Lasso``.
+  - Always convert xl-ref paths a "local" or "remote" urls to facilitate
+    backends & use their `url.params` instead of filter `opts`.
+  - Rename ``io._sheets --> io.backend``.
+  - TODO: Invert wrapping of impl-sheets --> attach attribute, to reuse them.
+
+- xlutils, deps: Upgraded to ``xlwings-0.9.x`` released Aug/2/2016
+  (see `migration guide <http://docs.xlwings.org/en/stable/migrate_to_0.9.html>`_)
+  - Dropped util-functions (provided by now `xlwings`) or renamed:
+    - ``xlutils.get_active_workbook()``
+    - ``xlutils.get_workbook()``
+    - ``tests._tutils.xw_Workbook() --> tests._tutils.xw_no_save_Workbook()``
+
+- utils: Add mre file/str functions from co2mpas-sampling
+  (which/where, convpath, convert to/from came_case, publicize norm/abs paths)
+
+
 v0.1.13 (1-Nov-2016):
 ---------------------
 - chore(deps): unpin OpenPyXL==1.8.6, openpyxl-444 & pandas-10125 have been fixed.
 
-
-v0.1.12 (July-2016): Finikounta release
-----------------------------------------
+v0.1.12 (July-2016): "Stegh" release
+-----------------------------------
 - xleash:
   - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
   - #7: FIX ``"df"`` filter to read multi-index excel-tables
