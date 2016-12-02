@@ -140,7 +140,7 @@ def _df_filter(ranger, lasso, header=0, skiprows=None, names=None,
                 if pdcom.is_integer(skiprows):
                     row += skiprows
                 try:
-                    data[row] = pdexcel._fill_mi_header(data[row], control_row)
+                    data[row], control_row = pdexcel._fill_mi_header(data[row], control_row)
                 except TypeError:
                     ## Arg `control_row` introduced in pandas-v0.19.0 to fix
                     #  https://github.com/pandas-dev/pandas/issues/12453
