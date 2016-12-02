@@ -71,7 +71,7 @@ def _make_local_url(fname, fragment=''):
     return 'file:///{}#{}'.format(fpath, fragment)
 
 
-@unittest.skipIf(sys.version_info[:2] < (3, 4), "Doctests are made for py3.4")
+@unittest.skipIf(sys.version_info < (3, 5), "Doctests are made for py3.5")
 class T00Doctest(unittest.TestCase):
 
     def test_xleash(self):
@@ -1998,7 +1998,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         res = _f.pyeval_filter(ranger, lasso)
         self.assertEqual(res, exp)
 
-    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
+    @unittest.skipIf(sys.version_info < (3, 5), "String comparisons here!")
     @ddt.data(
         ("boo haha", """
             Value('boo haha') at XLocation(sheet=None, st=None, nd=None, base_coords=None):
