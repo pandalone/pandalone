@@ -12,4 +12,4 @@ ddt
 coverage
 coveralls
 collective.checkdocs
-#xlwings>=0.9.0 # FAIL on Linux!
+xlwings>=0.9.2 ; sys_platform == 'win32'

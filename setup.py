@@ -223,7 +223,7 @@ setup(
             'mock',
         ],
         'xlwings': ['xlwings>=0.9.2'],
-        'pandas': ['pandas'],
+        'pandas': ['pandas >= 0.18'],  # For xleash pandas filter.
         'xlrd': ['xlrd'],
     },
     entry_points={
