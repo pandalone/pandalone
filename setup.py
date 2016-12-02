@@ -139,8 +139,7 @@ install_requires = [
     'jsonschema >= 2.5',
     'numpy',
     'openpyxl>=2.2',
-    'Pillow',  # For UI About boxes
-    'easygui != 0.98',
+    'easygui != 0.98',  # For excel-macros locked msg-box.
 ]
 if not os.environ.get('READTHEDOCS') == 'True':
     install_requires.append('sphinx_rtd_theme')
