@@ -18,6 +18,7 @@ from pandalone.xleash.io.backend import ABCBackend, ABCSheet, SheetId
 
 from future.moves.urllib import request
 from future.moves.urllib.parse import urlparse
+from future.utils import raise_from
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
                   XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER)
 import xlrd
@@ -127,7 +128,7 @@ def _open_sheet_by_name_or_index(xlrd_book, wb_id, sheet_id):
             try:
                 sheet_id = int(sheet_id)
             except ValueError:
-                raise xl_ex
+                raise_from(xl_ex, None)
             else:
                 xl_sh = xlrd_book.sheet_by_index(sheet_id)
     return XlrdSheet(xl_sh, wb_id)
