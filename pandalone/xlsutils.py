@@ -24,10 +24,15 @@ __commit__ = ""
 log = logging.getLogger(__name__)
 
 
-_xl_extensions = re.compile(r'\.xl((s[xm]?|t[xm]?)|w|m)\b', re.IGNORECASE)
+_xl_extensions = re.compile(r'\.xl((s[xm]?|t[xm]?)|w|m)$', re.IGNORECASE)
+_xl_extensions_anywhere = re.compile(r'\.xl((s[xm]?|t[xm]?)|w|m)\b', re.IGNORECASE)
 
 
 _xl_installed = None
+
+
+def is_excel_file(path):
+    return _xl_extensions.search(path)
 
 
 def check_excell_installed():

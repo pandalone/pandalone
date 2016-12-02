@@ -14,11 +14,11 @@ Implements the *xlrd* backend of *xleash* that reads in-file Excel-spreadsheets.
 import datetime
 from distutils.version import LooseVersion
 import logging
-from pandalone.xleash.io.backend import ABCBackend, ABCSheet, SheetId
 
 from future.moves.urllib import request
 from future.moves.urllib.parse import urlparse
 from future.utils import raise_from
+from pandalone.xleash.io.backend import ABCBackend, ABCSheet, SheetId
 from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
                   XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER)
 import xlrd
@@ -212,7 +212,7 @@ class XlrdBackend(ABCBackend):
         if wb_url:
             parts = urlparse(wb_url)
             path = utils.urlpath2path(parts.path)
-            if xlsutils._xl_extensions.search(path):
+            if xlsutils._xl_extensions_anywhere.search(path):
                 return 100
 
     def open_sheet(self, wb_url, sheet_id):
