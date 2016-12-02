@@ -91,7 +91,7 @@ v0.1.13 (1-Nov-2016):
 - fix(pandas): FIX pandas-v0.19+ dataframe-filter reading code
 
 v0.1.12 (July-2016): "Stegh" release
------------------------------------
+-----------------------------------------
 - xleash:
   - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
   - #7: FIX ``"df"`` filter to read multi-index excel-tables
