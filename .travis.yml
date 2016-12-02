@@ -6,43 +6,14 @@ python:
   - "2.7"
   - "3.4"
   - "3.5"
+  - "3.6-dev"
+  
 before_install:
-    ## From: http://conda.pydata.org/docs/travis.htm
-    ## Another one: https://gist.github.com/dan-blanchard/7045057
-    #- sudo apt-get update
-    - wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-    - bash miniconda.sh -b -p $HOME/miniconda
-    - |
-        export PATH="$HOME/miniconda/bin:$PATH"
-        hash -r
-    - |
-        conda config --set always_yes yes --set changeps1 no
-        conda update -q conda
-
-    ## Print python-version and architecture for debugging .
-    #
-    - |
-        python --version
-        conda info -a
 
 
 install:
-    - |
-        deps="`grep -v \# requirements/miniconda.conda`"
-        conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION $deps
-
-    - source activate test-environment
+    - python --version
     - pip install -r requirements/development.pip
-
-    ## TODO: Check if FIXED ``python setup.py nosetests`` failing with conda:
-    #   https://github.com/ContinuumIO/anaconda-issues/issues/280
-    - |
-        pip uninstall -y nose wheel
-        pip uninstall -y nose wheel
-        pip install -UI nose wheel
-
-    # - "python setup.py develop" ## NO, pip installed in "develop' mode, above.
-    - python setup.py build
 
 script:
     - |
@@ -69,6 +40,7 @@ script:
 
     -   echo "+++ Checking install...."
         python setup.py install
+        python setup.py build
 
 after_success:
     - if [[ $TRAVIS_PYTHON_VERSION == '3.4' ]]; then coveralls; fi
