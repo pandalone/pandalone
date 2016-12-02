@@ -57,6 +57,8 @@ Changelog
 v0.2.1 (2-Dec-2016): "Stop" release
 ---------------------------------------
 - remove unused features: doit, tkUI.
+- travis-test on CONDA-->"standard" py; test also unde4r PY36-dev.
+
 
 v0.2.0 (2-Nov-2016): "Really?" release
 ---------------------------------------
@@ -89,6 +91,7 @@ v0.1.13 (1-Nov-2016):
 ---------------------
 - chore(deps): unpin OpenPyXL==1.8.6, openpyxl-444 & pandas-10125 have been fixed.
 - fix(pandas): FIX pandas-v0.19+ dataframe-filter reading code
+
 
 v0.1.12 (July-2016): "Stegh" release
 -----------------------------------------
