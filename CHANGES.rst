@@ -54,6 +54,9 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.2.1 (2-Dec-2016): "Stop" release
+---------------------------------------
+- remove unused features: doit, tkUI.
 
 v0.2.0 (2-Nov-2016): "Really?" release
 ---------------------------------------
