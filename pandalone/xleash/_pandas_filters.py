@@ -110,7 +110,7 @@ def _df_filter(ranger, lasso, header=0, skiprows=None, names=None,
 
         log.warning("\nThe has_index_names argument is deprecated; index names "
                     "will be automatically inferred based on index_col.\n"
-                    "This argmument is still necessary if reading Excel output "
+                    "This argument is still necessary if reading Excel output "
                     "from 0.16.2 or prior with index names.")
 
     if 'chunksize' in kwds:

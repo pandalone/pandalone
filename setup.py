@@ -140,7 +140,6 @@ install_requires = [
     'numpy',
     'openpyxl>=2.2',
     'Pillow',  # For UI About boxes
-    'doit >= 0.28',
     'easygui != 0.98',
 ]
 if not os.environ.get('READTHEDOCS') == 'True':
@@ -222,7 +221,7 @@ setup(
         ':python_version == "2.7"': [  # See PEP-426
             'mock',
         ],
-        'xlwings': ['xlwings>=0.9.2'],
+        'xlwings': ['xlwings >= 0.9.2'],
         'pandas': ['pandas >= 0.18'],  # For xleash pandas filter.
         'xlrd': ['xlrd'],
     },
