@@ -8,6 +8,7 @@
 
 from __future__ import division, unicode_literals
 
+import itertools as itt
 import os
 import re
 import sys
@@ -270,19 +271,69 @@ def make_unique_filename(fname, filegen=generate_filenames):
     return fname
 
 
-def ensure_file_ext(fname, ext):
-    """
-    :param str ext: extension with dot(.)
+def ensure_file_ext(fname, ext, *exts, is_regex=False):
+    r"""
+    Ensure that the filepath ends with the extension(s) specified.
+    
+    :param str ext: 
+        The 1st extension (with/without dot `'.'`) that will append if none matches, 
+        so must not be a regex.
+    :param str exts:
+        Other extensions. They may be regexes, 
+        depending on `is_regex`; a `'$'` is added the end.
+    :param bool is_regex:
+        When true, the rest `exts` are parsed as case-insensitive regexes.
 
-    >>> assert ensure_file_ext('foo', '.bar')     == 'foo.bar'
-    >>> assert ensure_file_ext('foo.bar', '.bar') == 'foo.bar'
-    >>> assert ensure_file_ext('foo.', '.bar')    == 'foo..bar'
-    >>> assert ensure_file_ext('foo.', 'bar')    == 'foo.bar'
+    Example::
 
+        >>> ensure_file_ext('foo', '.bar')
+        'foo.bar'
+        >>> ensure_file_ext('foo.', '.bar')
+        'foo.bar'
+        >>> ensure_file_ext('foo', 'bar')
+        'foo.bar'
+        >>> ensure_file_ext('foo.', 'bar')
+        'foo.bar'
+
+        >>> ensure_file_ext('foo.BAR', '.bar')
+        'foo.BAR'
+        >>> ensure_file_ext('foo.DDD', '.bar')
+        'foo.DDD.bar'
+        
+
+    When more are given:: 
+    
+        >>> ensure_file_ext('foo.xlt', '.xlsx', '.XLT')
+        'foo.xlt'
+        >>> ensure_file_ext('foo.xlt', '.xlsx', '.xltx')
+        'foo.xlt.xlsx'
+
+    And when regexes::
+     
+        >>> ensure_file_ext('foo.xlt', '.xlsx',  r'\.xl\w{1,2}', is_regex=True) 
+        'foo.xlt'
+        >>> ensure_file_ext('foo.xl^', '.xls',  r'\.xl\w{1,2}', is_regex=True) 
+        'foo.xl^.xls'
+        
     """
-    _, e = os.path.splitext(fname)
-    if e != ext:
-        return '%s%s' % (fname, ext)
+    _, file_ext = os.path.splitext(fname)
+
+    if is_regex:
+        ends_with_ext = any(re.match(e + '$', file_ext, re.IGNORECASE)
+                            for e
+                            in (re.escape(ext),) + exts)
+    else:
+        ends_with_ext = file_ext.lower() in set(e.lower()
+                                                for e
+                                                in (ext,) + exts)
+    
+    if not ends_with_ext:
+        if fname[-1] == '.':
+            fname = fname[:-1]
+        if ext[0] == '.':
+            ext = ext[1:]
+        return '%s.%s' % (fname, ext)
+
     return fname
 
 
