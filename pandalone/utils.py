@@ -271,7 +271,7 @@ def make_unique_filename(fname, filegen=generate_filenames):
     return fname
 
 
-def ensure_file_ext(fname, ext, *exts, is_regex=False):
+def ensure_file_ext(fname, ext, *exts, **kwds): # TODO: PY3: is_regex=False):
     r"""
     Ensure that the filepath ends with the extension(s) specified.
     
@@ -317,6 +317,10 @@ def ensure_file_ext(fname, ext, *exts, is_regex=False):
         
     """
     _, file_ext = os.path.splitext(fname)
+
+    is_regex = kwds.pop('is_regex', None)
+    if kwds:
+        raise ValueError("Unknown kwds: " % kwds)
 
     if is_regex:
         ends_with_ext = any(re.match(e + '$', file_ext, re.IGNORECASE)
