@@ -475,8 +475,8 @@ Definitions
         - string: ``"func_name"``
         - list:   ``["func_name", ["arg1", "arg2"], {"k1": "v1"}]``
           where the last 2 parts are optional and can be given in any order;
-        - object: ``{"func": "func_name", "args": ["arg1"], "kws": {"k":"v"}}``
-          where the ``args`` and ``kws`` are optional.
+        - object: ``{"func": "func_name", "args": ["arg1"], "kwds": {"k":"v"}}``
+          where the ``args`` and ``kwds`` are optional.
 
         If the outer-most filter is a dictionary, a ``'pop'`` kwd is popped-out
         as the `opts`.
