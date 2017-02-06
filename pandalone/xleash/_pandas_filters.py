@@ -18,7 +18,7 @@ from __future__ import unicode_literals
 from collections import OrderedDict
 import pandas as pd
 from pandas.io import parsers as pdparsers, excel as pdexcel, common as pdiocom
-import pandas.core.common as pdcom
+import pandas.api.types as pdtypes
 from . import installed_filters
 
 import logging
@@ -127,17 +127,17 @@ def _df_filter(ranger, lasso, header=0, skiprows=None, names=None,
     if not data:
         return pd.DataFrame()
 
-    if pdcom.is_list_like(header) and len(header) == 1:
+    if pdtypes.is_list_like(header) and len(header) == 1:
         header = header[0]
 
     # forward fill and pull out names for MultiIndex column
     header_names = None
     if header is not None:
-        if pdcom.is_list_like(header):
+        if pdtypes.is_list_like(header):
             header_names = []
             control_row = [True for _ in data[0]]
             for row in header:
-                if pdcom.is_integer(skiprows):
+                if pdtypes.is_integer(skiprows):
                     row += skiprows
                 try:
                     data[row], control_row = pdexcel._fill_mi_header(data[row], control_row)
@@ -153,9 +153,9 @@ def _df_filter(ranger, lasso, header=0, skiprows=None, names=None,
         else:
             data[header] = pdexcel._trim_excel_header(data[header])
 
-    if pdcom.is_list_like(index_col):
+    if pdtypes.is_list_like(index_col):
         # forward fill values for MultiIndex index
-        if not pdcom.is_list_like(header):
+        if not pdtypes.is_list_like(header):
             offset = 1 + header
         else:
             offset = 1 + max(header)
@@ -168,7 +168,7 @@ def _df_filter(ranger, lasso, header=0, skiprows=None, names=None,
                 else:
                     last = data[row][col]
 
-    if pdcom.is_list_like(header) and len(header) > 1:
+    if pdtypes.is_list_like(header) and len(header) > 1:
         has_index_names = True
 
     # Pandaas expect '' instead of `None`!
