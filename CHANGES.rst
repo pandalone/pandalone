@@ -54,6 +54,12 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.2.2 (7-Feb-2017): "Telos" release
+---------------------------------------
+- pandas filter updates to `0.19.1`.
+- `utils.ensure_file_ext()` accepts multiple extensions/regexes.
+
+
 v0.2.1 (2-Dec-2016): "Stop" release
 ---------------------------------------
 - remove unused features: doit, tkUI.
