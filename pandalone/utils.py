@@ -8,16 +8,13 @@
 
 from __future__ import division, unicode_literals
 
-import itertools as itt
 import os
 import re
 import sys
 
-from future.moves.collections import Sequence  # @UnresolvedImport
 from past.types import basestring
+from collections import Sequence
 
-import future.moves.urllib.parse as up
-import future.moves.urllib.request as ur
 import os.path as osp
 
 
@@ -181,6 +178,8 @@ def convpath(fpath, abs_path=True, exp_user=True, exp_vars=True):
 
 def path2urlpath(path):
     r"""Like :func:`ur.path2urlpath()`, but eliminiating UNC(\\?\) and preserving last slash."""
+    import urllib.request as ur
+
     if path.startswith(_unc_prefix):
         path = path[3:]
     u = ur.pathname2url(path)
@@ -191,6 +190,8 @@ def path2urlpath(path):
 
 def urlpath2path(url):
     """Like :func:`ur.url2pathname()`, but prefixing with UNC(\\\\?\\) long paths and preserving last slash."""
+    import urllib.request as ur
+
     p = ur.url2pathname(url)
     if _is_dir_regex.search(url) and p[-1] != os.sep:
         p = p + osp.sep
@@ -216,6 +217,9 @@ def path2url(path, expandvars=False, expanduser=False):
 
     Complexity because Bill Gates copied the methods of Methodios and Kyrilos.
     """
+    import urllib.parse as up
+    import urllib.request as ur
+
     if path:
         if expandvars:
             path = osp.expandvars(path)
@@ -271,15 +275,15 @@ def make_unique_filename(fname, filegen=generate_filenames):
     return fname
 
 
-def ensure_file_ext(fname, ext, *exts, **kwds): # TODO: PY3: is_regex=False):
+def ensure_file_ext(fname, ext, *exts, **kwds):  # TODO: PY3: is_regex=False):
     r"""
     Ensure that the filepath ends with the extension(s) specified.
-    
-    :param str ext: 
-        The 1st extension (with/without dot `'.'`) that will append if none matches, 
+
+    :param str ext:
+        The 1st extension (with/without dot `'.'`) that will append if none matches,
         so must not be a regex.
     :param str exts:
-        Other extensions. They may be regexes, 
+        Other extensions. They may be regexes,
         depending on `is_regex`; a `'$'` is added the end.
     :param bool is_regex:
         When true, the rest `exts` are parsed as case-insensitive regexes.
@@ -299,22 +303,22 @@ def ensure_file_ext(fname, ext, *exts, **kwds): # TODO: PY3: is_regex=False):
         'foo.BAR'
         >>> ensure_file_ext('foo.DDD', '.bar')
         'foo.DDD.bar'
-        
 
-    When more are given:: 
-    
+
+    When more are given::
+
         >>> ensure_file_ext('foo.xlt', '.xlsx', '.XLT')
         'foo.xlt'
         >>> ensure_file_ext('foo.xlt', '.xlsx', '.xltx')
         'foo.xlt.xlsx'
 
     And when regexes::
-     
-        >>> ensure_file_ext('foo.xlt', '.xlsx',  r'\.xl\w{1,2}', is_regex=True) 
+
+        >>> ensure_file_ext('foo.xlt', '.xlsx',  r'\.xl\w{1,2}', is_regex=True)
         'foo.xlt'
-        >>> ensure_file_ext('foo.xl^', '.xls',  r'\.xl\w{1,2}', is_regex=True) 
+        >>> ensure_file_ext('foo.xl^', '.xls',  r'\.xl\w{1,2}', is_regex=True)
         'foo.xl^.xls'
-        
+
     """
     _, file_ext = os.path.splitext(fname)
 
@@ -330,7 +334,7 @@ def ensure_file_ext(fname, ext, *exts, **kwds): # TODO: PY3: is_regex=False):
         ends_with_ext = file_ext.lower() in set(e.lower()
                                                 for e
                                                 in (ext,) + exts)
-    
+
     if not ends_with_ext:
         if fname[-1] == '.':
             fname = fname[:-1]
