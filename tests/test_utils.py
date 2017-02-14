@@ -102,7 +102,7 @@ class TPath2Url(unittest.TestCase):
         ('.\\foo/bar', 'file:%s/foo/bar'),
     )
     def test_relative(self, case):
-        from future.moves.urllib.request import pathname2url
+        from urllib.request import pathname2url
         path, url = case
         cwd = pathname2url(os.getcwd())
         self.assertEqual(utils.path2url(path), url % cwd, path)

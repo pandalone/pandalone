@@ -20,7 +20,7 @@ import json
 import re
 
 from future.builtins import str
-from future.moves.urllib.parse import urldefrag
+from urllib.parse import urldefrag
 from past.builtins import basestring
 
 import itertools as itt

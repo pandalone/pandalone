@@ -165,9 +165,7 @@ class Ranger(object):
         except Exception as ex:
             msg = "Parsing xl-ref(%r) failed due to: %s"
             log.debug(msg, xlref, ex, exc_info=1)
-            # raise fututils.raise_from(ValueError(msg % (xlref, ex)), ex) see GH
-            # 141
-            raise ValueError(msg % (xlref, ex))
+            raise ValueError(msg % (xlref, ex)) from ex
 
         return init_lasso
 

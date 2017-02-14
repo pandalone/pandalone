@@ -283,9 +283,7 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coords=None):
             msg = "Cannot resolve `relative-{}` without `base-coord`!"
             raise ValueError(msg.format(cname))
         msg = 'invalid {}({!r}) due to: {}'
-        # fututils.raise_from(ValueError(msg.format(cname, coord, ex)), ex) see
-        # GH 141
-        raise ValueError(msg.format(cname, coord, ex))
+        raise ValueError(msg.format(cname, coord, ex)) from ex
 
 
 def _resolve_cell(cell, up_coords, dn_coords, base_coords=None):
@@ -361,8 +359,7 @@ def _resolve_cell(cell, up_coords, dn_coords, base_coords=None):
         msg = "invalid cell(%r) due to: %s\n  margins(%r)\n  base_coords(%r)"
         log.debug(msg, cell, ex, (up_coords, dn_coords), base_coords)
         msg = "invalid cell(%r) due to: %s"
-        # fututils.raise_from(ValueError(msg % (cell, ex)), ex) see GH 141
-        raise ValueError(msg % (cell, ex))
+        raise ValueError(msg % (cell, ex)) from ex
 
 
 _mov_vector_slices = {
