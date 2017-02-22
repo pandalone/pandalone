@@ -491,7 +491,7 @@ def _target_same_vector(states_matrix, dn_coords, land, mov):
     if states_vect.all():
         same_len = len(states_vect) - 1
     else:
-        indices = np.diff(states_vect).nonzero()[0]
+        indices = np.diff(states_vect.astype(int)).nonzero()[0]
         same_len = indices.min()
     target_coord = land[coord_indx] + is_reverse * same_len
 
