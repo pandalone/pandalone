@@ -11,7 +11,7 @@ from __future__ import division, unicode_literals
 import doctest
 import json
 from pandalone.mappings import (
-    Pmod, pmods_from_tuples, Pstep, _join_paths, _append_step)
+    Pmod, pmods_from_tuples, Pstep, _join_paths, _append_step, pstep_from_df)
 import pandalone.mappings
 import re
 import sre_constants
@@ -1160,11 +1160,11 @@ class TestPstep(unittest.TestCase):
 
     def test_from_pandas(self):
         cdf = pd.DataFrame([
-            ('fc',      'CO2 [g/km]'),
-            ('jobno',   'Job [-]'),
+            ['fc', 'CO2 [g/km]'],
+            ['jobno', 'Job [-]'],
         ], columns=['colkey', 'colname'])
         cdf['colkey'] = '/' + cdf['colkey']
-        c = pmods_from_tuples(cdf[['colkey', 'colname']].values).step()
+        c = pstep_from_df(cdf.set_index('colkey'), name_col='colname')
         self.assertEqual(c.fc, 'CO2 [g/km]', c._csteps)
         self.assertEqual(c.jobno, 'Job [-]', c._csteps)
 
