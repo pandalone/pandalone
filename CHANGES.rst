@@ -54,6 +54,12 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.2.3 (25-Feb-2017)
+---------------------------------------
+- chore(travis): stop PY2 builds, reduce use of *future* lib
+- fix(xleash, #10): numpy-warning raised bc diffing booleans
+
+
 v0.2.2 (7-Feb-2017): "Telos" release
 ---------------------------------------
 - pandas filter updates to `0.19.1`.
