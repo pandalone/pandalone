@@ -689,6 +689,11 @@ class T05Margins(unittest.TestCase):
         margins = (Coords(1, 1), Coords(3, 2))
         self.assertEqual(_s.margin_coords_from_states_matrix(sm), margins)
 
+#    def test_find_states_matrix_margins_big(self):
+#        sm = np.ones((500000, 1), dtype=np.int8)
+#        margins = (Coords(0, 0), Coords(500000, 0))
+#        self.assertEqual(_s.margin_coords_from_states_matrix(sm), margins)
+
     def test_find_states_matrix_margins_Single_cell(self):
         sm = np.array([
             [1],

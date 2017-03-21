@@ -54,6 +54,11 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.2.4 (21-Mar-2017)
+---------------------------------------
+- fix(xleash.io, #12): sheet margins failed with > 32bit num of rows/cols
+
+
 v0.2.3 (25-Feb-2017)
 ---------------------------------------
 - chore(travis): stop PY2 builds, reduce use of *future* lib

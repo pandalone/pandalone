@@ -299,7 +299,7 @@ def margin_coords_from_states_matrix(states_matrix):
     if not states_matrix.any():
         c = Coords(0, 0)
         return c, c
-    indices = np.array(np.where(states_matrix), dtype=np.int16).T
+    indices = np.array(np.where(states_matrix), dtype=np.int32).T
 
     # return indices.min(0), indices.max(0)
     return Coords(*indices.min(0)), Coords(*indices.max(0))
