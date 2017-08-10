@@ -192,3 +192,22 @@ class TPath2Url(unittest.TestCase):
     def test_remote(self, case):
         path, url = case
         self.assertEqual(utils.path2url(path), url, path)
+
+
+@ddt.ddt
+class Tensure_ext(unittest.TestCase):
+    @ddt.data(
+        (('foo', '.bar'), 'foo.bar'),
+        (('foo.', '.bar'), 'foo.bar'),
+        (('foo', 'bar'), 'foo.bar'),
+        (('foo.', 'bar'), 'foo.bar'),
+        (('foo.bar', 'bar'), 'foo.bar'),
+        (('foobar', 'bar'), 'foobar'),
+        (('foobar', '.bar'), 'foobar.bar'),
+        (('foo.BAR', '.bar'), 'foo.BAR'),
+        (('foo.DDD', '.bar'), 'foo.DDD.bar'),
+    )
+    def test_remote(self, case):
+        inp, exp = case
+        got = utils.ensure_file_ext(*inp)
+        self.assertEqual(got, exp, inp)
