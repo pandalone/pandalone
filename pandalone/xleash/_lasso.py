@@ -124,6 +124,8 @@ class Ranger(object):
             lasso = func(self, lasso, *args, **kwds)
             assert isinstance(lasso, Lasso), "Filter(%r) returned not a Lasso(%r)!" % (
                 func_name, lasso)
+        except KeyboardInterrupt:
+            raise
         except Exception as ex:
             if verbose:
                 func_desc = _build_call_help(func_name, func, func_desc)
@@ -160,6 +162,8 @@ class Ranger(object):
             filled_fields = dtz.valfilter(lambda v: v is not None,
                                           parsed_fields)
             init_lasso = init_lasso._replace(**filled_fields)
+        except KeyboardInterrupt:
+            raise
         except SyntaxError:
             raise
         except Exception as ex:
@@ -173,6 +177,8 @@ class Ranger(object):
         try:
             sheet = self.sheets_factory.fetch_sheet(
                 lasso.url_file, lasso.sh_name, base_sheet=lasso.sheet)
+        except KeyboardInterrupt:
+            raise
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
             raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
@@ -189,6 +195,8 @@ class Ranger(object):
                                                    lasso.nd_edge,
                                                    lasso.exp_moves,
                                                    lasso.base_coords)
+        except KeyboardInterrupt:
+            raise
         except EmptyCaptureException:
             if lasso.opts.get('no_empty', False):
                 raise
@@ -203,6 +211,8 @@ class Ranger(object):
             try:
                 lasso = self.make_call(lasso, *lasso.call_spec)
                 # relasso(values) invoked internally.
+            except KeyboardInterrupt:
+                raise
             except Exception as ex:
                 msg = "Filtering xl-ref(%r) failed due to: %s"
                 raise ValueError(msg % (lasso.xl_ref, ex))

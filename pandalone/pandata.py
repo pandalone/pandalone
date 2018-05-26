@@ -997,6 +997,8 @@ class Pandel(object):
             try:
                 for err in step():
                     yield err
+            except KeyboardInterrupt:
+                raise
             except ValidationError as ex:
                 self._errored = True
                 yield ex

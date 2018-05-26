@@ -35,6 +35,8 @@ def fullmatch_py2(regex, string, flags=0):
     m = re.match(regex, string, flags=flags)
     if m and m.span()[1] == len(string):
         return m
+
+
 try:  # pragma: no cover
     from re import fullmatch  # @UnusedImport
 except ImportError:  # pragma: no cover
@@ -76,6 +78,8 @@ def str2bool(v):
         if (vv in ("no", "false", "off", '0')):
             return False
         return bool(vv)
+    except KeyboardInterrupt:
+        raise
     except Exception as ex:
         msg = 'Invalid str-boolean(%s) due to: %s'
         raise ValueError(msg % (v, ex))
@@ -436,6 +440,7 @@ class LoggerWriter:
 
     def flush(self):
         pass
+
 
 if __name__ == '__main__':
     raise NotImplementedError

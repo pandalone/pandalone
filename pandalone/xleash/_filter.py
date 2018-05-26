@@ -302,6 +302,8 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
         try:
             proced, res_lasso = element_func(ranger, lasso, context, elval,
                                              *args, **kwds)
+        except KeyboardInterrupt:
+            raise
         except Exception as ex:
             msg_args = (elval, context, ex)
             raise ValueError("Value(%r) at %s: \n    %s" % msg_args)
@@ -356,6 +358,8 @@ def _recurse_element_func(ranger, lasso, context, elval):
         if isinstance(elval, basestring):
             lasso = ranger.do_lasso(elval, **context._asdict())
             proced = True
+    except KeyboardInterrupt:
+        raise
     except SyntaxError as ex:
         msg = "Skipped non `xl-ref` value(%r) \n  ++at %s \n  ++while lassoing %r \n  ++due to: %s"
         msg_args = (elval, context, lasso.xl_ref, ex)

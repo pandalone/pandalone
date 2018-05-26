@@ -941,6 +941,8 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
             _plugins_installed[stringify_EntryPoint(ep)] = 1
             if callable(plugin_loader):
                 plugin_loaders.append((ep, plugin_loader))
+        except KeyboardInterrupt:
+            raise
         except Exception as ex:
             log.error('Failed LOADING plugin(%r@%s) due to: %s',
                       ep, ep.dist, ex, exc_info=1)
@@ -949,9 +951,12 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
         try:
             plugin_loader()
             _plugins_installed[stringify_EntryPoint(ep)] = 2
+        except KeyboardInterrupt:
+            raise
         except Exception as ex:
             log.error('Failed INSTALLING plugin(%r@%s) due to: %s',
                       ep, ep.dist, ex, exc_info=1)
+
 
 _plugins_installed = OrderedDict()
 """

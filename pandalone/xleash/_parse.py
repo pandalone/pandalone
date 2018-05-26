@@ -60,6 +60,7 @@ class Cell(namedtuple('Cell', ('row', 'col', 'brow', 'bcol'))):
             s = "Cell(row=%r, col=%r)" % (self.row, self.col)
         return s
 
+
 Cell.__new__.__defaults__ = (None, None)
 """Make :class:`Cell` construct with missing 'brow', 'bcol' fields as `None`."""
 
@@ -86,6 +87,7 @@ class Edge(namedtuple('Edge', ('land', 'mov', 'mod'))):
 
     # def __repr__(self):
     #     return "Edge('%s')" % str(self)
+
 
 _topleft_Edge = Edge(Cell('^', '^'))
 _bottomright_Edge = Edge(Cell('_', '_'))
@@ -137,6 +139,7 @@ def Edge_new(row, col, mov=None, mod=None, default=None):
 
     return Edge(land=Cell(row, col),
                 mov=mov and mov.upper(), mod=mod)
+
 
 _encase_regex = re.compile(r'^\s*(?P<q>[/\\"$%&])(.+)(?P=q)\s*$', re.DOTALL)
 _regular_xlref_regex = re.compile(
@@ -259,7 +262,7 @@ def parse_call_spec(call_spec_values):
         else:
             msg = "One of str, list or dict expected for call-spec({})!"
             raise ValueError(msg.format(call_spec_values))
-    except ValueError:
+    except (ValueError, KeyboardInterrupt):
         raise
     except Exception as ex:
         msg = "Cannot parse call-spec({}) due to: {}"

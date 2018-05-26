@@ -123,6 +123,8 @@ def _open_sheet_by_name_or_index(xlrd_book, wb_id, sheet_id):
     else:
         try:
             xl_sh = xlrd_book.sheet_by_name(sheet_id)
+        except KeyboardInterrupt:
+            raise
         except Exception as xl_ex:
             try:
                 sheet_id = int(sheet_id)

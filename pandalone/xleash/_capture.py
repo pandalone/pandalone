@@ -43,6 +43,7 @@ class EmptyCaptureException(Exception):
     Thrown when :term:`targeting` fails.
     """
 
+
 _special_coord_symbols = {'^', '_', '.'}
 
 _primitive_dir_vectors = {
@@ -278,6 +279,8 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coords=None):
                 rcoord = dn_coord + rcoord + 1
 
         return rcoord
+    except KeyboardInterrupt:
+        raise
     except Exception as ex:
         if isinstance(ex, KeyError) and ex.args == ('.',):
             msg = "Cannot resolve `relative-{}` without `base-coord`!"
@@ -355,6 +358,8 @@ def _resolve_cell(cell, up_coords, dn_coords, base_coords=None):
                              up_coords[1], dn_coords[1], base_col)
 
         return Coords(row, col)
+    except KeyboardInterrupt:
+        raise
     except Exception as ex:
         msg = "invalid cell(%r) due to: %s\n  margins(%r)\n  base_coords(%r)"
         log.debug(msg, cell, ex, (up_coords, dn_coords), base_coords)

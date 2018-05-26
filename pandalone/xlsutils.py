@@ -43,6 +43,8 @@ def check_excell_installed():
             from win32com.client import dynamic  # @UnresolvedImport
             dynamic.Dispatch('Excel.Application')
             _xl_installed = True
+        except KeyboardInterrupt:
+            raise
         except Exception:  # pragma: no cover
             _xl_installed = False
 
