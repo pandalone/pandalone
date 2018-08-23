@@ -50,7 +50,7 @@ mydir = os.path.dirname(__file__)
 
 
 # Version-trick to have version-info in a single place,
-# taken from: http://stackoverflow.com/questions/2058802/how-can-i-get-the-version-defined-in-setup-py-setuptools-in-my-package
+# taken from: http://stackoverflow.com/questions/2058802/how-can-i-get-the-version
 ##
 def read_project_version():
     fglobals = {}
@@ -149,7 +149,6 @@ install_requires = [
     'jsonschema >= 2.5',
     'numpy',
     'openpyxl>=2.2',
-    'easygui != 0.98',  # For excel-macros locked msg-box.
 ]
 if not os.environ.get('READTHEDOCS') == 'True':
     install_requires.append('sphinx_rtd_theme')
@@ -230,7 +229,10 @@ setup(
         ':python_version == "2.7"': [  # See PEP-426
             'mock',
         ],
-        'xlwings': ['xlwings >= 0.9.2'],
+        'excel': [
+            'xlwings >= 0.9.2',
+            'easygui != 0.98',  # For excel-macros locked msg-box.
+        ],
         'pandas': ['pandas >= 0.18'],  # For xleash pandas filter.
         'xlrd': ['xlrd'],
     },
