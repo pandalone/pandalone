@@ -54,6 +54,12 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.2.4.post0 (23-Aug-2018)
+--------------------------
+Released just to move ``easygui`` dependency to (renamed from ``xlwings``-->)
+`[excel]` extras
+
+
 v0.2.4 (21-Mar-2017)
 ---------------------------------------
 - fix(xleash.io, #12): sheet margins failed with > 32bit num of rows/cols
