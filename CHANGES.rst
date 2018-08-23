@@ -54,10 +54,12 @@ Rejected TODOs:
 Changelog
 =========
 
-v0.2.4.post0 (23-Aug-2018)
+v0.2.4.post1 (23-Aug-2018)
 --------------------------
 Released just to move ``easygui`` dependency to (renamed from ``xlwings``-->)
-`[excel]` extras
+`[excel]` extras, just for co2mpas summer release.
+
+- ``v0.2.4.post1`` had unwanted WIPs.
 
 
 v0.2.4 (21-Mar-2017)
