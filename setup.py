@@ -237,9 +237,6 @@ setup(
         'xlrd': ['xlrd'],
     },
     entry_points={
-        'console_scripts': [
-            'pndl = %s.__main__:main' % proj_name,
-        ],
         'pandalone.xleash.plugins': [
             'xlrd_be = pandalone.xleash.io._xlrd:load_as_xleash_plugin [xlrd]',
             'pandas_filters = pandalone.xleash._pandas_filters:load_as_xleash_plugin [pandas]',
