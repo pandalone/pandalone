@@ -141,7 +141,7 @@ download_url = "https://github.com/%s/%s/tarball/v%s" % (proj_name, proj_name, p
 install_requires = [
     "future >= 0.15.0",
     "toolz",
-    "jsonschema >= 2.5",
+    "jsonschema >=2.5, <3",  # 3+ dropped `validator._types`
     "numpy",
     "openpyxl>=2.2",
     'mock; python_version == "2.7"',
