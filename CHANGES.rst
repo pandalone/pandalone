@@ -54,6 +54,13 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.2.5 (29-May-2018)
+--------------------------
+- Fix py36 "nested regex" warning on ``xleash._parse`` module.
+- Pin ``jsonschema <3`` since `_types` has been dropped.
+- Updates to `setup.py`, dependencies & build-scripts.
+- VSCode files & dev plugins.
+
 v0.2.4.post1 (23-Aug-2018)
 --------------------------
 Released just to move ``easygui`` dependency to (renamed from ``xlwings``-->)
