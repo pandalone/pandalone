@@ -137,7 +137,7 @@ proj_ver = read_project_version()
 
 
 readme_lines = read_text_lines('README.rst')
-description = readme_lines[1]
+description = readme_lines[1].strip()  # or else...pypa/setuptools#1390
 long_desc = ''.join(yield_rst_only_markup(readme_lines))
 # Trick from: http://peterdowns.com/posts/first-time-with-pypi.html
 download_url = 'https://github.com/%s/%s/tarball/v%s' % (
@@ -149,21 +149,57 @@ install_requires = [
     'jsonschema >= 2.5',
     'numpy',
     'openpyxl>=2.2',
+    'mock; python_version == "2.7"',
 ]
 if not os.environ.get('READTHEDOCS') == 'True':
     install_requires.append('sphinx_rtd_theme')
 install_requires.append('asteval>=0.9.7'  # https://github.com/newville/asteval/issues/16
                         if py_ver[:2] >= (3, 5) else 'asteval')
+test_reqs = ["nose", "coverage", "coveralls"]
+
+pandas_reqs = [
+     # For xleash pandas filter.
+      "pandas"]
+excel_reqs = [
+            "xlwings >= 0.9.2 ; sys_platform == 'win32'",
+            # For excel-macros locked msg-box.
+            'easygui != 0.98',  
+        ]
+xlrd_reqs = ['xlrd']
+doc_reqs = ["sphinx>=1.2", "sphinx_rtd_theme"]  # for comparisons
+dev_reqs = (
+    test_reqs
+    + pandas_reqs
+    + excel_reqs
+    + xlrd_reqs
+    + doc_reqs
+    + [
+        "wheel",
+        "twine",
+        "pylint",
+        # for VSCode autoformatting
+        "black",
+        # for VSCode RST linting
+        "doc8",
+        "sphinx-autobuild",
+    ]
+)
 
 setup(
     name=proj_name,
     version=proj_ver,
     description=description,
     long_description=long_desc,
+    long_description_content_type="text/x-rst",
     author="Kostis Anagnostopoulos at European Commission (JRC)",
     author_email="ankostis@gmail.com",
     url="https://github.com/%s/%s" % (proj_name, proj_name),
     download_url=download_url,
+    project_urls={
+        "Documentation": "https://%s.readthedocs.io/" % proj_name,
+        "Sources": "https://github.com/%s/%s" % (proj_name, proj_name),
+        "Bug Tracker": "https://github.com/%s/%s/issues" % (proj_name, proj_name),
+    },
     keywords=[
         "python", "utility", "library", "data", "tree", "processing",
         "calculation", "dependencies", "resolution", "scientific",
@@ -229,12 +265,11 @@ setup(
         ':python_version == "2.7"': [  # See PEP-426
             'mock',
         ],
-        'excel': [
-            'xlwings >= 0.9.2',
-            'easygui != 0.98',  # For excel-macros locked msg-box.
-        ],
-        'pandas': ['pandas >= 0.18'],  # For xleash pandas filter.
-        'xlrd': ['xlrd'],
+        'test': test_reqs,
+        'excel': excel_reqs,
+        'pandas': pandas_reqs,
+        'xlrd': xlrd_reqs,
+        'dev': dev_reqs,
     },
     entry_points={
         'pandalone.xleash.plugins': [
