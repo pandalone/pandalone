@@ -41,7 +41,6 @@ class Doctest(unittest.TestCase):
     def test_README_version_opening(self):
         ver = pandalone.__version__
         header_len = 20
-        mydir = osp.dirname(__file__)
         with open(readme_path) as fd:
             for i, l in enumerate(fd):
                 if ver in l:
@@ -53,7 +52,6 @@ class Doctest(unittest.TestCase):
     def test_README_reldate_opening(self):
         reldate = pandalone.__updated__
         header_len = 20
-        mydir = osp.dirname(__file__)
         with open(readme_path) as fd:
             for _, l in zip(range(header_len), fd):
                 if reldate in l:
@@ -64,7 +62,6 @@ class Doctest(unittest.TestCase):
 
     def test_README_version_cmdline(self):
         ver = pandalone.__version__
-        mydir = osp.dirname(__file__)
         with open(readme_path) as fd:
             ftext = fd.read()
             m = re.search(
