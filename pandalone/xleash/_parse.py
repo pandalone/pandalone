@@ -180,7 +180,7 @@ _regular_xlref_regex = re.compile(
         )?
     )?
     (?:
-        :\s*(?P<js_filt>[[{"].*)                             # filters
+        :\s*(?P<js_filt>[{"[].*)                             # filters
     )?$
     """,
     re.IGNORECASE | re.X | re.DOTALL)
