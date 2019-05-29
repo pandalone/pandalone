@@ -1,11 +1,11 @@
 #! python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2013-2015 European Commission (JRC);
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
-''''Installation script for *pandalone*.
+"""'Installation script for *pandalone*.
 
 
 Install:
@@ -22,7 +22,7 @@ Or get it directly from the PIP repository::
 Or get it directly from the github repository::
 
     pip install git+https://github.com/pandalone/pandalone.git
-'''
+"""
 # Got ideas for project-setup from many places, among others:
 #    http://www.jeffknupp.com/blog/2013/08/16/open-sourcing-a-python-project-the-right-way/
 #    http://python-packaging-user-guide.readthedocs.org/en/latest/current.html
@@ -45,7 +45,7 @@ if py_ver < (2, 7):
 if py_ver >= (3,) and py_ver < (3, 3):
     exit("Sorry, Python3 >= 3.3 is supported!")
 
-proj_name = 'pandalone'
+proj_name = "pandalone"
 mydir = os.path.dirname(__file__)
 
 
@@ -54,10 +54,9 @@ mydir = os.path.dirname(__file__)
 ##
 def read_project_version():
     fglobals = {}
-    with io.open(os.path.join(
-            mydir, proj_name, '_version.py'), encoding='UTF-8') as fd:
+    with io.open(os.path.join(mydir, proj_name, "_version.py"), encoding="UTF-8") as fd:
         exec(fd.read(), fglobals)  # To read __version__
-    return fglobals['__version__']
+    return fglobals["__version__"]
 
 
 def read_text_lines(fname):
@@ -74,18 +73,17 @@ def yield_rst_only_markup(lines):
     substs = [
         # Selected Sphinx-only Roles.
         #
-        (r':abbr:`([^`]+)`', r'\1'),
-        (r':ref:`([^`]+)`', r'ref: *\1*'),
-        (r':term:`([^`]+)`', r'**\1**'),
-        (r':dfn:`([^`]+)`', r'**\1**'),
-        (r':(samp|guilabel|menuselection|doc|file):`([^`]+)`', r'``\2``'),
-
+        (r":abbr:`([^`]+)`", r"\1"),
+        (r":ref:`([^`]+)`", r"ref: *\1*"),
+        (r":term:`([^`]+)`", r"**\1**"),
+        (r":dfn:`([^`]+)`", r"**\1**"),
+        (r":(samp|guilabel|menuselection|doc|file):`([^`]+)`", r"``\2``"),
         # Sphinx-only roles:
         #        :foo:`bar`   --> foo(``bar``)
         #        :a:foo:`bar` XXX afoo(``bar``)
         #
-        #(r'(:(\w+))?:(\w+):`([^`]*)`', r'\2\3(``\4``)'),
-        #(r':(\w+):`([^`]*)`', r'\1(`\2`)'),
+        # (r'(:(\w+))?:(\w+):`([^`]*)`', r'\2\3(``\4``)'),
+        # (r':(\w+):`([^`]*)`', r'\1(`\2`)'),
         # emphasis
         # literal
         # code
@@ -96,28 +94,24 @@ def yield_rst_only_markup(lines):
         # subscript, sub
         # superscript, sup
         # title-reference
-
         # Sphinx-only Directives.
         #
-        (r'\.\. doctest', r'code-block'),
-        (r'\.\. module', r'code-block'),
-        (r'\.\. plot::', r'.. '),
-        (r'\.\. seealso', r'info'),
-        (r'\.\. glossary', r'rubric'),
-        (r'\.\. figure::', r'.. '),
-        (r'\.\. image::', r'.. '),
-
-        (r'\.\. dispatcher', r'code-block'),
-
+        (r"\.\. doctest", r"code-block"),
+        (r"\.\. module", r"code-block"),
+        (r"\.\. plot::", r".. "),
+        (r"\.\. seealso", r"info"),
+        (r"\.\. glossary", r"rubric"),
+        (r"\.\. figure::", r".. "),
+        (r"\.\. image::", r".. "),
+        (r"\.\. dispatcher", r"code-block"),
         # Other
         #
-        (r'\|version\|', r'x.x.x'),
-        (r'\|today\|', r'x.x.x'),
-        (r'\.\. include:: AUTHORS', r'see: AUTHORS'),
+        (r"\|version\|", r"x.x.x"),
+        (r"\|today\|", r"x.x.x"),
+        (r"\.\. include:: AUTHORS", r"see: AUTHORS"),
     ]
 
-    regex_subs = [(re.compile(regex, re.IGNORECASE), sub)
-                  for (regex, sub) in substs]
+    regex_subs = [(re.compile(regex, re.IGNORECASE), sub) for (regex, sub) in substs]
 
     def clean_line(line):
         try:
@@ -136,36 +130,39 @@ def yield_rst_only_markup(lines):
 proj_ver = read_project_version()
 
 
-readme_lines = read_text_lines('README.rst')
+readme_lines = read_text_lines("README.rst")
 description = readme_lines[1].strip()  # or else...pypa/setuptools#1390
-long_desc = ''.join(yield_rst_only_markup(readme_lines))
+long_desc = "".join(yield_rst_only_markup(readme_lines))
 # Trick from: http://peterdowns.com/posts/first-time-with-pypi.html
-download_url = 'https://github.com/%s/%s/tarball/v%s' % (
-    proj_name, proj_name, proj_ver)
+download_url = "https://github.com/%s/%s/tarball/v%s" % (proj_name, proj_name, proj_ver)
 
 install_requires = [
-    'future >= 0.15.0',
-    'toolz',
-    'jsonschema >= 2.5',
-    'numpy',
-    'openpyxl>=2.2',
+    "future >= 0.15.0",
+    "toolz",
+    "jsonschema >= 2.5",
+    "numpy",
+    "openpyxl>=2.2",
     'mock; python_version == "2.7"',
 ]
-if not os.environ.get('READTHEDOCS') == 'True':
-    install_requires.append('sphinx_rtd_theme')
-install_requires.append('asteval>=0.9.7'  # https://github.com/newville/asteval/issues/16
-                        if py_ver[:2] >= (3, 5) else 'asteval')
+if not os.environ.get("READTHEDOCS") == "True":
+    install_requires.append("sphinx_rtd_theme")
+install_requires.append(
+    "asteval>=0.9.7"  # https://github.com/newville/asteval/issues/16
+    if py_ver[:2] >= (3, 5)
+    else "asteval"
+)
 test_reqs = ["nose", "coverage", "coveralls"]
 
 pandas_reqs = [
-     # For xleash pandas filter.
-      "pandas"]
+    # For xleash pandas filter.
+    "pandas"
+]
 excel_reqs = [
-            "xlwings >= 0.9.2 ; sys_platform == 'win32'",
-            # For excel-macros locked msg-box.
-            'easygui != 0.98',  
-        ]
-xlrd_reqs = ['xlrd']
+    "xlwings >= 0.9.2 ; sys_platform == 'win32'",
+    # For excel-macros locked msg-box.
+    "easygui != 0.98",
+]
+xlrd_reqs = ["xlrd"]
 doc_reqs = ["sphinx>=1.2", "sphinx_rtd_theme"]  # for comparisons
 dev_reqs = (
     test_reqs
@@ -201,9 +198,19 @@ setup(
         "Bug Tracker": "https://github.com/%s/%s/issues" % (proj_name, proj_name),
     },
     keywords=[
-        "python", "utility", "library", "data", "tree", "processing",
-        "calculation", "dependencies", "resolution", "scientific",
-        "engineering", "pandas", "simulink",
+        "python",
+        "utility",
+        "library",
+        "data",
+        "tree",
+        "processing",
+        "calculation",
+        "dependencies",
+        "resolution",
+        "scientific",
+        "engineering",
+        "pandas",
+        "simulink",
     ],
     classifiers=[
         "Programming Language :: Python",
@@ -214,11 +221,11 @@ setup(
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: Implementation :: CPython",
         "Development Status :: 4 - Beta",
-        'Natural Language :: English',
+        "Natural Language :: English",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "Intended Audience :: Manufacturing",
-        'Environment :: Console',
+        "Environment :: Console",
         "License :: OSI Approved :: European Union Public Licence 1.1 (EUPL 1.1)",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: Microsoft :: Windows",
@@ -231,14 +238,10 @@ setup(
         "Topic :: Utilities",
     ],
     packages=find_packages(exclude=["tests"]),
-    #include_package_data = True,
-    package_data={
-        proj_name: ['excel/*.vba', 'excel/*.ico', 'icons/*'],
-    },
+    # include_package_data = True,
+    package_data={proj_name: ["excel/*.vba", "excel/*.ico", "icons/*"]},
     install_requires=install_requires,
-    setup_requires=[
-        'setuptools',
-    ],
+    setup_requires=["setuptools"],
     # build_requires=[
     #     # PEP426-field actually not used by `pip` them, hence
     #     # included in /requirements/developmnet.pip.
@@ -252,41 +255,28 @@ setup(
     #     # included in /requirements/developmnet.pip.
     #     'sphinx>=1.4',
     # ],
-    tests_require=[
-        'ddt',
-        'nose',
-        'coverage',
-        'coveralls',
-        'pandas',
-        'xlrd',
-    ],
-    test_suite='nose.collector',
+    tests_require=["ddt", "nose", "coverage", "coveralls", "pandas", "xlrd"],
+    test_suite="nose.collector",
     extras_require={
-        ':python_version == "2.7"': [  # See PEP-426
-            'mock',
-        ],
-        'test': test_reqs,
-        'excel': excel_reqs,
-        'pandas': pandas_reqs,
-        'xlrd': xlrd_reqs,
-        'dev': dev_reqs,
+        ':python_version == "2.7"': ["mock"],  # See PEP-426
+        "test": test_reqs,
+        "excel": excel_reqs,
+        "pandas": pandas_reqs,
+        "xlrd": xlrd_reqs,
+        "dev": dev_reqs,
     },
     entry_points={
-        'pandalone.xleash.plugins': [
-            'xlrd_be = pandalone.xleash.io._xlrd:load_as_xleash_plugin [xlrd]',
-            'pandas_filters = pandalone.xleash._pandas_filters:load_as_xleash_plugin [pandas]',
-        ],
+        "pandalone.xleash.plugins": [
+            "xlrd_be = pandalone.xleash.io._xlrd:load_as_xleash_plugin [xlrd]",
+            "pandas_filters = pandalone.xleash._pandas_filters:load_as_xleash_plugin [pandas]",
+        ]
     },
     zip_safe=True,
     options={
-        'build_sphinx': {
-            'build_dir': 'doc/_build',
-        },
-        'bdist_wheel': {
-            'universal': True,
-        },
+        "build_sphinx": {"build_dir": "doc/_build"},
+        "bdist_wheel": {"universal": True},
     },
-    platforms=['any'],
+    platforms=["any"],
     # TODO: check when `run_requires` works.
     # run_requires=[
     #     {
