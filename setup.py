@@ -240,7 +240,6 @@ setup(
     # include_package_data = True,
     package_data={proj_name: ["excel/*.vba", "excel/*.ico", "icons/*"]},
     install_requires=install_requires,
-    setup_requires=["setuptools"],
     # build_requires=[
     #     # PEP426-field actually not used by `pip` them, hence
     #     # included in /requirements/developmnet.pip.
