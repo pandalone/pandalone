@@ -146,8 +146,6 @@ install_requires = [
     "openpyxl>=2.2",
     'mock; python_version == "2.7"',
 ]
-if not os.environ.get("READTHEDOCS") == "True":
-    install_requires.append("sphinx_rtd_theme")
 install_requires.append(
     "asteval>=0.9.7"  # https://github.com/newville/asteval/issues/16
     if py_ver[:2] >= (3, 5)
@@ -165,7 +163,7 @@ excel_reqs = [
     "easygui != 0.98",
 ]
 xlrd_reqs = ["xlrd"]
-doc_reqs = ["sphinx>=1.2", "sphinx_rtd_theme"]  # for comparisons
+doc_reqs = ["sphinx>=1.2",]  # for comparisons
 dev_reqs = (
     test_reqs
     + pandas_reqs
