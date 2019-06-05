@@ -54,12 +54,21 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.2.6 (5-June-2019): deps cleanup
+----------------------------------
+- build: 
+  - drop dep-tricks for older Pythons & correct old missconceptions.
+  - drop never used `openpyxl` dep
+  - drop `sphinx_rtd_theme` not-really-needed-these-days dep
+
+
 v0.2.5 (29-May-2018)
---------------------------
+--------------------
 - Fix py36 "nested regex" warning on ``xleash._parse`` module.
 - Pin ``jsonschema <3`` since `_types` has been dropped.
 - Updates to `setup.py`, dependencies & build-scripts.
 - VSCode files & dev plugins.
+
 
 v0.2.4.post1 (23-Aug-2018)
 --------------------------
