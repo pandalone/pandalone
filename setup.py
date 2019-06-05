@@ -143,7 +143,6 @@ install_requires = [
     "toolz",
     "jsonschema >=2.5, <3",  # 3+ dropped `validator._types`
     "numpy",
-    "openpyxl>=2.2",
     'mock; python_version == "2.7"',
 ]
 install_requires.append(
