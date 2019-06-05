@@ -144,13 +144,9 @@ install_requires = [
     "jsonschema >=2.5, <3",  # 3+ dropped `validator._types`
     "numpy",
     'mock; python_version == "2.7"',
+    'asteval >=0.9.7'
 ]
-install_requires.append(
-    "asteval>=0.9.7"  # https://github.com/newville/asteval/issues/16
-    if py_ver[:2] >= (3, 5)
-    else "asteval"
-)
-test_reqs = ["nose", "coverage", "coveralls"]
+test_reqs = ["nose", "coverage", "coveralls", "docopt"]
 
 pandas_reqs = [
     # For xleash pandas filter.
@@ -256,7 +252,6 @@ setup(
     tests_require=["ddt", "nose", "coverage", "coveralls", "pandas", "xlrd"],
     test_suite="nose.collector",
     extras_require={
-        ':python_version == "2.7"': ["mock"],  # See PEP-426
         "test": test_reqs,
         "excel": excel_reqs,
         "pandas": pandas_reqs,
