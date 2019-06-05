@@ -249,6 +249,9 @@ setup(
     #     # included in /requirements/developmnet.pip.
     #     'sphinx>=1.4',
     # ],
+    setup_requires=[
+        "setuptools-git >= 0.3"  # Gather package-data from all files in git.
+    ],
     tests_require=["ddt", "nose", "coverage", "coveralls", "pandas", "xlrd"],
     test_suite="nose.collector",
     extras_require={
