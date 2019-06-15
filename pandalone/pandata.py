@@ -58,7 +58,7 @@ _value_with_units_regex = re.compile(r'''^\s*
                                             >
                                         )?                  # end parenthesized-units
                                         \s*$''', re.X)
-_units_cleaner_regex = re.compile(r'^[[<]|[\]>]$')
+_units_cleaner_regex = re.compile(r'^[<[]|[\]>]$')
 
 
 """An item-descriptor with units, i.e. used as a table-column header."""
