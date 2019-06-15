@@ -15,6 +15,7 @@ from __future__ import division, unicode_literals
 
 import abc
 import binascii
+from collections import OrderedDict, namedtuple
 from collections.abc import Mapping, Sequence
 from json.decoder import JSONDecoder
 from json.encoder import JSONEncoder
@@ -228,8 +229,8 @@ class PandelVisitor(ValidatorBase):
              'type': 'object'}
         <BLANKLINE>
         On instance:
-            bar    2
             foo    1
+            bar    2
             dtype: int64
 
         >>> pv.validate(pd.Series({}))                               ## Required 'foo' missing!

@@ -70,5 +70,7 @@ coverage.xml
 # Temporary-files
 ~*
 *scratch*
+# LibreOffice lock-files
+*\#
 
 *.log

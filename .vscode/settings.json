@@ -2,5 +2,11 @@
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true,
     "python.pythonPath": "venv/bin/python",
-    "restructuredtext.confPath": ""
+    "restructuredtext.confPath": "",
+    "python.testing.pyTestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.nosetestsEnabled": false,
+    "python.testing.pyTestEnabled": true
 }
