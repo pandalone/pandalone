@@ -398,7 +398,7 @@ def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
         symtable = locals()
         from .. import xleash
         symtable.update({'xleash': xleash})
-        aeval = asteval.Interpreter(symtable, writer=ast_log_writer)
+        aeval = asteval.Interpreter(usersyms=symtable, writer=ast_log_writer)
         res = aeval.eval(expr)
         if aeval.error:
             error = aeval.error[0].get_error()
@@ -496,7 +496,7 @@ def py_filter(ranger, lasso, expr):
     symtable = locals()
     from .. import xleash
     symtable.update({'xleash': xleash})
-    aeval = asteval.Interpreter(symtable, writer=ast_log_writer)
+    aeval = asteval.Interpreter(usersyms=symtable, writer=ast_log_writer)
     res = aeval.eval(expr)
     if aeval.error:
         error = aeval.error[0].get_error()
