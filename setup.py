@@ -146,7 +146,7 @@ install_requires = [
     'mock; python_version == "2.7"',
     'asteval >=0.9.7'
 ]
-test_reqs = ["nose", "coverage", "coveralls", "docopt"]
+test_reqs = ["nose", "coverage", "coveralls", "docopt", "ddt"]
 
 pandas_reqs = [
     # For xleash pandas filter.
