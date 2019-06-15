@@ -2018,7 +2018,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         ("int('g')", """
             Value("int('g')") at XLocation(sheet=None, st=None, nd=None, base_coords=None):
             4 errors while py-evaluating "int('g')": ValueError:    int('g')
-            Error running <class 'int'>
+            Error running function call 'int' with args ['g'] and kwargs {}: invalid literal for int() with base 10: 'g'
         """),
     )
     def test_syntaxErrors(self, case):

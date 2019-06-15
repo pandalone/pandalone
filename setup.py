@@ -144,7 +144,8 @@ install_requires = [
     "jsonschema >=2.5, <3",  # 3+ dropped `validator._types`
     "numpy",
     'mock; python_version == "2.7"',
-    'asteval >=0.9.8'       # has fixed newville/asteval#21 on recusrion-limit 
+    # asteval-0.9.10 added `usersums` kw in eval, 0.9.8 fixed  recusrion-limit newville/asteval#21 
+    'asteval >=0.9.10'
 ]
 test_reqs = ["nose", "coverage", "coveralls", "docopt", "ddt", "openpyxl"]
 
