@@ -144,7 +144,7 @@ install_requires = [
     'mock; python_version == "2.7"',
     'asteval >=0.9.8'       # has fixed newville/asteval#21 on recusrion-limit 
 ]
-test_reqs = ["nose", "coverage", "coveralls", "docopt", "ddt"]
+test_reqs = ["nose", "coverage", "coveralls", "docopt", "ddt", "openpyxl"]
 
 pandas_reqs = [
     # For xleash pandas filter.
