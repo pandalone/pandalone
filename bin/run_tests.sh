@@ -10,30 +10,13 @@
 yell() { echo "$0: $*" >&2; }
 die() { yell "$*"; exit 111; }
 
-## Always invokes  code-tests, but skip doctests and coverage on Python-2.
-
 
 my_dir=`dirname "$0"`
 cd $my_dir/..
 
 declare -A fails
 
-echo "+++ Checking README for PyPI repo...."
-./bin/check_readme.sh || fails['README']=$?
-
-echo "+++ Checking SITE...."
-./bin/check_site.sh || fails['site']=$?
-
-echo "+++  Checking ARCHIVES..."
-out="$( python setup.py sdist bdist_wheel  2>&1 )"
-if [ $? -ne 0 ]; then
-	fails['archives']=1
-    yell "$out ARCHIVES failed!"
-else
-	echo "OK"
-fi
-
-if  python -c 'import sys;  exit(not sys.version_info >= (3,4))'; then
+if  python -c 'import sys;  exit(not sys.version_info >= (3,4)'; then
     echo "+++ Checking all TCs, DTs & Coverage....";
 	out="$( python setup.py test_all  2>&1 )"
 	if [ $? -ne 0 ]; then
@@ -51,6 +34,21 @@ else
 	else
 		echo "OK"
 	fi
+fi
+
+echo "+++ Checking README for PyPI repo...."
+./bin/check_readme.sh || fails['README']=$?
+
+echo "+++ Checking SITE...."
+./bin/check_site.sh || fails['site']=$?
+
+echo "+++  Checking ARCHIVES..."
+out="$( python setup.py sdist bdist_wheel  2>&1 )"
+if [ $? -ne 0 ]; then
+	fails['archives']=1
+    yell "$out ARCHIVES failed!"
+else
+	echo "OK"
 fi
 
 ## Raise any errors.
