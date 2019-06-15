@@ -394,16 +394,6 @@ ast_log_writer = LoggerWriter(logging.getLogger('%s.pyeval' % __name__),
                               logging.INFO)
 
 
-class ASTInterpreter(asteval.Interpreter):
-    # TODO: Drop class when resolved:
-    #   https://github.com/newville/asteval/issues/21
-
-    @staticmethod
-    def set_recursion_limit():
-        # sys.setrecursionlimit(RECURSION_LIMIT)
-        pass
-
-
 def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
     proced = False
     if isinstance(elval, basestring):
@@ -411,7 +401,7 @@ def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
         symtable = locals()
         from .. import xleash
         symtable.update({'xleash': xleash})
-        aeval = ASTInterpreter(symtable, writer=ast_log_writer)
+        aeval = asteval.Interpreter(symtable, writer=ast_log_writer)
         res = aeval.eval(expr)
         if aeval.error:
             error = aeval.error[0].get_error()
@@ -509,7 +499,7 @@ def py_filter(ranger, lasso, expr):
     symtable = locals()
     from .. import xleash
     symtable.update({'xleash': xleash})
-    aeval = ASTInterpreter(symtable, writer=ast_log_writer)
+    aeval = asteval.Interpreter(symtable, writer=ast_log_writer)
     res = aeval.eval(expr)
     if aeval.error:
         error = aeval.error[0].get_error()
