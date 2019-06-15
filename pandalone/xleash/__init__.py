@@ -732,7 +732,6 @@ API
   .. currentmodule:: pandalone.xleash._filter
   .. autosummary::
 
-      installed_filters
       xlwings_dims_call_spec
 
 
@@ -752,13 +751,14 @@ API
   .. currentmodule:: pandalone.xleash.io
   .. autosummary::
 
-      io_backends
       backend.SheetsFactory
+      backend.ABCBackend
+      backend.ABCBackend.open_sheet
       backend.ABCSheet.read_rect
       backend.ArraySheet
       backend.ABCSheet
       _xlrd.XlrdSheet
-      _xlrd.open_sheet
+      _xlrd._open_sheet_by_name_or_index
 
 - Plugin related
   .. autosummary::
@@ -766,6 +766,8 @@ API
       _init_plugins
       _plugins_installed
       _PLUGIN_GROUP_NAME
+      io_backends
+      installed_filters
 
 .. currentmodule:: pandalone.xleash
 """
