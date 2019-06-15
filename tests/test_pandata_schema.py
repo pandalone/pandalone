@@ -18,26 +18,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import json
+import unittest
 from collections import deque
 from contextlib import contextmanager
-import json
-from jsonschema.validators import (
-    RefResolutionError, UnknownType, RefResolver
-)
-import unittest
-
-from jsonschema import FormatChecker, ValidationError
+from unittest import mock
 
 import numpy as np
 import numpy.testing as npt
-from pandalone.pandata import PandelVisitor
 import pandas as pd
+from jsonschema import FormatChecker, ValidationError
+from jsonschema.validators import RefResolutionError, RefResolver, UnknownType
 
-
-try:
-    from unittest import mock
-except ImportError:
-    import mock
+from pandalone.pandata import PandelVisitor
 
 
 def validate(instance, schema, *args, **kws):

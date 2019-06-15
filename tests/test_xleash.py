@@ -9,40 +9,36 @@
 # flake8: noqa: E241
 
 import contextlib
-from datetime import datetime
 import doctest
+import itertools as itt
 import json
 import logging
 import os
-from pandalone import xlsutils, xleash
-from pandalone.xleash import (_parse as _p,
-                              _capture as _c,
-                              _filter as _f,
-                              _lasso as _l,
-                              Lasso, Coords, EmptyCaptureException)
-from pandalone.xleash.io import (backend as _s, _xlrd as xd)
+import os.path as osp
 import sys
 import tempfile
-from tests import _tutils
 import unittest
+from collections import ChainMap
+from datetime import datetime
+from unittest.mock import MagicMock, sentinel
 
 import ddt
-from collections import ChainMap
+import numpy as np
+import pandas as pd
+import xlrd
 from numpy import testing as npt
 from pandas.util.testing import assert_frame_equal
 from toolz import dicttoolz as dtz
-import xlrd
 
-import itertools as itt
-import numpy as np
-import os.path as osp
-import pandas as pd
-
-
-try:
-    from unittest.mock import MagicMock, sentinel
-except ImportError:
-    from mock import MagicMock, sentinel
+from pandalone import xleash, xlsutils
+from pandalone.xleash import Coords, EmptyCaptureException, Lasso
+from pandalone.xleash import _capture as _c
+from pandalone.xleash import _filter as _f
+from pandalone.xleash import _lasso as _l
+from pandalone.xleash import _parse as _p
+from pandalone.xleash.io import _xlrd as xd
+from pandalone.xleash.io import backend as _s
+from tests import _tutils
 
 
 log = _tutils.init_logging(__name__)

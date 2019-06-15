@@ -13,33 +13,23 @@ URI-references, implemented by :class:`Pandel`.
 
 import abc
 import binascii
+import numbers
+import pickle
+import re
 from collections import OrderedDict, namedtuple
 from collections.abc import Mapping, Sequence
 from json.decoder import JSONDecoder
 from json.encoder import JSONEncoder
-import numbers
-import pickle
-import re
+from unittest.mock import MagicMock
+from urllib.parse import urljoin
 
-from jsonschema import Draft3Validator, Draft4Validator, ValidationError
+
 import jsonschema
-from jsonschema.exceptions import SchemaError, RefResolutionError
-from pandas.core.generic import NDFrame
-
 import numpy as np
 import pandas as pd
-
-
-try:
-    from unittest.mock import MagicMock
-except ImportError:
-    from mock import MagicMock  # @UnusedImport
-
-
-try:
-    from urllib.parse import urljoin
-except ImportError:
-    from urlparse import urljoin
+from jsonschema import Draft3Validator, Draft4Validator, ValidationError
+from jsonschema.exceptions import RefResolutionError, SchemaError
+from pandas.core.generic import NDFrame
 
 __commit__ = ""
 

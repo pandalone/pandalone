@@ -33,14 +33,11 @@ TODO
 4. Imply a default Assembly.
 """
 
-from abc import ABCMeta, abstractmethod
 import logging
-from pandalone.mappings import Pstep
+from abc import ABCMeta, abstractmethod
+from unittest.mock import MagicMock
 
-try:
-    from unittest.mock import MagicMock
-except ImportError:
-    from mock import MagicMock  # @UnusedImport
+from pandalone.mappings import Pstep
 
 
 __commit__ = ""

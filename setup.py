@@ -140,7 +140,6 @@ install_requires = [
     "toolz",
     "jsonschema >=2.5, <3",  # 3+ dropped `validator._types`
     "numpy",
-    'mock; python_version == "2.7"',
     'asteval >=0.9.8'       # has fixed newville/asteval#21 on recusrion-limit 
 ]
 test_reqs = ["nose", "coverage", "coveralls", "docopt", "ddt", "openpyxl"]
