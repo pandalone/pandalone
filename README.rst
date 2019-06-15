@@ -38,8 +38,7 @@ with a *dependency-resolver*, every such model should auto-adapt and process
 only values available, and allow *remapping* of the paths accessing them,
 to run on renamed/relocated *value-trees* without component-code modifications.
 
-It is an open source library written for *python-3.4* but tested under both
-*python-2.7* and *python-3.3+*, for *Windows* and *Linux*.
+It is an open source library written and tested on *Python-3.5+* , *Windows* and *Linux*.
 
 .. Note::
     The project, as of May-2015, is considered at an alpha-stage,
@@ -100,7 +99,7 @@ Quick-start
 -----------
 
 .. Note::
-    The program runs on **Python-2.7+** and **Python-3.3+** (preferred) and requires
+    The program runs on **Python-3.5+** (preferred) and requires
     **numpy/scipy**, **pandas** and **win32** libraries along with their *native backends* to be installed.
     If you do not have such an environment already installed, please read :doc:`install` section below for
     suitable distributions such as |anaconda|_ or |winpython|_.
@@ -145,11 +144,10 @@ try the following commands:
 
 Install
 =======
-Current version(|version|) runs on **Python-2.7+** and **Python-3.3+** and requires
+Current version(|version|) runs on **Python-3.5+** and requires
 **numpy/scipy**, **pandas** and **win32** libraries along with their *native backends* to be installed.
 
-It has been tested under *Windows* and *Linux* and *Python-3.3+* is the preferred interpreter,
-i.e, the *Excel* interface and desktop-UI runs only with it.
+It has been tested under *Windows* and *Linux* for *Python-3.5+*.
 
 It is distributed on `Wheels <https://pypi.python.org/pypi/wheel>`_.
 
@@ -586,7 +584,7 @@ These are the knowingly related python projects:
 - `OpenMDAO <http://openmdao.org/>`_:
   It has influenced pandalone's design.
   It is planned to interoperate by converting to and from it's data-types.
-  But it works on python-2 only and its architecture needs attending from
+  But it is Python-2 only and its architecture needs attending from
   programmers (no `setup.py`, no official test-cases).
 
 - `PyDSTool <http://www2.gsu.edu/~matrhc/PyDSTool.htm>`_:

@@ -6,10 +6,9 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 import os
+from tempfile import TemporaryDirectory
 from pandalone import xlsutils
-from tests._tutils import (
-    init_logging, TemporaryDirectory, xw_no_save_Workbook,
-    xw_close_workbook)
+from tests._tutils import (init_logging, xw_no_save_Workbook, xw_close_workbook)
 import unittest
 
 import pandas as pd

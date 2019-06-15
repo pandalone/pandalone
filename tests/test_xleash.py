@@ -71,7 +71,6 @@ def _make_local_url(fname, fragment=''):
     return 'file:///{}#{}'.format(fpath, fragment)
 
 
-@unittest.skipIf(sys.version_info < (3, 5), "Doctests are made for py3.5")
 class T00Doctest(unittest.TestCase):
 
     def test_xleash(self):
@@ -173,7 +172,6 @@ class T011Structs(unittest.TestCase):
         cell, exp = case
         self.assertEqual(str(cell), exp)
 
-    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     @ddt.data(
         (_p.Cell('1', 'a'), "Cell(row='1', col='A')"),
         (_p.Cell('1', '1'), "Cell(row='1', col='1')"),
@@ -253,7 +251,7 @@ class T01Parse(unittest.TestCase):
     )
     def test_BAD(self, xlref):
         err_msg = "Not an `xl-ref` syntax:"
-        with _tutils.assertRaisesRegex(self, SyntaxError, err_msg, msg=xlref):
+        with self.assertRaisesRegex(SyntaxError, err_msg, msg=xlref):
             _p.parse_xlref_fragment(xlref)
 
     def test_xl_ref_Cell_types(self):
@@ -397,7 +395,7 @@ class T01Parse(unittest.TestCase):
               'A1:b1:{"opts": "..."}', 'A1:B1:{"opts": [4]}')
     def test_xl_ref_BadOpts(self, xlref):
         err_msg = 'must be a json-object\(dictionary\)'
-        _tutils.assertRaisesRegex(self, ValueError, err_msg,
+        self.assertRaisesRegex(ValueError, err_msg,
                                   _p.parse_xlref_fragment, xlref)
 
     def test_xl_url_Ok(self):
@@ -425,9 +423,9 @@ class T01Parse(unittest.TestCase):
     def test_xl_url_No_fragment(self):
         url = 'A1:B1'
         err_text = "No fragment-part"
-        with _tutils.assertRaisesRegex(self, SyntaxError, err_text):
+        with self.assertRaisesRegex(SyntaxError, err_text):
             _p.parse_xlref(url)
-        with _tutils.assertRaisesRegex(self, SyntaxError, err_text):
+        with self.assertRaisesRegex(SyntaxError, err_text):
             _p.parse_xlref('$%s$' % url)
 
     def test_xl_url_emptySheet(self):
@@ -534,7 +532,7 @@ class T03TargetOpposite(unittest.TestCase):
             res = _c._target_opposite(*args)
             self.assertEqual(res, Coords(exp_row, exp_col), str(args))
         else:
-            with _tutils.assertRaisesRegex(self, EmptyCaptureException, "No \w+-target found",
+            with self.assertRaisesRegex(EmptyCaptureException, "No \w+-target found",
                                            msg=str(args)):
                 _c._target_opposite(*args)
 
@@ -618,7 +616,7 @@ class T04TargetSame(unittest.TestCase):
             res = _c._target_same(*args)
             self.assertEqual(res, Coords(exp_row, exp_col), str(args))
         else:
-            with _tutils.assertRaisesRegex(self, ValueError, "No \w+-target for",
+            with self.assertRaisesRegex(ValueError, "No \w+-target for",
                                            msg=str(args)):
                 _c._target_same(*args)
 
@@ -1021,7 +1019,7 @@ class T07Capture(unittest.TestCase):
     )
     def test_1stRelative_withoutBase(self, case):
         err_msg = "Cannot resolve `relative"
-        with _tutils.assertRaisesRegex(self, ValueError, err_msg):
+        with self.assertRaisesRegex(ValueError, err_msg):
             self.check_resolve_capture_rect(*case)
 
     @ddt.data(
@@ -1512,13 +1510,9 @@ class T12CallSpec(unittest.TestCase):
 
     _bad_struct = "One of str, list or dict expected"
     _func_not_str = "Expected a `string` for func"
-    _func_missing = ("missing 1 required positional argument: 'func'"
-                     if fututis.PY3 else
-                     'takes at least 1 argument')
+    _func_missing = ("missing 1 required positional argument: 'func'")
     _cannot_decide = "Cannot decide `args`/`kwds`"
-    _more_args = ("takes from 1 to 3 positional arguments"
-                  if fututis.PY3 else
-                  'takes at most 3 arguments')
+    _more_args = ("takes from 1 to 3 positional arguments")
     _more_kwds = "unexpected keyword argument"
     _args_not_list = "Expected a `list`"
     _kwds_not_dict = "Expected a `dict`"
@@ -1531,7 +1525,7 @@ class T12CallSpec(unittest.TestCase):
     )
     def test_Fail_base(self, case):
         call_desc, err = case
-        with _tutils.assertRaisesRegex(self, ValueError, err):
+        with self.assertRaisesRegex(ValueError, err):
             _p.parse_call_spec(call_desc)
 
     @ddt.data(
@@ -1553,7 +1547,7 @@ class T12CallSpec(unittest.TestCase):
     )
     def test_Fail_List(self, case):
         call_desc, err = case
-        with _tutils.assertRaisesRegex(self, ValueError, err):
+        with self.assertRaisesRegex(ValueError, err):
             _p.parse_call_spec(call_desc)
 
     @ddt.data(
@@ -1580,7 +1574,7 @@ class T12CallSpec(unittest.TestCase):
     )
     def test_Fail_Object(self, case):
         call_desc, err = case
-        with _tutils.assertRaisesRegex(self, ValueError, err):
+        with self.assertRaisesRegex(ValueError, err):
             _p.parse_call_spec(call_desc)
 
 
@@ -1741,14 +1735,14 @@ class T14Lasso(unittest.TestCase):
     def test_read_emptyScream_onEmptySheet(self, xlref):
         sheet = _s.ArraySheet([[]])
         err_msg = r"empty sheet"
-        with _tutils.assertRaisesRegex(self, EmptyCaptureException, err_msg):
+        with self.assertRaisesRegex(EmptyCaptureException, err_msg):
             _l.lasso(xlref + ':{"opts": {"no_empty": true}}', sheet=sheet)
 
     @ddt.data(*empty_refs)
     def test_read_emptyScream_onSheetWithNones(self, xlref):
         sheet = _s.ArraySheet([[None] * 5] * 5)
         err_msg = r"No \w+-target found"
-        with _tutils.assertRaisesRegex(self, EmptyCaptureException, err_msg):
+        with self.assertRaisesRegex(EmptyCaptureException, err_msg):
             _l.lasso(xlref + ':{"opts": {"no_empty": true}}', sheet=sheet)
 
     def test_read_asLasso(self):
@@ -2003,7 +1997,6 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         res = _f.pyeval_filter(ranger, lasso)
         self.assertEqual(res, exp)
 
-    @unittest.skipIf(sys.version_info < (3, 5), "String comparisons here!")
     @ddt.data(
         ("boo haha", """
             Value('boo haha') at XLocation(sheet=None, st=None, nd=None, base_coords=None):
@@ -2097,7 +2090,6 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         res = _l.lasso('%s#%s' % (fpath, _recurse_rect))
         self.assertEqual(res, _recurse_val)
 
-    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     def test_real_file_recurse(self):
         exp = """\
         OrderedDict([
@@ -2127,7 +2119,6 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         res = _l.lasso('tests/recursive.xlsx#^^:"recurse"')
         self.assertStrippedStringsEqual(str(res), exp)
 
-    @unittest.skipIf(sys.version_info < (3, 4), "no `assertLogs` in Py2!")
     def test_subfilter(self):
         search_str = '4.14'
         with self.assertLogs(level=logging.INFO) as logass:
@@ -2139,7 +2130,6 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
                 self.fail("'py' filter did not produce %s! %s" %
                           (search_str, logass.output))
 
-    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     def test_lasso_then_pyeval(self):
         exp = """\
                 COL1        EVAL_COL  NO_EVAL
@@ -2150,7 +2140,6 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         res = _l.lasso('tests/recursive.xlsx#e2!^^:"recurse"')
         self.assertStrippedStringsEqual(str(res), exp)
 
-    @unittest.skipIf(sys.version_info[:2] < (3, 4), "String comparisons here!")
     def test_real_file_recurse_fail(self):
         err_msg = """
         Filtering xl-ref('tests/recursive.xlsx#A_(U):"recurse"') failed due to:

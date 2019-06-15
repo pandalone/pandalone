@@ -15,7 +15,7 @@ from __future__ import division, unicode_literals
 
 import abc
 import binascii
-from collections import Mapping, Sequence, OrderedDict, namedtuple
+from collections.abc import Mapping, Sequence
 from json.decoder import JSONDecoder
 from json.encoder import JSONEncoder
 import numbers
@@ -1396,7 +1396,7 @@ class JSONCodec():
         ...
 
     .. seealso::
-        For pickle-limitations: https://docs.python.org/3.4/library/pickle.html#pickle-picklable
+        For pickle-limitations: https://docs.python.org/3.7/library/pickle.html#pickle-picklable
     """
     _ver_key = '_ver'
     _ver = '0'

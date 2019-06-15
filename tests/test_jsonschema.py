@@ -17,8 +17,6 @@ from pandalone import pandata
 from pandalone.pandata import PandelVisitor
 import pandas as pd
 
-from ._tutils import assertRaisesRegex
-
 
 class TestJsonPath(unittest.TestCase):
 
@@ -124,8 +122,8 @@ class TestJsonPath(unittest.TestCase):
 
         mm = MyMaker()  # Invalid submodel['b'], must be a number
         mm.add_submodel({'a': 'foo', 'b': 'string'})
-        assertRaisesRegex(
-            self, ValidationError, "Failed validating u?'type' in schema\[u?'properties']\[u?'b']", mm.build)
+        self.assertRaisesRegex(
+            ValidationError, "Failed validating u?'type' in schema\[u?'properties']\[u?'b']", mm.build)
 
     def test_validate_object_or_pandas(self):
         schema = {
@@ -137,7 +135,7 @@ class TestJsonPath(unittest.TestCase):
         pv.validate(pd.Series({'foo': 'bar', 'foofoo': 'bar'}))
         pv.validate(pd.DataFrame({'foo': [1, 2], 'foofoo': [3, 4]}))
 
-        with assertRaisesRegex(self, ValidationError, "\[1, 2, 3\] is not of type u?'object'"):
+        with self.assertRaisesRegex(ValidationError, "\[1, 2, 3\] is not of type u?'object'"):
             pv.validate([1, 2, 3])
 
     def test_rule_requiredProperties_rule_for_pandas(self):
@@ -148,15 +146,15 @@ class TestJsonPath(unittest.TestCase):
         pv = PandelVisitor(schema)
 
         pv.validate({'foo': 'bar'})
-        with assertRaisesRegex(self, ValidationError, "'foo' is a required property"):
+        with self.assertRaisesRegex(ValidationError, "'foo' is a required property"):
             pv.validate({'foofoo': 'bar'})
 
         pv.validate(pd.Series({'foo': 'bar', 'foofoo': 'bar'}))
-        with assertRaisesRegex(self, ValidationError, "'foo' is a required property"):
+        with self.assertRaisesRegex(ValidationError, "'foo' is a required property"):
             pv.validate(pd.Series({'foofoo': 'bar'}))
 
         pv.validate(pd.DataFrame({'foo': [1, 2], 'foofoo': [3, 4]}))
-        with assertRaisesRegex(self, ValidationError, "'foo' is a required property"):
+        with self.assertRaisesRegex(ValidationError, "'foo' is a required property"):
             pv.validate(pd.DataFrame({'foofoo': [1, 2], 'bar': [3, 4]}))
 
     def test_rule_additionalProperties_for_pandas(self):
@@ -170,15 +168,15 @@ class TestJsonPath(unittest.TestCase):
         pv = PandelVisitor(schema)
 
         pv.validate({'foo': 1})
-        with assertRaisesRegex(self, ValidationError, "Additional properties are not allowed \(u?'bar' was unexpected\)"):
+        with self.assertRaisesRegex(ValidationError, "Additional properties are not allowed \(u?'bar' was unexpected\)"):
             pv.validate({'foo': 1, 'bar': 2})
 
         pv.validate(pd.Series({'foo': 1}))
-        with assertRaisesRegex(self, ValidationError, "Additional properties are not allowed \(u?'bar' was unexpected\)"):
+        with self.assertRaisesRegex(ValidationError, "Additional properties are not allowed \(u?'bar' was unexpected\)"):
             pv.validate(pd.Series({'foo': 1, 'bar': 2}))
 
         pv.validate(pd.DataFrame({'foo': [1]}))
-        with assertRaisesRegex(self, ValidationError, "Additional properties are not allowed \(u?'bar' was unexpected\)"):
+        with self.assertRaisesRegex(ValidationError, "Additional properties are not allowed \(u?'bar' was unexpected\)"):
             pv.validate(pd.DataFrame({'foo': [1], 'bar': [2]}))
 
 

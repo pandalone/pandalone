@@ -28,7 +28,6 @@ readme_path = osp.join(proj_path, 'README.rst')
 tutorial_path = osp.join(proj_path, 'doc', 'tutorial.rst')
 
 
-@unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
 class Doctest(unittest.TestCase):
 
     def test_doctest_README(self):

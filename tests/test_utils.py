@@ -10,7 +10,7 @@ from __future__ import division, unicode_literals
 import doctest
 import logging
 import os
-from pandalone.utils import fullmatch_py2, LoggerWriter
+from pandalone.utils import LoggerWriter
 import re
 import sys
 import unittest
@@ -20,7 +20,6 @@ import ddt
 import pandalone.utils as utils
 
 
-@unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
 class Doctest(unittest.TestCase):
 
     def test_doctests(self):
@@ -31,30 +30,6 @@ class Doctest(unittest.TestCase):
 
 
 class TestUtils(unittest.TestCase):
-
-    def _assert_expansion(self, regex, s, template):
-        m1 = re.fullmatch(regex, s)
-        s1 = m1.expand(template) if m1 else '<NO-MATCH>'
-        m2 = fullmatch_py2(regex, s)
-        s2 = m2.expand(template) if m2 else '<NO-MATCH>'
-        self.assertEqual(s1, s2, "\n  PY-3: '%s' \n  PY-2: '%s' " % (s1, s2))
-
-    @unittest.skipIf(not 'fullmatch' in dir(re), "Platform has no 'fullmatch() to compare with.")
-    def test_fullmatch(self):
-        self._assert_expansion('.*', 'foo', r'A')
-        self._assert_expansion('(.*)', 'foo', r'A_\1')
-        self._assert_expansion('(.*)', 'foo', r'A_\g<0>')
-
-        self._assert_expansion('a.*', 'afoo&', r'A')
-        self._assert_expansion('a(\w*)', 'afoo&', r'A_\1')
-        self._assert_expansion('a(\w*)', 'afoo&', r'A_\g<0>')
-
-    # Not fixed for performance,
-    # for full-solution, see:
-    #   http://stackoverflow.com/questions/30212413/backport-python-3-4s-regular-expression-fullmatch-to-python-2")
-    @unittest.expectedFailure
-    def test_fullmatch_hard(self):
-        self._assert_expansion(".*?", "Hello", '\g<0>')
 
     def test_make_unique_filename(self):
         fname = '/dir/_NOT_EXISTS_'
@@ -70,7 +45,6 @@ class TestUtils(unittest.TestCase):
         fname2 = os.path.join('..', 'tests', fname1)
         self.assertEqual(utils.make_unique_filename(fname), fname2)
 
-    @unittest.skipIf(sys.version_info < (3, 4), "TC.assertLog() not exists!")
     def test_LogWriter_smoke(self):
         logname = "foobar"
         log = logging.getLogger(logname)

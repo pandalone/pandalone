@@ -338,7 +338,7 @@ class Pmod(object):
 
         return [(rpmod, match)
                 for rpmod, match
-                in ((rpmod, utils.fullmatch(regex, cstep))
+                in ((rpmod, re.fullmatch(regex, cstep))
                     for regex, rpmod
                     in self._regxs.items())
                 if match]

@@ -28,7 +28,6 @@ from tests._tutils import init_logging
 log = init_logging(__name__)
 
 
-@unittest.skipIf(sys.version_info < (3, 4), "Doctests are made for py >= 3.3")
 class Doctest(unittest.TestCase):
 
     def test_doctests(self):

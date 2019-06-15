@@ -40,10 +40,8 @@ __commit__ = ""
 # Fail early on ancient python-versions
 #
 py_ver = sys.version_info
-if py_ver < (2, 7):
-    exit("Sorry, Python2 >= 2.7 is supported!")
-if py_ver >= (3,) and py_ver < (3, 3):
-    exit("Sorry, Python3 >= 3.3 is supported!")
+if py_ver < (3, 5):
+    exit("Sorry, Python >= 3.5 is needed (not %s)" % py_ver)
 
 proj_name = "pandalone"
 mydir = os.path.dirname(__file__)
@@ -209,11 +207,9 @@ setup(
     ],
     classifiers=[
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.3",
-        "Programming Language :: Python :: 3.4",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: Implementation :: CPython",
         "Development Status :: 4 - Beta",
         "Natural Language :: English",
@@ -249,6 +245,7 @@ setup(
     #     # included in /requirements/developmnet.pip.
     #     'sphinx>=1.4',
     # ],
+    python_requires='>=3.5',
     setup_requires=[
         "setuptools-git >= 0.3"  # Gather package-data from all files in git.
     ],

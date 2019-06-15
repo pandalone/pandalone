@@ -4,18 +4,19 @@
 environment:
 
     matrix:
-#       - PYTHON: "C:\\Python27-conda32"
-#         PYTHON_VERSION: "2.7"
-#         PYTHON_ARCH: "32"
-#         IS_CONDA: "true"
+      # a sampling of 
+      - PYTHON: "C:\\Python35-x64"
+        PYTHON_VERSION: "3.5"
+        PYTHON_ARCH: "64"
+        IS_CONDA: "false"
 
-      - PYTHON: "C:\\Python34-conda64"
-        PYTHON_VERSION: "3.4"
+      - PYTHON: "C:\\Python36-x64"
+        PYTHON_VERSION: "3.6"
         PYTHON_ARCH: "64"
         IS_CONDA: "true"
 
-      - PYTHON: "C:\\Python35-x64"
-        PYTHON_VERSION: "3.5"
+      - PYTHON: "C:\\Python37-x64"
+        PYTHON_VERSION: "3.7"
         PYTHON_ARCH: "64"
         IS_CONDA: "false"
 
@@ -69,7 +70,7 @@ test_script:
         echo "+++  Checking archives for PyPI repo..."
         python setup.py sdist bdist_wheel
 
-    -   IF "%PYTHON_VERSION%"=="3.4" (
+    -   IF "%PYTHON_VERSION%"=="3.7" (
             echo "+++ Checking all TCs, DTs & Coverage...." &
             python setup.py test_all
         ) ELSE (
@@ -84,4 +85,4 @@ test_script:
 
 ## Needs repo-token and this would be different per user.
 #on_success:
-#    - IF "%PYTHON_VERSION%"=="3.4" (coveralls)
+#    - IF "%PYTHON_VERSION%"=="3.7" (coveralls)

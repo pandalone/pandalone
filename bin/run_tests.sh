@@ -16,7 +16,7 @@ cd $my_dir/..
 
 declare -A fails
 
-if  python -c 'import sys;  exit(not sys.version_info >= (3,4)'; then
+if  python -c 'import sys;  exit(not sys.version_info >= (3,5))'; then
     echo "+++ Checking all TCs, DTs & Coverage....";
 	out="$( python setup.py test_all  2>&1 )"
 	if [ $? -ne 0 ]; then
