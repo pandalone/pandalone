@@ -13,15 +13,12 @@ Prefer accessing the public members from the parent module.
 .. currentmodule:: pandalone.xleash
 """
 
-from __future__ import unicode_literals
 
 from collections import namedtuple, OrderedDict
 import logging
 
 
 import asteval
-from future.utils import iteritems
-from past.builtins import basestring
 from toolz import dicttoolz as dtz
 
 import numpy as np
@@ -220,7 +217,7 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
     (Mappings, Series and Dataframes.), and if that fails, as nested lists.
 
     - The `include`/`exclude` filter args work only for "indexed" objects
-      with ``items()`` or ``iteritems()`` and indexing methods.
+      with ``items()`` and indexing methods.
 
         - If no filter arg specified, expands for all keys.
         - If only `include` specified, rejects all keys not explicitly
@@ -329,7 +326,7 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
         if cdepth != depth:
             dived = False
             try:
-                items = iteritems(elval)
+                items = elval.items()
             except:
                 pass  # Just to avoid chained ex.
             else:
@@ -353,7 +350,7 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
 def _recurse_element_func(ranger, lasso, context, elval):
     proced = False
     try:
-        if isinstance(elval, basestring):
+        if isinstance(elval, str):
             lasso = ranger.do_lasso(elval, **context._asdict())
             proced = True
     except SyntaxError as ex:
@@ -396,7 +393,7 @@ ast_log_writer = LoggerWriter(logging.getLogger('%s.pyeval' % __name__),
 
 def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
     proced = False
-    if isinstance(elval, basestring):
+    if isinstance(elval, str):
         expr = str(elval)
         symtable = locals()
         from .. import xleash

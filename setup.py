@@ -137,7 +137,6 @@ long_desc = "".join(yield_rst_only_markup(readme_lines))
 download_url = "https://github.com/%s/%s/tarball/v%s" % (proj_name, proj_name, proj_ver)
 
 install_requires = [
-    "future >= 0.15.0",
     "toolz",
     "jsonschema >=2.5, <3",  # 3+ dropped `validator._types`
     "numpy",

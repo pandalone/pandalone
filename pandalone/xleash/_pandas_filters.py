@@ -13,8 +13,6 @@ Prefer accessing the public members from the parent module.
 .. currentmodule:: pandalone.xleash
 """
 
-from __future__ import unicode_literals
-
 from collections import OrderedDict
 import pandas as pd
 from pandas.io import parsers as pdparsers, excel as pdexcel, common as pdiocom

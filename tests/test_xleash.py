@@ -8,8 +8,6 @@
 
 # flake8: noqa: E241
 
-from __future__ import division, print_function, unicode_literals
-
 import contextlib
 from datetime import datetime
 import doctest
@@ -29,11 +27,9 @@ from tests import _tutils
 import unittest
 
 import ddt
-from future import utils as fututis
-from future.backports import ChainMap
+from collections import ChainMap
 from numpy import testing as npt
 from pandas.util.testing import assert_frame_equal
-from past.builtins import basestring
 from toolz import dicttoolz as dtz
 import xlrd
 
@@ -259,10 +255,10 @@ class T01Parse(unittest.TestCase):
         res = _p.parse_xlref_fragment(xl_ref)
         st_edge = res['st_edge']
         nd_edge = res['nd_edge']
-        self.assertIsInstance(st_edge.land.row, basestring)
-        self.assertIsInstance(st_edge.land.col, basestring)
-        self.assertIsInstance(nd_edge.land.row, basestring)
-        self.assertIsInstance(nd_edge.land.col, basestring)
+        self.assertIsInstance(st_edge.land.row, str)
+        self.assertIsInstance(st_edge.land.col, str)
+        self.assertIsInstance(nd_edge.land.row, str)
+        self.assertIsInstance(nd_edge.land.col, str)
 
     def test_xl_ref_Cell_col_row_order(self):
         xl_ref = 'b1:C2'

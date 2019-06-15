@@ -1,5 +1,5 @@
 #! python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2013-2015 European Commission (JRC);
 # Licensed under the EUPL (the 'Licence');
@@ -32,20 +32,19 @@ Hierarchical string-like objects useful for indexing, that can be rename/relocat
 - TODO: Implements "anywhere" pmods(`//`).
 """
 
-from __future__ import division, unicode_literals
-
 from collections import OrderedDict
 from copy import copy
 import logging
 import re
 
-from past.builtins import basestring
-
 import functools as ft
 from pandalone import utils
 from pandalone.pandata import (
-    iter_jsonpointer_parts_relaxed, JSchema, unescape_jsonpointer_part,
-    escape_jsonpointer_part)
+    iter_jsonpointer_parts_relaxed,
+    JSchema,
+    unescape_jsonpointer_part,
+    escape_jsonpointer_part,
+)
 
 
 __commit__ = ""
@@ -143,7 +142,7 @@ class Pmod(object):
 
     """
 
-    __slots__ = ['_alias', '_steps', '_regxs']
+    __slots__ = ["_alias", "_steps", "_regxs"]
 
     def __init__(self, _alias=None, _steps={}, _regxs={}):
         """
@@ -156,12 +155,11 @@ class Pmod(object):
         self._alias = _alias
         self._steps = _steps
         if _regxs:
-            self._regxs = OrderedDict(
-                (re.compile(k), v) for k, v in _regxs)
+            self._regxs = OrderedDict((re.compile(k), v) for k, v in _regxs)
         else:
             self._regxs = _regxs
 
-    def step(self, pname='', alias=None):
+    def step(self, pname="", alias=None):
         """
         Create a new :class:`Pstep` having as mappings this pmod.
 
@@ -270,9 +268,11 @@ class Pmod(object):
                     opairs.append((name, mpmod))
 
                 okeys = opmods.keys()
-                spairs = [(name, spmod)  # Share self-pmod.
-                          for name, spmod in spmods.items()
-                          if name not in okeys]
+                spairs = [
+                    (name, spmod)  # Share self-pmod.
+                    for name, spmod in spmods.items()
+                    if name not in okeys
+                ]
 
                 opmods = type(spmods)(spairs + opairs)
 
@@ -336,12 +336,14 @@ class Pmod(object):
     def _match_regxs(self, cstep):
         """Return (pmod, regex.match) for those child-pmods matching `cstep`."""
 
-        return [(rpmod, match)
-                for rpmod, match
-                in ((rpmod, re.fullmatch(regex, cstep))
-                    for regex, rpmod
-                    in self._regxs.items())
-                if match]
+        return [
+            (rpmod, match)
+            for rpmod, match in (
+                (rpmod, re.fullmatch(regex, cstep))
+                for regex, rpmod in self._regxs.items()
+            )
+            if match
+        ]
 
     def descend(self, cstep):
         r"""
@@ -515,7 +517,7 @@ class Pmod(object):
             ''
 
         """
-        is_folder = len(path) > 1 and path.endswith('/')
+        is_folder = len(path) > 1 and path.endswith("/")
         if is_folder:
             path = path[:-1]
 
@@ -534,11 +536,11 @@ class Pmod(object):
                 if pmod:
                     pmod, alias = pmod.descend(step)
                 if alias is not None:
-                    if alias.startswith('.'):
-                        nsteps += (step, )
+                    if alias.startswith("."):
+                        nsteps += (step,)
                     step = alias
                 # XXX: Monkey business here.
-                if len(step) > 1 and step.endswith('/'):
+                if len(step) > 1 and step.endswith("/"):
                     step = step[:-1]
                 nsteps += tuple(iter_jsonpointer_parts_relaxed(step))
 
@@ -546,11 +548,11 @@ class Pmod(object):
             if pmod:
                 alias = pmod.alias(final_step)
                 if alias is not None:
-                    if alias.startswith('.'):
-                        nsteps += (final_step, )
+                    if alias.startswith("."):
+                        nsteps += (final_step,)
                     final_step = alias
             # XXX: Monkey business here.
-            is_folder = len(final_step) > 1 and final_step.endswith('/')
+            is_folder = len(final_step) > 1 and final_step.endswith("/")
             if is_folder:
                 final_step = final_step[:-1]
             nsteps += tuple(iter_jsonpointer_parts_relaxed(final_step))
@@ -558,7 +560,7 @@ class Pmod(object):
         npath = _join_paths(*nsteps)
 
         if is_folder:
-            path += '%s/' % path
+            path += "%s/" % path
 
         return npath
 
@@ -566,16 +568,20 @@ class Pmod(object):
         return [self.map_path(p) for p in paths]
 
     def __repr__(self):
-        args = [repr(a)
-                for a in [self._alias, self._steps, self._regxs]
-                if a or a == '']
+        args = [
+            repr(a) for a in [self._alias, self._steps, self._regxs] if a or a == ""
+        ]
 
-        args = ', '.join(args)
-        return 'pmod({})'.format(args)
+        args = ", ".join(args)
+        return "pmod({})".format(args)
 
     def __eq__(self, o):
         try:
-            return (self._alias, self._steps, self._regxs) == (o._alias, o._steps, o._regxs)
+            return (self._alias, self._steps, self._regxs) == (
+                o._alias,
+                o._steps,
+                o._regxs,
+            )
         except:
             return False
 
@@ -659,14 +665,14 @@ def pmods_from_tuples(pmods_tuples):
     """
     root = Pmod()
     for i, (f, t) in enumerate(pmods_tuples):
-        if (f, t) == ('', '') or f is None or t is None:
+        if (f, t) == ("", "") or f is None or t is None:
             msg = 'pmod-tuple #%i of %i: Invalid "from-to" tuple (%r, %r).'
             log.warning(msg, i + 1, len(pmods_tuples), f, t)
             continue
 
         pmod = root
         for srcstep in iter_jsonpointer_parts_relaxed(f):
-            is_regex = srcstep.startswith('~')
+            is_regex = srcstep.startswith("~")
             if is_regex:
                 pmod = pmod._append_into_regxs(srcstep[1:])
             else:
@@ -750,29 +756,29 @@ def _append_step(steps, step):
 
     """
     assert isinstance(steps, tuple), (steps, step)
-    assert not step or isinstance(step, basestring), (steps, step)
+    assert not step or isinstance(step, str), (steps, step)
 
-    if step == '':
-        return ('',)
+    if step == "":
+        return ("",)
 
     _last_pair_choices = {
-        ('.',): (),
-        ('..',): ('..',),
-        ('.', '.'): (),
-        ('.', '..',): ('..',),
-        ('..', '.'): ('..',),
-        ('..', '..'): ('..', '..'),
-        ('', '.'): ('',),
-        ('', '..'): ('',),
+        (".",): (),
+        ("..",): ("..",),
+        (".", "."): (),
+        (".", ".."): ("..",),
+        ("..", "."): ("..",),
+        ("..", ".."): ("..", ".."),
+        ("", "."): ("",),
+        ("", ".."): ("",),
     }
 
     try:
         last_pair = steps[-1:] + (step,)
         steps = steps[:-1] + _last_pair_choices[last_pair]
     except KeyError:
-        if step == '.':
+        if step == ".":
             pass
-        elif step == '..':
+        elif step == "..":
             steps = steps[:-1]
         else:
             steps += (step,)
@@ -856,11 +862,12 @@ def _join_paths(*steps):
     """
     nsteps = ft.reduce(_append_step, steps, ())
     if not nsteps:
-        return '.'
+        return "."
     else:
-        return '/'.join(nsteps)
+        return "/".join(nsteps)
 
-_forbidden_pstep_attrs = ('get_values', 'Series')
+
+_forbidden_pstep_attrs = ("get_values", "Series")
 """
 Psteps attributes excluded from magic-creation, because searched by pandas's indexing code.
 """
@@ -869,12 +876,12 @@ Psteps attributes excluded from magic-creation, because searched by pandas's ind
 def _clone_attrs(obj):
     """Clone deeply any collection attributes of the passed-in object."""
     attrs = vars(obj).copy()
-    ccsteps = attrs.get('_csteps', None)
+    ccsteps = attrs.get("_csteps", None)
     if ccsteps:
-        attrs['_csteps'] = ccsteps.copy()
-    ctags = attrs['_tags']
+        attrs["_csteps"] = ccsteps.copy()
+    ctags = attrs["_tags"]
     if ctags:
-        attrs['_tags'] = attrs['_tags'].copy()
+        attrs["_tags"] = attrs["_tags"].copy()
     return attrs
 
 
@@ -995,12 +1002,12 @@ class Pstep(str):
     @staticmethod
     def _lockstr(lock):
         if lock >= Pstep.CAN_RELOCATE:
-            return 'CAN_RELOCATE'
+            return "CAN_RELOCATE"
         if Pstep.LOCKED <= lock < Pstep.CAN_RELOCATE:
-            return 'LOCKED'
-        return 'LOCKED'
+            return "LOCKED"
+        return "LOCKED"
 
-    def __new__(cls, pname='', _proto_or_pmod=None, alias=None):
+    def __new__(cls, pname="", _proto_or_pmod=None, alias=None):
         """
         Constructs a string with str-content which may comes from the mappings.
 
@@ -1046,17 +1053,18 @@ class Pstep(str):
                     alias = unescape_jsonpointer_part(m_alias)
             else:
                 assert isinstance(_proto_or_pmod, Pstep), (
-                    'Invalid type(%s) for `_proto_or_pmod`!' % _proto_or_pmod)
+                    "Invalid type(%s) for `_proto_or_pmod`!" % _proto_or_pmod
+                )
                 attrs = _clone_attrs(_proto_or_pmod)
         if alias is None:
             alias = pname
         self = str.__new__(cls, alias)
         self.__dict__ = attrs or {
-            '_orig': pname,
-            '_pmod': pmod,
-            '_csteps': None,
-            '_locked': Pstep.CAN_RELOCATE,
-            '_tags': ()
+            "_orig": pname,
+            "_pmod": pmod,
+            "_csteps": None,
+            "_locked": Pstep.CAN_RELOCATE,
+            "_tags": (),
         }
 
         return self
@@ -1084,18 +1092,18 @@ class Pstep(str):
         try:
             return str.__getattr__(self, attr)
         except AttributeError as ex:
-            if attr.startswith('_') or attr in _forbidden_pstep_attrs:
+            if attr.startswith("_") or attr in _forbidden_pstep_attrs:
                 raise
             csteps = self._csteps
             child = csteps and csteps.get(attr, None)
             return child or self.__make_cstep(attr)
 
     def __setattr__(self, attr, value):
-        if attr.startswith('_'):
+        if attr.startswith("_"):
             str.__setattr__(self, attr, value)
         elif isinstance(value, Pstep):
             self.__make_cstep(attr, existing_cstep=value)
-        elif isinstance(value, basestring):
+        elif isinstance(value, str):
             self.__make_cstep(attr, alias=value)
         else:
             raise self._ex_invalid_assignment(attr, value)
@@ -1111,7 +1119,7 @@ class Pstep(str):
         return AssertionError(msg % (value, self, cpname))
 
     def __repr__(self):
-        return '`%s`' % self
+        return "`%s`" % self
 
     @property
     def _locked(self):
@@ -1124,17 +1132,17 @@ class Pstep(str):
                         :attr:`LOCKED`.
         :raise: ValueError when stricter lock-value on a renamed/relocated pstep
         """
-        return vars(self)['_locked']
+        return vars(self)["_locked"]
 
     @_locked.setter
     def _locked(self, lock_state):
         if self != self._orig:
             if lock_state < Pstep.CAN_RENAME or (
-                    lock_state < Pstep.CAN_RELOCATE and '/' in self):
+                lock_state < Pstep.CAN_RELOCATE and "/" in self
+            ):
                 msg = "Cannot rename/relocate '%s'-->'%s' due to %s!"
-                raise ValueError(
-                    msg % (self._orig, self, Pstep._lockstr(lock_state)))
-        vars(self)['_locked'] = int(lock_state)
+                raise ValueError(msg % (self._orig, self, Pstep._lockstr(lock_state)))
+        vars(self)["_locked"] = int(lock_state)
 
     @property
     def _fix(self):
@@ -1221,9 +1229,10 @@ class Pstep(str):
              ['(-->ROOT)/(a-->A/AA)/b']
 
         """
+
         def append_orig(s):
             orig = s._orig
-            return '(%s-->%s)' % (orig, s) if s != orig else s
+            return "(%s-->%s)" % (orig, s) if s != orig else s
 
         paths = []
         for path in self._iter_hierarchy():
@@ -1243,11 +1252,13 @@ class Pstep(str):
         :param tuple prefix_steps:     branch currently visiting
         :rtype: [(str, str)]
         """
+
         def orig_paths(psteps):
             return [p._orig for p in psteps]
 
-        map_pairs = ((_join_paths(*orig_paths(p)), str(p[-1]))
-                     for p in self._iter_hierarchy())
+        map_pairs = (
+            (_join_paths(*orig_paths(p)), str(p[-1])) for p in self._iter_hierarchy()
+        )
         return sorted(map_pairs, key=lambda p: p[0])
 
     def _iter_hierarchy(self, prefix_steps=()):
@@ -1258,7 +1269,7 @@ class Pstep(str):
         :return: yields the visited pstep along with its path (including it)
         :rtype: (Pstep, [Pstep])
         """
-        prefix_steps += (self, )
+        prefix_steps += (self,)
         yield prefix_steps
 
         csteps = self._csteps
@@ -1275,18 +1286,18 @@ class Pstep(str):
         #    (clients should check before`_schema_exists()`)
         #
         sdict = vars(self)
-        jschema = sdict.get('_schema')
+        jschema = sdict.get("_schema")
         if jschema is None:
-            sdict['_schema'] = jschema = JSchema()
+            sdict["_schema"] = jschema = JSchema()
 
         return jschema
 
     def _schema_exists(self):
         """Always use this to avoid needless schema-instantiations."""
-        return '_schema' in vars(self)
+        return "_schema" in vars(self)
 
 
-def pstep_from_df(columns_df, name_col='names'):
+def pstep_from_df(columns_df, name_col="names"):
     """
     Creates a :class:`Pstep` instances from a dataframe.
 
@@ -1304,16 +1315,16 @@ def pstep_from_df(columns_df, name_col='names'):
                 ========  =========  ===================
     """
     p = pmods_from_tuples(zip(columns_df.index, columns_df[name_col])).step()
-    cdf = columns_df.drop(name_col, axis=1, errors='ignore')
+    cdf = columns_df.drop(name_col, axis=1, errors="ignore")
     attributes = cdf.columns
     for rows in cdf.itertuples():
         path, *attr_values = rows
         cstep = getattr(p, path[1:])
         for attr, aval in zip(attributes, attr_values):
-            setattr(cstep, '_%s' % attr, aval)
+            setattr(cstep, "_%s" % attr, aval)
 
     return p
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     raise NotImplementedError

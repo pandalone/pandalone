@@ -13,13 +13,8 @@ Prefer accessing the public members from the parent module.
 .. currentmodule:: pandalone.xleash
 """
 
-from __future__ import unicode_literals
-
-from abc import abstractmethod, ABCMeta
+from abc import abstractmethod, ABC
 from collections import namedtuple
-
-from future.utils import iteritems
-from future.utils import with_metaclass
 
 import itertools as itt
 import numpy as np
@@ -28,7 +23,7 @@ from .. import Coords, _capture, io_backends
 from ... import utils
 
 
-class ABCBackend(with_metaclass(ABCMeta, object)):
+class ABCBackend(ABC):
     """A plugin for a :term:`backend` must implement and add instances into :data:`io_backends`."""
 
     @abstractmethod
@@ -192,7 +187,7 @@ class SheetsFactory(SimpleSheetsFactory):
         if sheet:
             sheet._close()
             for sh_dict in self._cached_sheets.values():
-                for sh_id, sh in list(iteritems(sh_dict)):
+                for sh_id, sh in list(sh_dict.items()):
                     if sh is sheet:
                         del sh_dict[sh_id]
 
@@ -308,7 +303,7 @@ def margin_coords_from_states_matrix(states_matrix):
 SheetId = namedtuple('SheetId', ('book', 'ids'))
 
 
-class ABCSheet(with_metaclass(ABCMeta, object)):
+class ABCSheet(ABC):
     """
     A delegating to backend factory and sheet-wrapper with utility methods.
 

@@ -11,12 +11,8 @@ The algorithmic part of :term:`capturing`.
 Prefer accessing the public members from the parent module.
 """
 
-from __future__ import unicode_literals
-
 import logging
 from string import ascii_uppercase
-
-from future.builtins import str
 
 import numpy as np
 

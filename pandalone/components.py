@@ -33,8 +33,6 @@ TODO
 4. Imply a default Assembly.
 """
 
-from __future__ import division, unicode_literals
-
 from abc import ABCMeta, abstractmethod
 import logging
 from pandalone.mappings import Pstep

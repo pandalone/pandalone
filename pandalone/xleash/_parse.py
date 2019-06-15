@@ -13,15 +13,11 @@ Prefer accessing the public members from the parent module.
 .. currentmodule:: pandalone.xleash
 """
 
-from __future__ import unicode_literals
-
 from collections import namedtuple
 import json
 import re
 
-from future.builtins import str
 from urllib.parse import urldefrag
-from past.builtins import basestring
 
 import itertools as itt
 import numpy as np
@@ -249,7 +245,7 @@ def parse_call_spec(call_spec_values):
         return func, args, kwds
 
     try:
-        if isinstance(call_spec_values, basestring):
+        if isinstance(call_spec_values, str):
             func, args, kwds = call_spec_values, None, None
         # elif isinstance(call_spec_values, (tuple, list)): ???
         elif isinstance(call_spec_values, list):
@@ -265,7 +261,7 @@ def parse_call_spec(call_spec_values):
         msg = "Cannot parse call-spec({}) due to: {}"
         raise ValueError(msg.format(call_spec_values, ex))
 
-    if not isinstance(func, basestring):
+    if not isinstance(func, str):
         msg = "Expected a `string` for func({}) for call-spec({})!"
         raise ValueError(msg.format(func, call_spec_values))
     if args is None:

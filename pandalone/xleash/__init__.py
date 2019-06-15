@@ -771,8 +771,6 @@ API
 """
 
 
-from __future__ import unicode_literals
-
 from collections import namedtuple, OrderedDict
 import logging
 import os

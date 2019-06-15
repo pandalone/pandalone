@@ -13,15 +13,12 @@ Prefer accessing the public members from the parent module.
 .. currentmodule:: pandalone.xleash
 """
 
-from __future__ import unicode_literals
-
 from copy import deepcopy
 import inspect
 import logging
 import textwrap
 
-from future.backports import ChainMap
-from past.builtins import basestring
+from collections import ChainMap
 from toolz import dicttoolz as dtz
 
 from . import installed_filters
@@ -228,7 +225,7 @@ class Ranger(object):
                 The final :class:`Lasso` with captured & filtered values.
         :rtype: Lasso
         """
-        if not isinstance(xlref, basestring):
+        if not isinstance(xlref, str):
             raise ValueError("Expected a string as `xl-ref`: %s" % xlref)
         self.intermediate_lasso = None
 

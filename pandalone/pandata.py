@@ -1,5 +1,5 @@
 #! python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2013-2015 European Commission (JRC);
 # Licensed under the EUPL (the 'Licence');
@@ -10,8 +10,6 @@
 A :dfn:`pandas-model` is a tree of strings, numbers, sequences, dicts, pandas instances and resolvable
 URI-references, implemented by :class:`Pandel`.
 """
-
-from __future__ import division, unicode_literals
 
 import abc
 import binascii
@@ -27,7 +25,6 @@ from jsonschema import Draft3Validator, Draft4Validator, ValidationError
 import jsonschema
 from jsonschema.exceptions import SchemaError, RefResolutionError
 from pandas.core.generic import NDFrame
-from past.builtins import basestring
 
 import numpy as np
 import pandas as pd
@@ -46,7 +43,8 @@ except ImportError:
 
 __commit__ = ""
 
-_value_with_units_regex = re.compile(r'''^\s*
+_value_with_units_regex = re.compile(
+    r"""^\s*
                                         (?P<name>[^[<]*?)   # column-name
                                         \s*
                                         (?P<units>          # start parenthesized-units optional-group
@@ -58,12 +56,14 @@ _value_with_units_regex = re.compile(r'''^\s*
                                                 [^)]*
                                             >
                                         )?                  # end parenthesized-units
-                                        \s*$''', re.X)
-_units_cleaner_regex = re.compile(r'^[<[]|[\]>]$')
+                                        \s*$""",
+    re.X,
+)
+_units_cleaner_regex = re.compile(r"^[<[]|[\]>]$")
 
 
 """An item-descriptor with units, i.e. used as a table-column header."""
-_U = namedtuple('United', ('name', 'units'))
+_U = namedtuple("United", ("name", "units"))
 
 
 def parse_value_with_units(arg):
@@ -103,17 +103,18 @@ def parse_value_with_units(arg):
     m = _value_with_units_regex.match(arg)
     if m:
         res = m.groupdict()
-        units = res['units']
+        units = res["units"]
         if units:
-            res['units'] = _units_cleaner_regex.sub('', units)
+            res["units"] = _units_cleaner_regex.sub("", units)
         return _U(**res)
 
 
-class ModelOperations(namedtuple('ModelOperations', 'inp out conv')):
+class ModelOperations(namedtuple("ModelOperations", "inp out conv")):
 
     """
     Customization functions for traversing, I/O, and converting self-or-descendant branch (sub)model values.
     """
+
     def __new__(cls, inp=None, out=None, conv=None):
         """
 
@@ -249,19 +250,27 @@ class PandelVisitor(ValidatorBase):
 
     """
 
-    def __init__(self, schema, types=(), resolver=None, format_checker=None, skip_meta_validation=False):
-        super(PandelVisitor, self).__init__(
-            schema, types, resolver, format_checker)
+    def __init__(
+        self,
+        schema,
+        types=(),
+        resolver=None,
+        format_checker=None,
+        skip_meta_validation=False,
+    ):
+        super(PandelVisitor, self).__init__(schema, types, resolver, format_checker)
 
-        self._types.update({
-            # type(np.nan) == builtins.float! FIXME, are numpy-numbers -->
-            # json-types OK??
-            "number":   (numbers.Number, np.number),
-            "integer":  (int, np.integer),
-            "boolean":  (bool, np.bool_),  # , np.bool8),
-            "array":    (list, tuple, np.ndarray),
-            "object":  (dict, pd.DataFrame, pd.Series)
-        })
+        self._types.update(
+            {
+                # type(np.nan) == builtins.float! FIXME, are numpy-numbers -->
+                # json-types OK??
+                "number": (numbers.Number, np.number),
+                "integer": (int, np.integer),
+                "boolean": (bool, np.bool_),  # , np.bool8),
+                "array": (list, tuple, np.ndarray),
+                "object": (dict, pd.DataFrame, pd.Series),
+            }
+        )
 
         # Setup Draft4/3 validation
         #
@@ -272,20 +281,24 @@ class PandelVisitor(ValidatorBase):
         validator_class = jsonschema.validators.validator_for(schema)
         self.VALIDATORS = validator_class.VALIDATORS.copy()
         self.META_SCHEMA = validator_class.META_SCHEMA
-        self.VALIDATORS.update({
-            'items':                PandelVisitor._rule_items,
-            'additionalProperties': PandelVisitor._rule_additionalProperties,
-            'additionalItems':      PandelVisitor._rule_additionalItems,
-        })
+        self.VALIDATORS.update(
+            {
+                "items": PandelVisitor._rule_items,
+                "additionalProperties": PandelVisitor._rule_additionalProperties,
+                "additionalItems": PandelVisitor._rule_additionalItems,
+            }
+        )
         if validator_class == Draft3Validator:
-            self.VALIDATORS.update({
-                'properties':           PandelVisitor._rule_properties_draft3,
-            })
+            self.VALIDATORS.update(
+                {"properties": PandelVisitor._rule_properties_draft3}
+            )
         else:
-            self.VALIDATORS.update({
-                'properties':           PandelVisitor._rule_properties_draft4,
-                'required':             PandelVisitor._rule_required_draft4,
-            })
+            self.VALIDATORS.update(
+                {
+                    "properties": PandelVisitor._rule_properties_draft4,
+                    "required": PandelVisitor._rule_required_draft4,
+                }
+            )
 
         self.old_scopes = []
 
@@ -345,10 +358,7 @@ class PandelVisitor(ValidatorBase):
             for error in errors:
                 # set details if not already set by the called fn
                 error._set(
-                    validator=k,
-                    validator_value=v,
-                    instance=instance,
-                    schema=_schema,
+                    validator=k, validator_value=v, instance=instance, schema=_schema
                 )
                 if k != "$ref":
                     error.schema_path.appendleft(k)
@@ -369,10 +379,7 @@ class PandelVisitor(ValidatorBase):
         for prop in iprops & set(sprops.keys()):
             subschema = sprops[prop]
             for error in self.descend(
-                self._get_iprop(instance, prop),
-                subschema,
-                path=prop,
-                schema_path=prop,
+                self._get_iprop(instance, prop), subschema, path=prop, schema_path=prop
             ):
                 yield error
 
@@ -410,38 +417,41 @@ class PandelVisitor(ValidatorBase):
                 for error in self.descend(item, items, path=index):
                     yield error
         else:
-            for (index, item), subschema in zip(enumerate(self._iter_iitems(instance)), items):
+            for (index, item), subschema in zip(
+                enumerate(self._iter_iitems(instance)), items
+            ):
                 for error in self.descend(
-                    item, subschema, path=index, schema_path=index,
+                    item, subschema, path=index, schema_path=index
                 ):
                     yield error
 
     def _rule_additionalProperties(self, aP, instance, schema):
-        if not self.is_type(instance, 'object'):
+        if not self.is_type(instance, "object"):
             return
 
         sprops = schema.get("properties", {})
         patterns = "|".join(schema.get("patternProperties", {}))
         extras = set()
         for iprop in self._iter_iprop_names(instance):
-            if iprop not in sprops and \
-                    not patterns or not re.search(patterns, iprop):
+            if iprop not in sprops and not patterns or not re.search(patterns, iprop):
                 extras.add(iprop)
 
         if extras:
             if self.is_type(aP, "object"):
                 for extra in extras:
-                    for error in self.descend(self._get_iprop(instance, extra), aP, path=extra):
+                    for error in self.descend(
+                        self._get_iprop(instance, extra), aP, path=extra
+                    ):
                         yield error
             elif not aP:
                 yield ValidationError(
-                    "Additional properties are not allowed (%s %s unexpected)" %
-                    jsonschema._utils.extras_msg(extras))
+                    "Additional properties are not allowed (%s %s unexpected)"
+                    % jsonschema._utils.extras_msg(extras)
+                )
 
     def _rule_additionalItems(self, aI, instance, schema):
-        if (
-            not self.is_type(instance, "array") or
-            self.is_type(schema.get("items", {}), "object")
+        if not self.is_type(instance, "array") or self.is_type(
+            schema.get("items", {}), "object"
         ):
             return
 
@@ -452,13 +462,12 @@ class PandelVisitor(ValidatorBase):
                     yield error
         elif not aI and len(instance) > len_items:
             yield ValidationError(
-                "Additional items are not allowed (%s %s unexpected)" %
-                jsonschema._utils.extras_msg(
-                    instance[len(schema.get("items", [])):])
+                "Additional items are not allowed (%s %s unexpected)"
+                % jsonschema._utils.extras_msg(instance[len(schema.get("items", [])) :])
             )
 
     def _rule_required_draft4(self, required, instance, schema):
-        if self.is_type(instance, 'object'):
+        if self.is_type(instance, "object"):
             for sprop in required:
                 if not self._is_iprop_in(instance, sprop):
                     yield ValidationError("%r is a required property" % sprop)
@@ -782,8 +791,10 @@ class Pandel(object):
                                             See :class:`ModelOperations` for supported keywords.
         """
         if operations:
-            assert isinstance(
-                operations, ModelOperations), (type(operations), operations)
+            assert isinstance(operations, ModelOperations), (
+                type(operations),
+                operations,
+            )
             self._global_cntxt = operations
         self._global_cntxt._replace(**cntxt_kwargs)
 
@@ -849,9 +860,11 @@ class Pandel(object):
             yield ValidationError(error % jsonschema._utils.extras_msg(extras))
 
     def _rule_Required(self, validator, required, instance, schema):
-        if (validator.is_type(instance, "object") or
-            validator.is_type(instance, "DataFrame") or
-                validator.is_type(instance, "Series")):
+        if (
+            validator.is_type(instance, "object")
+            or validator.is_type(instance, "DataFrame")
+            or validator.is_type(instance, "Series")
+        ):
             for prop in required:
                 if prop not in instance:
                     yield ValidationError("%r is a required property" % prop)
@@ -860,8 +873,9 @@ class Pandel(object):
 
         validator = Draft4Validator(schema)
         validator._types.update(
-            {"ndarray": np.ndarray, "DataFrame": pd.DataFrame, 'Series': pd.Series})
-        validator.VALIDATORS['DataFrame'] = self._rule_Required
+            {"ndarray": np.ndarray, "DataFrame": pd.DataFrame, "Series": pd.Series}
+        )
+        validator.VALIDATORS["DataFrame"] = self._rule_Required
 
         return validator
 
@@ -871,7 +885,7 @@ class Pandel(object):
             self._errored = True
             yield err
 
-    def _clone_and_merge_submodels(self, a, b, path=''):
+    def _clone_and_merge_submodels(self, a, b, path=""):
         """' Recursively merge b into a, cloning both. """
 
         if isinstance(a, pd.DataFrame) or isinstance(b, pd.DataFrame):
@@ -896,13 +910,15 @@ class Pandel(object):
                 b_val = b[key]
                 if key in a:
                     val = self._clone_and_merge_submodels(
-                        a[key], b_val, '%s/%s' % (path, key))
+                        a[key], b_val, "%s/%s" % (path, key)
+                    )
                 else:
                     val = b_val
                 a[key] = val
 
-        elif (isinstance(a, Sequence) and not isinstance(a, basestring)) or \
-                (isinstance(b, Sequence) and not isinstance(b, basestring)):
+        elif (isinstance(a, Sequence) and not isinstance(a, str)) or (
+            isinstance(b, Sequence) and not isinstance(b, str)
+        ):
             if b is not None:
                 val = b
             else:
@@ -911,7 +927,8 @@ class Pandel(object):
             l = list()
             for (i, item) in enumerate(val):
                 l.append(
-                    self._clone_and_merge_submodels(item, None, '%s[%i]' % (path, i)))
+                    self._clone_and_merge_submodels(item, None, "%s[%i]" % (path, i))
+                )
             a = l
 
         elif a is None and b is None:
@@ -986,10 +1003,10 @@ class Pandel(object):
         """
 
         steps = [
-            (self._prevalidate, 'prevalidate'),
-            (self._merge,       'merge'),
-            (self._validate,    'validate'),
-            (self._curate,      'curate'),
+            (self._prevalidate, "prevalidate"),
+            (self._merge, "merge"),
+            (self._validate, "validate"),
+            (self._curate, "curate"),
         ]
         self._errored = False
         self.model = None
@@ -1006,13 +1023,17 @@ class Pandel(object):
                 self._errored = True
 
                 nex = ValidationError(
-                    'Model step-%i(%s) failed due to: %s' % (i, step_name, ex))
+                    "Model step-%i(%s) failed due to: %s" % (i, step_name, ex)
+                )
                 nex.cause = ex
 
                 yield nex
 
             if self._errored:
-                yield ValidationError('Gave-up building model after step %i.%s (out of %i).' % (i, step_name, len(steps)))
+                yield ValidationError(
+                    "Gave-up building model after step %i.%s (out of %i)."
+                    % (i, step_name, len(steps))
+                )
                 break
 
     def build(self):
@@ -1081,11 +1102,11 @@ def iter_jsonpointer_parts(jsonpath):
 
     """
 
-#     if jsonpath.endswith('/'):
-#         msg = "Jsonpointer-path({}) must NOT finish with '/'!"
-#         raise RefResolutionError(msg.format(jsonpath))
+    #     if jsonpath.endswith('/'):
+    #         msg = "Jsonpointer-path({}) must NOT finish with '/'!"
+    #         raise RefResolutionError(msg.format(jsonpath))
     parts = jsonpath.split("/")
-    if parts.pop(0) != '':
+    if parts.pop(0) != "":
         msg = "Jsonpointer-path({}) must start with '/'!"
         raise RefResolutionError(msg.format(jsonpath))
 
@@ -1124,6 +1145,7 @@ def iter_jsonpointer_parts_relaxed(jsonpointer):
     """
     for part in jsonpointer.split("/"):
         yield unescape_jsonpointer_part(part)
+
 
 _scream = object()
 
@@ -1172,7 +1194,8 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
         except (TypeError, LookupError):
             if default is _scream:
                 raise RefResolutionError(
-                    "Unresolvable JSON pointer(%r)@(%s)" % (jsonpointer, part))
+                    "Unresolvable JSON pointer(%r)@(%s)" % (jsonpointer, part)
+                )
             else:
                 return default
 
@@ -1214,10 +1237,12 @@ def resolve_path(doc, path, default=_scream, root=None):
 
     :author: Julian Berman, ankostis
     """
+
     def resolve_root(d, p):
         if not p:
             return root or doc
         raise ValueError()
+
     part_resolvers = [
         lambda d, p: d[int(p)],
         lambda d, p: d[p],
@@ -1234,8 +1259,7 @@ def resolve_path(doc, path, default=_scream, root=None):
                 pass
         else:
             if default is _scream:
-                raise RefResolutionError(
-                    "Unresolvable path(%r)@(%s)" % (path, part))
+                raise RefResolutionError("Unresolvable path(%r)@(%s)" % (path, part))
             return default
 
     return doc
@@ -1257,22 +1281,26 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=OrderedDict):
     pdoc = None
     ppart = None
     for i, part in enumerate(parts):
-        if isinstance(doc, Sequence) and not isinstance(doc, basestring):
+        if isinstance(doc, Sequence) and not isinstance(doc, str):
             # Array indexes should be turned into integers
             #
             doclen = len(doc)
-            if part == '-':
+            if part == "-":
                 part = doclen
             else:
                 try:
                     part = int(part)
                 except ValueError:
                     raise RefResolutionError(
-                        "Expected numeric index(%s) for sequence at (%r)[%i]" % (part, jsonpointer, i))
+                        "Expected numeric index(%s) for sequence at (%r)[%i]"
+                        % (part, jsonpointer, i)
+                    )
                 else:
                     if part > doclen:
                         raise RefResolutionError(
-                            "Index(%s) out of bounds(%i) of (%r)[%i]" % (part, doclen, jsonpointer, i))
+                            "Index(%s) out of bounds(%i) of (%r)[%i]"
+                            % (part, doclen, jsonpointer, i)
+                        )
         try:
             ndoc = doc[part]
         except (LookupError):
@@ -1290,7 +1318,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=OrderedDict):
     # Build branch with value-leaf.
     #
     nbranch = value
-    for part2 in reversed(parts[i + 1:]):
+    for part2 in reversed(parts[i + 1 :]):
         ndoc = object_factory()
         ndoc[part2] = nbranch
         nbranch = ndoc
@@ -1303,6 +1331,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=OrderedDict):
     except IndexError:
         doc.append(nbranch)
 
+
 #    except (IndexError, TypeError) as ex:
 # if isinstance(ex, IndexError) or 'list indices must be integers' in str(ex):
 #        raise RefResolutionError("Incompatible content of JSON pointer(%r)@(%s)" % (jsonpointer, part))
@@ -1314,7 +1343,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=OrderedDict):
 
 def build_all_jsonpaths(schema):
     # Totally quick an dirty, TODO: Use json-validator to build all json-paths.
-    forks = ['oneOf', 'anyOf', 'allOf']
+    forks = ["oneOf", "anyOf", "allOf"]
 
     def _visit(schema, path, paths):
         for f in forks:
@@ -1323,15 +1352,15 @@ def build_all_jsonpaths(schema):
                 for obj in objlist:
                     _visit(obj, path, paths)
 
-        props = schema.get('properties')
+        props = schema.get("properties")
         if props:
             for p, obj in props.items():
-                _visit(obj, path + '/' + p, paths)
+                _visit(obj, path + "/" + p, paths)
         else:
             paths.append(path)
 
     paths = []
-    _visit(schema, '', paths)
+    _visit(schema, "", paths)
 
     return paths
 
@@ -1352,27 +1381,28 @@ class JSchema(object):
     :param kws:  for all the rest see http://json-schema.org/latest/json-schema-validation.html
 
     """
-    type = _NONE,  # @ReservedAssignment
-    items = _NONE,  # @ReservedAssignment
-    required = _NONE,
-    title = _NONE,
-    description = _NONE,
-    minimum = _NONE,
-    exclusiveMinimum = _NONE,
-    maximum = _NONE,
-    exclusiveMaximum = _NONE,
-    patternProperties = _NONE,
-    pattern = _NONE,
-    enum = _NONE,
-    allOf = _NONE,
-    oneOf = _NONE,
-    anyOf = _NONE,
+
+    type = (_NONE,)  # @ReservedAssignment
+    items = (_NONE,)  # @ReservedAssignment
+    required = (_NONE,)
+    title = (_NONE,)
+    description = (_NONE,)
+    minimum = (_NONE,)
+    exclusiveMinimum = (_NONE,)
+    maximum = (_NONE,)
+    exclusiveMaximum = (_NONE,)
+    patternProperties = (_NONE,)
+    pattern = (_NONE,)
+    enum = (_NONE,)
+    allOf = (_NONE,)
+    oneOf = (_NONE,)
+    anyOf = (_NONE,)
 
     def todict(self):
         return {k: v for k, v in vars(self).items() if v is not _NONE}
 
 
-class JSONCodec():
+class JSONCodec:
 
     """
     Json coders/decoders capable for (almost) all python objects, by pickling them.
@@ -1399,34 +1429,31 @@ class JSONCodec():
     .. seealso::
         For pickle-limitations: https://docs.python.org/3.7/library/pickle.html#pickle-picklable
     """
-    _ver_key = '_ver'
-    _ver = '0'
-    _obj = '$qpickle'
+
+    _ver_key = "_ver"
+    _ver = "0"
+    _obj = "$qpickle"
 
     class Encoder(JSONEncoder):
-
         def encode(self, o):
             pickle_bytes = pickle.dumps(o)
-            pickle_str = binascii.b2a_qp(pickle_bytes).decode(encoding='utf8')
-            o = {JSONCodec._obj: pickle_str,
-                 JSONCodec._ver_key: JSONCodec._ver}
+            pickle_str = binascii.b2a_qp(pickle_bytes).decode(encoding="utf8")
+            o = {JSONCodec._obj: pickle_str, JSONCodec._ver_key: JSONCodec._ver}
             return JSONEncoder.encode(self, o)
 
     class Decoder(JSONDecoder):
-
-        def decode(self, s,):
+        def decode(self, s):
             o = JSONDecoder.decode(self, s)
             pickle_str = o.get(JSONCodec._obj, None)
             if pickle_str:
-                #file_ver = o[JSONCodec._ver_key]
+                # file_ver = o[JSONCodec._ver_key]
                 # if file_ver != JSONCodec._ver:
                 #     msg = 'Unsopported json-encoded version(%s != %s)!'
                 #     raise ValueError(msg % (file_ver, JSONCodec._ver))
-                pickle_bytes = binascii.a2b_qp(pickle_str.encode(
-                    encoding='utf8'))
+                pickle_bytes = binascii.a2b_qp(pickle_str.encode(encoding="utf8"))
                 o = pickle.loads(pickle_bytes)
             return o
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     raise NotImplementedError

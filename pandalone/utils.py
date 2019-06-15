@@ -6,13 +6,10 @@
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
 
-from __future__ import division, unicode_literals
-
 import os
 import re
 import sys
 
-from past.types import basestring
 from collections.abc import Sequence
 
 import os.path as osp
@@ -92,7 +89,7 @@ def is_travis():  # pragma: no cover
 
 
 def as_list(o):
-    if isinstance(o, Sequence) and not isinstance(o, basestring):
+    if isinstance(o, Sequence) and not isinstance(o, str):
         o = list(o)
     else:
         o = [o]
