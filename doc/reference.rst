@@ -26,9 +26,9 @@ Submodule: :mod:`pandalone.xleash.io`
 -------------------------------------------
 .. automodule:: pandalone.xleash.io
 
-Submodule: :mod:`pandalone.xleash.io._sheets`
+Submodule: :mod:`pandalone.xleash.io.backend`
 -----------------------------------------------
-.. automodule:: pandalone.xleash.io._sheets
+.. automodule:: pandalone.xleash.io.backend
     :members:
 
 Submodule: :mod:`pandalone.xleash.io._xlrd`

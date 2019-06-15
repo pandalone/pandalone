@@ -32,7 +32,7 @@ It is based on `xlrd <http://www.python-excel.org/>`_ library but also
 checked for compatibility with `xlwings <http://xlwings.org/quickstart/>`_
 *COM-client* library.
 It requires *numpy* and (optionally) *pandas*.
-It is developed on python-3 but also tested on python-2 for compatibility.
+Since 2019 it is python-3 only, tested on 3.5+.
 
 
 Overview
@@ -495,15 +495,16 @@ Definitions
         - different implementations (e.g.``xlrd`` or ``xlwings`` library), or
         - different origins (e.g. file-based, network-based per url ).
 
-        The decision which *backend* to use is taken by the `sheet-factory`
+        The decision which *backend* to use is taken by the `sheets-factory`
         following a `bidding` process.
 
     sheets-factory
-        *IO* level object acting as the caching manager for `spreadsheets`
+        *IO* level object acting as the caching manager for `spreadsheet`\s
         fetched from different `backends`.  The caching happens per
         *spreadsheet*.
 
     bid
+    bidding
     backend-bidding
         All *backends* are asked to provide their willingness to handle
         some `xl-ref` (see :meth:`SimpleSheetFactory.decide_backend`)).
@@ -752,18 +753,19 @@ API
   .. autosummary::
 
       io_backends
-      _sheets.SheetsFactory
-      _sheets.ABCSheet.read_rect
-      _sheets.ArraySheet
-      _sheets.ABCSheet
+      backend.SheetsFactory
+      backend.ABCSheet.read_rect
+      backend.ArraySheet
+      backend.ABCSheet
       _xlrd.XlrdSheet
       _xlrd.open_sheet
 
 - Plugin related
   .. autosummary::
+
       _init_plugins
-     _plugins_installed
-     _PLUGIN_GROUP_NAME
+      _plugins_installed
+      _PLUGIN_GROUP_NAME
 
 .. currentmodule:: pandalone.xleash
 """

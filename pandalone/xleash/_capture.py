@@ -293,7 +293,7 @@ def _resolve_cell(cell, up_coords, dn_coords, base_coords=None):
     To get the margin_coords, use one of:
 
     * :meth:`ABCSheet.get_margin_coords()`
-    * :func:`.io._sheets.margin_coords_from_states_matrix()`
+    * :func:`.io.backend.margin_coords_from_states_matrix()`
 
     :param Cell cell:
             The "A1" cell to translate its coords.
@@ -672,7 +672,7 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
     To get the margin_coords, use one of:
 
     * :meth:`ABCSheet.get_margin_coords()`
-    * :func:`.io._sheets.margin_coords_from_states_matrix()`
+    * :func:`.io.backend.margin_coords_from_states_matrix()`
 
     Its results can be fed into :func:`read_capture_values()`.
 
