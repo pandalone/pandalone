@@ -39,23 +39,14 @@ htmlcov/
 .tox/
 .coverage
 .cache
+.pytest_cache
 cover
 nosetests.xml
 coverage.xml
 
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-
 # Sphinx documentation
 /doc/_build/
 /doc/doc
-
-# PyBuilder
-target/
 
 ## IDEs
 # Eclipse/Liclipse
@@ -64,6 +55,14 @@ target/
 .settings
 # PyCharm
 .idea/
+# VisualStudioCode ###
+# See https://stackoverflow.com/questions/51876769/should-you-commit-vscode-symbols-file-to-source-control
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+/*venv
 
 # doit task-runner
 .doit*
@@ -72,11 +71,4 @@ target/
 ~*
 *scratch*
 
-### VisualStudioCode ###
-# See https://stackoverflow.com/questions/51876769/should-you-commit-vscode-symbols-file-to-source-control
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-/*venv
+*.log
