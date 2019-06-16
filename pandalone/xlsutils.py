@@ -13,11 +13,7 @@ import os
 import re
 from textwrap import dedent
 
-from jsonschema._utils import URIDict
-from jsonschema.compat import urlsplit, urljoin
-
 import pandas as pd
-
 
 __commit__ = ""
 
@@ -233,7 +229,7 @@ def import_vba_into_excel_workbook(infiles_wildcard, wrkb_fname=None, new_fname=
 
 
 def normalize_local_url(self, urlparts):
-    """As fetched from :func:`urlsplit()`."""
+    """As fetched from :func:`urllib.parse.urlsplit()`."""
     if 'file' == urlparts.scheme:
         urlparts = urlparts._replace(path=os.path.abspath(urlparts.path))
     return urlparts.geturl()
