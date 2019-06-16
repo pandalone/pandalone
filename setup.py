@@ -162,6 +162,7 @@ dev_reqs = (
     + xlrd_reqs
     + doc_reqs
     + [
+        "setuptools-git",
         "wheel",
         "twine",
         "pylint",
