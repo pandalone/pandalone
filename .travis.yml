@@ -3,10 +3,14 @@
 sudo: false
 language: python
 python:
-  - "3.5"
-  - "3.6"
-  - "3.7"
+  - 3.5
+  - 3.6
+  - 3.7
   - "3.8-dev"
+matrix:
+  allow_failures:
+    - python: 3.5
+    - python: "3.8-dev"
 
 before_install:
 

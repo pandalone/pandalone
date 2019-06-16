@@ -4,21 +4,25 @@
 environment:
 
     matrix:
-      # a sampling of 
-      - PYTHON: "C:\\Python35-x64"
-        PYTHON_VERSION: "3.5"
-        PYTHON_ARCH: "64"
-        IS_CONDA: "false"
+         # a sampling of
+        - PYTHON: "C:\\Python35-x64"
+          PYTHON_VERSION: "3.5"
+          PYTHON_ARCH: "64"
+          IS_CONDA: "false"
 
-      - PYTHON: "C:\\Python36-x64"
-        PYTHON_VERSION: "3.6"
-        PYTHON_ARCH: "64"
-        IS_CONDA: "true"
+        - PYTHON: "C:\\Python36-x64"
+          PYTHON_VERSION: "3.6"
+          PYTHON_ARCH: "64"
+          IS_CONDA: "true"
 
-      - PYTHON: "C:\\Python37-x64"
-        PYTHON_VERSION: "3.7"
-        PYTHON_ARCH: "64"
-        IS_CONDA: "false"
+        - PYTHON: "C:\\Python37-x64"
+          PYTHON_VERSION: "3.7"
+          PYTHON_ARCH: "64"
+          IS_CONDA: "false"
+
+matrix:
+    allow_failures:
+        - PYTHON_VERSION: 3.5
 
 install:
     - ps: ./bin/install_python.ps1
@@ -34,7 +38,7 @@ install:
         python --version
         python -c "import struct; print(struct.calcsize('P') * 8)"
 
-    - pip install -e .[dev]
+    - pip --disable-pip-version-check install -e .[dev]
 
 
     # - "python setup.py develop" ## NO, pip installed in "develop' mode, above.
