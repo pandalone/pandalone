@@ -167,7 +167,7 @@ dev_reqs = (
         "twine",
         "pylint",
         # for VSCode autoformatting
-        "black",
+        "black ; python_version > '3.5'",
         # for VSCode RST linting
         "doc8",
         "sphinx-autobuild",
