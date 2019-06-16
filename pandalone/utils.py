@@ -299,11 +299,15 @@ def ensure_file_ext(fname, ext, *exts, **kwds):  # TODO: PY3: is_regex=False):
         >>> ensure_file_ext('foo.', 'bar')
         'foo.bar'
 
+        >>> ensure_file_ext('foo.bar', 'bar')
+        'foo.bar'
+
+
         >>> ensure_file_ext('foo.BAR', '.bar')
         'foo.BAR'
         >>> ensure_file_ext('foo.DDD', '.bar')
         'foo.DDD.bar'
-
+        
 
     When more are given::
 
@@ -331,9 +335,10 @@ def ensure_file_ext(fname, ext, *exts, **kwds):  # TODO: PY3: is_regex=False):
                             for e
                             in (re.escape(ext),) + exts)
     else:
-        ends_with_ext = file_ext.lower() in set(e.lower()
-                                                for e
-                                                in (ext,) + exts)
+        file_ext = file_ext.lower()
+        ends_with_ext = any(file_ext.endswith(e.lower())
+                            for e
+                            in (ext,) + exts)
 
     if not ends_with_ext:
         if fname[-1] == '.':
