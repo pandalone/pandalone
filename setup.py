@@ -230,19 +230,6 @@ setup(
     # include_package_data = True,
     package_data={proj_name: ["excel/*.vba", "excel/*.ico", "icons/*"]},
     install_requires=install_requires,
-    # build_requires=[
-    #     # PEP426-field actually not used by `pip` them, hence
-    #     # included in /requirements/developmnet.pip.
-    #     'setuptools',
-    #     'setuptools-git >= 0.3',  # Gather package-data from all files in git.
-    #     'wheel',
-    #     'collective.checkdocs',
-    # ],
-    # dev_requires=[
-    #     # PEP426-field actually not used by `pip` them, hence
-    #     # included in /requirements/developmnet.pip.
-    #     'sphinx>=1.4',
-    # ],
     python_requires='>=3.5',
     setup_requires=[
         "setuptools-git >= 0.3"  # Gather package-data from all files in git.
@@ -268,12 +255,4 @@ setup(
         "bdist_wheel": {"universal": True},
     },
     platforms=["any"],
-    # TODO: check when `run_requires` works.
-    # run_requires=[
-    #     {
-    #         "requires": ["pywin32 > 1.0", "xlwings", "easygui"],
-    #         "environment": "sys_platform == 'win32' or sys_platform == 'darwin'"
-    #     },
-    # ],
-    # metadata_version="2.0",
 )
