@@ -13,8 +13,7 @@ before_install:
 
 install:
     - python --version
-    - pip install -r requirements/development.pip
-    - pip install xlrd pandas
+    - pip install -e .[dev]
     - pip list
 
 script:
