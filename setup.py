@@ -150,8 +150,7 @@ install_requires = [
 test_reqs = ["nose", "coverage", "coveralls", "docopt", "ddt", "openpyxl"]
 
 pandas_reqs = [
-    # For xleash pandas filter.
-    "pandas"
+    "pandas"  # For xleash df-filter, *probably* 0.19.0 (Oct 2016) needed 
 ]
 excel_reqs = [
     "xlwings >= 0.9.2 ; sys_platform == 'win32'",
