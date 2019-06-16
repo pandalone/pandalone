@@ -34,21 +34,6 @@ install:
         python --version
         python -c "import struct; print(struct.calcsize('P') * 8)"
 
-    - ps: |
-        if ($IS_CONDA -eq "true") {
-            conda info -a
-            $condadeps = type "requirements/miniconda.conda" | select-string -Not -Pattern '#'
-            conda install --yes --quiet $condadeps
-            ## `win32` dep not includeed in requirements.txt for they will fail in linux.
-            conda install --yes --quiet pywin32
-            ## TODO: Check if FIXED ``python setup.py nosetests`` failing with conda:
-            #   https://github.com/ContinuumIO/anaconda-issues/issues/280
-            pip uninstall -y nose; pip uninstall -y nose; pip install -UI nose
-        } else {
-            ## `win32` dep not includeed in requirements.txt for they will fail in linux.
-            pip install pywin32
-        }
-
     - pip install -e .[dev]
 
 
