@@ -13,7 +13,7 @@ setuptools
 nose
 numpy
 scipy
-pandas>=0.18  # For pandas-filter
+pandas>=0.19  # Be defensive for pandas-filter
 matplotlib
 Pillow
 xlwings>=0.9.2
