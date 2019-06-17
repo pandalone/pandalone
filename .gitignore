@@ -48,6 +48,10 @@ coverage.xml
 /doc/_build/
 /doc/doc
 
+## Notebooks
+.ipynb_checkpoints/
+/.jupyter
+
 ## IDEs
 # Eclipse/Liclipse
 .pydevproject
