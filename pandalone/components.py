@@ -1,5 +1,5 @@
 #! python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2015 European Commission (JRC);
 # Licensed under the EUPL (the 'Licence');
@@ -94,6 +94,8 @@ class Component(object):
 
         if False:
             yield
+
+
 #         expected_attrs = ['name', 'inp', 'out']
 #         for attr in expected_attrs:
 #             if not hasattr(self, attr):
@@ -179,9 +181,9 @@ class FuncComponent(Component):
         self._cfunc = cfunc
         if name is None:
             name = cfunc.__name__
-            prefix = 'cfunc_'
+            prefix = "cfunc_"
             if name.startswith(prefix):
-                name = name[len(prefix):]
+                name = name[len(prefix) :]
         Component.__init__(self, name=name)
 
         # The following are initialized in _build():
@@ -201,16 +203,14 @@ class FuncComponent(Component):
         """The suggested :class:`Pstep` for cfunc to use to access inputs."""
         p = self._pinp
         if p is None:
-            self._pinp = p = Pstep(path or self._name,
-                                   _proto_or_pmod=self._pmod)
+            self._pinp = p = Pstep(path or self._name, _proto_or_pmod=self._pmod)
         return p
 
     def pout(self, path=None):
         """The suggested :class:`Pstep` for cfunc to use to access outputs."""
         p = self._pout
         if p is None:
-            self._pout = p = Pstep(path or self._name,
-                                   _proto_or_pmod=self._pmod)
+            self._pout = p = Pstep(path or self._name, _proto_or_pmod=self._pmod)
         return p
 
     def _build(self, pmod=None):
@@ -259,7 +259,7 @@ class Assembly(Component):  # TODO: Assembly inherit Component
     """
 
     def __init__(self, components, name=None):
-        Component.__init__(self, name=name or 'assembly')
+        Component.__init__(self, name=name or "assembly")
         self._comps = list(components)
 
     def __call__(self, *args, **kws):
@@ -276,5 +276,5 @@ class Assembly(Component):  # TODO: Assembly inherit Component
         self._out = sorted(out)
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     raise NotImplementedError

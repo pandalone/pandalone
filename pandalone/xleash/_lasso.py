@@ -23,7 +23,7 @@ from toolz import dicttoolz as dtz
 
 from . import installed_filters
 
-from . import (Lasso, EmptyCaptureException, _parse, _capture)
+from . import Lasso, EmptyCaptureException, _parse, _capture
 from pandalone.xleash.io import backend
 
 
@@ -32,15 +32,15 @@ log = logging.getLogger(__name__)
 
 def _build_call_help(name, func, desc):
     sig = func and inspect.formatargspec(*inspect.getfullargspec(func))
-    desc = textwrap.indent(textwrap.dedent(desc), '    ')
-    return '\n\nFilter: %s%s:\n%s' % (name, sig, desc)
+    desc = textwrap.indent(textwrap.dedent(desc), "    ")
+    return "\n\nFilter: %s%s:\n%s" % (name, sig, desc)
 
 
 def _Lasso_to_edges_str(lasso):
-    st = lasso.st_edge if lasso.st_edge else ''
-    nd = lasso.nd_edge if lasso.nd_edge else ''
-    s = st if st and not nd else '%s:%s' % (st, nd)
-    exp = ':%s' % lasso.exp_moves.upper() if lasso.exp_moves else ''
+    st = lasso.st_edge if lasso.st_edge else ""
+    nd = lasso.nd_edge if lasso.nd_edge else ""
+    s = st if st and not nd else "%s:%s" % (st, nd)
+    exp = ":%s" % lasso.exp_moves.upper() if lasso.exp_moves else ""
     return s + exp
 
 
@@ -75,17 +75,16 @@ class Ranger(object):
             Used for inspecting/debuging.
     """
 
-    def __init__(self, sheets_factory,
-                 base_opts=None, available_filters=None):
+    def __init__(self, sheets_factory, base_opts=None, available_filters=None):
         if not sheets_factory:
             raise ValueError("Please specify a non-null sheets-factory!")
         self.sheets_factory = sheets_factory
         if base_opts is None:
             base_opts = {}
         self.base_opts = base_opts
-        self.available_filters = (installed_filters
-                                  if available_filters is None
-                                  else available_filters)
+        self.available_filters = (
+            installed_filters if available_filters is None else available_filters
+        )
         self.intermediate_lasso = None
 
     def _relasso(self, lasso, stage, **kwds):
@@ -104,6 +103,7 @@ class Ranger(object):
                 raise on errors.
                 Defaults to `False` (scream!).
         """
+
         def parse_avail_func_rec(func, desc=None):
             if not desc:
                 desc = func.__doc__
@@ -112,23 +112,24 @@ class Ranger(object):
         # Just to update intermediate_lasso.
         lasso = self._relasso(lasso, func_name)
 
-        verbose = lasso.opts.get('verbose', False)
-        lax = kwds.pop('lax', lasso.opts.get('lax', False))
-        func, func_desc = '', ''
+        verbose = lasso.opts.get("verbose", False)
+        lax = kwds.pop("lax", lasso.opts.get("lax", False))
+        func, func_desc = "", ""
         try:
             func_rec = self.available_filters[func_name]
             func, func_desc = parse_avail_func_rec(**func_rec)
             lasso = func(self, lasso, *args, **kwds)
             assert isinstance(lasso, Lasso), "Filter(%r) returned not a Lasso(%r)!" % (
-                func_name, lasso)
+                func_name,
+                lasso,
+            )
         except Exception as ex:
             if verbose:
                 func_desc = _build_call_help(func_name, func, func_desc)
             msg = "While invoking(%s, args=%s, kwds=%s): %s%s"
-            help_msg = func_desc if verbose else ''
+            help_msg = func_desc if verbose else ""
             if lax:
-                log.warning(msg, func_name, args, kwds, ex, help_msg,
-                            exc_info=1)
+                log.warning(msg, func_name, args, kwds, ex, help_msg, exc_info=1)
             else:
                 raise ValueError(msg % (func_name, args, kwds, ex, help_msg))
 
@@ -136,7 +137,7 @@ class Ranger(object):
 
     def _make_init_Lasso(self, **context_kwds):
         """Creates the lasso to be used for each new :meth:`do_lasso()` invocation."""
-        context_kwds['opts'] = ChainMap(deepcopy(self.base_opts))
+        context_kwds["opts"] = ChainMap(deepcopy(self.base_opts))
         init_lasso = Lasso(**context_kwds)
 
         return init_lasso
@@ -154,8 +155,7 @@ class Ranger(object):
 
         try:
             parsed_fields = _parse.parse_xlref(xlref)
-            filled_fields = dtz.valfilter(lambda v: v is not None,
-                                          parsed_fields)
+            filled_fields = dtz.valfilter(lambda v: v is not None, parsed_fields)
             init_lasso = init_lasso._replace(**filled_fields)
         except SyntaxError:
             raise
@@ -169,7 +169,8 @@ class Ranger(object):
     def _open_sheet(self, lasso):
         try:
             sheet = self.sheets_factory.fetch_sheet(
-                lasso.url_file, lasso.sh_name, base_sheet=lasso.sheet)
+                lasso.url_file, lasso.sh_name, base_sheet=lasso.sheet
+            )
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
             raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
@@ -180,14 +181,16 @@ class Ranger(object):
         """Also handles :class:`EmptyCaptureException` in case ``opts['no_empty'] != False``."""
 
         try:
-            st, nd = _capture.resolve_capture_rect(sheet.get_states_matrix(),
-                                                   sheet.get_margin_coords(),
-                                                   lasso.st_edge,
-                                                   lasso.nd_edge,
-                                                   lasso.exp_moves,
-                                                   lasso.base_coords)
+            st, nd = _capture.resolve_capture_rect(
+                sheet.get_states_matrix(),
+                sheet.get_margin_coords(),
+                lasso.st_edge,
+                lasso.nd_edge,
+                lasso.exp_moves,
+                lasso.base_coords,
+            )
         except EmptyCaptureException:
-            if lasso.opts.get('no_empty', False):
+            if lasso.opts.get("no_empty", False):
                 raise
             st = nd = None
         except Exception as ex:
@@ -230,22 +233,22 @@ class Ranger(object):
         self.intermediate_lasso = None
 
         lasso = self._make_init_Lasso(**context_kwds)
-        lasso = self._relasso(lasso, 'context')
+        lasso = self._relasso(lasso, "context")
 
         lasso = self._parse_and_merge_with_context(xlref, lasso)
-        lasso = self._relasso(lasso, 'parse')
+        lasso = self._relasso(lasso, "parse")
 
         sheet = self._open_sheet(lasso)
-        lasso = self._relasso(lasso, 'open', sheet=sheet)
+        lasso = self._relasso(lasso, "open", sheet=sheet)
 
         st, nd = self._resolve_capture_rect(lasso, sheet)
-        lasso = self._relasso(lasso, 'capture', st=st, nd=nd)
+        lasso = self._relasso(lasso, "capture", st=st, nd=nd)
 
         if st or nd:
             values = sheet.read_rect(st, nd)
         else:
             values = []
-        lasso = self._relasso(lasso, 'read_rect', values=values)
+        lasso = self._relasso(lasso, "read_rect", values=values)
 
         lasso = self._run_filters(lasso)
         # relasso(values) invoked internally.
@@ -260,11 +263,7 @@ def get_default_opts(overrides=None):
     :param dict or None overrides:
             Any items to update the default ones.
     """
-    opts = {
-        'lax': False,
-        'verbose': False,
-        'read': {'on_demand': True, },
-    }
+    opts = {"lax": False, "verbose": False, "read": {"on_demand": True}}
 
     if overrides:
         opts.update(overrides)
@@ -272,9 +271,7 @@ def get_default_opts(overrides=None):
     return opts
 
 
-def make_default_Ranger(sheets_factory=None,
-                        base_opts=None,
-                        available_filters=None):
+def make_default_Ranger(sheets_factory=None, base_opts=None, available_filters=None):
     """
     Makes a defaulted :class:`Ranger`.
 
@@ -309,17 +306,21 @@ def make_default_Ranger(sheets_factory=None,
         <pandalone.xleash._lasso.Ranger object at
         ...
     """
-    return Ranger(sheets_factory or backend.SheetsFactory(),
-                  base_opts or get_default_opts(),
-                  available_filters)
+    return Ranger(
+        sheets_factory or backend.SheetsFactory(),
+        base_opts or get_default_opts(),
+        available_filters,
+    )
 
 
-def lasso(xlref,
-          sheets_factory=None,
-          base_opts=None,
-          available_filters=None,
-          return_lasso=False,
-          **context_kwds):
+def lasso(
+    xlref,
+    sheets_factory=None,
+    base_opts=None,
+    available_filters=None,
+    return_lasso=False,
+    **context_kwds
+):
     """
     High-level function to :term:`lasso` around spreadsheet's rect-regions
     according to :term:`xl-ref` strings by using internally a :class:`Ranger` .
@@ -378,9 +379,11 @@ def lasso(xlref,
         base_opts = get_default_opts()
 
     try:
-        ranger = make_default_Ranger(sheets_factory=sheets_factory,
-                                     base_opts=base_opts,
-                                     available_filters=available_filters)
+        ranger = make_default_Ranger(
+            sheets_factory=sheets_factory,
+            base_opts=base_opts,
+            available_filters=available_filters,
+        )
         lasso = ranger.do_lasso(xlref, **context_kwds)
     finally:
         if factory_is_mine:

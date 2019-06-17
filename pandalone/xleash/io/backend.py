@@ -89,16 +89,16 @@ class SimpleSheetsFactory(object):
     def decide_backend(self, wb_url):
         """Asks all :attr:`backends` to :term:`bid` for handling a :term:`xl-ref`. """
         wb_url = utils.path2url(wb_url)
-        bids = [(be, be.bid(wb_url))
-                for be in self.backends]
+        bids = [(be, be.bid(wb_url)) for be in self.backends]
         bids = [(be, score) for be, score in bids if score is not None]
         if not bids:
-            raise ValueError("No suitable xleash-backend found for(%r)!"
-                             "\n  Have you installed `xlrd` extra with this command?"
-                             "\n    pip install pandalone[xlrd]" % wb_url)
+            raise ValueError(
+                "No suitable xleash-backend found for(%r)!"
+                "\n  Have you installed `xlrd` extra with this command?"
+                "\n    pip install pandalone[xlrd]" % wb_url
+            )
         winner = sorted(bids, key=lambda x: x[1])[-1][0]
-        assert isinstance(winner, ABCBackend),  (
-            "Invalid backend(%r) class!" % winner)
+        assert isinstance(winner, ABCBackend), "Invalid backend(%r) class!" % winner
 
         return winner
 
@@ -160,7 +160,7 @@ class SheetsFactory(SimpleSheetsFactory):
         assert wb is not None, (wb, sh)
         return (wb, sh)
 
-    def _derive_sheet_keys(self, sheet,  wb_ids=None, sh_ids=None):
+    def _derive_sheet_keys(self, sheet, wb_ids=None, sh_ids=None):
         """
         Retuns the product of user-specified and sheet-internal keys.
 
@@ -175,10 +175,8 @@ class SheetsFactory(SimpleSheetsFactory):
         sh_ids = sh_ids2 + utils.as_list(sh_ids)
 
         key_pairs = itt.product(wb_ids, sh_ids)
-        keys = list(set(self._build_sheet_key(*p)
-                        for p in key_pairs
-                        if p[0]))
-        assert keys, (keys, sheet,  wb_ids, sh_ids)
+        keys = list(set(self._build_sheet_key(*p) for p in key_pairs if p[0]))
+        assert keys, (keys, sheet, wb_ids, sh_ids)
 
         return keys
 
@@ -300,7 +298,7 @@ def margin_coords_from_states_matrix(states_matrix):
     return Coords(*indices.min(0)), Coords(*indices.max(0))
 
 
-SheetId = namedtuple('SheetId', ('book', 'ids'))
+SheetId = namedtuple("SheetId", ("book", "ids"))
 
 
 class ABCSheet(ABC):
@@ -430,14 +428,14 @@ class ABCSheet(ABC):
         return self._margin_coords
 
     def __repr__(self):
-        args = (type(self).__name__, ) + self.get_sheet_ids()
-        return '%s(book=%r, sheet_ids=%r)' % args
+        args = (type(self).__name__,) + self.get_sheet_ids()
+        return "%s(book=%r, sheet_ids=%r)" % args
 
 
 class ArraySheet(ABCSheet):
     """A sample :class:`ABCSheet` made out of 2D-list or numpy-arrays, for facilitating tests."""
 
-    def __init__(self, arr, ids=SheetId('wb', ['sh', 0])):
+    def __init__(self, arr, ids=SheetId("wb", ["sh", 0])):
         self._arr = np.asarray(arr)
         self._ids = ids
 
@@ -452,16 +450,16 @@ class ArraySheet(ABCSheet):
 
     def _read_states_matrix(self):
         if not self._arr.size:
-            raise _capture.EmptyCaptureException('empty sheet')
+            raise _capture.EmptyCaptureException("empty sheet")
         return ~np.equal(self._arr, None)
 
     def read_rect(self, st, nd):
         if not self._arr.size:
-            raise _capture.EmptyCaptureException('empty sheet')
+            raise _capture.EmptyCaptureException("empty sheet")
         if nd is None:
             return self._arr[st]
         rect = np.array([st, nd]) + [[0, 0], [1, 1]]
         return self._arr[slice(*rect[:, 0]), slice(*rect[:, 1])].tolist()
 
     def __repr__(self):
-        return 'ArraySheet(%s, \n%s)' % (self.get_sheet_ids(), self._arr)
+        return "ArraySheet(%s, \n%s)" % (self.get_sheet_ids(), self._arr)

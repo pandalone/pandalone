@@ -24,10 +24,10 @@ log = logging.getLogger(__name__)
 
 try:
     from xlrd import colname as xl_colname
+
     # TODO: Try different backends providing `colname` function.
 except ImportError:
-    log.warning(
-        'One of `xlrd`, `...` libraries is needed, will crash later!')
+    log.warning("One of `xlrd`, `...` libraries is needed, will crash later!")
 
 
 CHECK_CELLTYPE = False
@@ -39,13 +39,14 @@ class EmptyCaptureException(Exception):
     Thrown when :term:`targeting` fails.
     """
 
-_special_coord_symbols = {'^', '_', '.'}
+
+_special_coord_symbols = {"^", "_", "."}
 
 _primitive_dir_vectors = {
-    'L': Coords(0, -1),
-    'U': Coords(-1, 0),
-    'R': Coords(0, 1),
-    'D': Coords(1, 0)
+    "L": Coords(0, -1),
+    "U": Coords(-1, 0),
+    "R": Coords(0, 1),
+    "D": Coords(1, 0),
 }
 
 
@@ -69,10 +70,10 @@ def coords2Cell(row, col):
 
     """
     if row not in _special_coord_symbols:
-        assert row >= 0, 'negative row!'
+        assert row >= 0, "negative row!"
         row = str(row + 1)
     if col not in _special_coord_symbols:
-        assert col >= 0, 'negative col!'
+        assert col >= 0, "negative col!"
         col = xl_colname(col)
     return Cell(row=row, col=col)
 
@@ -106,7 +107,7 @@ def _row2num(coord):
     """
     rcoord = int(coord)
     if rcoord == 0:
-        msg = 'Uncooked-coord cannot be zero!'
+        msg = "Uncooked-coord cannot be zero!"
         raise ValueError(msg.format(coord))
     if rcoord > 0:
         rcoord -= 1
@@ -163,7 +164,7 @@ def _col2num(coord):
         rcoord -= 1
     else:
         if rcoord == 0:
-            msg = 'Uncooked-coord cannot be zero!'
+            msg = "Uncooked-coord cannot be zero!"
             raise ValueError(msg.format(coord))
         elif rcoord > 0:
             rcoord -= 1
@@ -259,12 +260,9 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coords=None):
     """
     try:
         if coord in _special_coord_symbols:
-            special_dict = {
-                '^': up_coord,
-                '_': dn_coord
-            }
+            special_dict = {"^": up_coord, "_": dn_coord}
             if base_coords is not None:
-                special_dict['.'] = base_coords
+                special_dict["."] = base_coords
             rcoord = special_dict[coord]
         else:
             rcoord = cfunc(coord)
@@ -275,10 +273,10 @@ def _resolve_coord(cname, cfunc, coord, up_coord, dn_coord, base_coords=None):
 
         return rcoord
     except Exception as ex:
-        if isinstance(ex, KeyError) and ex.args == ('.',):
+        if isinstance(ex, KeyError) and ex.args == (".",):
             msg = "Cannot resolve `relative-{}` without `base-coord`!"
             raise ValueError(msg.format(cname))
-        msg = 'invalid {}({!r}) due to: {}'
+        msg = "invalid {}({!r}) due to: {}"
         raise ValueError(msg.format(cname, coord, ex)) from ex
 
 
@@ -345,10 +343,12 @@ def _resolve_cell(cell, up_coords, dn_coords, base_coords=None):
             base_row = base_col = None
         else:
             base_row, base_col = base_coords
-        row = _resolve_coord('row', _row2num, cell.row,
-                             up_coords[0], dn_coords[0], base_row)
-        col = _resolve_coord('col', _col2num, cell.col,
-                             up_coords[1], dn_coords[1], base_col)
+        row = _resolve_coord(
+            "row", _row2num, cell.row, up_coords[0], dn_coords[0], base_row
+        )
+        col = _resolve_coord(
+            "col", _col2num, cell.col, up_coords[1], dn_coords[1], base_col
+        )
 
         return Coords(row, col)
     except Exception as ex:
@@ -360,10 +360,10 @@ def _resolve_cell(cell, up_coords, dn_coords, base_coords=None):
 
 _mov_vector_slices = {
     # VECTO_SLICE        REVERSE  COORD_INDEX
-    'L': (1, -1, lambda r, c: (r, slice(None, c + 1))),
-    'U': (0, -1, lambda r, c: (slice(None, r + 1), c)),
-    'R': (1, 1, lambda r, c: (r, slice(c, None))),
-    'D': (0, 1, lambda r, c: (slice(r, None), c)),
+    "L": (1, -1, lambda r, c: (r, slice(None, c + 1))),
+    "U": (0, -1, lambda r, c: (slice(None, r + 1), c)),
+    "R": (1, 1, lambda r, c: (r, slice(c, None))),
+    "D": (0, 1, lambda r, c: (slice(r, None), c)),
 }
 
 
@@ -377,7 +377,7 @@ def _extract_states_vector(states_matrix, dn_coords, land, mov):
     return states_vect, coord_indx, is_reverse
 
 
-def _target_opposite(states_matrix, dn_coords, land, moves, edge_name=''):
+def _target_opposite(states_matrix, dn_coords, land, moves, edge_name=""):
     """
     Follow moves from `land` and stop on the 1st full-cell.
 
@@ -436,13 +436,13 @@ def _target_opposite(states_matrix, dn_coords, land, moves, edge_name=''):
     up_coords = np.array([0, 0])
     target = np.array(land)
 
-    if land[0] > dn_coords[0] and 'U' in moves:
+    if land[0] > dn_coords[0] and "U" in moves:
         target[0] = dn_coords[0]
-    if land[1] > dn_coords[1] and 'L' in moves:
+    if land[1] > dn_coords[1] and "L" in moves:
         target[1] = dn_coords[1]
 
-#     if states_matrix[target].all():
-#         return Coords(*target)
+    #     if states_matrix[target].all():
+    #         return Coords(*target)
 
     imoves = iter(moves)
     mov1 = next(imoves)
@@ -453,7 +453,8 @@ def _target_opposite(states_matrix, dn_coords, land, moves, edge_name=''):
     while (up_coords <= target).all():
         try:
             states_vect, coord_indx, is_reverse = _extract_states_vector(
-                states_matrix, dn_coords, target, mov1)
+                states_matrix, dn_coords, target, mov1
+            )
         except IndexError:
             break
         else:
@@ -468,7 +469,7 @@ def _target_opposite(states_matrix, dn_coords, land, moves, edge_name=''):
 
             target += dv2
 
-    msg = 'No opposite-target found while moving({}) from {}landing-{}!'
+    msg = "No opposite-target found while moving({}) from {}landing-{}!"
     raise EmptyCaptureException(msg.format(moves, edge_name, land))
 
 
@@ -483,7 +484,8 @@ def _target_same_vector(states_matrix, dn_coords, land, mov):
             The landing-cell, which MUST be full!
     """
     states_vect, coord_indx, is_reverse = _extract_states_vector(
-        states_matrix, dn_coords, land, mov)
+        states_matrix, dn_coords, land, mov
+    )
     if states_vect.all():
         same_len = len(states_vect) - 1
     else:
@@ -494,7 +496,7 @@ def _target_same_vector(states_matrix, dn_coords, land, mov):
     return target_coord, coord_indx
 
 
-def _target_same(states_matrix, dn_coords, land, moves, edge_name=''):
+def _target_same(states_matrix, dn_coords, land, moves, edge_name=""):
     """
     Scan term:`exterior` row and column on specified `moves` and stop on the last full-cell.
 
@@ -550,12 +552,13 @@ def _target_same(states_matrix, dn_coords, land, moves, edge_name=''):
     target = np.asarray(land)
     if (target <= dn_coords).all() and states_matrix[land]:
         for mov in moves:
-            coord, indx = _target_same_vector(states_matrix, dn_coords,
-                                              np.asarray(land), mov)
+            coord, indx = _target_same_vector(
+                states_matrix, dn_coords, np.asarray(land), mov
+            )
             target[indx] = coord
 
         return Coords(*target)
-    msg = 'No same-target found while moving({}) from {}landing-{}!'
+    msg = "No same-target found while moving({}) from {}landing-{}!"
     raise EmptyCaptureException(msg.format(moves, edge_name, land))
 
 
@@ -626,16 +629,16 @@ def _expand_rect(states_matrix, r1, r2, exp_moves):
 
     nd_offsets = np.array([0, 1, 0, 1])
     coord_offsets = {
-        'L': np.array([0,  0, -1, 0]),
-        'R': np.array([0,  0,  0, 1]),
-        'U': np.array([-1, 0,  0, 0]),
-        'D': np.array([0,  1,  0, 0]),
+        "L": np.array([0, 0, -1, 0]),
+        "R": np.array([0, 0, 0, 1]),
+        "U": np.array([-1, 0, 0, 0]),
+        "D": np.array([0, 1, 0, 0]),
     }
     coord_indices = {
-        'L': [0, 1, 2, 2],
-        'R': [0, 1, 3, 3],
-        'U': [0, 0, 2, 3],
-        'D': [1, 1, 2, 3],
+        "L": [0, 1, 2, 2],
+        "R": [0, 1, 3, 3],
+        "U": [0, 0, 2, 3],
+        "D": [1, 1, 2, 3],
     }
 
     # Sort rect's vertices top-left/bottom-right.
@@ -649,8 +652,9 @@ def _expand_rect(states_matrix, r1, r2, exp_moves):
             for d in dirs:
                 exp_rect = rect + coord_offsets[d]
                 exp_vect_i = exp_rect[coord_indices[d]] + nd_offsets
-                exp_vect_v = states_matrix[slice(*exp_vect_i[:2]),
-                                           slice(*exp_vect_i[2:])]
+                exp_vect_v = states_matrix[
+                    slice(*exp_vect_i[:2]), slice(*exp_vect_i[2:])
+                ]
                 if exp_vect_v.any():
                     rect = exp_rect
             if (rect == orig_rect).all():
@@ -659,9 +663,14 @@ def _expand_rect(states_matrix, r1, r2, exp_moves):
     return Coords(*rect[[0, 2]]), Coords(*rect[[1, 3]])
 
 
-def resolve_capture_rect(states_matrix, up_dn_margins,
-                         st_edge, nd_edge=None, exp_moves=None,
-                         base_coords=None):
+def resolve_capture_rect(
+    states_matrix,
+    up_dn_margins,
+    st_edge,
+    nd_edge=None,
+    exp_moves=None,
+    base_coords=None,
+):
     """
     Performs :term:`targeting`, :term:`capturing` and :term:`expansions` based on the :term:`states-matrix`.
 
@@ -743,12 +752,10 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
 
     if st_edge.mov is not None:
         if st_state:
-            if st_edge.mod == '+':
-                st = _target_same(states_matrix, dn_margin, st, st_edge.mov,
-                                  '1st-')
+            if st_edge.mod == "+":
+                st = _target_same(states_matrix, dn_margin, st, st_edge.mov, "1st-")
         else:
-            st = _target_opposite(states_matrix, dn_margin, st, st_edge.mov,
-                                  '1st-')
+            st = _target_opposite(states_matrix, dn_margin, st, st_edge.mov, "1st-")
 
     if nd_edge is None:
         nd = None
@@ -763,13 +770,14 @@ def resolve_capture_rect(states_matrix, up_dn_margins,
 
             mov = nd_edge.mov
             if nd_state:
-                if (nd_edge.mod == '+' or
-                        nd_edge.land == Cell('.', '.') and nd_edge.mod != '?'):
-                    nd = _target_same(
-                        states_matrix, dn_margin, nd, mov, '2nd-')
+                if (
+                    nd_edge.mod == "+"
+                    or nd_edge.land == Cell(".", ".")
+                    and nd_edge.mod != "?"
+                ):
+                    nd = _target_same(states_matrix, dn_margin, nd, mov, "2nd-")
             else:
-                nd = _target_opposite(
-                    states_matrix, dn_margin, nd, mov, '2nd-')
+                nd = _target_opposite(states_matrix, dn_margin, nd, mov, "2nd-")
 
     if exp_moves:
         st, nd = _expand_rect(states_matrix, st, nd or st, exp_moves)

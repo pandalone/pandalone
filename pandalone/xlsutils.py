@@ -20,8 +20,8 @@ __commit__ = ""
 log = logging.getLogger(__name__)
 
 
-_xl_extensions = re.compile(r'\.xl((s[xm]?|t[xm]?)|w|m)$', re.IGNORECASE)
-_xl_extensions_anywhere = re.compile(r'\.xl((s[xm]?|t[xm]?)|w|m)\b', re.IGNORECASE)
+_xl_extensions = re.compile(r"\.xl((s[xm]?|t[xm]?)|w|m)$", re.IGNORECASE)
+_xl_extensions_anywhere = re.compile(r"\.xl((s[xm]?|t[xm]?)|w|m)\b", re.IGNORECASE)
 
 
 _xl_installed = None
@@ -37,7 +37,8 @@ def check_excell_installed():
     if _xl_installed is None:
         try:
             from win32com.client import dynamic  # @UnresolvedImport
-            dynamic.Dispatch('Excel.Application')
+
+            dynamic.Dispatch("Excel.Application")
             _xl_installed = True
         except Exception:  # pragma: no cover
             _xl_installed = False
@@ -66,11 +67,11 @@ def _get_xl_vb_project(xl_wb):
 
     def show_unlock_msg(msg):
         text = dedent(_get_xl_vb_project.__doc__)
-#        try:
-#            from tkinter import messagebox as msgbox
-#        except ImportError:
-#            import tkMessageBox as msgbox
-#        msgbox.showinfo(title="Excel Permission Denied!", message=msg)
+        #        try:
+        #            from tkinter import messagebox as msgbox
+        #        except ImportError:
+        #            import tkMessageBox as msgbox
+        #        msgbox.showinfo(title="Excel Permission Denied!", message=msg)
         easygui.textbox(title="Excel Permission Denied!", msg=msg, text=text)
         return msg
 
@@ -94,6 +95,7 @@ def _gather_files(fpaths_wildcard):
     :param str fpaths_wildcard: 'some/foo*bar.py'
     :return: a map {ext-less_basename --> full_path}.
     """
+
     def basename(fname):
         b, _ = os.path.splitext(os.path.basename(fname))
         return b
@@ -126,7 +128,7 @@ def _remove_vba_modules(xl_vbcs, *mod_names_to_del):
     #
     for m in xl_mods:
         if not mod_names_to_del or m.Name.lower() in mod_names_to_del:
-            log.debug('Removing vba_module(%s)...', m.Name)
+            log.debug("Removing vba_module(%s)...", m.Name)
             xl_vbcs.Remove(m)
 
 
@@ -141,18 +143,24 @@ def _import_vba_files(xl_vbcs, vba_file_map):
     cwd = os.getcwd()
     for vba_modname, vba_fpath in vba_file_map.items():
         try:
-            log.debug('Removing vba_module(%s)...', vba_modname)
+            log.debug("Removing vba_module(%s)...", vba_modname)
             old_xl_mod = xl_vbcs.Item(vba_modname)
             xl_vbcs.Remove(old_xl_mod)
-            log.info('Removed vba_module(%s).', vba_modname)
+            log.info("Removed vba_module(%s).", vba_modname)
         except com_error as ex:
             log.debug(
-                'Probably vba_module(%s) did not exist, because: \n  %s', vba_modname, ex)
-        log.debug(
-            'Importing vba_module(%s) from file(%s)...', vba_modname, vba_fpath)
+                "Probably vba_module(%s) did not exist, because: \n  %s",
+                vba_modname,
+                ex,
+            )
+        log.debug("Importing vba_module(%s) from file(%s)...", vba_modname, vba_fpath)
         xl_vbc = xl_vbcs.Import(os.path.join(cwd, vba_fpath))
-        log.info('Imported %i LoC for vba_module(%s) from file(%s).',
-                 xl_vbc.CodeModule.CountOfLines, vba_modname, vba_fpath)
+        log.info(
+            "Imported %i LoC for vba_module(%s) from file(%s).",
+            xl_vbc.CodeModule.CountOfLines,
+            vba_modname,
+            vba_fpath,
+        )
         xl_vbc.Name = vba_modname
 
 
@@ -163,10 +171,10 @@ def _save_workbook(xl_workbook, path):
     xlOpenXMLWorkbookMacroEnabled = 52
 
     saved_path = xl_workbook.Path
-    if (saved_path != '') and (path is None):
+    if (saved_path != "") and (path is None):
         # Previously saved: Save under existing name
         xl_workbook.Save()
-    elif (saved_path == '') and (path is None):
+    elif (saved_path == "") and (path is None):
         # Previously unsaved: Save under current name in current working
         # directory
         path = os.path.join(os.getcwd(), xl_workbook.Name)
@@ -181,14 +189,17 @@ def _save_workbook(xl_workbook, path):
 
 
 def _save_excel_as_macro_enabled(xl_wb, new_fname=None):
-    DEFAULT_XLS_MACRO_FORMAT = '.xlsm'
+    DEFAULT_XLS_MACRO_FORMAT = ".xlsm"
 
     if not new_fname:
         _, e = os.path.splitext(xl_wb.FullName)
-        if e.lower()[-1:] != 'm':
+        if e.lower()[-1:] != "m":
             new_fname = xl_wb.FullName + DEFAULT_XLS_MACRO_FORMAT
-            log.info('Cloning as MACRO-enabled the Input-workbook(%s) --> Output-workbook(%s)',
-                     xl_wb.FullName, new_fname)
+            log.info(
+                "Cloning as MACRO-enabled the Input-workbook(%s) --> Output-workbook(%s)",
+                xl_wb.FullName,
+                new_fname,
+            )
     _save_workbook(xl_wb, new_fname)
 
     return new_fname
@@ -213,7 +224,7 @@ def import_vba_into_excel_workbook(infiles_wildcard, wrkb_fname=None, new_fname=
     xl_vbcs = xl_vbp.VBComponents
 
     infiles_map = _gather_files(infiles_wildcard)
-    log.info('Modules to import into Workbook(%s): %s', wb, infiles_map)
+    log.info("Modules to import into Workbook(%s): %s", wb, infiles_map)
 
     if infiles_map:
         # TODO: _remove_vba_modules(xl_vbcs)
@@ -230,7 +241,7 @@ def import_vba_into_excel_workbook(infiles_wildcard, wrkb_fname=None, new_fname=
 
 def normalize_local_url(self, urlparts):
     """As fetched from :func:`urllib.parse.urlsplit()`."""
-    if 'file' == urlparts.scheme:
+    if "file" == urlparts.scheme:
         urlparts = urlparts._replace(path=os.path.abspath(urlparts.path))
     return urlparts.geturl()
 
@@ -251,19 +262,22 @@ def main(*argv):
 
     cmd = os.path.basename(argv[0])
     if len(argv) < 2:
-        exit('Too few arguments! \n%s' % dedent(main.__doc__.format(cmd=cmd)))
+        exit("Too few arguments! \n%s" % dedent(main.__doc__.format(cmd=cmd)))
     else:
-        if argv[1] == '--pandalone':
+        if argv[1] == "--pandalone":
             mydir = os.path.dirname(__file__)
             argv = list(argv)
-            argv[1] = os.path.join(mydir, '*.vba')
-        elif argv[1].startswith('--'):
-            exit('Unknown option(%s)! \n%s' %
-                 (argv[1], dedent(main.__doc__.format(cmd=cmd))))
+            argv[1] = os.path.join(mydir, "*.vba")
+        elif argv[1].startswith("--"):
+            exit(
+                "Unknown option(%s)! \n%s"
+                % (argv[1], dedent(main.__doc__.format(cmd=cmd)))
+            )
 
         import_vba_into_excel_workbook(*argv[1:])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
+
     main(*sys.argv)

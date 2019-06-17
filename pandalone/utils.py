@@ -1,5 +1,5 @@
 #! python
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2013-2015 European Commission (JRC);
 # Licensed under the EUPL (the 'Licence');
@@ -58,13 +58,13 @@ def str2bool(v):
     """
     try:
         vv = v.strip().lower()
-        if (vv in ("yes", "true", "on")):
+        if vv in ("yes", "true", "on"):
             return True
-        if (vv in ("no", "false", "off", '0')):
+        if vv in ("no", "false", "off", "0"):
             return False
         return bool(vv)
     except Exception as ex:
-        msg = 'Invalid str-boolean(%s) due to: %s'
+        msg = "Invalid str-boolean(%s) due to: %s"
         raise ValueError(msg % (v, ex))
 
 
@@ -85,7 +85,7 @@ def obj2bool(v):
 
 
 def is_travis():  # pragma: no cover
-    return 'TRAVIS' in os.environ
+    return "TRAVIS" in os.environ
 
 
 def as_list(o):
@@ -96,18 +96,17 @@ def as_list(o):
     return o
 
 
-_camel_to_snake_regex = re.compile(
-    '(?<=[a-z0-9])([A-Z]+)')  # ('(?!^)([A-Z]+)')
+_camel_to_snake_regex = re.compile("(?<=[a-z0-9])([A-Z]+)")  # ('(?!^)([A-Z]+)')
 
 
 def camel_to_snake_case(s):
     """Turns `'CO2DiceApp' --> 'co2_dice_app'. """
-    return _camel_to_snake_regex.sub(r'_\1', s).lower()
+    return _camel_to_snake_regex.sub(r"_\1", s).lower()
 
 
 def camel_to_cmd_name(s):
     """Turns `'CO2DiceApp' --> 'co2-dice-app'. """
-    return camel_to_snake_case(s).replace('_', '-')
+    return camel_to_snake_case(s).replace("_", "-")
 
 
 # def format_pairs(items: Sequence[Tuple[Text, Any]], indent=16):
@@ -116,22 +115,23 @@ def format_pairs(items, indent=16):
         nk = len(k)
         ntabs = max(1, int(nk / indent) + bool(nk % indent))
         key_width = ntabs * indent
-        item_pattern = '%%-%is = %%s' % key_width
+        item_pattern = "%%-%is = %%s" % key_width
         return item_pattern % (k, v)
+
     dic = [format_item(*i) for i in items]
 
-    return '\n'.join(dic)
+    return "\n".join(dic)
 
 
 def first_line(doc):
-    for l in doc.split('\n'):
+    for l in doc.split("\n"):
         if l.strip():
             return l.strip()
 
 
-_file_drive_regex = re.compile(r'^([a-z]):(/)?(.*)$', re.I)
-_is_dir_regex = re.compile(r'[^/\\][/\\]$')
-_unc_prefix = '\\\\?\\'
+_file_drive_regex = re.compile(r"^([a-z]):(/)?(.*)$", re.I)
+_is_dir_regex = re.compile(r"[^/\\][/\\]$")
+_unc_prefix = "\\\\?\\"
 
 
 def normpath(path):
@@ -156,9 +156,9 @@ def convpath(fpath, abs_path=True, exp_user=True, exp_vars=True):
         fpath = osp.expanduser(fpath)
     if exp_vars:
         # Mask UNC '\\server\share$\path` from expansion.
-        fpath = fpath.replace('$\\', '_UNC_PATH_HERE_')
+        fpath = fpath.replace("$\\", "_UNC_PATH_HERE_")
         fpath = osp.expandvars(fpath)
-        fpath = fpath.replace('_UNC_PATH_HERE_', '$\\')
+        fpath = fpath.replace("_UNC_PATH_HERE_", "$\\")
     fpath = abspath(fpath) if abs_path else normpath(fpath)
     return fpath
 
@@ -170,8 +170,8 @@ def path2urlpath(path):
     if path.startswith(_unc_prefix):
         path = path[3:]
     u = ur.pathname2url(path)
-    if _is_dir_regex.search(path) and u[-1] != '/':
-        u = u + '/'
+    if _is_dir_regex.search(path) and u[-1] != "/":
+        u = u + "/"
     return u
 
 
@@ -218,28 +218,28 @@ def path2url(path, expandvars=False, expanduser=False):
         # UNIXize *safely* and join with base-URL,
         # UNLESS it start with drive-letter (not to assume it as schema).
         #
-        path = path.replace('\\', '/')
+        path = path.replace("\\", "/")
         m = _file_drive_regex.match(path)
         if m:
             # A pesky Drive-relative path...assume it absolute!
             #
             if not m.group(2):
-                path = '%s:/%s' % (m.group(1), m.group(3))
-            path = 'file:///%s' % path
+                path = "%s:/%s" % (m.group(1), m.group(3))
+            path = "file:///%s" % path
         else:
             # Use CWD as  URL-base to make it absolute.
             #
-            cwd = ur.pathname2url('%s/' % os.getcwd())
-            baseurl = up.urljoin('file:', cwd)
+            cwd = ur.pathname2url("%s/" % os.getcwd())
+            baseurl = up.urljoin("file:", cwd)
             path = up.urljoin(baseurl, path)
 
         # Expand vars, conditionally on remote or local URL.
         #
         parts = up.urlsplit(path)
         p = parts.path
-        if parts.scheme == 'file' and expanduser:
+        if parts.scheme == "file" and expanduser:
             p = osp.expanduser(p)
-        p = normpath(p).replace('\\', '/')
+        p = normpath(p).replace("\\", "/")
         path = up.urlunsplit(parts._replace(path=p))
 
     return path
@@ -250,7 +250,7 @@ def generate_filenames(filename):
     yield filename
     i = 1
     while True:
-        yield '%s%i%s' % (f, i, e)
+        yield "%s%i%s" % (f, i, e)
         i += 1
 
 
@@ -314,21 +314,19 @@ def ensure_file_ext(fname, ext, *exts, is_regex=False):
     _, file_ext = os.path.splitext(fname)
 
     if is_regex:
-        ends_with_ext = any(re.match(e + '$', file_ext, re.IGNORECASE)
-                            for e
-                            in (re.escape(ext),) + exts)
+        ends_with_ext = any(
+            re.match(e + "$", file_ext, re.IGNORECASE) for e in (re.escape(ext),) + exts
+        )
     else:
         file_ext = file_ext.lower()
-        ends_with_ext = any(file_ext.endswith(e.lower())
-                            for e
-                            in (ext,) + exts)
+        ends_with_ext = any(file_ext.endswith(e.lower()) for e in (ext,) + exts)
 
     if not ends_with_ext:
-        if fname[-1] == '.':
+        if fname[-1] == ".":
             fname = fname[:-1]
-        if ext[0] == '.':
+        if ext[0] == ".":
             ext = ext[1:]
-        return '%s.%s' % (fname, ext)
+        return "%s.%s" % (fname, ext)
 
     return fname
 
@@ -355,11 +353,14 @@ def ensure_dir_exists(path, mode=0o755):
 
 def py_where(program, path=None):
     # From: http://stackoverflow.com/a/377028/548792
-    winprog_exts = ('.bat', 'com', '.exe')
+    winprog_exts = (".bat", "com", ".exe")
 
     def is_exec(fpath):
-        return osp.isfile(fpath) and os.access(fpath, os.X_OK) and (
-            os.name != 'nt' or fpath.lower()[-4:] in winprog_exts)
+        return (
+            osp.isfile(fpath)
+            and os.access(fpath, os.X_OK)
+            and (os.name != "nt" or fpath.lower()[-4:] in winprog_exts)
+        )
 
     progs = []
     if not path:
@@ -368,7 +369,7 @@ def py_where(program, path=None):
         folder = folder.strip('"')
         if folder:
             exe_path = osp.join(folder, program)
-            for f in [exe_path] + ['%s%s' % (exe_path, e) for e in winprog_exts]:
+            for f in [exe_path] + ["%s%s" % (exe_path, e) for e in winprog_exts]:
                 if is_exec(f):
                     progs.append(f)
     return progs
@@ -376,11 +377,10 @@ def py_where(program, path=None):
 
 def where(program):
     import subprocess
+
     try:
-        res = subprocess.check_output('where "%s"' % program,
-                                      universal_newlines=True)
-        return res and [s.strip()
-                        for s in res.split('\n') if s.strip()]
+        res = subprocess.check_output('where "%s"' % program, universal_newlines=True)
+        return res and [s.strip() for s in res.split("\n") if s.strip()]
     except subprocess.CalledProcessError:
         return []
     except:
@@ -396,13 +396,14 @@ def open_file_with_os(fpath):  # pragma: no cover
     # From http://stackoverflow.com/questions/434597/open-document-with-default-application-in-python
     #     and http://www.dwheeler.com/essays/open-files-urls.html
     import subprocess
+
     try:
         os.startfile(fpath)  # @UndefinedVariable
     except AttributeError:
-        if sys.platform.startswith('darwin'):
-            subprocess.call(('open', fpath))
-        elif os.name == 'posix':
-            subprocess.call(('xdg-open', fpath))
+        if sys.platform.startswith("darwin"):
+            subprocess.call(("open", fpath))
+        elif os.name == "posix":
+            subprocess.call(("xdg-open", fpath))
     return
 
 
@@ -415,15 +416,16 @@ class LoggerWriter:
 
     def write(self, msg):
         if msg:
-            line_endings = ['\r\n', '\n\r', '\n']
+            line_endings = ["\r\n", "\n\r", "\n"]
             for le in line_endings:
                 if msg.endswith(le):
-                    msg = msg[:-len(le)]
+                    msg = msg[: -len(le)]
             if msg:
                 self.logger.log(self.level, msg)
 
     def flush(self):
         pass
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     raise NotImplementedError

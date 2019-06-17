@@ -31,7 +31,7 @@ except ImportError:
 try:
     from pandas.api.types import is_integer, is_list_like
 except ImportError:
-    # Moved on 0.19.0 (Oct 2016): 
+    # Moved on 0.19.0 (Oct 2016):
     #   https://pandas.pydata.org/pandas-docs/stable/whatsnew/v0.19.0.html#pandas-development-api
     from pandas.core.common import is_integer, is_list_like
 
@@ -41,10 +41,12 @@ log = logging.getLogger(__name__)
 
 def _validate_header_arg(header):
     if isinstance(header, bool):
-        raise TypeError("Passing a bool to header is invalid. "
-                        "Use header=None for no header or "
-                        "header=int or list-like of ints to specify "
-                        "the row(s) making up the column names")
+        raise TypeError(
+            "Passing a bool to header is invalid. "
+            "Use header=None for no header or "
+            "header=int or list-like of ints to specify "
+            "the row(s) making up the column names"
+        )
 
 
 def _maybe_convert_usecols(usecols):
@@ -68,20 +70,27 @@ def _maybe_convert_usecols(usecols):
 
     if is_integer(usecols):
         import warnings
-        warnings.warn(("Passing in an integer for `usecols` has been "
-                       "deprecated. Please pass in a list of int from "
-                       "0 to `usecols` inclusive instead."),
-                      FutureWarning, stacklevel=2)
+
+        warnings.warn(
+            (
+                "Passing in an integer for `usecols` has been "
+                "deprecated. Please pass in a list of int from "
+                "0 to `usecols` inclusive instead."
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
         return list(range(usecols + 1))
 
     if isinstance(usecols, str):
         return _range2cols(usecols)
 
     return usecols
-    
+
+
 def _df_filter(
-    ranger, 
-    lasso, 
+    ranger,
+    lasso,
     header=0,
     names=None,
     index_col=None,
@@ -121,7 +130,9 @@ def _df_filter(
 
     _validate_header_arg(header)
 
-    invalid_args = set('skip_footer chunksize date_parser converted'.split()) & kwds.keys()
+    invalid_args = (
+        set("skip_footer chunksize date_parser converted".split()) & kwds.keys()
+    )
     if bool(invalid_args):
         raise NotImplementedError("Cannot implement args: %s" % invalid_args)
 
@@ -142,8 +153,7 @@ def _df_filter(
             if is_integer(skiprows):
                 row += skiprows
             try:
-                data[row], control_row = _fill_mi_header(data[row], 
-                                                         control_row)
+                data[row], control_row = _fill_mi_header(data[row], control_row)
             except TypeError:
                 ## Arg `control_row` introduced in pandas-v0.19.0 to fix
                 #  https://github.com/pandas-dev/pandas/issues/12453
@@ -168,38 +178,39 @@ def _df_filter(
                 last = data[offset][col]
 
                 for row in range(offset + 1, len(data)):
-                    if data[row][col] == '' or data[row][col] is None:
+                    if data[row][col] == "" or data[row][col] is None:
                         data[row][col] = last
                     else:
                         last = data[row][col]
 
     has_index_names = is_list_like(header) and len(header) > 1
 
-
     # Pandaas expect '' instead of `None`!
-    data = [['' if c is None else c for c in r] for r in data]
+    data = [["" if c is None else c for c in r] for r in data]
 
     # GH 12292 : error when read one empty column from excel file
     try:
-        parser = pdparsers.TextParser(data,
-                                      names=names,
-                                      header=header, 
-                                      index_col=index_col,
-                                      has_index_names=has_index_names,
-                                      squeeze=squeeze,
-                                      dtype=dtype,
-                                      true_values=true_values,
-                                      false_values=false_values,
-                                      skiprows=skiprows,
-                                      nrows=nrows,
-                                      na_values=na_values,
-                                      parse_dates=parse_dates,
-                                      thousands=thousands,
-                                      comment=comment,
-                                      skipfooter=skipfooter,
-                                      usecols=usecols,
-                                      mangle_dupe_cols=mangle_dupe_cols,
-                                      **kwds)
+        parser = pdparsers.TextParser(
+            data,
+            names=names,
+            header=header,
+            index_col=index_col,
+            has_index_names=has_index_names,
+            squeeze=squeeze,
+            dtype=dtype,
+            true_values=true_values,
+            false_values=false_values,
+            skiprows=skiprows,
+            nrows=nrows,
+            na_values=na_values,
+            parse_dates=parse_dates,
+            thousands=thousands,
+            comment=comment,
+            skipfooter=skipfooter,
+            usecols=usecols,
+            mangle_dupe_cols=mangle_dupe_cols,
+            **kwds
+        )
 
         output = parser.read()
 
@@ -216,17 +227,20 @@ def _df_filter(
 
 
 def install_filters(filters_dict):
-    filters_dict.update({
-        'df': {
-            'func': _df_filter,
-        },
-        'sr': {
-            'func': lambda ranger, lasso, *args, **kwds: lasso._replace(
-                values=pd.Series(OrderedDict(lasso.values), *args, **kwds)),
-            'desc': ("Converts a 2-columns list-of-lists into pd.Series.\n" +
-                     pd.Series.__doc__),
+    filters_dict.update(
+        {
+            "df": {"func": _df_filter},
+            "sr": {
+                "func": lambda ranger, lasso, *args, **kwds: lasso._replace(
+                    values=pd.Series(OrderedDict(lasso.values), *args, **kwds)
+                ),
+                "desc": (
+                    "Converts a 2-columns list-of-lists into pd.Series.\n"
+                    + pd.Series.__doc__
+                ),
+            },
         }
-    })
+    )
 
 
 def load_as_xleash_plugin():

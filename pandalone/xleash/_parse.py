@@ -23,7 +23,7 @@ import itertools as itt
 import numpy as np
 
 
-class Cell(namedtuple('Cell', ('row', 'col', 'brow', 'bcol'))):
+class Cell(namedtuple("Cell", ("row", "col", "brow", "bcol"))):
     """
     A pair of 1-based strings, denoting the "A1" coordinates of a cell.
 
@@ -33,20 +33,22 @@ class Cell(namedtuple('Cell', ('row', 'col', 'brow', 'bcol'))):
 
     def __new__(cls, row, col, brow=None, bcol=None):
 
-        return super(cls, Cell).__new__(cls,
-                                        row and row.upper(),
-                                        col and col.upper(),
-                                        brow and brow.upper(),
-                                        bcol and bcol.upper())
+        return super(cls, Cell).__new__(
+            cls,
+            row and row.upper(),
+            col and col.upper(),
+            brow and brow.upper(),
+            bcol and bcol.upper(),
+        )
 
     def __str__(self):
         r = self.row
         c = self.col
         try:
             c = int(c)
-            s = 'R%sC%s' % (r, c, )
+            s = "R%sC%s" % (r, c)
         except:
-            s = '%s%s' % (c, r)
+            s = "%s%s" % (c, r)
         return s
 
     def __repr__(self):
@@ -56,11 +58,12 @@ class Cell(namedtuple('Cell', ('row', 'col', 'brow', 'bcol'))):
             s = "Cell(row=%r, col=%r)" % (self.row, self.col)
         return s
 
+
 Cell.__new__.__defaults__ = (None, None)
 """Make :class:`Cell` construct with missing 'brow', 'bcol' fields as `None`."""
 
 
-class Edge(namedtuple('Edge', ('land', 'mov', 'mod'))):
+class Edge(namedtuple("Edge", ("land", "mov", "mod"))):
     """
     All the infos required to :term:`target` a cell.
 
@@ -70,21 +73,25 @@ class Edge(namedtuple('Edge', ('land', 'mov', 'mod'))):
     :param str mov: use None for missing moves.
     :param str mod: one of (`+`, `-` or `None`)
     """
+
     __slots__ = ()
 
     def __new__(cls, land, mov=None, mod=None):
         return super(cls, Edge).__new__(cls, land, mov, mod)
 
     def __str__(self):
-        return ('%s(%s%s)' % (self.land, self.mov, self.mod or '')
-                if self.mov
-                else str(self.land))
+        return (
+            "%s(%s%s)" % (self.land, self.mov, self.mod or "")
+            if self.mov
+            else str(self.land)
+        )
 
     # def __repr__(self):
     #     return "Edge('%s')" % str(self)
 
-_topleft_Edge = Edge(Cell('^', '^'))
-_bottomright_Edge = Edge(Cell('_', '_'))
+
+_topleft_Edge = Edge(Cell("^", "^"))
+_bottomright_Edge = Edge(Cell("_", "_"))
 
 
 def Edge_new(row, col, mov=None, mod=None, default=None):
@@ -131,8 +138,8 @@ def Edge_new(row, col, mov=None, mod=None, default=None):
     if col == row == mov == mod is None:
         return default
 
-    return Edge(land=Cell(row, col),
-                mov=mov and mov.upper(), mod=mod)
+    return Edge(land=Cell(row, col), mov=mov and mov.upper(), mod=mod)
+
 
 _encase_regex = re.compile(r'^\s*(?P<q>[/\\"$%&])(.+)(?P=q)\s*$', re.DOTALL)
 _regular_xlref_regex = re.compile(
@@ -179,10 +186,11 @@ _regular_xlref_regex = re.compile(
         :\s*(?P<js_filt>[{"[].*)                             # filters
     )?$
     """,
-    re.IGNORECASE | re.X | re.DOTALL)
+    re.IGNORECASE | re.X | re.DOTALL,
+)
 """The regex for parsing regular :term:`xl-ref`. """
 
-_re_exp_moves_splitter = re.compile('([LURD]\d+)', re.IGNORECASE)
+_re_exp_moves_splitter = re.compile("([LURD]\d+)", re.IGNORECASE)
 
 # TODO: Make exp_moves `?` work different from numbers.
 _re_exp_moves_parser = re.compile(
@@ -190,13 +198,14 @@ _re_exp_moves_parser = re.compile(
     ^(?P<moves>[LURD]+)                                  # primitive moves
     (?P<times>\?|\d+)?                                   # repetition times
     $""",
-    re.IGNORECASE | re.X)
+    re.IGNORECASE | re.X,
+)
 
 
-_excel_str_translator = str.maketrans('“”', '""')  # @UndefinedVariable
+_excel_str_translator = str.maketrans("“”", '""')  # @UndefinedVariable
 """Excel use these !@#% chars for double-quotes, which are not valid JSON-strings!!"""
 
-CallSpec = namedtuple('CallSpec', ['func', 'args', 'kwds'])
+CallSpec = namedtuple("CallSpec", ["func", "args", "kwds"])
 """The :term:`call-specifier` for holding the parsed json-filters."""
 
 CallSpec.__new__.__defaults__ = ([], {})
@@ -221,6 +230,7 @@ def parse_call_spec(call_spec_values):
         the 3-tuple ``func, args=(), kwds={}`` with the defaults as shown
         when missing.
     """
+
     def boolarr(l):
         return np.fromiter(l, dtype=bool)
 
@@ -230,8 +240,7 @@ def parse_call_spec(call_spec_values):
         iskwds = boolarr(isinstance(a, dict) for a in items)
         isnull = boolarr(a is None for a in items)
 
-        if isargs.all() or iskwds.all() or not (
-                isargs ^ iskwds ^ isnull).all():
+        if isargs.all() or iskwds.all() or not (isargs ^ iskwds ^ isnull).all():
             msg = "Cannot decide `args`/`kwds` for call_spec(%s)!"
             raise ValueError(msg.format(call_spec_values))
         args, kwds = None, None
@@ -300,7 +309,7 @@ def _repeat_moves(moves, times=None):
      """
     args = (moves,)
     if times is not None:
-        args += (int(times), )
+        args += (int(times),)
     return itt.repeat(*args)
 
 
@@ -338,23 +347,29 @@ def parse_expansion_moves(exp_moves):
 
     """
     try:
-        res = _re_exp_moves_splitter.split(exp_moves.upper().replace('?', '1'))
+        res = _re_exp_moves_splitter.split(exp_moves.upper().replace("?", "1"))
 
-        return [_repeat_moves(**_re_exp_moves_parser.match(v).groupdict())
-                for v in res
-                if v != '']
+        return [
+            _repeat_moves(**_re_exp_moves_parser.match(v).groupdict())
+            for v in res
+            if v != ""
+        ]
 
     except Exception as ex:
-        msg = 'Invalid rect-expansion({}) due to: {}'
+        msg = "Invalid rect-expansion({}) due to: {}"
         raise ValueError(msg.format(exp_moves, ex))
 
 
 def _parse_edge(gs, prefix, default_edge):
-    row_a1, row_rc = gs.pop('%s_row' % prefix), gs.pop('%s_row2' % prefix)
-    col_a1, col_rc = gs.pop('%s_col' % prefix), gs.pop('%s_col2' % prefix)
-    return Edge_new(row_a1 or row_rc, col_a1 or col_rc,
-                    gs.pop('%s_mov' % prefix),
-                    gs.pop('%s_mod' % prefix), default_edge)
+    row_a1, row_rc = gs.pop("%s_row" % prefix), gs.pop("%s_row2" % prefix)
+    col_a1, col_rc = gs.pop("%s_col" % prefix), gs.pop("%s_col2" % prefix)
+    return Edge_new(
+        row_a1 or row_rc,
+        col_a1 or col_rc,
+        gs.pop("%s_mov" % prefix),
+        gs.pop("%s_mod" % prefix),
+        default_edge,
+    )
 
 
 def parse_xlref_fragment(xlref_fragment):
@@ -413,35 +428,35 @@ def parse_xlref_fragment(xlref_fragment):
 
     m = _regular_xlref_regex.match(xlref_fragment)
     if not m:
-        raise SyntaxError('Not an `xl-ref` syntax: %s' % xlref_fragment)
+        raise SyntaxError("Not an `xl-ref` syntax: %s" % xlref_fragment)
 
     gs = m.groupdict()
 
-    is_colon = gs.pop('colon')
-    gs['st_edge'] = _parse_edge(gs, 'st', is_colon and _topleft_Edge)
-    gs['nd_edge'] = _parse_edge(gs, 'nd', is_colon and _bottomright_Edge)
-    assert is_colon or not gs['nd_edge'], (xlref_fragment, gs['nd_edge'])
-    if gs['st_edge'] == gs['nd_edge'] == None:
-        gs['st_edge'] = _topleft_Edge
-        gs['nd_edge'] = _bottomright_Edge
+    is_colon = gs.pop("colon")
+    gs["st_edge"] = _parse_edge(gs, "st", is_colon and _topleft_Edge)
+    gs["nd_edge"] = _parse_edge(gs, "nd", is_colon and _bottomright_Edge)
+    assert is_colon or not gs["nd_edge"], (xlref_fragment, gs["nd_edge"])
+    if gs["st_edge"] == gs["nd_edge"] == None:
+        gs["st_edge"] = _topleft_Edge
+        gs["nd_edge"] = _bottomright_Edge
 
-    exp_moves = gs['exp_moves']
-    gs['exp_moves'] = exp_moves
+    exp_moves = gs["exp_moves"]
+    gs["exp_moves"] = exp_moves
 
-    js = gs.pop('js_filt', None)
+    js = gs.pop("js_filt", None)
     if js:
         try:
             js = json.loads(js)
         except ValueError as ex:
-            msg = 'Filters are not valid JSON: %s\n  JSON: \n%s'
+            msg = "Filters are not valid JSON: %s\n  JSON: \n%s"
             raise ValueError(msg % (ex, js))
 
-    opts = js.pop('opts', None) if isinstance(js, dict) else None
+    opts = js.pop("opts", None) if isinstance(js, dict) else None
     if opts is not None and not isinstance(opts, dict):
-        msg = 'Filter-opts({}) must be a json-object(dictionary)!'
+        msg = "Filter-opts({}) must be a json-object(dictionary)!"
         raise ValueError(msg.format(opts))
-    gs['opts'] = opts
-    gs['call_spec'] = parse_call_spec(js) if js else None
+    gs["opts"] = opts
+    gs["call_spec"] = parse_call_spec(js) if js else None
 
     return gs
 
@@ -462,7 +477,7 @@ def parse_xlref(xlref):
         else:
             if m:
                 res = _parse_xlref(m.group(2))
-                res['xl-ref'] = xlref
+                res["xl-ref"] = xlref
             else:
                 raise ex
 
@@ -529,11 +544,10 @@ def _parse_xlref(xlref):
     xlref = xlref.translate(_excel_str_translator)
     url_file, frag = urldefrag(xlref)
     if not frag:
-        raise SyntaxError(
-            "No fragment-part (starting with '#'): %s" % xlref)
+        raise SyntaxError("No fragment-part (starting with '#'): %s" % xlref)
     res = parse_xlref_fragment(frag)
     frag = frag.strip()
-    res['url_file'] = url_file or None
-    res['xl_ref'] = xlref
+    res["url_file"] = url_file or None
+    res["xl_ref"] = xlref
 
     return res

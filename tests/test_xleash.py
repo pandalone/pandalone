@@ -55,107 +55,105 @@ def _write_sample_sheet(path, df, sheet_name, **kwds):
             for s in sheet_name:
                 df.to_excel(w, s, **kwds)
         else:
-            df.to_excel(w, sheet_name, encoding='utf-8', **kwds)
+            df.to_excel(w, sheet_name, encoding="utf-8", **kwds)
 
 
-def _make_local_url(fname, fragment=''):
+def _make_local_url(fname, fragment=""):
     fpath = os.path.abspath(fname)
-    return 'file:///{}#{}'.format(fpath, fragment)
+    return "file:///{}#{}".format(fpath, fragment)
 
 
 class T00Doctest(unittest.TestCase):
-
     def test_xleash(self):
         failure_count, test_count = doctest.testmod(
-            xleash, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+            xleash, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
+        )
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
     def test_parse(self):
         failure_count, test_count = doctest.testmod(
-            _p, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+            _p, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
+        )
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
     def test_capture(self):
         failure_count, test_count = doctest.testmod(
-            _c, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+            _c, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
+        )
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
     def test_lasso(self):
         failure_count, test_count = doctest.testmod(
-            _l, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+            _l, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
+        )
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
     def test_xlrd(self):
         failure_count, test_count = doctest.testmod(
-            xd, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+            xd, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
+        )
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
 
-_all_dir_pairs = ['LU', 'LD', 'UL', 'DL']
+_all_dir_pairs = ["LU", "LD", "UL", "DL"]
 _all_dir_pairs += _all_dir_pairs[::-1]
-_all_dir_single = list('LRUD')
+_all_dir_single = list("LRUD")
 _all_dirs = _all_dir_single + _all_dir_pairs
 
 
 @ddt.ddt
 class T011Structs(unittest.TestCase):
-
     @ddt.data(
-        ((None, None),              None),
-        ((None, None, None),        None),
-        ((None, None, None, None),  None),
-        (('1', 'a', 'lu'),          _p.Edge(_p.Cell(row='1', col='A'), 'LU')),
-        (('1', 'A', 'LUR', '+'),    _p.Edge(_p.Cell(row='1', col='A'),
-                                            'LUR', '+')),
-        (('_', '^', 'duL'),         _p.Edge(_p.Cell('_', '^'), 'DUL')),
-        (('1', '_', None),          _p.Edge(_p.Cell('1', '_'), None)),
-        (('^', '^', None),          _p.Edge(_p.Cell('^', '^'), None)),
-
-        (('1', '1'),                _p.Edge(_p.Cell(row='1', col='1'))),
-        (('_', '5'),                _p.Edge(_p.Cell(row='_', col='5'))),
+        ((None, None), None),
+        ((None, None, None), None),
+        ((None, None, None, None), None),
+        (("1", "a", "lu"), _p.Edge(_p.Cell(row="1", col="A"), "LU")),
+        (("1", "A", "LUR", "+"), _p.Edge(_p.Cell(row="1", col="A"), "LUR", "+")),
+        (("_", "^", "duL"), _p.Edge(_p.Cell("_", "^"), "DUL")),
+        (("1", "_", None), _p.Edge(_p.Cell("1", "_"), None)),
+        (("^", "^", None), _p.Edge(_p.Cell("^", "^"), None)),
+        (("1", "1"), _p.Edge(_p.Cell(row="1", col="1"))),
+        (("_", "5"), _p.Edge(_p.Cell(row="_", col="5"))),
     )
     def test_Edge_good(self, case):
         new_edge_args, edge = case
         self.assertEquals(_p.Edge_new(*new_edge_args), edge)
 
     @ddt.data(
-        (('1', 'A', 'U1'), _p.Edge(_p.Cell('1', 'A'), 'U1')),
-        (('1', '%', 'U1'), _p.Edge(_p.Cell('1', '%'), 'U1')),
-        (('1', 'A', 'D0L'), _p.Edge(_p.Cell('1', 'A'), 'D0L')),
-        (('1', 'A', '@#'), _p.Edge(_p.Cell('1', 'A'), '@#')),
+        (("1", "A", "U1"), _p.Edge(_p.Cell("1", "A"), "U1")),
+        (("1", "%", "U1"), _p.Edge(_p.Cell("1", "%"), "U1")),
+        (("1", "A", "D0L"), _p.Edge(_p.Cell("1", "A"), "D0L")),
+        (("1", "A", "@#"), _p.Edge(_p.Cell("1", "A"), "@#")),
     )
     def test_Edge_bad_areOK(self, case):
         new_edge_args, edge = case
         self.assertEquals(_p.Edge_new(*new_edge_args), edge)
 
     @ddt.data(
-        ('1', 1, '0'),
-        ('1', 'A', 23),
+        ("1", 1, "0"),
+        ("1", "A", 23),
         # ('_0', '_', '0'),
         # ('@@', '@', '@'),
     )
     def test_Edge_fail(self, case):
-        self.assertRaises(
-            AttributeError, _p.Edge_new, *case)
+        self.assertRaises(AttributeError, _p.Edge_new, *case)
 
     def test_col2num(self):
-        self.assertEqual(_c._col2num('D'), 3)
-        self.assertEqual(_c._col2num('aAa'), 702)
+        self.assertEqual(_c._col2num("D"), 3)
+        self.assertEqual(_c._col2num("aAa"), 702)
 
     @ddt.data(
-        (_p.Cell('1', 'a'), 'A1'),
-        (_p.Cell('1', '1'), 'R1C1'),
-        (_p.Cell('-1', '-1'), 'R-1C-1'),
-
-        (_p.Cell('1', '-1'), 'R1C-1'),
-        (_p.Cell('-1', '1'), 'R-1C1'),
-        (_p.Cell('-1', 'A'), 'A-1'),
-
+        (_p.Cell("1", "a"), "A1"),
+        (_p.Cell("1", "1"), "R1C1"),
+        (_p.Cell("-1", "-1"), "R-1C-1"),
+        (_p.Cell("1", "-1"), "R1C-1"),
+        (_p.Cell("-1", "1"), "R-1C1"),
+        (_p.Cell("-1", "A"), "A-1"),
         #         (_p.Cell('1', 'a', 'R'), 'A1[R]`)
         #         (_p.Cell('1', 'a', None, 'c'),
         #         (_p.Cell('1', 'a', '^', 'c'),
@@ -165,37 +163,35 @@ class T011Structs(unittest.TestCase):
         self.assertEqual(str(cell), exp)
 
     @ddt.data(
-        (_p.Cell('1', 'a'), "Cell(row='1', col='A')"),
-        (_p.Cell('1', '1'), "Cell(row='1', col='1')"),
-
-        (_p.Cell('1', 'a', 'R'),
-         "Cell(row='1', col='A', brow='R', bcol=None)"),
-        (_p.Cell('1', 'a', None, 'c'),
-         "Cell(row='1', col='A', brow=None, bcol='C')"),
-        (_p.Cell('1', '.', '^', 'C'),
-         "Cell(row='1', col='.', brow='^', bcol='C')"),
+        (_p.Cell("1", "a"), "Cell(row='1', col='A')"),
+        (_p.Cell("1", "1"), "Cell(row='1', col='1')"),
+        (_p.Cell("1", "a", "R"), "Cell(row='1', col='A', brow='R', bcol=None)"),
+        (_p.Cell("1", "a", None, "c"), "Cell(row='1', col='A', brow=None, bcol='C')"),
+        (_p.Cell("1", ".", "^", "C"), "Cell(row='1', col='.', brow='^', bcol='C')"),
     )
     def test_Cell_to_repr(self, case):
         cell, exp = case
         self.assertEqual(repr(cell), exp)
 
     @ddt.data(
-        (_p.Edge_new('1', 'a', ), 'A1'),
-        (_p.Edge_new('1', 'a', None, '+'), 'A1'),  # WARN
-        (_p.Edge_new('1', 'a', 'lu'), 'A1(LU)'),
-        (_p.Edge_new('1', '4', 'lu', '+'), 'R1C4(LU+)'),
-        (_p.Edge_new('-1', '-1', 'dr', '-'), 'R-1C-1(DR-)'),
+        (_p.Edge_new("1", "a"), "A1"),
+        (_p.Edge_new("1", "a", None, "+"), "A1"),  # WARN
+        (_p.Edge_new("1", "a", "lu"), "A1(LU)"),
+        (_p.Edge_new("1", "4", "lu", "+"), "R1C4(LU+)"),
+        (_p.Edge_new("-1", "-1", "dr", "-"), "R-1C-1(DR-)"),
     )
     def test_Edge_to_str(self, case):
         edge, exp = case
         self.assertEqual(str(edge), exp)
 
     @ddt.data(
-        (_p.Edge_new('1', 'a', ), _p.Edge_new('1', '-1', ), None,
-         'A1:R1C-1'),
-        (_p.Edge_new('1', 'a', 'L', '?'), _p.Edge_new('1', '-1', ),
-         'lurd',
-         'A1(L?):R1C-1:LURD'),
+        (_p.Edge_new("1", "a"), _p.Edge_new("1", "-1"), None, "A1:R1C-1"),
+        (
+            _p.Edge_new("1", "a", "L", "?"),
+            _p.Edge_new("1", "-1"),
+            "lurd",
+            "A1(L?):R1C-1:LURD",
+        ),
     )
     def test_Lasso_to_edges_str(self, case):
         edge1, edge2, exp_moves, exp = case
@@ -205,18 +201,18 @@ class T011Structs(unittest.TestCase):
 
 def produce_xlref_field_combinations(*xlref_expectedFields_pairs):
     N = None
-    sheets = [('',          {'sh_name': N}),
-              ('0!',        {'sh_name': '0'}),
-              ('sheet1!',   {'sh_name': 'sheet1'}),
-              ('  !',       {'sh_name': N}),
-              ]
-    exp_moves = [('',       {'exp_moves': N}),
-                 (':lurd?',  {'exp_moves': 'lurd?'}),
-                 ]
-    filters = [('',                   {}),
-               (':"func"',            {'call_spec': _p.CallSpec('func')}),
-               (':{"opts": {"1":2}}', {'opts': {'1': 2}}),
-               ]
+    sheets = [
+        ("", {"sh_name": N}),
+        ("0!", {"sh_name": "0"}),
+        ("sheet1!", {"sh_name": "sheet1"}),
+        ("  !", {"sh_name": N}),
+    ]
+    exp_moves = [("", {"exp_moves": N}), (":lurd?", {"exp_moves": "lurd?"})]
+    filters = [
+        ("", {}),
+        (':"func"', {"call_spec": _p.CallSpec("func")}),
+        (':{"opts": {"1":2}}', {"opts": {"1": 2}}),
+    ]
     combs = []
     for edges_s, edges in xlref_expectedFields_pairs:
         for sh, emov, filt in itt.product(sheets, exp_moves, filters):
@@ -224,7 +220,7 @@ def produce_xlref_field_combinations(*xlref_expectedFields_pairs):
             fields.update(sh[1])
             fields.update(emov[1])
             fields.update(filt[1])
-            xlref = '%s%s%s%s' % (sh[0], edges_s, emov[0], filt[0])
+            xlref = "%s%s%s%s" % (sh[0], edges_s, emov[0], filt[0])
             combs.append((xlref, fields))
 
     return combs
@@ -232,14 +228,23 @@ def produce_xlref_field_combinations(*xlref_expectedFields_pairs):
 
 @ddt.ddt
 class T01Parse(unittest.TestCase):
-
     @ddt.data(
-        'A', 'AB', 'a', 'ab',
-        '12', '0',
-        'A0', 'A1:A0',
-        '%A1',
-        'A1:LURD',
-        's![[]', 's!{}[]', 's!A', 's!A1:!', 's!1:2', 's!A0:B1',
+        "A",
+        "AB",
+        "a",
+        "ab",
+        "12",
+        "0",
+        "A0",
+        "A1:A0",
+        "%A1",
+        "A1:LURD",
+        "s![[]",
+        "s!{}[]",
+        "s!A",
+        "s!A1:!",
+        "s!1:2",
+        "s!A0:B1",
     )
     def test_BAD(self, xlref):
         err_msg = "Not an `xl-ref` syntax:"
@@ -247,192 +252,246 @@ class T01Parse(unittest.TestCase):
             _p.parse_xlref_fragment(xlref)
 
     def test_xl_ref_Cell_types(self):
-        xl_ref = 'b1:C2'
+        xl_ref = "b1:C2"
         res = _p.parse_xlref_fragment(xl_ref)
-        st_edge = res['st_edge']
-        nd_edge = res['nd_edge']
+        st_edge = res["st_edge"]
+        nd_edge = res["nd_edge"]
         self.assertIsInstance(st_edge.land.row, str)
         self.assertIsInstance(st_edge.land.col, str)
         self.assertIsInstance(nd_edge.land.row, str)
         self.assertIsInstance(nd_edge.land.col, str)
 
     def test_xl_ref_Cell_col_row_order(self):
-        xl_ref = 'b1:C2'
+        xl_ref = "b1:C2"
         res = _p.parse_xlref_fragment(xl_ref)
-        st_edge = res['st_edge']
-        nd_edge = res['nd_edge']
+        st_edge = res["st_edge"]
+        nd_edge = res["nd_edge"]
         self.assertTrue(st_edge.land.row.isalnum())
         self.assertTrue(st_edge.land.col.isalpha())
         self.assertTrue(nd_edge.land.row.isalnum())
         self.assertTrue(nd_edge.land.col.isalpha())
 
     def test_xl_ref_all_upper(self):
-        xl_ref = 'b1(uL):C2(Dr):Lur2D'
+        xl_ref = "b1(uL):C2(Dr):Lur2D"
         res = _p.parse_xlref_fragment(xl_ref)
-        st_edge = res['st_edge']
-        nd_edge = res['nd_edge']
+        st_edge = res["st_edge"]
+        nd_edge = res["nd_edge"]
         items = [
-            st_edge.land.row, st_edge.land.col, st_edge.mov,
-            nd_edge.land.row, nd_edge.land.col, nd_edge.mov,
+            st_edge.land.row,
+            st_edge.land.col,
+            st_edge.mov,
+            nd_edge.land.row,
+            nd_edge.land.col,
+            nd_edge.mov,
         ]
         for i in items:
             if i:
                 for c in i:
                     if c.isalpha():
-                        self.assertTrue(c.isupper(), '%s in %r' % (c, i))
+                        self.assertTrue(c.isupper(), "%s in %r" % (c, i))
 
     def check_xlref_frag(self, xlref, fields):
         res = _p.parse_xlref_fragment(xlref)
         res2 = dtz.keyfilter(lambda k: k in fields.keys(), res)
-        e = 'EMPT|Y'
-        self.assertEqual(str(res2.pop('exp_moves', e)),
-                         str(fields.pop('exp_moves', e)))
-        self.assertDictEqual(res2, fields,
-                             '\n%s\n\n%s\n\n%s' % (xlref, res2, fields))
-        res.pop('exp_moves', None)
+        e = "EMPT|Y"
+        self.assertEqual(str(res2.pop("exp_moves", e)), str(fields.pop("exp_moves", e)))
+        self.assertDictEqual(res2, fields, "\n%s\n\n%s\n\n%s" % (xlref, res2, fields))
+        res.pop("exp_moves", None)
         for k in res:
             if k not in fields:
                 self.assertIsNone(res[k])
 
     @ddt.data(
-        ('Sheet1!a1(L):C2(UL)', {
-            'sh_name': 'Sheet1',
-            'st_edge': _p.Edge(_p.Cell(col='A', row='1'), 'L'),
-            'nd_edge': _p.Edge(_p.Cell(col='C', row='2'), 'UL'),
-        }
+        (
+            "Sheet1!a1(L):C2(UL)",
+            {
+                "sh_name": "Sheet1",
+                "st_edge": _p.Edge(_p.Cell(col="A", row="1"), "L"),
+                "nd_edge": _p.Edge(_p.Cell(col="C", row="2"), "UL"),
+            },
         ),
-        ('!a1(l):c2(ul):"fun"', {
-            'call_spec': _p.CallSpec('fun'),
-            'st_edge': _p.Edge(_p.Cell(col='A', row='1'), 'L'),
-            'nd_edge': _p.Edge(_p.Cell(col='C', row='2'), 'UL'),
-        }
+        (
+            '!a1(l):c2(ul):"fun"',
+            {
+                "call_spec": _p.CallSpec("fun"),
+                "st_edge": _p.Edge(_p.Cell(col="A", row="1"), "L"),
+                "nd_edge": _p.Edge(_p.Cell(col="C", row="2"), "UL"),
+            },
         ),
-        ('0!a1:a2', {
-            'sh_name': '0',
-            'st_edge': _p.Edge(_p.Cell(col='A', row='1')),
-            'nd_edge': _p.Edge(_p.Cell(col='A', row='2')),
-        }
+        (
+            "0!a1:a2",
+            {
+                "sh_name": "0",
+                "st_edge": _p.Edge(_p.Cell(col="A", row="1")),
+                "nd_edge": _p.Edge(_p.Cell(col="A", row="2")),
+            },
         ),
-        ('r1c1:r2c2', {
-            'st_edge': _p.Edge(_p.Cell(col='1', row='1')),
-            'nd_edge': _p.Edge(_p.Cell(col='2', row='2')),
-        }
+        (
+            "r1c1:r2c2",
+            {
+                "st_edge": _p.Edge(_p.Cell(col="1", row="1")),
+                "nd_edge": _p.Edge(_p.Cell(col="2", row="2")),
+            },
         ),
     )
     def test_regular_frag(self, case):
         xlref, fields = case
         self.check_xlref_frag(xlref, fields)
 
-    @ddt.data(*produce_xlref_field_combinations(
-        ('A1:', {
-            'st_edge': _p.Edge(_p.Cell(col='A', row='1')),
-            'nd_edge': _p._bottomright_Edge,
-        }),
-        ('R1C1:', {
-            'st_edge': _p.Edge(_p.Cell(col='1', row='1')),
-            'nd_edge': _p._bottomright_Edge,
-        }),
-        (':a33(DL)', {
-            'st_edge': _p._topleft_Edge,
-            'nd_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'),
-        }),
-        (':', {
-            'st_edge': _p._topleft_Edge,
-            'nd_edge': _p._bottomright_Edge,
-        }
-        ),
-    ))
+    @ddt.data(
+        *produce_xlref_field_combinations(
+            (
+                "A1:",
+                {
+                    "st_edge": _p.Edge(_p.Cell(col="A", row="1")),
+                    "nd_edge": _p._bottomright_Edge,
+                },
+            ),
+            (
+                "R1C1:",
+                {
+                    "st_edge": _p.Edge(_p.Cell(col="1", row="1")),
+                    "nd_edge": _p._bottomright_Edge,
+                },
+            ),
+            (
+                ":a33(DL)",
+                {
+                    "st_edge": _p._topleft_Edge,
+                    "nd_edge": _p.Edge(_p.Cell(col="A", row="33"), "DL"),
+                },
+            ),
+            (":", {"st_edge": _p._topleft_Edge, "nd_edge": _p._bottomright_Edge}),
+        )
+    )
     def test_shortcuts_frag(self, case):
         xlref, fields = case
         self.check_xlref_frag(xlref, fields)
 
     @ddt.data(
-        ('',
-         {'st_edge': _p._topleft_Edge, 'nd_edge': _p._bottomright_Edge}),
-        ('a33(DL)', {
-            'st_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'), }),
-        ('a33(DL):"func"', {
-            'st_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'),
-            'call_spec': _p.CallSpec('func'), }),
-        ('a33(DL)::{"func": "func", "opts": {"a": 1}}', {
-            'st_edge': _p.Edge(_p.Cell(col='A', row='33'), 'DL'),
-            'nd_edge': _p._bottomright_Edge,
-            'call_spec': _p.CallSpec('func'),
-            'opts': {"a": 1}, }),
+        ("", {"st_edge": _p._topleft_Edge, "nd_edge": _p._bottomright_Edge}),
+        ("a33(DL)", {"st_edge": _p.Edge(_p.Cell(col="A", row="33"), "DL")}),
+        (
+            'a33(DL):"func"',
+            {
+                "st_edge": _p.Edge(_p.Cell(col="A", row="33"), "DL"),
+                "call_spec": _p.CallSpec("func"),
+            },
+        ),
+        (
+            'a33(DL)::{"func": "func", "opts": {"a": 1}}',
+            {
+                "st_edge": _p.Edge(_p.Cell(col="A", row="33"), "DL"),
+                "nd_edge": _p._bottomright_Edge,
+                "call_spec": _p.CallSpec("func"),
+                "opts": {"a": 1},
+            },
+        ),
     )
     def test_shortcuts_strange(self, case):
         xlref, fields = case
         self.check_xlref_frag(xlref, fields)
 
-    @ddt.data(*list(itt.product(
-        ['A1:B1', 'A1:B1:LURD',
-         'A1:B1:"as"', 'A1:B1:["func"]', 'A1:B1:{"opts": {}}', 'A1:B1:{"opts": {"a": 1}}',
-         'A1:B1:LURD:"as"', 'A1:B1:LURD:["func"]', 'A1:B1:LURD:{"opts": {}}', 'A1:B1:LURD:{"opts": {"a": 1}}',
-         'A1(U):B1:LURD:"as"', 'A1(U):B1:LURD:["func"]', 'A1(U):B1:LURD:{"opts": {}}', 'A1(U):B1:LURD:{"opts": {"a": 1}}',
-         'A1:B1(D):LURD:"as"', 'A1:B1(D):LURD:["func"]', 'A1:B1(D):LURD:{"opts": {}}', 'A1:B1(D):LURD:{"opts": {"a": 1}}',
-         'A1(U):B1(D):LURD:"as"', 'A1(U):B1(D):LURD:["func"]', 'A1(U):B1(D):LURD:{"opts": {}}', 'A1(U):B1(D):LURD:{"opts": {"a": 1}}',
-         'sh!A1(U):B1(D):LURD:"as"', '0!A1(U):B1(D):LURD:["func"]', 'sh!A1(U):B1(D):LURD:{"opts": {}}', 'sh!A1(U):B1(D):LURD:{"opts": {"a": 1}}',
-         ],
-        [':', ':"as"', ':["func"]', ':{"opts": {}}', ':{"opts": {"a": 1}}',
-         'sheet!:', 'sheet!:"as"', 'sheet!:["func"]', 'sheet!:{"opts": {}}', 'sheet!:{"opts": {"a": 1}}',
-         ]
-    )))
+    @ddt.data(
+        *list(
+            itt.product(
+                [
+                    "A1:B1",
+                    "A1:B1:LURD",
+                    'A1:B1:"as"',
+                    'A1:B1:["func"]',
+                    'A1:B1:{"opts": {}}',
+                    'A1:B1:{"opts": {"a": 1}}',
+                    'A1:B1:LURD:"as"',
+                    'A1:B1:LURD:["func"]',
+                    'A1:B1:LURD:{"opts": {}}',
+                    'A1:B1:LURD:{"opts": {"a": 1}}',
+                    'A1(U):B1:LURD:"as"',
+                    'A1(U):B1:LURD:["func"]',
+                    'A1(U):B1:LURD:{"opts": {}}',
+                    'A1(U):B1:LURD:{"opts": {"a": 1}}',
+                    'A1:B1(D):LURD:"as"',
+                    'A1:B1(D):LURD:["func"]',
+                    'A1:B1(D):LURD:{"opts": {}}',
+                    'A1:B1(D):LURD:{"opts": {"a": 1}}',
+                    'A1(U):B1(D):LURD:"as"',
+                    'A1(U):B1(D):LURD:["func"]',
+                    'A1(U):B1(D):LURD:{"opts": {}}',
+                    'A1(U):B1(D):LURD:{"opts": {"a": 1}}',
+                    'sh!A1(U):B1(D):LURD:"as"',
+                    '0!A1(U):B1(D):LURD:["func"]',
+                    'sh!A1(U):B1(D):LURD:{"opts": {}}',
+                    'sh!A1(U):B1(D):LURD:{"opts": {"a": 1}}',
+                ],
+                [
+                    ":",
+                    ':"as"',
+                    ':["func"]',
+                    ':{"opts": {}}',
+                    ':{"opts": {"a": 1}}',
+                    "sheet!:",
+                    'sheet!:"as"',
+                    'sheet!:["func"]',
+                    'sheet!:{"opts": {}}',
+                    'sheet!:{"opts": {"a": 1}}',
+                ],
+            )
+        )
+    )
     def test_shortcut_vs_regular_fieldsCount(self, case):
         regular, shortcut = case
         res1 = _p.parse_xlref_fragment(regular)
         res2 = _p.parse_xlref_fragment(shortcut)
         self.assertEquals(len(res1), len(res2), (res1, res2))
 
-    @ddt.data(':{"opts": "..."}', ':{"opts": [2]}',
-              'A1:b1:{"opts": "..."}', 'A1:B1:{"opts": [4]}')
+    @ddt.data(
+        ':{"opts": "..."}',
+        ':{"opts": [2]}',
+        'A1:b1:{"opts": "..."}',
+        'A1:B1:{"opts": [4]}',
+    )
     def test_xl_ref_BadOpts(self, xlref):
-        err_msg = 'must be a json-object\(dictionary\)'
-        self.assertRaisesRegex(ValueError, err_msg,
-                                  _p.parse_xlref_fragment, xlref)
+        err_msg = "must be a json-object\(dictionary\)"
+        self.assertRaisesRegex(ValueError, err_msg, _p.parse_xlref_fragment, xlref)
 
     def test_xl_url_Ok(self):
         url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D):{"func":"foo"}'
         res = _p.parse_xlref(url)
 
-        self.assertEquals(res['url_file'], 'file://path/to/file.xlsx')
-        self.assertEquals(res['sh_name'], 'Sheet1')
-        self.assertEquals(res['call_spec'], _p.CallSpec('foo'))
-        self.assertEquals(res['st_edge'], _p.Edge(_p.Cell('10', 'U'), 'L'))
-        self.assertEquals(res['nd_edge'], _p.Edge(_p.Cell('20', 'D'), 'D'))
+        self.assertEquals(res["url_file"], "file://path/to/file.xlsx")
+        self.assertEquals(res["sh_name"], "Sheet1")
+        self.assertEquals(res["call_spec"], _p.CallSpec("foo"))
+        self.assertEquals(res["st_edge"], _p.Edge(_p.Cell("10", "U"), "L"))
+        self.assertEquals(res["nd_edge"], _p.Edge(_p.Cell("20", "D"), "D"))
 
     def test_xl_url_Bad(self):
-        self.assertRaises(ValueError, _p.parse_xlref, *('#!:{"json":"..."', ))
+        self.assertRaises(ValueError, _p.parse_xlref, *('#!:{"json":"..."',))
 
     def test_xl_url_Only_fragment(self):
-        url = '#sheet_name!UP10:DOWN20'
+        url = "#sheet_name!UP10:DOWN20"
         res = _p.parse_xlref(url)
-        self.assertEquals(res['url_file'], None)
+        self.assertEquals(res["url_file"], None)
 
-        res = _p.parse_xlref('$%s$' % url)
-        self.assertEquals(res['url_file'], None)
-        self.assertEquals(res['sh_name'], 'sheet_name')
+        res = _p.parse_xlref("$%s$" % url)
+        self.assertEquals(res["url_file"], None)
+        self.assertEquals(res["sh_name"], "sheet_name")
 
     def test_xl_url_No_fragment(self):
-        url = 'A1:B1'
+        url = "A1:B1"
         err_text = "No fragment-part"
         with self.assertRaisesRegex(SyntaxError, err_text):
             _p.parse_xlref(url)
         with self.assertRaisesRegex(SyntaxError, err_text):
-            _p.parse_xlref('$%s$' % url)
+            _p.parse_xlref("$%s$" % url)
 
     def test_xl_url_emptySheet(self):
-        url = 'file://path/to/file.xlsx#  !A1'
+        url = "file://path/to/file.xlsx#  !A1"
         res = _p.parse_xlref(url)
-        self.assertEquals(res['sh_name'], None)
+        self.assertEquals(res["sh_name"], None)
 
 
 def make_sample_matrix():
-    states_matrix = np.array([
-        [0, 1, 3],
-        [4, 5, 7],
-        [8, 9, 11],
-        [12, 13, 15],
-    ])
+    states_matrix = np.array([[0, 1, 3], [4, 5, 7], [8, 9, 11], [12, 13, 15]])
     dn = Coords(3, 2)
     args = (states_matrix, dn)
 
@@ -440,14 +499,17 @@ def make_sample_matrix():
 
 
 def make_states_matrix():
-    states_matrix = np.array([
-        # A  B  C  D  E  F
-        [0, 0, 0, 0, 0, 0],  # '1'
-        [0, 0, 0, 0, 0, 0],  # '2'
-        [0, 0, 0, 1, 1, 1],  # '3'
-        [0, 0, 1, 0, 0, 1],  # '4'
-        [0, 0, 1, 1, 0, 1],  # '5'
-    ], dtype=bool)
+    states_matrix = np.array(
+        [
+            # A  B  C  D  E  F
+            [0, 0, 0, 0, 0, 0],  # '1'
+            [0, 0, 0, 0, 0, 0],  # '2'
+            [0, 0, 0, 1, 1, 1],  # '3'
+            [0, 0, 1, 0, 0, 1],  # '4'
+            [0, 0, 1, 1, 0, 1],  # '5'
+        ],
+        dtype=bool,
+    )
     args = (states_matrix, Coords(4, 5))
 
     return args
@@ -455,7 +517,6 @@ def make_states_matrix():
 
 @ddt.ddt
 class T02StatesVector(unittest.TestCase):
-
     @ddt.data(*_all_dir_single)
     def test_extract_states_vector_1st_element(self, mov):
         args = make_sample_matrix()
@@ -475,34 +536,31 @@ class T02StatesVector(unittest.TestCase):
         npt.assert_array_equal(vect, exp_vect, str(args))
 
     @ddt.data(
-        (1, 1, 'L', [5, 4]),
-        (1, 1, 'U', [5, 1]),
-        (1, 1, 'R', [5, 7]),
-        (1, 1, 'D', [5, 9, 13]),
+        (1, 1, "L", [5, 4]),
+        (1, 1, "U", [5, 1]),
+        (1, 1, "R", [5, 7]),
+        (1, 1, "D", [5, 9, 13]),
     )
     def test_extract_states_vector_Center(self, case):
         self.check_extract_states_vector(*case)
 
     @ddt.data(
-        (0, 0, 'L', [0]),
-        (0, 0, 'U', [0]),
-        (0, 0, 'R', [0, 1, 3]),
-        (0, 0, 'D', [0, 4, 8, 12]),
-
-        (0, 2, 'L', [3, 1, 0]),
-        (0, 2, 'U', [3]),
-        (0, 2, 'R', [3]),
-        (0, 2, 'D', [3, 7, 11, 15]),
-
-        (3, 2, 'L', [15, 13, 12]),
-        (3, 2, 'U', [15, 11, 7, 3]),
-        (3, 2, 'R', [15]),
-        (3, 2, 'D', [15]),
-
-        (3, 0, 'L', [12]),
-        (3, 0, 'U', [12, 8, 4, 0]),
-        (3, 0, 'R', [12, 13, 15]),
-        (3, 0, 'D', [12]),
+        (0, 0, "L", [0]),
+        (0, 0, "U", [0]),
+        (0, 0, "R", [0, 1, 3]),
+        (0, 0, "D", [0, 4, 8, 12]),
+        (0, 2, "L", [3, 1, 0]),
+        (0, 2, "U", [3]),
+        (0, 2, "R", [3]),
+        (0, 2, "D", [3, 7, 11, 15]),
+        (3, 2, "L", [15, 13, 12]),
+        (3, 2, "U", [15, 11, 7, 3]),
+        (3, 2, "R", [15]),
+        (3, 2, "D", [15]),
+        (3, 0, "L", [12]),
+        (3, 0, "U", [12, 8, 4, 0]),
+        (3, 0, "R", [12, 13, 15]),
+        (3, 0, "D", [12]),
     )
     def test_extract_states_vector_Corners(self, case):
         self.check_extract_states_vector(*case)
@@ -510,10 +568,8 @@ class T02StatesVector(unittest.TestCase):
 
 @ddt.ddt
 class T03TargetOpposite(unittest.TestCase):
-
     def check_target_opposite_full_impl(self, *args):
-        (land_row, land_col,
-         moves, exp_row, exp_col) = args
+        (land_row, land_col, moves, exp_row, exp_col) = args
         states_matrix, dn = make_states_matrix()
         argshead = (states_matrix, dn)
 
@@ -524,78 +580,73 @@ class T03TargetOpposite(unittest.TestCase):
             res = _c._target_opposite(*args)
             self.assertEqual(res, Coords(exp_row, exp_col), str(args))
         else:
-            with self.assertRaisesRegex(EmptyCaptureException, "No \w+-target found",
-                                           msg=str(args)):
+            with self.assertRaisesRegex(
+                EmptyCaptureException, "No \w+-target found", msg=str(args)
+            ):
                 _c._target_opposite(*args)
 
-    def check_target_opposite_state(self, land_row, land_col, moves,
-                                    exp_row=None, exp_col=None):
-        self.check_target_opposite_full_impl(land_row, land_col,
-                                             moves, exp_row, exp_col)
+    def check_target_opposite_state(
+        self, land_row, land_col, moves, exp_row=None, exp_col=None
+    ):
+        self.check_target_opposite_full_impl(
+            land_row, land_col, moves, exp_row, exp_col
+        )
 
     @ddt.data(
-        (0, 0, 'DR', 3, 2),
-        (0, 0, 'RD', 2, 3),
-
-        (3, 0, 'UR', 3, 2),
-        (3, 0, 'RU', 3, 2),
-        (3, 0, 'DR', 3, 2),
-        (3, 0, 'RD', 3, 2),
-
-        (0, 3, 'DL', 2, 3),
-        (0, 3, 'LD', 2, 3),
-        (0, 3, 'DR', 2, 3),
-        (0, 3, 'RD', 2, 3),
+        (0, 0, "DR", 3, 2),
+        (0, 0, "RD", 2, 3),
+        (3, 0, "UR", 3, 2),
+        (3, 0, "RU", 3, 2),
+        (3, 0, "DR", 3, 2),
+        (3, 0, "RD", 3, 2),
+        (0, 3, "DL", 2, 3),
+        (0, 3, "LD", 2, 3),
+        (0, 3, "DR", 2, 3),
+        (0, 3, "RD", 2, 3),
     )
     def test_target_opposite_state_Basic(self, case):
         self.check_target_opposite_state(*case)
 
     def test_target_opposite_state_NotMovingFromMatch(self):
-        coords = [(2, 3), (3, 2),
-                  (2, 4), (2, 5),
-                  (3, 5),
-                  (4, 2), (4, 3),   (4, 5),
-                  ]
+        coords = [(2, 3), (3, 2), (2, 4), (2, 5), (3, 5), (4, 2), (4, 3), (4, 5)]
         for d in _all_dirs:
             for r, c in coords:
                 self.check_target_opposite_state(r, c, d, r, c)
 
     def test_target_opposite_state_Beyond_columns(self):
-        dirs = ['L', 'LU', 'LD', 'UL', 'DL']
+        dirs = ["L", "LU", "LD", "UL", "DL"]
         for d in dirs:
             for row in [2, 3, 4]:
                 self.check_target_opposite_state(row, 10, d, row, 5)
-            if 'D' in d:
+            if "D" in d:
                 self.check_target_opposite_state(0, 10, d, 2, 5)
 
-    @ddt.data('U', 'UL', 'UR', 'LU', 'RU')
+    @ddt.data("U", "UL", "UR", "LU", "RU")
     def test_target_opposite_state_Beyond_rows1(self, moves):
         for col in [2, 3, 5]:
             self.check_target_opposite_state(10, col, moves, 4, col)
-        if 'U' in moves[0]:
+        if "U" in moves[0]:
             self.check_target_opposite_state(10, 4, moves, 2, 4)
-        if 'R' in moves:
+        if "R" in moves:
             self.check_target_opposite_state(10, 0, moves, 4, 2)
 
     def test_target_opposite_state_Beyond_rows2(self):
-        self.check_target_opposite_state(10, 4, 'LU', 4, 3)
-        self.check_target_opposite_state(10, 4, 'RU', 4, 5)
+        self.check_target_opposite_state(10, 4, "LU", 4, 3)
+        self.check_target_opposite_state(10, 4, "RU", 4, 5)
 
     def test_target_opposite_state_Beyond_both(self):
-        self.check_target_opposite_state(10, 10, 'UL', 4, 5)
-        self.check_target_opposite_state(10, 10, 'LU', 4, 5)
+        self.check_target_opposite_state(10, 10, "UL", 4, 5)
+        self.check_target_opposite_state(10, 10, "LU", 4, 5)
 
-    @ddt.data(*(list('UDLR') + ['UR', 'RU', 'UL', 'LU', 'DL', 'LD']))
+    @ddt.data(*(list("UDLR") + ["UR", "RU", "UL", "LU", "DL", "LD"]))
     def test_target_opposite_state_InvalidMoves(self, moves):
         self.check_target_opposite_state(0, 0, moves)
 
 
 @ddt.ddt
 class T04TargetSame(unittest.TestCase):
-
     def check_target_same_full_impl(self, *args):
-        (inverse_sm, land_row, land_col,
-         moves, exp_row, exp_col) = args
+        (inverse_sm, land_row, land_col, moves, exp_row, exp_col) = args
         states_matrix, dn = make_states_matrix()
         if inverse_sm:
             states_matrix = ~states_matrix
@@ -608,53 +659,46 @@ class T04TargetSame(unittest.TestCase):
             res = _c._target_same(*args)
             self.assertEqual(res, Coords(exp_row, exp_col), str(args))
         else:
-            with self.assertRaisesRegex(ValueError, "No \w+-target for",
-                                           msg=str(args)):
+            with self.assertRaisesRegex(ValueError, "No \w+-target for", msg=str(args)):
                 _c._target_same(*args)
 
-    def check_target_same_state(self, inverse_sm, land_row, land_col, moves,
-                                exp_row=None, exp_col=None):
-        self.check_target_same_full_impl(inverse_sm, land_row, land_col,
-                                         moves, exp_row, exp_col)
+    def check_target_same_state(
+        self, inverse_sm, land_row, land_col, moves, exp_row=None, exp_col=None
+    ):
+        self.check_target_same_full_impl(
+            inverse_sm, land_row, land_col, moves, exp_row, exp_col
+        )
 
     @ddt.data(
-        (True, 0, 0, 'DR', 4, 5),
-        (True, 0, 0, 'DR', 4, 5),
-        (True, 1, 1, 'DR', 4, 5),
-
-        (False, 2, 3, 'DR', 2, 5),
-        (False, 2, 3, 'RD', 2, 5),
+        (True, 0, 0, "DR", 4, 5),
+        (True, 0, 0, "DR", 4, 5),
+        (True, 1, 1, "DR", 4, 5),
+        (False, 2, 3, "DR", 2, 5),
+        (False, 2, 3, "RD", 2, 5),
     )
     def test_target_same_state_Empty_2moves(self, case):
         state, r, c, mov, rr, rc = case
         self.check_target_same_state(state, r, c, mov, rr, rc)
 
-    @ddt.data(
-        (False, 2, 5, 'LD', 4, 3),
-        (False, 2, 5, 'DL', 4, 3),
-    )
+    @ddt.data((False, 2, 5, "LD", 4, 3), (False, 2, 5, "DL", 4, 3))
     def test_target_same_state_NormalWalking(self, case):
         self.check_target_same_state(*case)
 
     @ddt.data(
-        (False, 2, 5, 'L', 2, 3),
-        (False, 2, 5, 'U', 2, 5),
-        (False, 2, 5, 'LU', 2, 3),
-        (False, 2, 5, 'UL', 2, 3),
-
-        (False, 4, 2, 'U', 3, 2),
-        (False, 4, 2, 'RU', 3, 3),
-        (False, 4, 2, 'UR', 3, 3),
-
-
-        (False, 4, 5, 'L', 4, 5),
-        (False, 4, 5, 'U', 2, 5),
-        (False, 4, 5, 'LU', 2, 5),
-        (False, 4, 5, 'UL', 2, 5),
-
-        (True, 4, 4, 'U', 3, 4),
-        (True, 4, 4, 'UR', 3, 4),
-        (True, 4, 4, 'UL', 3, 4),
+        (False, 2, 5, "L", 2, 3),
+        (False, 2, 5, "U", 2, 5),
+        (False, 2, 5, "LU", 2, 3),
+        (False, 2, 5, "UL", 2, 3),
+        (False, 4, 2, "U", 3, 2),
+        (False, 4, 2, "RU", 3, 3),
+        (False, 4, 2, "UR", 3, 3),
+        (False, 4, 5, "L", 4, 5),
+        (False, 4, 5, "U", 2, 5),
+        (False, 4, 5, "LU", 2, 5),
+        (False, 4, 5, "UL", 2, 5),
+        (True, 4, 4, "U", 3, 4),
+        (True, 4, 4, "UR", 3, 4),
+        (True, 4, 4, "UL", 3, 4),
     )
     def test_target_same_state_InverseWalking(self, case):
         self.check_target_same_state(*case)
@@ -662,88 +706,52 @@ class T04TargetSame(unittest.TestCase):
 
 @ddt.ddt
 class T05Margins(unittest.TestCase):
-
     def test_find_states_matrix_margins(self):
-        sm = np.array([
-            [0, 1, 1, 0]
-        ])
+        sm = np.array([[0, 1, 1, 0]])
         margins = (Coords(0, 1), Coords(0, 2))
         self.assertEqual(_s.margin_coords_from_states_matrix(sm), margins)
 
-        sm = np.asarray([
-            [0, 0, 0],
-            [0, 1, 0],
-            [0, 1, 1],
-            [0, 0, 1],
-        ])
+        sm = np.asarray([[0, 0, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1]])
         margins = (Coords(1, 1), Coords(3, 2))
         self.assertEqual(_s.margin_coords_from_states_matrix(sm), margins)
 
-#    def test_find_states_matrix_margins_big(self):
-#        sm = np.ones((500000, 1), dtype=np.int8)
-#        margins = (Coords(0, 0), Coords(500000, 0))
-#        self.assertEqual(_s.margin_coords_from_states_matrix(sm), margins)
+    #    def test_find_states_matrix_margins_big(self):
+    #        sm = np.ones((500000, 1), dtype=np.int8)
+    #        margins = (Coords(0, 0), Coords(500000, 0))
+    #        self.assertEqual(_s.margin_coords_from_states_matrix(sm), margins)
 
     def test_find_states_matrix_margins_Single_cell(self):
-        sm = np.array([
-            [1],
-        ])
+        sm = np.array([[1]])
         c = Coords(0, 0)
         self.assertEqual(_s.margin_coords_from_states_matrix(sm), (c, c))
 
-        sm = np.array([
-            [0, 0, 1],
-        ])
+        sm = np.array([[0, 0, 1]])
         c = Coords(0, 2)
         self.assertEqual(_s.margin_coords_from_states_matrix(sm), (c, c))
 
-        sm = np.array([
-            [0, 0],
-            [0, 1]
-        ])
+        sm = np.array([[0, 0], [0, 1]])
         c = Coords(1, 1)
         self.assertEqual(_s.margin_coords_from_states_matrix(sm), (c, c))
 
-        sm = np.array([
-            [0, 0],
-            [0, 0],
-            [0, 1]
-        ])
+        sm = np.array([[0, 0], [0, 0], [0, 1]])
         c = Coords(2, 1)
         self.assertEqual(_s.margin_coords_from_states_matrix(sm), (c, c))
 
     def test_find_states_matrix_margins_Further_empties(self):
-        sm = np.asarray([
-            [0, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 1, 1, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 0],
-        ])
+        sm = np.asarray(
+            [[0, 0, 0, 0], [0, 1, 0, 0], [0, 1, 1, 0], [0, 0, 1, 0], [0, 0, 0, 0]]
+        )
         margins = (Coords(1, 1), Coords(3, 2))
         self.assertEqual(_s.margin_coords_from_states_matrix(sm), margins)
 
-        sm = np.asarray([
-            [1, 0],
-            [0, 0],
-            [0, 0],
-        ])
+        sm = np.asarray([[1, 0], [0, 0], [0, 0]])
         margins = (Coords(0, 0), Coords(0, 0))
         self.assertEqual(_s.margin_coords_from_states_matrix(sm), margins)
-        sm = np.asarray([
-            [0, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 0, 0],
-        ])
+        sm = np.asarray([[0, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 0]])
         margins = (Coords(1, 1), Coords(1, 1))
         self.assertEqual(_s.margin_coords_from_states_matrix(sm), margins)
 
-    @ddt.data(
-        [[]],
-        [[0], [0]],
-        [[0, 0]],
-        [[0, 0], [0, 0]],
-    )
+    @ddt.data([[]], [[0], [0]], [[0, 0]], [[0, 0], [0, 0]])
     def test_find_states_matrix_margins_EmptySheet(self, states_matrix):
         margins = (Coords(0, 0), Coords(0, 0))
         res = _s.margin_coords_from_states_matrix(np.asarray(states_matrix))
@@ -752,16 +760,18 @@ class T05Margins(unittest.TestCase):
 
 @ddt.ddt
 class T06Expand(unittest.TestCase):
-
     def make_states_matrix(self):
-        states_matrix = np.array([
-            # 0  1  2  3  4  5
-            [0, 0, 0, 0, 0, 0],  # 0
-            [0, 0, 1, 1, 1, 0],  # 1
-            [0, 1, 0, 0, 1, 0],  # 2
-            [0, 1, 1, 1, 1, 0],  # 3
-            [0, 0, 0, 0, 0, 1],  # 4
-        ], dtype=bool)
+        states_matrix = np.array(
+            [
+                # 0  1  2  3  4  5
+                [0, 0, 0, 0, 0, 0],  # 0
+                [0, 0, 1, 1, 1, 0],  # 1
+                [0, 1, 0, 0, 1, 0],  # 2
+                [0, 1, 1, 1, 1, 0],  # 3
+                [0, 0, 0, 0, 0, 1],  # 4
+            ],
+            dtype=bool,
+        )
         return states_matrix
 
     def check_expand_rect(self, rect_in, exp_mov, rect_out, states_matrix=None):
@@ -770,8 +780,10 @@ class T06Expand(unittest.TestCase):
 
         st = Coords(*rect_in[:2])
         nd = Coords(*rect_in[2:]) if len(rect_in) > 2 else st
-        rect_out = (Coords(*rect_out[:2]),
-                    Coords(*rect_out[2:]) if len(rect_out) > 2 else Coords(*rect_out))
+        rect_out = (
+            Coords(*rect_out[:2]),
+            Coords(*rect_out[2:]) if len(rect_out) > 2 else Coords(*rect_out),
+        )
         rect_got = _c._expand_rect(states_matrix, st, nd, exp_mov)
         self.assertEqual(rect_got, rect_out)
 
@@ -779,122 +791,119 @@ class T06Expand(unittest.TestCase):
         self.assertEqual(rect_got, rect_out)
 
     @ddt.data(
-        ((2, 1), 'U'),
-        ((3, 1, 3, 1), 'D'),
-        ((2, 1, 3, 1), 'U'),
-        ((2, 1, 3, 1), 'D'),
-
-        ((2, 1), 'U1'),
-        ((3, 1, 3, 1), 'D1'),
-        ((2, 1, 3, 1), 'U1'),
-        ((2, 1, 3, 1), 'D1'),
-
-        ((2, 1), 'U?'),
-        ((3, 1, 3, 1), 'D?'),
-        ((2, 1, 3, 1), 'U?'),
-        ((2, 1, 3, 1), 'D?'),
-
-        ((1, 3, 1, 4), 'R'),
-        ((1, 2, 1, 3), 'L'),
-
-        ((1, 3, 1, 4), 'R1'),
-        ((1, 2, 1, 3), 'L1'),
-
-        ((1, 1, 3, 4), 'LURD'),
+        ((2, 1), "U"),
+        ((3, 1, 3, 1), "D"),
+        ((2, 1, 3, 1), "U"),
+        ((2, 1, 3, 1), "D"),
+        ((2, 1), "U1"),
+        ((3, 1, 3, 1), "D1"),
+        ((2, 1, 3, 1), "U1"),
+        ((2, 1, 3, 1), "D1"),
+        ((2, 1), "U?"),
+        ((3, 1, 3, 1), "D?"),
+        ((2, 1, 3, 1), "U?"),
+        ((2, 1, 3, 1), "D?"),
+        ((1, 3, 1, 4), "R"),
+        ((1, 2, 1, 3), "L"),
+        ((1, 3, 1, 4), "R1"),
+        ((1, 2, 1, 3), "L1"),
+        ((1, 1, 3, 4), "LURD"),
     )
     def test_StandStill(self, case):
-        case += (case[0], )
+        case += (case[0],)
         self.check_expand_rect(*case)
 
     @ddt.data(
-        ((2, 5), 'R'),
-        ((4, 0, 4, 4), 'D'),
-
-        ((4, 5), 'R'),
-        ((4, 5), 'D'),
-
-        ((0, 1, 0, 2), 'U'),
-        ((1, 0, 3, 0), 'L'),
-
-        ((0, 0), 'U'),
-        ((0, 0), 'L'),
+        ((2, 5), "R"),
+        ((4, 0, 4, 4), "D"),
+        ((4, 5), "R"),
+        ((4, 5), "D"),
+        ((0, 1, 0, 2), "U"),
+        ((1, 0, 3, 0), "L"),
+        ((0, 0), "U"),
+        ((0, 0), "L"),
     )
     def test_StandStill_beyondMargins(self, case):
-        case += (case[0], )
+        case += (case[0],)
         self.check_expand_rect(*case)
 
     @ddt.data(
-        ((3, 1, 3, 5), 'U', (1, 1, 3, 5)),
-        ((2, 1, 3, 2), 'RU', (1, 1, 3, 4)),
-        ((2, 3, 2, 3), 'LURD', (1, 1, 3, 4)),
-
-        ((1, 1, 3, 2), 'LURD', (1, 1, 3, 4)),
-        ((2, 1, 3, 2), 'LURD', (1, 1, 3, 4)),
-        ((1, 2, 3, 2), 'LURD', (1, 1, 3, 4)),
-        ((1, 1, 3, 2), 'DLRU', (1, 1, 3, 4)),
-        ((2, 1, 3, 2), 'DLRU', (1, 1, 3, 4)),
-        ((1, 2, 3, 2), 'DLRU', (1, 1, 3, 4)),
+        ((3, 1, 3, 5), "U", (1, 1, 3, 5)),
+        ((2, 1, 3, 2), "RU", (1, 1, 3, 4)),
+        ((2, 3, 2, 3), "LURD", (1, 1, 3, 4)),
+        ((1, 1, 3, 2), "LURD", (1, 1, 3, 4)),
+        ((2, 1, 3, 2), "LURD", (1, 1, 3, 4)),
+        ((1, 2, 3, 2), "LURD", (1, 1, 3, 4)),
+        ((1, 1, 3, 2), "DLRU", (1, 1, 3, 4)),
+        ((2, 1, 3, 2), "DLRU", (1, 1, 3, 4)),
+        ((1, 2, 3, 2), "DLRU", (1, 1, 3, 4)),
     )
     def test_expand_rect(self, case):
         self.check_expand_rect(*case)
 
     @ddt.data(
-        ((3, 1, 3, 2), 'U1R1', (2, 1, 3, 3)),
-        ((3, 1, 3, 2), 'R1U1', (2, 1, 3, 3)),
-        ((3, 1, 3, 2), 'U?R?', (2, 1, 3, 3)),
-        ((3, 1, 3, 2), 'R?U?', (2, 1, 3, 3)),
-
-        ((2, 1, 3, 2), 'R1U1', (1, 1, 3, 3)),
-        ((2, 1, 3, 2), 'U1R1', (1, 1, 3, 3)),
-
-        ((3, 3, 4, 3), 'L1', (3, 2, 4, 3)),
+        ((3, 1, 3, 2), "U1R1", (2, 1, 3, 3)),
+        ((3, 1, 3, 2), "R1U1", (2, 1, 3, 3)),
+        ((3, 1, 3, 2), "U?R?", (2, 1, 3, 3)),
+        ((3, 1, 3, 2), "R?U?", (2, 1, 3, 3)),
+        ((2, 1, 3, 2), "R1U1", (1, 1, 3, 3)),
+        ((2, 1, 3, 2), "U1R1", (1, 1, 3, 3)),
+        ((3, 3, 4, 3), "L1", (3, 2, 4, 3)),
     )
     def test_Single(self, case):
         self.check_expand_rect(*case)
 
-    @ddt.data(
-        ((2, 1, 6, 1), 'R', (2, 1, 6, 5)),
-    )
+    @ddt.data(((2, 1, 6, 1), "R", (2, 1, 6, 5)))
     def test_OutOfBounds(self, case):
         self.check_expand_rect(*case)
 
     def test_spiral(self):
-        states_matrix = np.array([
-            # 0  1  2  3  4  5
-            [0, 1, 0, 0, 0, 0],  # 0
-            [0, 0, 1, 0, 1, 0],  # 1
-            [0, 0, 1, 1, 0, 0],  # 2
-            [0, 1, 0, 0, 1, 0],  # 3
-            [0, 0, 0, 0, 0, 1],  # 4
-        ], dtype=bool)
-        self.check_expand_rect((2, 2, 2, 2), 'LURD', (0, 1, 3, 4),
-                               states_matrix=states_matrix)
+        states_matrix = np.array(
+            [
+                # 0  1  2  3  4  5
+                [0, 1, 0, 0, 0, 0],  # 0
+                [0, 0, 1, 0, 1, 0],  # 1
+                [0, 0, 1, 1, 0, 0],  # 2
+                [0, 1, 0, 0, 1, 0],  # 3
+                [0, 0, 0, 0, 0, 1],  # 4
+            ],
+            dtype=bool,
+        )
+        self.check_expand_rect(
+            (2, 2, 2, 2), "LURD", (0, 1, 3, 4), states_matrix=states_matrix
+        )
 
     def test_spiral_Broken(self):
-        states_matrix = np.array([
-            # 0  1  2  3  4  5
-            [0, 1, 0, 0, 0, 0],  # 0
-            [0, 0, 1, 0, 0, 0],  # 1
-            [0, 0, 1, 1, 0, 0],  # 2
-            [0, 1, 0, 1, 1, 0],  # 3
-            [0, 0, 0, 0, 0, 1],  # 4
-        ], dtype=bool)
-        self.check_expand_rect((2, 2, 2, 2), 'LURD', (0, 1, 3, 4),
-                               states_matrix=states_matrix)
+        states_matrix = np.array(
+            [
+                # 0  1  2  3  4  5
+                [0, 1, 0, 0, 0, 0],  # 0
+                [0, 0, 1, 0, 0, 0],  # 1
+                [0, 0, 1, 1, 0, 0],  # 2
+                [0, 1, 0, 1, 1, 0],  # 3
+                [0, 0, 0, 0, 0, 1],  # 4
+            ],
+            dtype=bool,
+        )
+        self.check_expand_rect(
+            (2, 2, 2, 2), "LURD", (0, 1, 3, 4), states_matrix=states_matrix
+        )
 
 
 @ddt.ddt
 class T07Capture(unittest.TestCase):
-
     def make_states_matrix(self):
-        states_matrix = np.array([
-            # A  B  C  D  E  F
-            [0, 0, 0, 0, 0, 0],  # '1'
-            [0, 0, 0, 0, 0, 0],  # '2'
-            [0, 0, 0, 1, 1, 1],  # '3'
-            [0, 0, 1, 0, 0, 1],  # '4'
-            [0, 0, 1, 1, 0, 1],  # '5'
-        ], dtype=bool)
+        states_matrix = np.array(
+            [
+                # A  B  C  D  E  F
+                [0, 0, 0, 0, 0, 0],  # '1'
+                [0, 0, 0, 0, 0, 0],  # '2'
+                [0, 0, 0, 1, 1, 1],  # '3'
+                [0, 0, 1, 0, 0, 1],  # '4'
+                [0, 0, 1, 1, 0, 1],  # '5'
+            ],
+            dtype=bool,
+        )
         margin_coords = _s.margin_coords_from_states_matrix(states_matrix)
         args = (states_matrix, margin_coords)
 
@@ -906,108 +915,94 @@ class T07Capture(unittest.TestCase):
         #     res_st_row, res_st_col, res_nd_row, res_nd_col
         argshead = self.make_states_matrix()
 
-        st_edge = _p.Edge(_p.Cell(*args[0:2]), args[2], '+')
-        nd_edge = _p.Edge(_p.Cell(*args[3:5]), args[5], '+')
-        res = (Coords(*args[6:8]),
-               Coords(*args[8:10]))
+        st_edge = _p.Edge(_p.Cell(*args[0:2]), args[2], "+")
+        nd_edge = _p.Edge(_p.Cell(*args[3:5]), args[5], "+")
+        res = (Coords(*args[6:8]), Coords(*args[8:10]))
         args = argshead + (st_edge, nd_edge) + tuple(args[10:])
-        self.assertEqual(_c.resolve_capture_rect(*args),
-                         res, str(args))
+        self.assertEqual(_c.resolve_capture_rect(*args), res, str(args))
 
     def test_St_inverseTargetDirs(self):
-        self.check_resolve_capture_rect('1', 'A', 'DR', '.', '.', 'DR',
-                                        3, 2, 4, 2)
-        self.check_resolve_capture_rect('^', '^', 'RD', '.', '.', 'RD',
-                                        2, 3, 2, 5)
+        self.check_resolve_capture_rect("1", "A", "DR", ".", ".", "DR", 3, 2, 4, 2)
+        self.check_resolve_capture_rect("^", "^", "RD", ".", ".", "RD", 2, 3, 2, 5)
 
     @ddt.data(
-        ('^', '^', 'D', '_', '_', None, 3, 2, 4, 5),
-        ('^', '^', 'DR', '_', '_', None, 3, 2, 4, 5),
-        ('^', '^', 'R', '_', '_', None, 2, 3, 4, 5),
-        ('^', '^', 'RD', '_', '_', None, 2, 3, 4, 5),
-
-        ('4', 'D', 'U', '4', 'E', 'R', 2, 3, 3, 5),
-        ('4', 'D', 'UL', '4', 'F', 'RD', 2, 3, 4, 5),
-        ('4', 'D', 'L', '4', 'F', 'RD', 3, 2, 4, 5),
-        ('4', 'D', 'LU', '4', 'F', 'RD', 3, 2, 4, 5),
+        ("^", "^", "D", "_", "_", None, 3, 2, 4, 5),
+        ("^", "^", "DR", "_", "_", None, 3, 2, 4, 5),
+        ("^", "^", "R", "_", "_", None, 2, 3, 4, 5),
+        ("^", "^", "RD", "_", "_", None, 2, 3, 4, 5),
+        ("4", "D", "U", "4", "E", "R", 2, 3, 3, 5),
+        ("4", "D", "UL", "4", "F", "RD", 2, 3, 4, 5),
+        ("4", "D", "L", "4", "F", "RD", 3, 2, 4, 5),
+        ("4", "D", "LU", "4", "F", "RD", 3, 2, 4, 5),
     )
     def test_Target_fromEmpty_st(self, case):
         self.check_resolve_capture_rect(*case)
 
     @ddt.data(
-        ('3', 'D', 'R', '_', '_', None, 2, 5, 4, 5),
-        ('3', 'D', 'UR', '_', '_', None, 2, 5, 4, 5),
-        ('3', 'D', 'RU', '_', '_', None, 2, 5, 4, 5),
-        ('3', 'D', 'DR', '_', '_', None, 2, 5, 4, 5),
-        ('3', 'D', 'RD', '_', '_', None, 2, 5, 4, 5),
-
-        ('3', 'D', 'L', '_', '_', None, 2, 3, 4, 5),
-        ('3', 'D', 'UL', '_', '_', None, 2, 3, 4, 5),
-        ('3', 'D', 'LU', '_', '_', None, 2, 3, 4, 5),
-        ('3', 'D', 'DL', '_', '_', None, 2, 3, 4, 5),
-        ('3', 'D', 'LD', '_', '_', None, 2, 3, 4, 5),
-
-        ('3', 'E', 'R', '_', '_', None, 2, 5, 4, 5),
-        ('3', 'E', 'UR', '_', '_', None, 2, 5, 4, 5),
-        ('3', 'E', 'RU', '_', '_', None, 2, 5, 4, 5),
-        ('3', 'E', 'DR', '_', '_', None, 2, 5, 4, 5),
-        ('3', 'E', 'RD', '_', '_', None, 2, 5, 4, 5),
-
-        ('3', 'E', 'L', '_', '_', None, 2, 3, 4, 5),
-        ('3', 'E', 'UL', '_', '_', None, 2, 3, 4, 5),
-        ('3', 'E', 'LU', '_', '_', None, 2, 3, 4, 5),
-        ('3', 'E', 'DL', '_', '_', None, 2, 3, 4, 5),
-        ('3', 'E', 'LD', '_', '_', None, 2, 3, 4, 5),
-
-        ('3', 'E', 'L', '_', '_', None, 2, 3, 4, 5),
+        ("3", "D", "R", "_", "_", None, 2, 5, 4, 5),
+        ("3", "D", "UR", "_", "_", None, 2, 5, 4, 5),
+        ("3", "D", "RU", "_", "_", None, 2, 5, 4, 5),
+        ("3", "D", "DR", "_", "_", None, 2, 5, 4, 5),
+        ("3", "D", "RD", "_", "_", None, 2, 5, 4, 5),
+        ("3", "D", "L", "_", "_", None, 2, 3, 4, 5),
+        ("3", "D", "UL", "_", "_", None, 2, 3, 4, 5),
+        ("3", "D", "LU", "_", "_", None, 2, 3, 4, 5),
+        ("3", "D", "DL", "_", "_", None, 2, 3, 4, 5),
+        ("3", "D", "LD", "_", "_", None, 2, 3, 4, 5),
+        ("3", "E", "R", "_", "_", None, 2, 5, 4, 5),
+        ("3", "E", "UR", "_", "_", None, 2, 5, 4, 5),
+        ("3", "E", "RU", "_", "_", None, 2, 5, 4, 5),
+        ("3", "E", "DR", "_", "_", None, 2, 5, 4, 5),
+        ("3", "E", "RD", "_", "_", None, 2, 5, 4, 5),
+        ("3", "E", "L", "_", "_", None, 2, 3, 4, 5),
+        ("3", "E", "UL", "_", "_", None, 2, 3, 4, 5),
+        ("3", "E", "LU", "_", "_", None, 2, 3, 4, 5),
+        ("3", "E", "DL", "_", "_", None, 2, 3, 4, 5),
+        ("3", "E", "LD", "_", "_", None, 2, 3, 4, 5),
+        ("3", "E", "L", "_", "_", None, 2, 3, 4, 5),
     )
     def test_Target_fromFull_st(self, case):
         self.check_resolve_capture_rect(*case)
 
     @ddt.data(
-        ('3', 'D', None, '4', 'E', 'R', 2, 3, 3, 5),
-        ('3', 'D', None, '4', 'E', 'RD', 2, 3, 3, 5),
-        ('3', 'D', None, '4', 'E', 'RU', 2, 3, 3, 5),
-
-        ('3', 'D', None, '4', 'E', 'L', 2, 2, 3, 3),
-        ('3', 'D', None, '4', 'E', 'LD', 2, 2, 3, 3),
-        ('3', 'D', None, '4', 'E', 'LU', 2, 2, 3, 3),
+        ("3", "D", None, "4", "E", "R", 2, 3, 3, 5),
+        ("3", "D", None, "4", "E", "RD", 2, 3, 3, 5),
+        ("3", "D", None, "4", "E", "RU", 2, 3, 3, 5),
+        ("3", "D", None, "4", "E", "L", 2, 2, 3, 3),
+        ("3", "D", None, "4", "E", "LD", 2, 2, 3, 3),
+        ("3", "D", None, "4", "E", "LU", 2, 2, 3, 3),
     )
     def test_Target_fromEmpty_nd(self, case):
         self.check_resolve_capture_rect(*case)
 
     def test_BackwardRelative_singleDir(self):
-        self.check_resolve_capture_rect('^', '_', None, '.', '.', 'L',
-                                        2, 3, 2, 5)
-        self.check_resolve_capture_rect('_', '^', None, '.', '.', 'U',
-                                        3, 2, 4, 2)
+        self.check_resolve_capture_rect("^", "_", None, ".", ".", "L", 2, 3, 2, 5)
+        self.check_resolve_capture_rect("_", "^", None, ".", ".", "U", 3, 2, 4, 2)
 
     @ddt.data(
-        ('_', '_', None, '.', '.', 'UL', 2, 5, 4, 5),
-        ('_', '_', None, '.', '.', 'LU', 2, 5, 4, 5),
-
-        ('^', '_', None, '.', '.', 'LD', 2, 3, 4, 5),
-        ('^', '_', None, '.', '.', 'DL', 2, 3, 4, 5),
-
-        ('_', '^', None, '.', '.', 'UR', 3, 2, 4, 3),
-        ('_', '^', None, '.', '.', 'RU', 3, 2, 4, 3),
+        ("_", "_", None, ".", ".", "UL", 2, 5, 4, 5),
+        ("_", "_", None, ".", ".", "LU", 2, 5, 4, 5),
+        ("^", "_", None, ".", ".", "LD", 2, 3, 4, 5),
+        ("^", "_", None, ".", ".", "DL", 2, 3, 4, 5),
+        ("_", "^", None, ".", ".", "UR", 3, 2, 4, 3),
+        ("_", "^", None, ".", ".", "RU", 3, 2, 4, 3),
     )
     def test_BackwardRelative_multipleDirs(self, case):
         self.check_resolve_capture_rect(*case)
 
     @ddt.data(
-        ('^', '^', None, '_', '_', None, 2, 2, 4, 5),
-        ('_', '_', None, '^', '^', None, 2, 2, 4, 5),
-        ('^', '_', None, '_', '^', None, 2, 2, 4, 5),
-        ('_', '^', None, '^', '_', None, 2, 2, 4, 5),
+        ("^", "^", None, "_", "_", None, 2, 2, 4, 5),
+        ("_", "_", None, "^", "^", None, 2, 2, 4, 5),
+        ("^", "_", None, "_", "^", None, 2, 2, 4, 5),
+        ("_", "^", None, "^", "_", None, 2, 2, 4, 5),
     )
     def test_BackwardMoves_nonRelative(self, case):
         self.check_resolve_capture_rect(*case)
 
     @ddt.data(
-        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, None),
-        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, Coords(None, 0)),
-        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, Coords(0, None)),
+        (".", ".", None, ".", ".", None, 0, 0, 0, 0, None, None),
+        (".", ".", None, ".", ".", None, 0, 0, 0, 0, None, Coords(None, 0)),
+        (".", ".", None, ".", ".", None, 0, 0, 0, 0, None, Coords(0, None)),
     )
     def test_1stRelative_withoutBase(self, case):
         err_msg = "Cannot resolve `relative"
@@ -1015,17 +1010,15 @@ class T07Capture(unittest.TestCase):
             self.check_resolve_capture_rect(*case)
 
     @ddt.data(
-        ('.', '.', None, '.', '.', None, 0, 0, 0, 0, None, Coords(0, 0)),
-        ('.', '.', None, '.', '.', None, 1, 1, 1, 1, None, Coords(1, 1)),
+        (".", ".", None, ".", ".", None, 0, 0, 0, 0, None, Coords(0, 0)),
+        (".", ".", None, ".", ".", None, 1, 1, 1, 1, None, Coords(1, 1)),
     )
     def test_1stRelative(self, case):
         self.check_resolve_capture_rect(*case)
 
 
 class T08Sheet(unittest.TestCase):
-
     class MySheet(_s.ABCSheet):
-
         def open_sibling_sheet(self, sheet_id):
             raise NotImplementedError()
 
@@ -1055,9 +1048,7 @@ class T08Sheet(unittest.TestCase):
 
     def test_get_margin_coords_Extracted_from_states_matrix(self):
         sheet = self.MySheet()
-        sheet._states_matrix = np.array([
-            [0, 1, 1, 0]
-        ])
+        sheet._states_matrix = np.array([[0, 1, 1, 0]])
         margins = (Coords(0, 1), Coords(0, 2))
         self.assertEqual(sheet.get_margin_coords(), margins)
         sheet._margin_coords = None
@@ -1067,16 +1058,12 @@ class T08Sheet(unittest.TestCase):
 
         # Modify states_matrix but not cache.
         #
-        sheet._states_matrix = np.asarray([
-            [0, 0, 0],
-            [1, 1, 0],
-            [0, 1, 1],
-            [0, 0, 1],
-        ])
+        sheet._states_matrix = np.asarray([[0, 0, 0], [1, 1, 0], [0, 1, 1], [0, 0, 1]])
         self.assertEqual(sheet.get_margin_coords(), margins)
         sheet._margin_coords = None
         margins = (Coords(1, 0), Coords(3, 2))
         self.assertEqual(sheet.get_margin_coords(), margins)
+
 
 ############
 # LASSO
@@ -1086,8 +1073,9 @@ class T08Sheet(unittest.TestCase):
 def _read_rect_values(sheet, st_edge, nd_edge, dims):
     states_matrix = sheet.get_states_matrix()
     margin_coords = sheet.get_margin_coords()
-    st, nd = _c.resolve_capture_rect(states_matrix, margin_coords,
-                                     st_edge, nd_edge)  # or Edge(None, None))
+    st, nd = _c.resolve_capture_rect(
+        states_matrix, margin_coords, st_edge, nd_edge
+    )  # or Edge(None, None))
     v = sheet.read_rect(st, nd)
     if dims is not None:
         v = _f._redim(v, dims)
@@ -1097,16 +1085,17 @@ def _read_rect_values(sheet, st_edge, nd_edge, dims):
 
 @ddt.ddt
 class T09ReadRect(unittest.TestCase):
-
     def setUp(self):
-        arr = np.array([
-            # A     B       C      D
-            [None, None,   None,  None],  # 1
-            [None, None,   None,  None],  # 2
-            [None, np.NaN, 5.1,   7.1],   # 3
-            [None, None,   43,    'str'],  # 4
-            [None, -1,     None,  None],  # 5
-        ])
+        arr = np.array(
+            [
+                # A     B       C      D
+                [None, None, None, None],  # 1
+                [None, None, None, None],  # 2
+                [None, np.NaN, 5.1, 7.1],  # 3
+                [None, None, 43, "str"],  # 4
+                [None, -1, None, None],  # 5
+            ]
+        )
         self.sheet = _s.ArraySheet(arr)
 
     def check_read_capture_rect(self, case):
@@ -1126,98 +1115,96 @@ class T09ReadRect(unittest.TestCase):
 
     @ddt.data(
         # Edge-1            Edge2       Dims    Result
-        (('1', 'A'),        None,       None,   None),
-        (('4', 'D'),        None,       None,   'str'),
-        (('1', 'A', 'DR'),  None,       None,   np.NaN),
-        (('^', '^'),        None,       None,   np.NaN),
-        (('_', '^'),        None,       None,   -1),
-        (('_', 'C', 'U'),   None,       None,   43),
+        (("1", "A"), None, None, None),
+        (("4", "D"), None, None, "str"),
+        (("1", "A", "DR"), None, None, np.NaN),
+        (("^", "^"), None, None, np.NaN),
+        (("_", "^"), None, None, -1),
+        (("_", "C", "U"), None, None, 43),
     )
     def test_Scalar(self, case):
         self.check_read_capture_rect(case)
 
     @ddt.data(
         # Edge-1            Edge2       Dims    Result
-        (('1', 'A'),        None,       0,      None),
-        (('4', 'D'),        None,       1,      ['str']),
-        (('1', 'A', 'DR'),  None,       2,      [[np.NaN]]),
-        (('^', '^'),        None,       3,      [[[np.NaN]]]),
-        (('_', '^'),        None,       0,      -1),
-        (('_', 'C', 'U'),   None,       1,      [43]),
+        (("1", "A"), None, 0, None),
+        (("4", "D"), None, 1, ["str"]),
+        (("1", "A", "DR"), None, 2, [[np.NaN]]),
+        (("^", "^"), None, 3, [[[np.NaN]]]),
+        (("_", "^"), None, 0, -1),
+        (("_", "C", "U"), None, 1, [43]),
     )
     def test_Scalar_withDims(self, case):
         self.check_read_capture_rect(case)
 
     @ddt.data(
         # Edge-1         Edge2          Dims    Result
-        (('1', 'A'),    ('1', 'A'),     None,   [None]),
-        (('4', 'D'),    ('4', 'D'),     None,   ['str']),
-        (('1', 'A', 'DR'), ('.', '.'),  None,   [np.NaN]),
-        (('^', '^'),    ('^', '^'),     None,   [np.NaN]),
-        (('_', '^'),    ('_', '^'),     None,   [-1]),
-        (list('_CU'),   list('^CD+'),   None,   [43]),
+        (("1", "A"), ("1", "A"), None, [None]),
+        (("4", "D"), ("4", "D"), None, ["str"]),
+        (("1", "A", "DR"), (".", "."), None, [np.NaN]),
+        (("^", "^"), ("^", "^"), None, [np.NaN]),
+        (("_", "^"), ("_", "^"), None, [-1]),
+        (list("_CU"), list("^CD+"), None, [43]),
     )
     def test_Cell(self, case):
         self.check_read_capture_rect(case)
 
     @ddt.data(
         # Edge-1         Edge2          Dims    Result
-        (('1', 'A'),    ('1', 'A'),     2,      [[None]]),
-        (('4', 'D'),    ('4', 'D'),     3,      [[['str']]]),
-        (('1', 'A', 'DR'), ('.', '.'),  0,      np.NaN),
-        (('^', '^'),    ('^', '^'),     1,      [np.NaN]),
-        (('_', '^'),    ('_', '^'),     2,      [[-1]]),
-        (list('_CU'),   list('^CD+'),   3,      [[[43]]]),
+        (("1", "A"), ("1", "A"), 2, [[None]]),
+        (("4", "D"), ("4", "D"), 3, [[["str"]]]),
+        (("1", "A", "DR"), (".", "."), 0, np.NaN),
+        (("^", "^"), ("^", "^"), 1, [np.NaN]),
+        (("_", "^"), ("_", "^"), 2, [[-1]]),
+        (list("_CU"), list("^CD+"), 3, [[[43]]]),
     )
     def test_Cell_withDims(self, case):
         self.check_read_capture_rect(case)
 
     @ddt.data(
         # Edge-1         Edge2          Dims    Result
-        (('1', 'A'),    ('1', '_'),     None,   [None] * 4),
-        (('3', 'A'),    list('.BR+'),   None,   [None, np.NaN, 5.1, 7.1]),
-        (list('^_L'),   list('^AR'),    None,   [np.NaN, 5.1, 7.1]),
-        (('_', '_', 'UL'), list('..L'), None,   [43, 'str']),
-        (('_', '^'),    ('_', '_'),     None,   [-1, None, None]),
-        (list('^CR'),   list('^DR'),    None,   [5.1, 7.1]),
+        (("1", "A"), ("1", "_"), None, [None] * 4),
+        (("3", "A"), list(".BR+"), None, [None, np.NaN, 5.1, 7.1]),
+        (list("^_L"), list("^AR"), None, [np.NaN, 5.1, 7.1]),
+        (("_", "_", "UL"), list("..L"), None, [43, "str"]),
+        (("_", "^"), ("_", "_"), None, [-1, None, None]),
+        (list("^CR"), list("^DR"), None, [5.1, 7.1]),
     )
     def test_Row(self, case):
         self.check_read_capture_rect(case)
 
     @ddt.data(
         # Edge-1         Edge2          Dims    Result
-        (('1', 'A'),    ('1', '_'),     1,      [None] * 4),
-        (('3', 'A'),    list('.BR+'),   2,      [[None, np.NaN,  5.1, 7.1]]),
-        (list('^_L'),   list('^AR'),    3,      [[[np.NaN, 5.1, 7.1]]]),
-        (('_', '_', 'UL'), list('..L'), 2,      [[43, 'str']]),
-        (('_', '^'),    ('_', '_'),     1,      [-1, None, None]),
-        (list('^CR'),   list('^DR'),    2,      [[5.1, 7.1]]),
+        (("1", "A"), ("1", "_"), 1, [None] * 4),
+        (("3", "A"), list(".BR+"), 2, [[None, np.NaN, 5.1, 7.1]]),
+        (list("^_L"), list("^AR"), 3, [[[np.NaN, 5.1, 7.1]]]),
+        (("_", "_", "UL"), list("..L"), 2, [[43, "str"]]),
+        (("_", "^"), ("_", "_"), 1, [-1, None, None]),
+        (list("^CR"), list("^DR"), 2, [[5.1, 7.1]]),
     )
     def test_Row_withDims(self, case):
         self.check_read_capture_rect(case)
 
     @ddt.data(
         # Edge-1         Edge2          Dims    Result
-        (('1', 'A'),    ('_', 'A'),     None,   [[None] * 5]),
-        (('^', '^'),    list('_^'),     None,   [[5.1,  None, -1]]),
-        (('1', 'B'),    ('_', 'A', 'RU'), None,
-         [[None, None, np.NaN,  None, -1]]),
-        (('1', '_', 'LD'), list('..D'), None,   [[7.1,  'str']]),
-        (('_', 'C'), list('1CD+'),      None,   [[np.NaN, 43, None]]),
-        (('_', '_'), ('1', '_', 'D'),   None,   [[7.1,  'str', None]]),
+        (("1", "A"), ("_", "A"), None, [[None] * 5]),
+        (("^", "^"), list("_^"), None, [[5.1, None, -1]]),
+        (("1", "B"), ("_", "A", "RU"), None, [[None, None, np.NaN, None, -1]]),
+        (("1", "_", "LD"), list("..D"), None, [[7.1, "str"]]),
+        (("_", "C"), list("1CD+"), None, [[np.NaN, 43, None]]),
+        (("_", "_"), ("1", "_", "D"), None, [[7.1, "str", None]]),
     )
     def test_Col(self, case):
         self.check_read_capture_rect(case)
 
     @ddt.data(
         # Edge-1         Edge2          Dims    Result
-        (('1', 'A'),    ('_', 'A'),     1,      [None] * 5),
-        (('^', '^'),    list('_^'),     2,      [[5.1,  None, -1]]),
-        (('1', 'B'),    ('_', 'A', 'RU'), 3,
-         [[[None, None, np.NaN,  None, -1]]]),
-        (('1', '_', 'LD'), list('..D'), 2,      [[7.1,  'str']]),
-        (('_', 'C'), list('1CD+'),      1,      [np.NaN, 43, None]),
-        (('_', '_'), ('1', '_', 'D'),   2,      [[7.1,  'str', None]]),
+        (("1", "A"), ("_", "A"), 1, [None] * 5),
+        (("^", "^"), list("_^"), 2, [[5.1, None, -1]]),
+        (("1", "B"), ("_", "A", "RU"), 3, [[[None, None, np.NaN, None, -1]]]),
+        (("1", "_", "LD"), list("..D"), 2, [[7.1, "str"]]),
+        (("_", "C"), list("1CD+"), 1, [np.NaN, 43, None]),
+        (("_", "_"), ("1", "_", "D"), 2, [[7.1, "str", None]]),
     )
     def test_Col_withDims(self, case):
         self.check_read_capture_rect(case)
@@ -1225,19 +1212,41 @@ class T09ReadRect(unittest.TestCase):
 
 @ddt.ddt
 class T10SheetManager(unittest.TestCase):
-
     @ddt.data(
-        (('wb1', ['sh1', 0]), None, None,     [('wb1', 'sh1'), ('wb1', 0),
-                                               ('wb1', None)]),
-        (('wb1', [None, 0]), None, None,      [('wb1', None), ('wb1', 0)]),
-        (('wb1', ['sh1', 0]), 'wb2', None,    [('wb1', 'sh1'), ('wb1', 0),
-                                               ('wb1', None), ('wb2', 'sh1'),
-                                               ('wb2', 0), ('wb2', None)]),
-        (('wb1', ['sh1', 0]), 'wb2', 'sh2',   [('wb1', 'sh1'), ('wb1', 0),
-                                               ('wb1', 'sh2'), ('wb2', 'sh1'),
-                                               ('wb2', 'sh2'), ('wb2', 0)]),
-        (('wb1', ['sh1', 0]), None, 'sh2',   [('wb1', 'sh1'), ('wb1', 0),
-                                              ('wb1', 'sh2')]),
+        (("wb1", ["sh1", 0]), None, None, [("wb1", "sh1"), ("wb1", 0), ("wb1", None)]),
+        (("wb1", [None, 0]), None, None, [("wb1", None), ("wb1", 0)]),
+        (
+            ("wb1", ["sh1", 0]),
+            "wb2",
+            None,
+            [
+                ("wb1", "sh1"),
+                ("wb1", 0),
+                ("wb1", None),
+                ("wb2", "sh1"),
+                ("wb2", 0),
+                ("wb2", None),
+            ],
+        ),
+        (
+            ("wb1", ["sh1", 0]),
+            "wb2",
+            "sh2",
+            [
+                ("wb1", "sh1"),
+                ("wb1", 0),
+                ("wb1", "sh2"),
+                ("wb2", "sh1"),
+                ("wb2", "sh2"),
+                ("wb2", 0),
+            ],
+        ),
+        (
+            ("wb1", ["sh1", 0]),
+            None,
+            "sh2",
+            [("wb1", "sh1"), ("wb1", 0), ("wb1", "sh2")],
+        ),
     )
     def test_derive_keys(self, case):
         sh_ids, wb_id, sheet_ids, exp = case
@@ -1245,28 +1254,24 @@ class T10SheetManager(unittest.TestCase):
         sheet = MagicMock()
         sheet.get_sheet_ids.return_value = sh_ids
         keys = sf._derive_sheet_keys(sheet, wb_id, sheet_ids)
-        self.assertEqual(sorted(keys, key=str),
-                         sorted(exp, key=str))
+        self.assertEqual(sorted(keys, key=str), sorted(exp, key=str))
 
     cache_keys = [
-        ([('w1', ['s1'])],                                      1),
-        ([('w1', ['s1', None])],                                2),
-        ([('w1', ['s1', 0, 1])],                                2),
-        ([('w1', ['s1', 0, 1, None])],                          3),
-        ([('wb', ['s1']), ('w1', [0])],                         2),
-        ([('w1', ['s1', 0, None]), ('w2', ['s1', 0, None])],    4),
-
+        ([("w1", ["s1"])], 1),
+        ([("w1", ["s1", None])], 2),
+        ([("w1", ["s1", 0, 1])], 2),
+        ([("w1", ["s1", 0, 1, None])], 3),
+        ([("wb", ["s1"]), ("w1", [0])], 2),
+        ([("w1", ["s1", 0, None]), ("w2", ["s1", 0, None])], 4),
     ]
 
-    @ddt.data(
-        *cache_keys
-    )
+    @ddt.data(*cache_keys)
     def test_cache_sheet(self, case):
         extra_ids, _ = case
-        k1 = ('wb', 'sh')
-        k2 = ('wb',  0)
+        k1 = ("wb", "sh")
+        k2 = ("wb", 0)
         sheet = MagicMock()
-        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
+        sheet.get_sheet_ids.return_value = ("wb", ["sh", 0])
         sf = _s.SheetsFactory()
         for wb_id, sh_ids in extra_ids:
             for sh_id in sh_ids:
@@ -1277,21 +1282,19 @@ class T10SheetManager(unittest.TestCase):
         for wb_id, sh_ids in extra_ids:
             for sh_id in sh_ids:
                 self.assertIs(sf._cache_get((wb_id, sh_id)), sheet)
-        self.assertIsNone(sf._cache_get(('no', 'key')))
+        self.assertIsNone(sf._cache_get(("no", "key")))
 
-    @ddt.data(
-        *cache_keys
-    )
+    @ddt.data(*cache_keys)
     def test_close_sheet(self, case):
         extra_ids, _ = case
         # Try closings by all keys.
         #
-        extra_ids = extra_ids + [('wb', ['sh', 0])]
+        extra_ids = extra_ids + [("wb", ["sh", 0])]
         for wb_id1, sh_ids1 in extra_ids:
             for sh_id1 in sh_ids1:
 
                 sheet = MagicMock()
-                sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
+                sheet.get_sheet_ids.return_value = ("wb", ["sh", 0])
 
                 # Populate cache
                 sf = _s.SheetsFactory()
@@ -1315,32 +1318,27 @@ class T10SheetManager(unittest.TestCase):
     def test_close_old_sheet(self):
         sf = _s.SheetsFactory()
         sh1 = MagicMock()
-        sh1.get_sheet_ids.return_value = ('wb', ['sh', 0])
+        sh1.get_sheet_ids.return_value = ("wb", ["sh", 0])
         sf.add_sheet(sh1)
 
         sh2 = MagicMock()
-        sh2.get_sheet_ids.return_value = ('wb', ['sh', 0])
+        sh2.get_sheet_ids.return_value = ("wb", ["sh", 0])
         sf.add_sheet(sh2)
-        self.assertEqual(sh1._close.call_count, 1,
-                         sh1._close.mock_calls)
+        self.assertEqual(sh1._close.call_count, 1, sh1._close.mock_calls)
 
         sh3 = MagicMock()
-        sh3.get_sheet_ids.return_value = ('foo', ['bar'])
-        sf.add_sheet(sh3, 'wb', 'sh')
-        self.assertEqual(sh2._close.call_count, 1,
-                         sh2._close.mock_calls)
-        self.assertEqual(sh1._close.call_count, 1,
-                         sh1._close.mock_calls)
+        sh3.get_sheet_ids.return_value = ("foo", ["bar"])
+        sf.add_sheet(sh3, "wb", "sh")
+        self.assertEqual(sh2._close.call_count, 1, sh2._close.mock_calls)
+        self.assertEqual(sh1._close.call_count, 1, sh1._close.mock_calls)
 
-    @ddt.data(
-        *cache_keys
-    )
+    @ddt.data(*cache_keys)
     def test_fetch_sheet_prePopulated(self, case):
         extra_ids, _ = case
-        k1 = ('wb', 'sh')
-        k2 = ('wb',  0)
+        k1 = ("wb", "sh")
+        k2 = ("wb", 0)
         sheet = MagicMock()
-        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
+        sheet.get_sheet_ids.return_value = ("wb", ["sh", 0])
 
         sf = _s.SheetsFactory()
         sf._open_sheet = MagicMock(side_effect=AssertionError("OPENED!"))
@@ -1348,122 +1346,116 @@ class T10SheetManager(unittest.TestCase):
             for sh_id in sh_ids:
                 sf.add_sheet(sheet, wb_id, sh_id)
 
-        extra_ids = extra_ids + [('wb', ['sh', 0])]
+        extra_ids = extra_ids + [("wb", ["sh", 0])]
         for wb_id, sh_ids in extra_ids:
             for sh_id in sh_ids:
                 self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
-                self.assertIs(sf.fetch_sheet(None, None, base_sheet=sheet),
-                              sheet)
-                self.assertIs(sf.fetch_sheet(None, sh_id, base_sheet=sheet),
-                              sheet)
+                self.assertIs(sf.fetch_sheet(None, None, base_sheet=sheet), sheet)
+                self.assertIs(sf.fetch_sheet(None, sh_id, base_sheet=sheet), sheet)
                 self.assertIs(sf.fetch_sheet(*k1), sheet)
                 self.assertIs(sf.fetch_sheet(*k2), sheet)
 
-    @ddt.data(
-        *cache_keys
-    )
+    @ddt.data(*cache_keys)
     def test_fetch_sheet_andOpen(self, case):
-        k1 = ('wb', 'sh')
-        k2 = ('wb',  0)
+        k1 = ("wb", "sh")
+        k2 = ("wb", 0)
         extra_ids, open_calls = case
-        sheet = MagicMock(name='sheet')
-        sheet.get_sheet_ids.return_value = ('wb', ['sh', 0])
+        sheet = MagicMock(name="sheet")
+        sheet.get_sheet_ids.return_value = ("wb", ["sh", 0])
 
         sf = _s.SheetsFactory()
-        sf._open_sheet = MagicMock(name='open_sheet', return_value=sheet)
+        sf._open_sheet = MagicMock(name="open_sheet", return_value=sheet)
 
-        extra_ids = extra_ids + [('wb', ['sh', 0])]
+        extra_ids = extra_ids + [("wb", ["sh", 0])]
         for wb_id, sh_ids in extra_ids:
             for sh_id in sh_ids:
                 self.assertIs(sf.fetch_sheet(wb_id, sh_id), sheet)
-                self.assertIs(sf.fetch_sheet(None, None, base_sheet=sheet),
-                              sheet)
-                self.assertIs(sf.fetch_sheet(None, sh_id, base_sheet=sheet),
-                              sheet)
+                self.assertIs(sf.fetch_sheet(None, None, base_sheet=sheet), sheet)
+                self.assertIs(sf.fetch_sheet(None, sh_id, base_sheet=sheet), sheet)
                 self.assertIs(sf.fetch_sheet(*k1), sheet)
                 self.assertIs(sf.fetch_sheet(*k2), sheet)
 
-        self.assertEqual(sf._open_sheet.call_count, open_calls,
-                         sf._open_sheet.mock_calls)
+        self.assertEqual(
+            sf._open_sheet.call_count, open_calls, sf._open_sheet.mock_calls
+        )
 
 
 @ddt.ddt
 class T11Redim(unittest.TestCase):
-
     def check_redim(self, case):
         arr, dim, exp = case
         res = _f._redim(arr, dim)
 
         self.assertEqual(res, exp)
-#         if isinstance(exp, list):
-#             exp = np.asarray(exp, dtype=object)
-#             npt.assert_equal(res, exp)
+
+    #         if isinstance(exp, list):
+    #             exp = np.asarray(exp, dtype=object)
+    #             npt.assert_equal(res, exp)
 
     @ddt.data(
-        ([1],       1,  [1]),
-        ([1],       2,  [[1]]),
-        ([13],      3,  [[[13]]]),
-        ([1, 2],    1,  [1, 2]),
-        ([1, 2],    2,  [[1, 2]]),
-        ([1, 2],    3,  [[[1, 2]]]),
+        ([1], 1, [1]),
+        ([1], 2, [[1]]),
+        ([13], 3, [[[13]]]),
+        ([1, 2], 1, [1, 2]),
+        ([1, 2], 2, [[1, 2]]),
+        ([1, 2], 3, [[[1, 2]]]),
     )
     def test_upscale(self, case):
         self.check_redim(case)
 
     @ddt.data(
-        ([[1, 2]],   1,  [1, 2]),
-        ([[[1, 2]]], 2,  [[1, 2]]),
-        ([[[1, 2]]], 1,  [1, 2]),
-        ([[[1], [2]]], 2,  [[1], [2]]),
-        ([[[[1]], [[2]]]], 2,  [[1], [2]]),
-        ([[[[1]], [[2]]]], 3,  [[[1]], [[2]]]),
-        ([[[1], [2]]], 1,  [1, 2]),
-        ([[[1], [2]]], 0,  [1, 2]),
+        ([[1, 2]], 1, [1, 2]),
+        ([[[1, 2]]], 2, [[1, 2]]),
+        ([[[1, 2]]], 1, [1, 2]),
+        ([[[1], [2]]], 2, [[1], [2]]),
+        ([[[[1]], [[2]]]], 2, [[1], [2]]),
+        ([[[[1]], [[2]]]], 3, [[[1]], [[2]]]),
+        ([[[1], [2]]], 1, [1, 2]),
+        ([[[1], [2]]], 0, [1, 2]),
     )
     def test_downscale(self, case):
         self.check_redim(case)
 
     @ddt.data(
-        ([None],    0,  None),
-        ([['str']], 0,  'str'),
+        ([None], 0, None),
+        ([["str"]], 0, "str"),
         ([[[3.14]]], 0, 3.14),
-        ('str',     0,  'str'),
-        (None,      0,  None),
-        (5.1,       0,  5.1),
+        ("str", 0, "str"),
+        (None, 0, None),
+        (5.1, 0, 5.1),
     )
     def test_zero(self, case):
         self.check_redim(case)
 
     @ddt.data(
-        ([],        3,  [[[]]]),
-        ([[]],      3,  [[[]]]),
-        ([[]],      2,  [[]]),
-        ([],        2,  [[]]),
-        ([],        1,  []),
-        ([[]],      1,  []),
+        ([], 3, [[[]]]),
+        ([[]], 3, [[[]]]),
+        ([[]], 2, [[]]),
+        ([], 2, [[]]),
+        ([], 1, []),
+        ([[]], 1, []),
     )
     def test_empty(self, case):
         self.check_redim(case)
 
     @ddt.data(
-        ([[], []], 1,               []),
-        ([[1, 2], [3, 4]], 1,       [1, 2, 3, 4]),
-        ([[[1, 1]], [[2, 2]]], 1,   [1, 1, 2, 2]),
-
-        ([[], []], 0,               []),
-        ([[1, 2], [3, 4]], 0,       [1, 2, 3, 4]),
-        ([[[1, 1]], [[2, 2]]], 0,   [1, 1, 2, 2]),
+        ([[], []], 1, []),
+        ([[1, 2], [3, 4]], 1, [1, 2, 3, 4]),
+        ([[[1, 1]], [[2, 2]]], 1, [1, 1, 2, 2]),
+        ([[], []], 0, []),
+        ([[1, 2], [3, 4]], 0, [1, 2, 3, 4]),
+        ([[[1, 1]], [[2, 2]]], 0, [1, 1, 2, 2]),
     )
     def test_flatten(self, case):
         self.check_redim(case)
 
     @ddt.data(
-        ([1, 2, 3], 0,          [1, 2, 3]),
-        ([[1, 2], [3, 4]], 0,   [1, 2, 3, 4]),
-        ([[1, 2]], 0,           [1, 2]),
-        ([1, 2], 0,             [1, 2]),
-        ([], 0,                 []),
-        ([[]], 0,               []),
+        ([1, 2, 3], 0, [1, 2, 3]),
+        ([[1, 2], [3, 4]], 0, [1, 2, 3, 4]),
+        ([[1, 2]], 0, [1, 2]),
+        ([1, 2], 0, [1, 2]),
+        ([], 0, []),
+        ([[]], 0, []),
     )
     def test_unreducableZero(self, case):
         self.check_redim(case)
@@ -1471,29 +1463,26 @@ class T11Redim(unittest.TestCase):
 
 @ddt.ddt
 class T12CallSpec(unittest.TestCase):
-
     @ddt.data(
-        ('func',                ('func', [], {})),
-        ('',                    ('', [], {})),
-
-        (['f', [], {}],         ('f', [], {})),
-        (['f', None, None],     ('f', [], {})),
-        (['f', [1], {2: 2}],    ('f', [1], {2: 2})),
-        (['f', [2], {3: 3}],    ('f', [2], {3: 3})),
-        (['f', {}, []],         ('f', [], {})),
-        (['f', {2: 3}, [1]],    ('f', [1], {2: 3})),
-        (['f', []],             ('f', [], {})),
-        (['f', [1, 2]],         ('f', [1, 2], {})),
-        (['f', {}],             ('f', [], {})),
-        (['f', {1: 1, 2: 2}],   ('f', [], {1: 1, 2: 2})),
-
-        ({'func': 'f', 'args': [], 'kwds': {}},     ('f', [], {})),
-        ({'func': 'f', 'args': None, 'kwds': None}, ('f', [], {})),
-        ({'func': 'f', 'args': [1], 'kwds': {1: 2}}, ('f', [1], {1: 2})),
-        ({'func': 'f', 'args': [], },               ('f', [], {})),
-        ({'func': 'f', 'args': [1, 2], },            ('f', [1, 2], {})),
-        ({'func': 'f', 'kwds': {}},                 ('f', [], {})),
-        ({'func': 'f', 'kwds': {2: 3, 3: 4}},         ('f', [], {2: 3, 3: 4})),
+        ("func", ("func", [], {})),
+        ("", ("", [], {})),
+        (["f", [], {}], ("f", [], {})),
+        (["f", None, None], ("f", [], {})),
+        (["f", [1], {2: 2}], ("f", [1], {2: 2})),
+        (["f", [2], {3: 3}], ("f", [2], {3: 3})),
+        (["f", {}, []], ("f", [], {})),
+        (["f", {2: 3}, [1]], ("f", [1], {2: 3})),
+        (["f", []], ("f", [], {})),
+        (["f", [1, 2]], ("f", [1, 2], {})),
+        (["f", {}], ("f", [], {})),
+        (["f", {1: 1, 2: 2}], ("f", [], {1: 1, 2: 2})),
+        ({"func": "f", "args": [], "kwds": {}}, ("f", [], {})),
+        ({"func": "f", "args": None, "kwds": None}, ("f", [], {})),
+        ({"func": "f", "args": [1], "kwds": {1: 2}}, ("f", [1], {1: 2})),
+        ({"func": "f", "args": []}, ("f", [], {})),
+        ({"func": "f", "args": [1, 2]}, ("f", [1, 2], {})),
+        ({"func": "f", "kwds": {}}, ("f", [], {})),
+        ({"func": "f", "kwds": {2: 3, 3: 4}}, ("f", [], {2: 3, 3: 4})),
     )
     def test_OK(self, case):
         call_desc, exp = case
@@ -1502,18 +1491,15 @@ class T12CallSpec(unittest.TestCase):
 
     _bad_struct = "One of str, list or dict expected"
     _func_not_str = "Expected a `string` for func"
-    _func_missing = ("missing 1 required positional argument: 'func'")
+    _func_missing = "missing 1 required positional argument: 'func'"
     _cannot_decide = "Cannot decide `args`/`kwds`"
-    _more_args = ("takes from 1 to 3 positional arguments")
+    _more_args = "takes from 1 to 3 positional arguments"
     _more_kwds = "unexpected keyword argument"
     _args_not_list = "Expected a `list`"
     _kwds_not_dict = "Expected a `dict`"
 
     @ddt.data(
-        (1,                     _bad_struct),
-        (True,                  _bad_struct),
-        (None,                  _bad_struct),
-        ([],                    _func_missing),
+        (1, _bad_struct), (True, _bad_struct), (None, _bad_struct), ([], _func_missing)
     )
     def test_Fail_base(self, case):
         call_desc, err = case
@@ -1521,21 +1507,17 @@ class T12CallSpec(unittest.TestCase):
             _p.parse_call_spec(call_desc)
 
     @ddt.data(
-        ([1, [], {}],           _func_not_str),
-        ([[], 'f', {}],         _cannot_decide),
-        ([[], {}, 'f'],         _cannot_decide),
-
-        (['f', [], []],         _cannot_decide),
-        (['f', [], {}, []],     _more_args),  # 5
-        (['f', {}, {}],         _cannot_decide),
-        (['f', [], {}, {}],     _more_args),
-
-        (['f', {}, 33],         _cannot_decide),
-        (['f', [], 33],         _cannot_decide),
-
-        (['f', [], {}, 33],     _more_args),  # 10
-        (['f', [], {}, 33],     _more_args),
-
+        ([1, [], {}], _func_not_str),
+        ([[], "f", {}], _cannot_decide),
+        ([[], {}, "f"], _cannot_decide),
+        (["f", [], []], _cannot_decide),
+        (["f", [], {}, []], _more_args),  # 5
+        (["f", {}, {}], _cannot_decide),
+        (["f", [], {}, {}], _more_args),
+        (["f", {}, 33], _cannot_decide),
+        (["f", [], 33], _cannot_decide),
+        (["f", [], {}, 33], _more_args),  # 10
+        (["f", [], {}, 33], _more_args),
     )
     def test_Fail_List(self, case):
         call_desc, err = case
@@ -1543,26 +1525,22 @@ class T12CallSpec(unittest.TestCase):
             _p.parse_call_spec(call_desc)
 
     @ddt.data(
-        ({'args': [], 'kwds': {}},                      _func_missing),
-        ({'args': []},                                  _func_missing),
-        ({'kwds': {}},                                  _func_missing),
-
-        ({'gg': 1, 'args': [], 'kwds': {}},              _more_kwds),
-        ({'func': 'f', 'args': [], 'y': 5},              _more_kwds),
-        ({'func': 'f', 'kwds': {}, 'y': 5},              _more_kwds),
-
-        ({'func': None, 'args': [], 'kwds': {}},        _func_not_str),
-        ({'func': 1, 'args': [], 'kwds': {}},           _func_not_str),
-        ({'func': True, 'args': [1], 'kwds': {}},       _func_not_str),
-        ({'func': [], 'args': [1], 'kwds': {}},         _func_not_str),
-
-        ({'func': 'f', 'args': 1, 'kwds': {}},          _args_not_list),
-        ({'func': 'f', 'args': True, 'kwds': {}},       _args_not_list),
-        ({'func': 'f', 'args': {}, 'kwds': {}},         _args_not_list),
-
-        ({'func': 'f', 'args': [], 'kwds': 1},          _kwds_not_dict),
-        ({'func': 'f', 'args': [], 'kwds': True},       _kwds_not_dict),
-        ({'func': 'f', 'args': [], 'kwds': []},         _kwds_not_dict),
+        ({"args": [], "kwds": {}}, _func_missing),
+        ({"args": []}, _func_missing),
+        ({"kwds": {}}, _func_missing),
+        ({"gg": 1, "args": [], "kwds": {}}, _more_kwds),
+        ({"func": "f", "args": [], "y": 5}, _more_kwds),
+        ({"func": "f", "kwds": {}, "y": 5}, _more_kwds),
+        ({"func": None, "args": [], "kwds": {}}, _func_not_str),
+        ({"func": 1, "args": [], "kwds": {}}, _func_not_str),
+        ({"func": True, "args": [1], "kwds": {}}, _func_not_str),
+        ({"func": [], "args": [1], "kwds": {}}, _func_not_str),
+        ({"func": "f", "args": 1, "kwds": {}}, _args_not_list),
+        ({"func": "f", "args": True, "kwds": {}}, _args_not_list),
+        ({"func": "f", "args": {}, "kwds": {}}, _args_not_list),
+        ({"func": "f", "args": [], "kwds": 1}, _kwds_not_dict),
+        ({"func": "f", "args": [], "kwds": True}, _kwds_not_dict),
+        ({"func": "f", "args": [], "kwds": []}, _kwds_not_dict),
     )
     def test_Fail_Object(self, case):
         call_desc, err = case
@@ -1572,115 +1550,116 @@ class T12CallSpec(unittest.TestCase):
 
 @ddt.ddt
 class T13Ranger(unittest.TestCase):
-
     def test_context_sheet(self):
         sf = _s.SheetsFactory()
         ranger = _l.Ranger(sf, available_filters={})
-        res = ranger.do_lasso('#B2', sheet=_s.ArraySheet([[1, 2], [3, 4]]))
+        res = ranger.do_lasso("#B2", sheet=_s.ArraySheet([[1, 2], [3, 4]]))
         self.assertEqual(res.values, 4)
 
     def test_context_sibling(self):
         sf = _s.SheetsFactory()
         ranger = _l.Ranger(sf, available_filters={})
         sheet = _s.ArraySheet([[1, 2], [3, 4]])
-        sheet.open_sibling_sheet = MagicMock(name='open_sibling_sheet()',
-                                             return_value=sheet)
-        res = ranger.do_lasso('#Sibl!B2', sheet=sheet)
-        sheet.open_sibling_sheet.assert_called_once_with('Sibl')
+        sheet.open_sibling_sheet = MagicMock(
+            name="open_sibling_sheet()", return_value=sheet
+        )
+        res = ranger.do_lasso("#Sibl!B2", sheet=sheet)
+        sheet.open_sibling_sheet.assert_called_once_with("Sibl")
         self.assertEqual(res.values, 4)
 
     def test_open_sheet_same_sheet_twice(self):
         sf = _s.SheetsFactory()
-        sh1 = _s.ArraySheet([[1, 2], [3, 4]],
-                            ids=_s.SheetId('wb1', ['sh1', 0]))
+        sh1 = _s.ArraySheet([[1, 2], [3, 4]], ids=_s.SheetId("wb1", ["sh1", 0]))
         sf.add_sheet(sh1)
-        sh2 = _s.ArraySheet([[5], [6]],
-                            ids=_s.SheetId('wb2', ['sh2', 0]))
+        sh2 = _s.ArraySheet([[5], [6]], ids=_s.SheetId("wb2", ["sh2", 0]))
         sf.add_sheet(sh2)
 
         ranger = _l.Ranger(sf, available_filters={})
-        res11 = ranger.do_lasso('wb1#sh1!:')
-        res2 = ranger.do_lasso('wb2#sh2!:')
+        res11 = ranger.do_lasso("wb1#sh1!:")
+        res2 = ranger.do_lasso("wb2#sh2!:")
         self.assertNotEqual(res11, res2)
-        res12 = ranger.do_lasso('wb1#sh1!:')
+        res12 = ranger.do_lasso("wb1#sh1!:")
         self.assertEqual(res11, res12)
 
 
 @ddt.ddt
 class T14Lasso(unittest.TestCase):
-
     def m1(self):
         dt = datetime(1900, 8, 2)
-        return np.array([
-            # A     B       C      D       E
-            [1,    True,   None, False,  None],   # 1
-            [5,    True,   dt,    '',    3.14],  # 2
-            [7,    False,  5.1,   7.1,    ''],    # 3
-            [9,    True,   43,    'str', dt],    # 4
-        ])
+        return np.array(
+            [
+                # A     B       C      D       E
+                [1, True, None, False, None],  # 1
+                [5, True, dt, "", 3.14],  # 2
+                [7, False, 5.1, 7.1, ""],  # 3
+                [9, True, 43, "str", dt],  # 4
+            ]
+        )
 
     def test_read_Colon(self):
         sf = _s.SheetsFactory()
         sf.add_sheet(_s.ArraySheet(self.m1()))
-        res = _l.lasso('wb#sh!:', sf)
+        res = _l.lasso("wb#sh!:", sf)
         npt.assert_array_equal(res, self.m1().tolist())
 
     def test_read_ColonWithJson(self):
         sheet = _s.ArraySheet(self.m1())
-        res = _l.lasso('''#::{
+        res = _l.lasso(
+            """#::{
                             "opts": {"verbose": true},
                             "func": "pipe",
                             "args": [
                                 ["redim", {"col": [2, 1]}],
                                 "numpy"
                             ]
-                        }''',
-                       sheet=sheet)
+                        }""",
+            sheet=sheet,
+        )
         self.assertIsInstance(res, np.ndarray)
         npt.assert_array_equal(res, self.m1())
 
     def test_only_sheet(self):
         sf = _s.SheetsFactory()
         sf.add_sheet(_s.ArraySheet(self.m1()))
-        res = _l.lasso('wb#sh!', sf)
+        res = _l.lasso("wb#sh!", sf)
         npt.assert_array_equal(res, self.m1().tolist())
 
     def test_read_A1(self):
         sf = _s.SheetsFactory()
         sf.add_sheet(_s.ArraySheet(self.m1()))
-        res = _l.lasso('''wb#sh!A1:..(D):{
+        res = _l.lasso(
+            """wb#sh!A1:..(D):{
             "opts": {"verbose": true},
             "func": "pipe",
             "args": [
                 ["redim", {"col": [2, 1]}],
                 "numpy"
             ]
-        }''',
-                       sf)
+        }""",
+            sf,
+        )
         self.assertIsInstance(res, np.ndarray)
         npt.assert_array_equal(res, [[1, 5, 7, 9]])
 
     def test_read_RC(self):
         m1 = self.m1()
         sheet = _s.ArraySheet(m1)
-        res = _l.lasso('#R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]',
-                       sheet=sheet)
+        res = _l.lasso('#R1C1:..(D):["pipe", [["redim", {"col": [2,1]}]]]', sheet=sheet)
         self.assertIsInstance(res, list)
         npt.assert_array_equal(res, m1[:, 0].reshape((1, -1)))
 
     def test_read_RC_negative(self):
         m1 = self.m1()
         sheet = _s.ArraySheet(m1)
-        res = _l.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]',
-                       sheet=sheet)
-        npt.assert_array_equal(res, m1[:, -2].astype('<U5'))
+        res = _l.lasso('#R-1C-2:..(U):["pipe", [["redim", {"col": 1}]]]', sheet=sheet)
+        npt.assert_array_equal(res, m1[:, -2].astype("<U5"))
 
     missing_refs = (
-        ("#A1:A1",           [[None]]),
-        ("#A1:..",           [[None]]),
-        ("#A1:C1",           [[None, None, None]]),
-        ("#A1:A3",           [[None], [None], [None]]),
-        ("#A1:B2",           [[None, None], [None, None]]),
+        ("#A1:A1", [[None]]),
+        ("#A1:..", [[None]]),
+        ("#A1:C1", [[None, None, None]]),
+        ("#A1:A3", [[None], [None], [None]]),
+        ("#A1:B2", [[None, None], [None, None]]),
     )
 
     @ddt.data(*missing_refs)
@@ -1700,13 +1679,10 @@ class T14Lasso(unittest.TestCase):
     empty_refs = (
         "#A1:A1(D)",
         "#A1:..(D)",
-
         "#A1(D):A1",
         "#C3(D):C3(D)",
-
         "#A1:A1(DR+)",
         "#A1:..(L)",
-
         "#A1(U+):A1",
         "#C3(LU+):C3(D)",
     )
@@ -1739,48 +1715,52 @@ class T14Lasso(unittest.TestCase):
 
     def test_read_asLasso(self):
         sheet = _s.ArraySheet(self.m1())
-        res = _l.lasso('''#A1:..(D)''', sheet=sheet, return_lasso=True)
+        res = _l.lasso("""#A1:..(D)""", sheet=sheet, return_lasso=True)
         self.assertIsInstance(res, Lasso)
 
     def test_Ranger_intermediateLaso(self):
         sheet = _s.ArraySheet(self.m1())
         ranger = _l.make_default_Ranger()
-        ranger.do_lasso('#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]',
-                        sheet=sheet)
-        self.assertEqual(ranger.intermediate_lasso[0], 'numpy',
-                         ranger.intermediate_lasso)
+        ranger.do_lasso(
+            '#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["numpy"]]]', sheet=sheet
+        )
+        self.assertEqual(
+            ranger.intermediate_lasso[0], "numpy", ranger.intermediate_lasso
+        )
 
         ranger = _l.make_default_Ranger()
-        self.assertRaises(ValueError, ranger.do_lasso,
-                          '#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["dab_func"]]]',
-                          sheet=sheet)
-        self.assertEqual(ranger.intermediate_lasso[0], 'dab_func',
-                         ranger.intermediate_lasso, )
+        self.assertRaises(
+            ValueError,
+            ranger.do_lasso,
+            '#A1(DR):__(UL+):RULD:["pipe", [["redim"], ["dab_func"]]]',
+            sheet=sheet,
+        )
+        self.assertEqual(
+            ranger.intermediate_lasso[0], "dab_func", ranger.intermediate_lasso
+        )
 
     @ddt.data(
-        ('#R5C4:..(UL):%s',      [[None, 0, 1], [0, 1, 2]]),
-        ('#R5C4:R5C4:LURD:%s',   [
-            [None, 0,    1,   2],
-            [0,    1,    2,   None],
-            [1,    None, 6.1, 7.1]
-        ]),
-        ('#R5C_(LU):A1(RD):%s',      [[0, 1], [1, 2]]),
-        ('#__(LU+):^^(RD):%s',       [[0, 1], [1, 2], [None, 6.1]]),
-        ('#R_C5:R6C.(L+):%s',        [6.1, 7.1]),  # 5
-        ('#R^C3(U+):..(D+):%s',      [0, 1]),
-        ('#D6:%s',                   6.1),
+        ("#R5C4:..(UL):%s", [[None, 0, 1], [0, 1, 2]]),
+        ("#R5C4:R5C4:LURD:%s", [[None, 0, 1, 2], [0, 1, 2, None], [1, None, 6.1, 7.1]]),
+        ("#R5C_(LU):A1(RD):%s", [[0, 1], [1, 2]]),
+        ("#__(LU+):^^(RD):%s", [[0, 1], [1, 2], [None, 6.1]]),
+        ("#R_C5:R6C.(L+):%s", [6.1, 7.1]),  # 5
+        ("#R^C3(U+):..(D+):%s", [0, 1]),
+        ("#D6:%s", 6.1),
     )
     def test_read_xlwings_dims(self, case):
         xlref, res = case
-        table = np.array([
-            # A(1)  B(2)   C(3)  D(4)  E(5)
-            [None, None,  None, None, None],  # 1
-            [None, None,  None, None, None],  # 2
-            [None, None,  None, None, None],  # 3
-            [None, None,  0.,   1.,   2.],    # 4
-            [None, 0.,    1.,   2.,   None],  # 5
-            [None, 1.,    None, 6.1,  7.1]    # 6
-        ])
+        table = np.array(
+            [
+                # A(1)  B(2)   C(3)  D(4)  E(5)
+                [None, None, None, None, None],  # 1
+                [None, None, None, None, None],  # 2
+                [None, None, None, None, None],  # 3
+                [None, None, 0.0, 1.0, 2.0],  # 4
+                [None, 0.0, 1.0, 2.0, None],  # 5
+                [None, 1.0, None, 6.1, 7.1],  # 6
+            ]
+        )
         sheet = _s.ArraySheet(table)
         dims = _f.xlwings_dims_call_spec()
         self.assertEqual(_l.lasso(xlref % dims, sheet=sheet), res)
@@ -1788,108 +1768,113 @@ class T14Lasso(unittest.TestCase):
 
 @ddt.ddt
 class T15Recursive(unittest.TestCase):
-
     @ddt.data(
         1,
         [1, 2],
-        'str',
+        "str",
         [],
         [1],
         [[1, 2], [3, 4]],
-        [[], [1, 'a', 'b'], [11, list('abc')]],
+        [[], [1, "a", "b"], [11, list("abc")]],
     )
     def test_dontExpand_nonDicts(self, vals):
         ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
-        ranger.do_lasso = MagicMock(name='do_lasso()',
-                                    side_effect=lambda x, **kwds: Lasso(values=x))
+        ranger.do_lasso = MagicMock(
+            name="do_lasso()", side_effect=lambda x, **kwds: Lasso(values=x)
+        )
         lasso = Lasso(values=vals, opts={})
         res = _f.recursive_filter(ranger, lasso).values
         self.assertEqual(res, vals)
 
     @ddt.data(
-        'str',
-        [1, 'str', []],
-        [1, 'str', [[1, 2]]],
-        [[], [1, 'a', 'b'], [11, list('abc')]],
+        "str",
+        [1, "str", []],
+        [1, "str", [[1, 2]]],
+        [[], [1, "a", "b"], [11, list("abc")]],
     )
     def test_expandNestedStrings(self, vals):
         ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
+            name="do_lasso()", return_value=Lasso(values=sentinel.BINGO)
+        )
         lasso = Lasso(values=vals, opts={})
         res = _f.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
 
     @ddt.data(
-        (1, 'str', []),
-        [1, tuple(['str', [1, 2]])],
-        [[], set([1, 'a', 'b']), [11, tuple('abc')]],
+        (1, "str", []),
+        [1, tuple(["str", [1, 2]])],
+        [[], set([1, "a", "b"]), [11, tuple("abc")]],
     )
     def test_dontExpandNonLists(self, vals):
         ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
+            name="do_lasso()", return_value=Lasso(values=sentinel.BINGO)
+        )
         lasso = Lasso(values=vals, opts={})
         res = _f.recursive_filter(ranger, lasso).values
         self.assertNotIn(sentinel.BINGO.name, str(res))
 
     @ddt.data(
-        {1: 'str'},
-        [{2: 'str'}],
-        [{3: 'str'}],
-        [{4: ['str', 'a', {4: [list('ab')]}]}],
+        {1: "str"}, [{2: "str"}], [{3: "str"}], [{4: ["str", "a", {4: [list("ab")]}]}]
     )
     def test_expandDicts_nonStrKeys(self, vals):
         ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
+            name="do_lasso()", return_value=Lasso(values=sentinel.BINGO)
+        )
         lasso = Lasso(values=vals, opts={})
         res = _f.recursive_filter(ranger, lasso).values
         self.assertIn(sentinel.BINGO.name, str(res))
         self.assertNotIn("'", str(res))
 
     @ddt.data(
-        {'key': 'str'},
-        [{'key': 'str'}],
-        [{'key': ['str', 'a', {'key': [list('ab')]}]}],
-        [{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
+        {"key": "str"},
+        [{"key": "str"}],
+        [{"key": ["str", "a", {"key": [list("ab")]}]}],
+        [{"key1": ["str", "foo", {"key2": ["abc", "bar"], "k3": "123"}]}],
     )
     def test_expandDicts_preservingKeys(self, vals):
         ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
+            name="do_lasso()", return_value=Lasso(values=sentinel.BINGO)
+        )
         lasso = Lasso(values=vals, opts={})
         res = _f.recursive_filter(ranger, lasso).values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
-        self.assertIn('key', str(res))
+        self.assertIn("key", str(res))
 
         # Mask all str-keys, and check
         #    no other strings left.
         #
         res = str(res)
-        for k in ['key', 'key1', 'key2', 'k3']:
-            res = res.replace("'%s'" % k, 'OFF')
+        for k in ["key", "key1", "key2", "k3"]:
+            res = res.replace("'%s'" % k, "OFF")
         self.assertNotIn("'", str(res))
 
     @ddt.data(
-        (0, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
-        (1, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
-        (2, ['bang', 'str', 'foo', 'abc', 'bar', '123'], []),
-        (3, ['str', 'foo', 'abc', 'bar', '123'], ['bang']),
-        (4, ['abc', 'bar', '123'], ['bang', 'str', 'foo']),
-        (5, ['abc', 'bar'], ['bang', 'str', 'foo', '123']),
-        (6, [], ['bang', 'str', 'foo', 'abc', 'bar', '123']),
+        (0, ["bang", "str", "foo", "abc", "bar", "123"], []),
+        (1, ["bang", "str", "foo", "abc", "bar", "123"], []),
+        (2, ["bang", "str", "foo", "abc", "bar", "123"], []),
+        (3, ["str", "foo", "abc", "bar", "123"], ["bang"]),
+        (4, ["abc", "bar", "123"], ["bang", "str", "foo"]),
+        (5, ["abc", "bar"], ["bang", "str", "foo", "123"]),
+        (6, [], ["bang", "str", "foo", "abc", "bar", "123"]),
     )
     def test_expandDicts_depth(self, case):
         depth, exists, missing = case
-        vals = [{
-            'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}],
-            'key11': 'bang'}]
+        vals = [
+            {
+                "key1": ["str", "foo", {"key2": ["abc", "bar"], "k3": "123"}],
+                "key11": "bang",
+            }
+        ]
         ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
+            name="do_lasso()", return_value=Lasso(values=sentinel.BINGO)
+        )
         lasso = Lasso(values=vals, opts={})
         res = _f.recursive_filter(ranger, lasso, depth=depth).values
         # print(res)
@@ -1902,13 +1887,14 @@ class T15Recursive(unittest.TestCase):
             self.assertNotIn(v, str(res))
 
     @ddt.data(
-        pd.DataFrame({'key1': list('abc'), 'key2': list('def')}),
-        [pd.DataFrame({'key1': list('abc'), 'key2': list('def')})],
+        pd.DataFrame({"key1": list("abc"), "key2": list("def")}),
+        [pd.DataFrame({"key1": list("abc"), "key2": list("def")})],
     )
     def test_expandDFs(self, vals):
         ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
+            name="do_lasso()", return_value=Lasso(values=sentinel.BINGO)
+        )
         lasso = Lasso(values=vals, opts={})
         res = _f.recursive_filter(ranger, lasso).values
         # print(res)
@@ -1916,34 +1902,45 @@ class T15Recursive(unittest.TestCase):
         self.assertIn("key", str(res))
 
     @ddt.data(
-        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
-         ('key1', None),
-         ['abc', 'bar', '123'], ['str', 'foo']),
-
-        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
-         (None, ['key2', 'k3']),
-         ['abc', 'bar', '123'], ['str', 'foo']),
-
-        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
-         (['key1', 'key2'], None),
-         ['123'], ['str', 'foo', 'abc', 'bar']),
-
-        ([{'key1': ['str', 'foo', {'key2': ['abc', 'bar'], 'k3':'123'}]}],
-         (None, ['key2', 'k3']),
-         ['abc', 'bar', '123'], ['str', 'foo']),
+        (
+            [{"key1": ["str", "foo", {"key2": ["abc", "bar"], "k3": "123"}]}],
+            ("key1", None),
+            ["abc", "bar", "123"],
+            ["str", "foo"],
+        ),
+        (
+            [{"key1": ["str", "foo", {"key2": ["abc", "bar"], "k3": "123"}]}],
+            (None, ["key2", "k3"]),
+            ["abc", "bar", "123"],
+            ["str", "foo"],
+        ),
+        (
+            [{"key1": ["str", "foo", {"key2": ["abc", "bar"], "k3": "123"}]}],
+            (["key1", "key2"], None),
+            ["123"],
+            ["str", "foo", "abc", "bar"],
+        ),
+        (
+            [{"key1": ["str", "foo", {"key2": ["abc", "bar"], "k3": "123"}]}],
+            (None, ["key2", "k3"]),
+            ["abc", "bar", "123"],
+            ["str", "foo"],
+        ),
     )
     def test_expandDicts_IncExcFilters(self, case):
         vals, incexc, exist, missing = case
         ranger = _l.Ranger(_s.SheetsFactory(), available_filters={})
         ranger.do_lasso = MagicMock(
-            name='do_lasso()', return_value=Lasso(values=sentinel.BINGO))
+            name="do_lasso()", return_value=Lasso(values=sentinel.BINGO)
+        )
         lasso = Lasso(values=vals, opts={})
-        res = _f.recursive_filter(ranger, lasso,
-                                  **dict(zip(['include', 'exclude'], incexc)))
+        res = _f.recursive_filter(
+            ranger, lasso, **dict(zip(["include", "exclude"], incexc))
+        )
         res = res.values
         # print(res)
         self.assertIn(sentinel.BINGO.name, str(res))
-        for k in ['key1', 'key2', 'k3']:
+        for k in ["key1", "key2", "k3"]:
             self.assertIn(k, str(res))
         for v in exist:
             self.assertIn(v, str(res))
@@ -1953,16 +1950,15 @@ class T15Recursive(unittest.TestCase):
 
 @ddt.ddt
 class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
-
     def setUp(self):
         logging.basicConfig(level=0)
         logging.getLogger().setLevel(0)
 
     @ddt.data(
-        ("1",               Lasso(values=1)),
-        ("True",            Lasso(values=True)),
-        ("[12,3]",          Lasso(values=[12, 3])),
-        ("{12:3}",          Lasso(values={12: 3})),
+        ("1", Lasso(values=1)),
+        ("True", Lasso(values=True)),
+        ("[12,3]", Lasso(values=[12, 3])),
+        ("{12:3}", Lasso(values={12: 3})),
     )
     def test_ok_basicTypes(self, case):
         expr, exp = case
@@ -1975,10 +1971,10 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         self.assertEqual(res, exp)
 
     @ddt.data(
-        ("xleash.Lasso(values=1)",        Lasso(values=1)),
-        ("xleash.Lasso(values=True)",      Lasso(values=True)),
-        ("xleash.Lasso(values=[12,3])",    Lasso(values=[12, 3])),
-        ("xleash.Lasso(values={12:3})",    Lasso(values={12: 3})),
+        ("xleash.Lasso(values=1)", Lasso(values=1)),
+        ("xleash.Lasso(values=True)", Lasso(values=True)),
+        ("xleash.Lasso(values=[12,3])", Lasso(values=[12, 3])),
+        ("xleash.Lasso(values={12:3})", Lasso(values={12: 3})),
     )
     def test_ok_basicTypes_asLasso(self, case):
         expr, exp = case
@@ -1990,21 +1986,30 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         self.assertEqual(res, exp)
 
     @ddt.data(
-        ("boo haha", """
+        (
+            "boo haha",
+            """
             Value('boo haha') at XLocation(sheet=None, st=None, nd=None, base_coords=None):
             1 errors while py-evaluating 'boo haha': SyntaxError:    boo haha
             Syntax Error
-         """),
-        ("1-'tt'", """
+         """,
+        ),
+        (
+            "1-'tt'",
+            """
             Value("1-'tt'") at XLocation(sheet=None, st=None, nd=None, base_coords=None):
             3 errors while py-evaluating "1-'tt'": TypeError:    1-'tt'
             unsupported operand type(s) for -: 'int' and 'str'
-        """),
-        ("int('g')", """
+        """,
+        ),
+        (
+            "int('g')",
+            """
             Value("int('g')") at XLocation(sheet=None, st=None, nd=None, base_coords=None):
             4 errors while py-evaluating "int('g')": ValueError:    int('g')
             Error running function call 'int' with args ['g'] and kwargs {}: invalid literal for int() with base 10: 'g'
-        """),
+        """,
+        ),
     )
     def test_syntaxErrors(self, case):
         expr, err_msg = case
@@ -2018,7 +2023,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         except:
             raise
         else:
-            raise AssertionError('ValueError not raised!')
+            raise AssertionError("ValueError not raised!")
 
     @ddt.data("boo haha", "1-'tt'", "int('g')")
     def test_syntaxErrors_suppresed(self, expr):
@@ -2035,29 +2040,28 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
         ranger = _l.Ranger(sf)
 
         lasso = Lasso(values=expr, opts={})
-        kwds = {'lax': True}
-        ranger.make_call(lasso, 'pyeval', (), kwds)
+        kwds = {"lax": True}
+        ranger.make_call(lasso, "pyeval", (), kwds)
 
-        lasso = Lasso(values=expr, opts={'lax': True})
-        ranger.make_call(lasso, 'pyeval', (), {})
+        lasso = Lasso(values=expr, opts={"lax": True})
+        ranger.make_call(lasso, "pyeval", (), {})
 
-        lasso = Lasso(values=expr, opts={'lax': True})
-        ranger.make_call(lasso, 'pyeval', (), {})
+        lasso = Lasso(values=expr, opts={"lax": True})
+        ranger.make_call(lasso, "pyeval", (), {})
 
-        lasso = Lasso(values=expr, opts={'lax': False})
-        kwds = {'lax': True}
-        ranger.make_call(lasso, 'pyeval', (), kwds)
+        lasso = Lasso(values=expr, opts={"lax": False})
+        kwds = {"lax": True}
+        ranger.make_call(lasso, "pyeval", (), kwds)
 
 
-_recurse_rect = 'eval sheet!B1:..(D)'
-_recurse_val = [['COL1'], ['foo'], ['bar'], ['bus']]
+_recurse_rect = "eval sheet!B1:..(D)"
+_recurse_val = [["COL1"], ["foo"], ["bar"], ["bus"]]
 
 
 class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
-
     @classmethod
     def setUpClass(cls):
-        os.chdir(osp.join(mydir, '..'))
+        os.chdir(osp.join(mydir, ".."))
 
     def setUp(self):
         logging.basicConfig(level=0)
@@ -2065,21 +2069,21 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         pass
 
     def test_list_sibling_sheetnames(self):
-        fpath = osp.abspath('tests/recursive.xlsx')
+        fpath = osp.abspath("tests/recursive.xlsx")
         shfac = _s.SheetsFactory()
         shnames = shfac.list_sheetnames(fpath)
-        self.assertEqual(shnames, ['2', '3', 'Sheet4', 'eval sheet', 'e2'])
+        self.assertEqual(shnames, ["2", "3", "Sheet4", "eval sheet", "e2"])
 
     def test_real_absolute_file(self):
-        fpath = osp.abspath('tests/recursive.xlsx')
-        res = _l.lasso('%s#%s' % (fpath, _recurse_rect))
+        fpath = osp.abspath("tests/recursive.xlsx")
+        res = _l.lasso("%s#%s" % (fpath, _recurse_rect))
         self.assertEqual(res, _recurse_val)
 
     def test_real_file_url(self):
-        fpath = 'file://' + osp.abspath('tests/recursive.xlsx')
-        if os.name == 'nt' or sys.platform == 'cygwin':
-            fpath = fpath.replace('\\', '/')
-        res = _l.lasso('%s#%s' % (fpath, _recurse_rect))
+        fpath = "file://" + osp.abspath("tests/recursive.xlsx")
+        if os.name == "nt" or sys.platform == "cygwin":
+            fpath = fpath.replace("\\", "/")
+        res = _l.lasso("%s#%s" % (fpath, _recurse_rect))
         self.assertEqual(res, _recurse_val)
 
     def test_real_file_recurse(self):
@@ -2112,15 +2116,16 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         self.assertStrippedStringsEqual(str(res), exp)
 
     def test_subfilter(self):
-        search_str = '4.14'
+        search_str = "4.14"
         with self.assertLogs(level=logging.INFO) as logass:
             _l.lasso('tests/recursive.xlsx#^^:"recurse"')
             for s in logass.output:
                 if search_str in s:
                     break
             else:
-                self.fail("'py' filter did not produce %s! %s" %
-                          (search_str, logass.output))
+                self.fail(
+                    "'py' filter did not produce %s! %s" % (search_str, logass.output)
+                )
 
     def test_lasso_then_pyeval(self):
         exp = """\
@@ -2145,29 +2150,28 @@ class T17RealFile(unittest.TestCase, _tutils.CustomAssertions):
         except:
             raise
         else:
-            raise AssertionError('ValueError not raised!')
+            raise AssertionError("ValueError not raised!")
 
 
 @ddt.ddt
 class T18EmptyExcel(unittest.TestCase, _tutils.CustomAssertions):
-
     @classmethod
     def setUpClass(cls):
-        os.chdir(osp.join(mydir, '..'))
+        os.chdir(osp.join(mydir, ".."))
 
     _shfact = _s.SheetsFactory()
 
     @ddt.data(
-        'tests/empty.xlsx#^^',
-        'tests/empty.xlsx#^^:..',
-        'tests/empty.xlsx#:..',
-        'tests/empty.xlsx#A1(RD):._:RULD',
-        'tests/empty.xlsx#:',
-        'tests/empty.xlsx#0!',
-        'tests/empty.xlsx#Sheet1!',
-        'tests/empty.xlsx#Sheet1!:',
-        'tests/empty.xlsx#A1:b5',
-        'tests/empty.xlsx#A1:..(D):RULD',
+        "tests/empty.xlsx#^^",
+        "tests/empty.xlsx#^^:..",
+        "tests/empty.xlsx#:..",
+        "tests/empty.xlsx#A1(RD):._:RULD",
+        "tests/empty.xlsx#:",
+        "tests/empty.xlsx#0!",
+        "tests/empty.xlsx#Sheet1!",
+        "tests/empty.xlsx#Sheet1!:",
+        "tests/empty.xlsx#A1:b5",
+        "tests/empty.xlsx#A1:..(D):RULD",
     )
     def test_empty_excel(self, xlref):
         res = _l.lasso(xlref, sheets_factory=self._shfact)
@@ -2176,12 +2180,11 @@ class T18EmptyExcel(unittest.TestCase, _tutils.CustomAssertions):
 
 @ddt.ddt
 class T19VsPandas(unittest.TestCase, _tutils.CustomAssertions):
-
     @contextlib.contextmanager
     def sample_xl_file(self, matrix, **df_write_kwds):
-        tmp_file = '%s.xlsx' % tempfile.mktemp()
+        tmp_file = "%s.xlsx" % tempfile.mktemp()
         try:
-            _write_sample_sheet(tmp_file, matrix, 'Sheet1', **df_write_kwds)
+            _write_sample_sheet(tmp_file, matrix, "Sheet1", **df_write_kwds)
 
             yield tmp_file
         finally:
@@ -2191,28 +2194,28 @@ class T19VsPandas(unittest.TestCase, _tutils.CustomAssertions):
                 log.warning("Failed deleting %s!", tmp_file, exc_info=1)
 
     dt = datetime(1900, 8, 2)
-    m1 = np.array([
-        # A     B       C      D       E
-        [1,    True,   None, False,  None],   # 1
-        [5,    True,   dt,    u'',    3.14],  # 2
-        [7,    False,  5.1,   7.1,    ''],    # 3
-        [9,    True,   43,    'str', dt],    # 4
-    ])
+    m1 = np.array(
+        [
+            # A     B       C      D       E
+            [1, True, None, False, None],  # 1
+            [5, True, dt, u"", 3.14],  # 2
+            [7, False, 5.1, 7.1, ""],  # 3
+            [9, True, 43, "str", dt],  # 4
+        ]
+    )
 
     def _check_vs_read_df(self, table, st, nd, write_df_kwds={}, parse_df_kwds={}):
         with self.sample_xl_file(table, **write_df_kwds) as xl_file:
-            pd_df = pd.read_excel(xl_file, 'Sheet1')
-            pd_df = pd_df.iloc[
-                slice(st[0], nd[0] + 1), slice(st[1], nd[1] + 1)]
+            pd_df = pd.read_excel(xl_file, "Sheet1")
+            pd_df = pd_df.iloc[slice(st[0], nd[0] + 1), slice(st[1], nd[1] + 1)]
             xlrd_book = xlrd.open_workbook(xl_file)
-            sheet = xd.XlrdSheet(
-                xlrd_book.sheet_by_name('Sheet1'), xl_file)
+            sheet = xd.XlrdSheet(xlrd_book.sheet_by_name("Sheet1"), xl_file)
             xlref_res = sheet.read_rect(st, nd)
             lasso = Lasso(st=st, nd=nd, values=xlref_res, opts=ChainMap())
 
             lasso1 = _f.redim_filter(None, lasso, row=[2, True])
 
-            df_filter = xleash.installed_filters['df']['func']
+            df_filter = xleash.installed_filters["df"]["func"]
             lasso2 = df_filter(None, lasso1, **parse_df_kwds)
 
             xlref_df = lasso2.values
@@ -2220,92 +2223,98 @@ class T19VsPandas(unittest.TestCase, _tutils.CustomAssertions):
             if all(isinstance(df, pd.DataFrame) for df in (xlref_df, pd_df)):
                 assert_frame_equal(xlref_df, pd_df)
             else:
-                msg = '\n---\n%s\n--\n%s\n-\n%s' % (xlref_res, xlref_df, pd_df)
+                msg = "\n---\n%s\n--\n%s\n-\n%s" % (xlref_res, xlref_df, pd_df)
                 self.assertTrue(xlref_df.equal(pd_df), msg=msg)
 
     def test_vs_read_df(self):
-        self._check_vs_read_df(self.m1.tolist(),
-                               Coords(0, 0), Coords(4, 5),
-                               parse_df_kwds=dict(header=0))
+        self._check_vs_read_df(
+            self.m1.tolist(), Coords(0, 0), Coords(4, 5), parse_df_kwds=dict(header=0)
+        )
 
-    def _check_vs_read_df_multiindex(self, table, xlref, pd_write_kwds={}, pd_read_kwds={}):
+    def _check_vs_read_df_multiindex(
+        self, table, xlref, pd_write_kwds={}, pd_read_kwds={}
+    ):
         with self.sample_xl_file(table, **pd_write_kwds) as xl_file:
-            pd_df = pd.read_excel(xl_file, 'Sheet1', **pd_read_kwds)
+            pd_df = pd.read_excel(xl_file, "Sheet1", **pd_read_kwds)
 
             xlrd_book = xlrd.open_workbook(xl_file)
-            sheet = xd.XlrdSheet(xlrd_book.sheet_by_name('Sheet1'), xl_file)
-            js = json.dumps(['df', pd_read_kwds])
+            sheet = xd.XlrdSheet(xlrd_book.sheet_by_name("Sheet1"), xl_file)
+            js = json.dumps(["df", pd_read_kwds])
             xlref += js
             xlref_df = _l.lasso(xlref, sheet=sheet)
-            #print(xlref_df, pd_df, sep='\n')
+            # print(xlref_df, pd_df, sep='\n')
             assert_frame_equal(xlref_df, pd_df)
 
     @ddt.data(
-        (1, 0, 0, 0, '#:', {}, {}),
-        (1, 0, 1, 0, '#:', {}, {}),
-        (1, 0, 0, 0, '#:', {}, {'index_col': [0, 1]}),
-        (0, 1, 0, 0, '#:', {}, {'header': [0, 1]}),
-        (0, 1, 0, 1, '#:', {}, {'header': [0, 1]}),
-        (1, 1, 0, 0, '#:', {}, {'header': [0, 1]}),
-        (1, 1, 1, 0, '#:', {}, {'header': [0, 1]}),
-        (1, 1, 0, 1, '#:', {}, {'header': [0, 1]}),
-        (1, 1, 1, 1, '#:', {}, {'header': [0, 1]}),
-        (1, 1, 1, 1, '#:', {}, {'index_col': [0, 1], 'header': [0, 1]}),
+        (1, 0, 0, 0, "#:", {}, {}),
+        (1, 0, 1, 0, "#:", {}, {}),
+        (1, 0, 0, 0, "#:", {}, {"index_col": [0, 1]}),
+        (0, 1, 0, 0, "#:", {}, {"header": [0, 1]}),
+        (0, 1, 0, 1, "#:", {}, {"header": [0, 1]}),
+        (1, 1, 0, 0, "#:", {}, {"header": [0, 1]}),
+        (1, 1, 1, 0, "#:", {}, {"header": [0, 1]}),
+        (1, 1, 0, 1, "#:", {}, {"header": [0, 1]}),
+        (1, 1, 1, 1, "#:", {}, {"header": [0, 1]}),
+        (1, 1, 1, 1, "#:", {}, {"index_col": [0, 1], "header": [0, 1]}),
     )
     def test_vs_read_df_multiindex(self, case):
         ax0, ax1, name0, name1, xlref, pd_write_kwds, pd_read_kwds = case
         table = pd.DataFrame(self.m1)
         if ax0:
-            table.index = pd.MultiIndex.from_arrays(
-                ([list('aabb'), list('ABAB')]))
+            table.index = pd.MultiIndex.from_arrays(([list("aabb"), list("ABAB")]))
             if name0:
-                table.index.names = ['R1', 'R2']
+                table.index.names = ["R1", "R2"]
         if ax1:
-            table.columns = pd.MultiIndex.from_arrays(
-                ([list('ccdde'), list('CDCDC')]))
+            table.columns = pd.MultiIndex.from_arrays(([list("ccdde"), list("CDCDC")]))
             if name1:
-                table.columns.names = ['C1', 'C2']
-        self._check_vs_read_df_multiindex(table, xlref,
-                                          pd_write_kwds=pd_write_kwds,
-                                          pd_read_kwds=pd_read_kwds)
+                table.columns.names = ["C1", "C2"]
+        self._check_vs_read_df_multiindex(
+            table, xlref, pd_write_kwds=pd_write_kwds, pd_read_kwds=pd_read_kwds
+        )
 
 
 @unittest.skipIf(not is_excel_installed, "Cannot test xlwings without MS Excel.")
 @ddt.ddt
 class T20VsXlwings(unittest.TestCase):
-
     def setUp(self):
-        self.tmp_excel_fname = '%s.xlsx' % tempfile.mktemp()
-        table = [
-            [1, 2, None],
-            [None, 6.1, 7.1]
-        ]
-        _write_sample_sheet(self.tmp_excel_fname,
-                            table, 'Sheet1', startrow=5, startcol=3)
+        self.tmp_excel_fname = "%s.xlsx" % tempfile.mktemp()
+        table = [[1, 2, None], [None, 6.1, 7.1]]
+        _write_sample_sheet(
+            self.tmp_excel_fname, table, "Sheet1", startrow=5, startcol=3
+        )
 
         xlrd_wb = xlrd.open_workbook(self.tmp_excel_fname)
-        self.sheet = xd.XlrdSheet(xlrd_wb.sheet_by_name('Sheet1'),
-                                  self.tmp_excel_fname)
+        self.sheet = xd.XlrdSheet(xlrd_wb.sheet_by_name("Sheet1"), self.tmp_excel_fname)
 
     def tearDown(self):
         del self.sheet
         os.remove(self.tmp_excel_fname)
 
     @ddt.data(
-        ('#R7C4:..(D):%s', lambda xw:
-         xw.Sheet("Sheet1").range("D7").expand('down').value),
-        ('#R6C5:..(D):%s', lambda xw:
-         xw.Sheet("Sheet1").range("E6").expand('down').value),
-        ('#R6C5:..(R):%s', lambda xw:
-         xw.Sheet("Sheet1").range("E6").expand('right').value),
-        ('#R6C5:..(RD):%s', lambda xw:
-         xw.Sheet("Sheet1").range("E6").expand('table').value),
-        ('#R6C5:..(DR):%s', lambda xw:
-         xw.Sheet("Sheet1").range("E6").expand('table').value),
-        ('#R8C6:R6C4:%s', lambda xw: xw.Sheet("Sheet1").range("D6:F8").value),
-        ('#R8C6:R1C1:%s', lambda xw: xw.Sheet("Sheet1").range("A1:F8").value),
-        ('#R7C1:R7C4:%s', lambda xw: xw.Sheet("Sheet1").range("A7:D7").value),
-        ('#R9C4:R3C4:%s', lambda xw: xw.Sheet("Sheet1").range("D3:D9").value),
+        (
+            "#R7C4:..(D):%s",
+            lambda xw: xw.Sheet("Sheet1").range("D7").expand("down").value,
+        ),
+        (
+            "#R6C5:..(D):%s",
+            lambda xw: xw.Sheet("Sheet1").range("E6").expand("down").value,
+        ),
+        (
+            "#R6C5:..(R):%s",
+            lambda xw: xw.Sheet("Sheet1").range("E6").expand("right").value,
+        ),
+        (
+            "#R6C5:..(RD):%s",
+            lambda xw: xw.Sheet("Sheet1").range("E6").expand("table").value,
+        ),
+        (
+            "#R6C5:..(DR):%s",
+            lambda xw: xw.Sheet("Sheet1").range("E6").expand("table").value,
+        ),
+        ("#R8C6:R6C4:%s", lambda xw: xw.Sheet("Sheet1").range("D6:F8").value),
+        ("#R8C6:R1C1:%s", lambda xw: xw.Sheet("Sheet1").range("A1:F8").value),
+        ("#R7C1:R7C4:%s", lambda xw: xw.Sheet("Sheet1").range("A7:D7").value),
+        ("#R9C4:R3C4:%s", lambda xw: xw.Sheet("Sheet1").range("D3:D9").value),
     )
     def test_vs_xlwings(self, case):
         import xlwings as xw  # @UnresolvedImport

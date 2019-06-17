@@ -179,8 +179,7 @@ def xlwings_dims_call_spec():
     return '["redim", [0, 1, 1, 1, 2]]'
 
 
-def redim_filter(ranger, lasso,
-                 scalar=None, cell=None, row=None, col=None, table=None):
+def redim_filter(ranger, lasso, scalar=None, cell=None, row=None, col=None, table=None):
     """
     A :term:`bulk-filter` that reshapes sand/or transpose captured values, depending on rect's shape.
 
@@ -196,8 +195,7 @@ def redim_filter(ranger, lasso,
     return lasso
 
 
-XLocation = namedtuple('XLocation',
-                       ('sheet', 'st', 'nd', 'base_coords'))
+XLocation = namedtuple("XLocation", ("sheet", "st", "nd", "base_coords"))
 """
 Fields denoting the position of a sheet/cell while running a :term:`element-wise-filter`.
 
@@ -206,9 +204,17 @@ processed ones were `None`.
 """
 
 
-def run_filter_elementwise(ranger, lasso, element_func, filters,
-                           include=None, exclude=None, depth=-1,
-                           *args, **kwds):
+def run_filter_elementwise(
+    ranger,
+    lasso,
+    element_func,
+    filters,
+    include=None,
+    exclude=None,
+    depth=-1,
+    *args,
+    **kwds
+):
     """
     Runner of all :term:`element-wise` :term:`filters`.
 
@@ -282,7 +288,7 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
                 if cdepth == 0:
                     row += i
                 elif cdepth == 1:
-                    col += + i
+                    col += +i
             else:
                 if isinstance(elval, pd.DataFrame):
                     col += i
@@ -292,13 +298,13 @@ def run_filter_elementwise(ranger, lasso, element_func, filters,
             return row, col
 
     def call_element_func(elval, cdepth, base_coords):
-        context_kwds = dtz.keyfilter(lambda k: k in XLocation._fields,
-                                     lasso._asdict())
-        context_kwds['base_coords'] = base_coords
+        context_kwds = dtz.keyfilter(lambda k: k in XLocation._fields, lasso._asdict())
+        context_kwds["base_coords"] = base_coords
         context = XLocation(**context_kwds)
         try:
-            proced, res_lasso = element_func(ranger, lasso, context, elval,
-                                             *args, **kwds)
+            proced, res_lasso = element_func(
+                ranger, lasso, context, elval, *args, **kwds
+            )
         except Exception as ex:
             msg_args = (elval, context, ex)
             raise ValueError("Value(%r) at %s: \n    %s" % msg_args)
@@ -364,8 +370,7 @@ def _recurse_element_func(ranger, lasso, context, elval):
     return proced, lasso
 
 
-def recursive_filter(ranger, lasso, filters=(), include=None, exclude=None,
-                     depth=-1):
+def recursive_filter(ranger, lasso, filters=(), include=None, exclude=None, depth=-1):
     """
     A :term:`element-wise-filter` that expand recursively any :term:`xl-ref` strings elements in :term:`capture-rect` values.
 
@@ -383,12 +388,12 @@ def recursive_filter(ranger, lasso, filters=(), include=None, exclude=None,
             See :func:`run_filter_elementwise()`.
 
     """
-    return run_filter_elementwise(ranger, lasso, _recurse_element_func,
-                                  filters, include, exclude, depth)
+    return run_filter_elementwise(
+        ranger, lasso, _recurse_element_func, filters, include, exclude, depth
+    )
 
 
-ast_log_writer = LoggerWriter(logging.getLogger('%s.pyeval' % __name__),
-                              logging.INFO)
+ast_log_writer = LoggerWriter(logging.getLogger("%s.pyeval" % __name__), logging.INFO)
 
 
 def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
@@ -397,7 +402,8 @@ def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
         expr = str(elval)
         symtable = locals()
         from .. import xleash
-        symtable.update({'xleash': xleash})
+
+        symtable.update({"xleash": xleash})
         aeval = asteval.Interpreter(usersyms=symtable, writer=ast_log_writer)
         res = aeval.eval(expr)
         if aeval.error:
@@ -408,14 +414,11 @@ def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
                 raise ValueError(msg % msg_args)
             else:
                 msg = "Skipped py-evaluating value(%r) \n  ++at %s \n  ++while lassoing %r \n  ++due to %i errors: %s: %s"
-                msg_args = (elval, context, lasso.xl_ref,
-                            len(aeval.error)) + error
+                msg_args = (elval, context, lasso.xl_ref, len(aeval.error)) + error
                 log.warning(msg, *msg_args)
         else:
             if isinstance(res, Lasso):
-                lasso = (res._replace(opts=lasso.opts)
-                         if res.opts is None
-                         else res)
+                lasso = res._replace(opts=lasso.opts) if res.opts is None else res
             else:
                 lasso = lasso._replace(values=res)
             proced = True
@@ -423,8 +426,9 @@ def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
     return proced, lasso
 
 
-def pyeval_filter(ranger, lasso, filters=(), eval_all=False,
-                  include=None, exclude=None, depth=-1):
+def pyeval_filter(
+    ranger, lasso, filters=(), eval_all=False, include=None, exclude=None, depth=-1
+):
     """
     A :term:`element-wise-filter` that uses :mod:`asteval` to evaluate string values as python expressions.
 
@@ -470,9 +474,16 @@ def pyeval_filter(ranger, lasso, filters=(), eval_all=False,
                [ 0.05,  0.03,  0.01,  0.01],
                [ 0.05,  0.03,  0.01,  0.01]])
     """
-    return run_filter_elementwise(ranger, lasso, _pyeval_element_func,
-                                  filters, include, exclude, depth,
-                                  eval_all=eval_all)
+    return run_filter_elementwise(
+        ranger,
+        lasso,
+        _pyeval_element_func,
+        filters,
+        include,
+        exclude,
+        depth,
+        eval_all=eval_all,
+    )
 
 
 def py_filter(ranger, lasso, expr):
@@ -495,7 +506,8 @@ def py_filter(ranger, lasso, expr):
     """
     symtable = locals()
     from .. import xleash
-    symtable.update({'xleash': xleash})
+
+    symtable.update({"xleash": xleash})
     aeval = asteval.Interpreter(usersyms=symtable, writer=ast_log_writer)
     res = aeval.eval(expr)
     if aeval.error:
@@ -505,9 +517,7 @@ def py_filter(ranger, lasso, expr):
         raise ValueError(msg % msg_args)
     else:
         if isinstance(res, Lasso):
-            lasso = (res._replace(opts=lasso.opts)
-                     if res.opts is None
-                     else res)
+            lasso = res._replace(opts=lasso.opts) if res.opts is None else res
         else:
             lasso = lasso._replace(values=res)
 
@@ -521,40 +531,36 @@ def install_default_filters(filters_dict):
     :param dict filters_dict:
             The dictionary to update with the default filters.
     """
-    filters_dict.update({
-        'pipe': {
-            'func': pipe_filter,
-        },
-        'pyeval': {
-            'func': pyeval_filter,
-        },
-        'py': {
-            'func': py_filter,
-        },
-        'recurse': {
-            'func': recursive_filter,
-        },
-        'redim': {
-            'func': redim_filter,
-        },
-        'numpy': {
-            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
-                values=np.array(lasso.values, *args, **kwds)),
-            'desc': np.array.__doc__,
-        },
-        'dict': {
-            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
-                values=dict(lasso.values, *args, **kwds)),
-            'desc': dict.__doc__,
-        },
-        'odict': {
-            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
-                values=OrderedDict(lasso.values, *args, **kwds)),
-            'desc': OrderedDict.__doc__,
-        },
-        'sorted': {
-            'func': lambda ranger, lasso, * args, **kwds: lasso._replace(
-                values=sorted(lasso.values, *args, **kwds)),
-            'desc': sorted.__doc__,
-        },
-    })
+    filters_dict.update(
+        {
+            "pipe": {"func": pipe_filter},
+            "pyeval": {"func": pyeval_filter},
+            "py": {"func": py_filter},
+            "recurse": {"func": recursive_filter},
+            "redim": {"func": redim_filter},
+            "numpy": {
+                "func": lambda ranger, lasso, *args, **kwds: lasso._replace(
+                    values=np.array(lasso.values, *args, **kwds)
+                ),
+                "desc": np.array.__doc__,
+            },
+            "dict": {
+                "func": lambda ranger, lasso, *args, **kwds: lasso._replace(
+                    values=dict(lasso.values, *args, **kwds)
+                ),
+                "desc": dict.__doc__,
+            },
+            "odict": {
+                "func": lambda ranger, lasso, *args, **kwds: lasso._replace(
+                    values=OrderedDict(lasso.values, *args, **kwds)
+                ),
+                "desc": OrderedDict.__doc__,
+            },
+            "sorted": {
+                "func": lambda ranger, lasso, *args, **kwds: lasso._replace(
+                    values=sorted(lasso.values, *args, **kwds)
+                ),
+                "desc": sorted.__doc__,
+            },
+        }
+    )

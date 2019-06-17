@@ -782,12 +782,24 @@ from .. import utils as pndlutils
 
 log = logging.getLogger(__name__)
 
-Lasso = namedtuple('Lasso',
-                   ('xl_ref', 'url_file', 'sh_name',
-                    'st_edge', 'nd_edge', 'exp_moves',
-                    'call_spec',
-                    'sheet', 'st', 'nd', 'values', 'base_coords',
-                    'opts'))
+Lasso = namedtuple(
+    "Lasso",
+    (
+        "xl_ref",
+        "url_file",
+        "sh_name",
+        "st_edge",
+        "nd_edge",
+        "exp_moves",
+        "call_spec",
+        "sheet",
+        "st",
+        "nd",
+        "values",
+        "base_coords",
+        "opts",
+    ),
+)
 """
 All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger`.
 
@@ -833,7 +845,7 @@ All the fields used by the algorithm, populated stage-by-stage by :class:`Ranger
 Lasso.__new__.__defaults__ = (None,) * len(Lasso._fields)
 """Make :class:`Lasso` construct with all missing fields as `None`."""
 
-Coords = namedtuple('Coords', ['row', 'col'])
+Coords = namedtuple("Coords", ["row", "col"])
 """
 A pair of 0-based integers denoting the "num" coordinates of a cell.
 
@@ -841,39 +853,29 @@ The "A1" coords (1-based coordinates) are specified using :class:`Cell`.
 """
 
 
-from ._parse import (
-    Cell, Edge, CallSpec,
-    parse_xlref,
-)
+from ._parse import Cell, Edge, CallSpec, parse_xlref
 
 io_backends = []
 """Hook for plugins to append :class:`ABCBackend` instances."""
 from pandalone.xleash.io.backend import (
-    ABCSheet, ArraySheet, margin_coords_from_states_matrix,
+    ABCSheet,
+    ArraySheet,
+    margin_coords_from_states_matrix,
     SheetsFactory,
 )
 
-from ._capture import (
-    resolve_capture_rect, coords2Cell,
-    EmptyCaptureException,
-)
+from ._capture import resolve_capture_rect, coords2Cell, EmptyCaptureException
 
 installed_filters = {}
 """Hook for plugins to append :term:`filters`."""
-from ._filter import (
-    XLocation,
-    xlwings_dims_call_spec,
-    install_default_filters
-)
+from ._filter import XLocation, xlwings_dims_call_spec, install_default_filters
+
 install_default_filters(installed_filters)
 
-from ._lasso import (
-    lasso, Ranger,
-    make_default_Ranger, get_default_opts,
-)
+from ._lasso import lasso, Ranger, make_default_Ranger, get_default_opts
 
 
-_PLUGIN_GROUP_NAME = 'pandalone.xleash.plugins'
+_PLUGIN_GROUP_NAME = "pandalone.xleash.plugins"
 """Used to discover *setuptools* extension-points."""
 
 
@@ -930,12 +932,15 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
     plugin_loaders = []
     entry_points = sorted(
         pkg_resources.working_set.iter_entry_points(plugin_group_name),
-        key=lambda ep: ep.name)
+        key=lambda ep: ep.name,
+    )
     if not entry_points:
-        raise ValueError("No xleash-plugins found!"
-                         "\n  You have to install AT LEAST on backend plugin."
-                         '\n  Try `xlrd` "extras" with this command?\n'
-                         "\n      pip install pandalone[xlrd]")
+        raise ValueError(
+            "No xleash-plugins found!"
+            "\n  You have to install AT LEAST on backend plugin."
+            '\n  Try `xlrd` "extras" with this command?\n'
+            "\n      pip install pandalone[xlrd]"
+        )
     for ep in entry_points:
         try:
             _plugins_installed[stringify_EntryPoint(ep)] = 0
@@ -944,16 +949,23 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
             if callable(plugin_loader):
                 plugin_loaders.append((ep, plugin_loader))
         except Exception as ex:
-            log.error('Failed LOADING plugin(%r@%s) due to: %s',
-                      ep, ep.dist, ex, exc_info=1)
+            log.error(
+                "Failed LOADING plugin(%r@%s) due to: %s", ep, ep.dist, ex, exc_info=1
+            )
 
     for ep, plugin_loader in plugin_loaders:
         try:
             plugin_loader()
             _plugins_installed[stringify_EntryPoint(ep)] = 2
         except Exception as ex:
-            log.error('Failed INSTALLING plugin(%r@%s) due to: %s',
-                      ep, ep.dist, ex, exc_info=1)
+            log.error(
+                "Failed INSTALLING plugin(%r@%s) due to: %s",
+                ep,
+                ep.dist,
+                ex,
+                exc_info=1,
+            )
+
 
 _plugins_installed = OrderedDict()
 """
@@ -966,18 +978,27 @@ The *EntryPoint* gets stringified to avoid memory-leaks.
 _init_plugins()
 
 __all__ = [
-    '_init_plugins', '_PLUGIN_GROUP_NAME',
-
-    'resolve_capture_rect', 'ABCSheet', 'ArraySheet', 'coords2Cell',
-    'EmptyCaptureException', 'margin_coords_from_states_matrix',
-
-    'lasso', 'Ranger', 'SheetsFactory', 'io_backends',
-    'make_default_Ranger',
-    'XLocation', 'get_default_opts',
-    'installed_filters',
-    'Lasso',
-    'xlwings_dims_call_spec',
-
-    'Cell', 'Coords', 'Edge', 'CallSpec',
-    'parse_xlref',
+    "_init_plugins",
+    "_PLUGIN_GROUP_NAME",
+    "resolve_capture_rect",
+    "ABCSheet",
+    "ArraySheet",
+    "coords2Cell",
+    "EmptyCaptureException",
+    "margin_coords_from_states_matrix",
+    "lasso",
+    "Ranger",
+    "SheetsFactory",
+    "io_backends",
+    "make_default_Ranger",
+    "XLocation",
+    "get_default_opts",
+    "installed_filters",
+    "Lasso",
+    "xlwings_dims_call_spec",
+    "Cell",
+    "Coords",
+    "Edge",
+    "CallSpec",
+    "parse_xlref",
 ]

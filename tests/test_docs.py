@@ -19,17 +19,16 @@ import pandalone
 
 
 mydir = osp.dirname(__file__)
-proj_path = osp.normpath(osp.join(mydir, '..'))
-readme_path = osp.join(proj_path, 'README.rst')
-tutorial_path = osp.join(proj_path, 'doc', 'tutorial.rst')
+proj_path = osp.normpath(osp.join(mydir, ".."))
+readme_path = osp.join(proj_path, "README.rst")
+tutorial_path = osp.join(proj_path, "doc", "tutorial.rst")
 
 
 class Doctest(unittest.TestCase):
-
     def test_doctest_README(self):
         failure_count, test_count = doctest.testfile(
-            readme_path, module_relative=False,
-            optionflags=doctest.NORMALIZE_WHITESPACE)
+            readme_path, module_relative=False, optionflags=doctest.NORMALIZE_WHITESPACE
+        )
         self.assertGreater(test_count, 0, (failure_count, test_count))
         self.assertEquals(failure_count, 0, (failure_count, test_count))
 
@@ -60,21 +59,25 @@ class Doctest(unittest.TestCase):
         with open(readme_path) as fd:
             ftext = fd.read()
             m = re.search(
-                r'pndlcmd --version\s+%s' % ver, ftext, re.MULTILINE | re.IGNORECASE)
-            self.assertIsNotNone(m,
-                                 "Version(%s) not found in README cmd-line version-check!" %
-                                 ver)
+                r"pndlcmd --version\s+%s" % ver, ftext, re.MULTILINE | re.IGNORECASE
+            )
+            self.assertIsNotNone(
+                m, "Version(%s) not found in README cmd-line version-check!" % ver
+            )
 
     def test_README_as_PyPi_landing_page(self):
         from docutils import core as dcore
 
         long_desc = subprocess.check_output(
-            'python setup.py --long-description'.split(),
-            cwd=proj_path)
-        self.assertIsNotNone(long_desc, 'Long_desc is null!')
+            "python setup.py --long-description".split(), cwd=proj_path
+        )
+        self.assertIsNotNone(long_desc, "Long_desc is null!")
 
-        with patch('sys.exit'):
-            dcore.publish_string(long_desc, enable_exit_status=False,
-                                 settings_overrides={  # see `docutils.frontend` for more.
-                                     'halt_level': 2  # 2=WARN, 1=INFO
-                                 })
+        with patch("sys.exit"):
+            dcore.publish_string(
+                long_desc,
+                enable_exit_status=False,
+                settings_overrides={  # see `docutils.frontend` for more.
+                    "halt_level": 2  # 2=WARN, 1=INFO
+                },
+            )

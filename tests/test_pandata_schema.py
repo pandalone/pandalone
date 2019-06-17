@@ -58,12 +58,11 @@ def wrap_in_pandas(dict_or_list, wrap_as_df=False):
 
 
 class TestIterErrors(unittest.TestCase):
-
     def iter_errors(self, instance, schema, *args, **kwds):
         self.validator = PandelVisitor(schema)
         return self.validator.iter_errors(instance, *args, **kwds)
 
-    #@unittest.skip("For Draft3Validator only!")
+    # @unittest.skip("For Draft3Validator only!")
     def test_iter_errors(self):
         data = [1, 2]
         for instance in wrap_in_pandas(data):
@@ -71,22 +70,17 @@ class TestIterErrors(unittest.TestCase):
                 "$schema": "http://json-schema.org/draft-03/schema#",
                 u"disallow": u"array",
                 u"enum": [["a", "b", "c"], ["d", "e", "f"]],
-                u"minItems": 3
+                u"minItems": 3,
             }
 
             got = (e for e in self.iter_errors(instance, schema))
-            expected = [
-                "disallow",
-                "minItems",
-                "enum",
-            ]
-            self.assertListEqual(
-                sorted(e.validator for e in got), sorted(expected))
+            expected = ["disallow", "minItems", "enum"]
+            self.assertListEqual(sorted(e.validator for e in got), sorted(expected))
 
     def test_iter_errors_multiple_failures_one_validator(self):
         tree1 = {"foo": 2, "bar": [1], "baz": 15, "quux": "spam"}
         tree2 = {"foo": 2, "bar": np.array([1]), "baz": 15, "quux": "spam"}
-        for data in (tree1, tree2,):
+        for data in (tree1, tree2):
             for instance in wrap_in_pandas(data):
                 schema = {
                     u"properties": {
@@ -101,7 +95,6 @@ class TestIterErrors(unittest.TestCase):
 
 
 class TestValidationErrorMessages(unittest.TestCase):
-
     def message_for(self, instance, schema, *args, **kwargs):
         with self.assertRaises(ValidationError) as e:
             validate(instance, schema, *args, **kwargs)
@@ -120,24 +113,22 @@ class TestValidationErrorMessages(unittest.TestCase):
         message = self.message_for(instance=1, schema={u"type": list(types)})
         self.assertEqual(message, "1 is not of type %r, %r" % types)
 
-    #@unittest.skip("For Draft3Validator only!")
+    # @unittest.skip("For Draft3Validator only!")
     def test_object_without_title_type_failure(self):
-        atype = {
-            u"type": [{u"minimum": 3}],
-        }
+        atype = {u"type": [{u"minimum": 3}]}
         schema = {
             "$schema": "http://json-schema.org/draft-03/schema#",
-            u"type": [atype]
+            u"type": [atype],
         }
         message = self.message_for(instance=1, schema=schema)
         self.assertEqual(message, "1 is not of type %r" % (atype,))
 
-    #@unittest.skip("For Draft3Validator only!")
+    # @unittest.skip("For Draft3Validator only!")
     def test_object_with_name_type_failure(self):
         name = "Foo"
         schema = {
             u"type": [{u"name": name, u"minimum": 3}],
-            "$schema": "http://json-schema.org/draft-03/schema#"
+            "$schema": "http://json-schema.org/draft-03/schema#",
         }
         message = self.message_for(instance=1, schema=schema)
         self.assertEqual(message, "1 is not of type %r" % (name,))
@@ -154,21 +145,22 @@ class TestValidationErrorMessages(unittest.TestCase):
         depend, on = "bar", "foo"
         schema = {
             u"dependencies": {depend: on},
-            "$schema": "http://json-schema.org/draft-03/schema#"
+            "$schema": "http://json-schema.org/draft-03/schema#",
         }
         data = {"bar": 2}
         for instance in wrap_in_pandas(data):
             message = self.message_for(instance, schema)
-            self.assertEqual(
-                message, "%r is a dependency of %r" % (on, depend))
+            self.assertEqual(message, "%r is a dependency of %r" % (on, depend))
 
     def test_additionalItems_single_failure(self):
         data = [2]
         for instance in wrap_in_pandas(data):
             message = self.message_for(
-                instance, {
-                    u"items": [], u"additionalItems": False,
-                    "$schema": "http://json-schema.org/draft-03/schema#"
+                instance,
+                {
+                    u"items": [],
+                    u"additionalItems": False,
+                    "$schema": "http://json-schema.org/draft-03/schema#",
                 },
             )
         self.assertIn("(2 was unexpected)", message)
@@ -177,10 +169,12 @@ class TestValidationErrorMessages(unittest.TestCase):
         data = [1, 2, 3]
         for instance in wrap_in_pandas(data):
             message = self.message_for(
-                instance, {
+                instance,
+                {
                     "$schema": "http://json-schema.org/draft-03/schema#",
-                    u"items": [], u"additionalItems": False
-                }
+                    u"items": [],
+                    u"additionalItems": False,
+                },
             )
             self.assertIn("(1, 2, 3 were unexpected)", message)
 
@@ -221,12 +215,7 @@ class TestValidationErrorDetails(unittest.TestCase):
 
     def test_anyOf(self):
         instance = 5
-        schema = {
-            "anyOf": [
-                {"minimum": 20},
-                {"type": "string"}
-            ]
-        }
+        schema = {"anyOf": [{"minimum": 20}, {"type": "string"}]}
 
         validator = PandelVisitor(schema)
         errors = list(validator.iter_errors(instance))
@@ -263,9 +252,7 @@ class TestValidationErrorDetails(unittest.TestCase):
 
         self.assertEqual(e1.schema_path, deque([0, "minimum"]))
         self.assertEqual(e1.relative_schema_path, deque([0, "minimum"]))
-        self.assertEqual(
-            e1.absolute_schema_path, deque(["anyOf", 0, "minimum"]),
-        )
+        self.assertEqual(e1.absolute_schema_path, deque(["anyOf", 0, "minimum"]))
 
         self.assertFalse(e1.context)
 
@@ -285,20 +272,15 @@ class TestValidationErrorDetails(unittest.TestCase):
 
         self.assertEqual(len(e2.context), 0)
 
-    #@unittest.skip("For Draft3Validator only!")
+    # @unittest.skip("For Draft3Validator only!")
     def test_type(self):
         instance = {"foo": 1}
         schema = {
             "$schema": "http://json-schema.org/draft-03/schema#",
             "type": [
                 {"type": "integer"},
-                {
-                    "type": "object",
-                    "properties": {
-                        "foo": {"enum": [2]}
-                    }
-                }
-            ]
+                {"type": "object", "properties": {"foo": {"enum": [2]}}},
+            ],
         }
 
         validator = PandelVisitor(schema)
@@ -338,8 +320,7 @@ class TestValidationErrorDetails(unittest.TestCase):
 
             self.assertEqual(e1.schema_path, deque([0, "type"]))
             self.assertEqual(e1.relative_schema_path, deque([0, "type"]))
-            self.assertEqual(
-                e1.absolute_schema_path, deque(["type", 0, "type"]))
+            self.assertEqual(e1.absolute_schema_path, deque(["type", 0, "type"]))
 
             self.assertFalse(e1.context)
 
@@ -353,16 +334,12 @@ class TestValidationErrorDetails(unittest.TestCase):
             self.assertEqual(e2.relative_path, deque(["foo"]))
             self.assertEqual(e2.absolute_path, deque(["foo"]))
 
+            self.assertEqual(e2.schema_path, deque([1, "properties", "foo", "enum"]))
             self.assertEqual(
-                e2.schema_path, deque([1, "properties", "foo", "enum"]),
+                e2.relative_schema_path, deque([1, "properties", "foo", "enum"])
             )
             self.assertEqual(
-                e2.relative_schema_path, deque(
-                    [1, "properties", "foo", "enum"]),
-            )
-            self.assertEqual(
-                e2.absolute_schema_path,
-                deque(["type", 1, "properties", "foo", "enum"]),
+                e2.absolute_schema_path, deque(["type", 1, "properties", "foo", "enum"])
             )
 
             self.assertFalse(e2.context)
@@ -407,7 +384,7 @@ class TestValidationErrorDetails(unittest.TestCase):
             self.assertEqual(e3.validator, "maximum")
             self.assertEqual(e4.validator, "type")
 
-    #@unittest.skip("For Draft3Validator only!")
+    # @unittest.skip("For Draft3Validator only!")
     def test_multiple_nesting(self):
         instance = [1, {"foo": 2, "bar": {"baz": [1]}}, "quux"]
         schema = {
@@ -422,10 +399,10 @@ class TestValidationErrorDetails(unittest.TestCase):
                         "properties": {
                             "bar": {"required": True},
                             "baz": {"minItems": 2},
-                        }
-                    }
-                }
-            }
+                        },
+                    },
+                },
+            },
         }
 
         validator = PandelVisitor(schema)
@@ -441,20 +418,16 @@ class TestValidationErrorDetails(unittest.TestCase):
 
         self.assertEqual(e1.schema_path, deque(["type"]))
         self.assertEqual(e2.schema_path, deque(["items", "type"]))
-        self.assertEqual(
-            list(e3.schema_path), ["items", "properties", "bar", "type"],
-        )
+        self.assertEqual(list(e3.schema_path), ["items", "properties", "bar", "type"])
         self.assertEqual(
             list(e4.schema_path),
             ["items", "properties", "bar", "properties", "bar", "required"],
         )
         self.assertEqual(
             list(e5.schema_path),
-            ["items", "properties", "bar", "properties", "baz", "minItems"]
+            ["items", "properties", "bar", "properties", "baz", "minItems"],
         )
-        self.assertEqual(
-            list(e6.schema_path), ["items", "properties", "foo", "enum"],
-        )
+        self.assertEqual(list(e6.schema_path), ["items", "properties", "foo", "enum"])
 
         self.assertEqual(e1.validator, "type")
         self.assertEqual(e2.validator, "type")
@@ -467,30 +440,26 @@ class TestValidationErrorDetails(unittest.TestCase):
         schema = {
             "definitions": {
                 "node": {
-                    "anyOf": [{
-                        "type": "object",
-                        "required": ["name", "children"],
-                        "properties": {
-                            "name": {
-                                "type": "string",
-                            },
-                            "children": {
-                                "type": "object",
-                                "patternProperties": {
-                                    "^.*$": {
-                                        "$ref": "#/definitions/node",
+                    "anyOf": [
+                        {
+                            "type": "object",
+                            "required": ["name", "children"],
+                            "properties": {
+                                "name": {"type": "string"},
+                                "children": {
+                                    "type": "object",
+                                    "patternProperties": {
+                                        "^.*$": {"$ref": "#/definitions/node"}
                                     },
                                 },
                             },
-                        },
-                    }],
-                },
+                        }
+                    ]
+                }
             },
             "type": "object",
             "required": ["root"],
-            "properties": {
-                "root": {"$ref": "#/definitions/node"},
-            }
+            "properties": {"root": {"$ref": "#/definitions/node"}},
         }
 
         instance = {
@@ -504,23 +473,22 @@ class TestValidationErrorDetails(unittest.TestCase):
                                 "name": "ab",
                                 # missing "children"
                             }
-                        }
-                    },
+                        },
+                    }
                 },
-            },
+            }
         }
         validator = PandelVisitor(schema)
 
         e, = validator.iter_errors(instance)
         self.assertEqual(e.absolute_path, deque(["root"]))
-        self.assertEqual(
-            e.absolute_schema_path, deque(["properties", "root", "anyOf"]),
-        )
+        self.assertEqual(e.absolute_schema_path, deque(["properties", "root", "anyOf"]))
 
         e1, = e.context
         self.assertEqual(e1.absolute_path, deque(["root", "children", "a"]))
         self.assertEqual(
-            e1.absolute_schema_path, deque(
+            e1.absolute_schema_path,
+            deque(
                 [
                     "properties",
                     "root",
@@ -531,18 +499,17 @@ class TestValidationErrorDetails(unittest.TestCase):
                     "patternProperties",
                     "^.*$",
                     "anyOf",
-                ],
+                ]
             ),
         )
 
         e2, = e1.context
         self.assertEqual(
-            e2.absolute_path, deque(
-                ["root", "children", "a", "children", "ab"],
-            ),
+            e2.absolute_path, deque(["root", "children", "a", "children", "ab"])
         )
         self.assertEqual(
-            e2.absolute_schema_path, deque(
+            e2.absolute_schema_path,
+            deque(
                 [
                     "properties",
                     "root",
@@ -558,16 +525,14 @@ class TestValidationErrorDetails(unittest.TestCase):
                     "children",
                     "patternProperties",
                     "^.*$",
-                    "anyOf"
-                ],
+                    "anyOf",
+                ]
             ),
         )
 
     def test_additionalProperties(self):
         data = {"bar": "bar", "foo": 2}
-        schema = {
-            "additionalProperties": {"type": "integer", "minimum": 5}
-        }
+        schema = {"additionalProperties": {"type": "integer", "minimum": 5}}
 
         validator = PandelVisitor(schema)
 
@@ -584,10 +549,7 @@ class TestValidationErrorDetails(unittest.TestCase):
     def test_patternProperties(self):
         data = {"bar": 1, "foo": 2}
         schema = {
-            "patternProperties": {
-                "bar": {"type": "string"},
-                "foo": {"minimum": 5}
-            }
+            "patternProperties": {"bar": {"type": "string"}, "foo": {"minimum": 5}}
         }
 
         validator = PandelVisitor(schema)
@@ -611,7 +573,7 @@ class TestValidationErrorDetails(unittest.TestCase):
         schema = {
             "$schema": "http://json-schema.org/draft-03/schema#",
             "items": [],
-            "additionalItems": {"type": "integer", "minimum": 5}
+            "additionalItems": {"type": "integer", "minimum": 5},
         }
 
         validator = PandelVisitor(schema)
@@ -627,14 +589,12 @@ class TestValidationErrorDetails(unittest.TestCase):
                 # numpy-arrays have column-types so str+int-->str and both
                 # errors are type-errors.
                 self.assertSequenceEqual(
-                    [e.validator for e in (e1, e2)], ("type", "minimum"), (e1, e2))
+                    [e.validator for e in (e1, e2)], ("type", "minimum"), (e1, e2)
+                )
 
     def test_additionalItems_with_items(self):
         data = ["foo", "bar", 1]
-        schema = {
-            "items": [{}],
-            "additionalItems": {"type": "integer", "minimum": 5}
-        }
+        schema = {"items": [{}], "additionalItems": {"type": "integer", "minimum": 5}}
 
         validator = PandelVisitor(schema)
 
@@ -649,11 +609,11 @@ class TestValidationErrorDetails(unittest.TestCase):
                 # numpy-arrays have column-types so str+int-->str and both
                 # errors are type-errors.
                 self.assertSequenceEqual(
-                    [e.validator for e in (e1, e2)], ("type", "minimum"), (e1, e2))
+                    [e.validator for e in (e1, e2)], ("type", "minimum"), (e1, e2)
+                )
 
 
 class ValidatorTestMixin(object):
-
     def setUp(self):
         self.instance = mock.Mock()
         self.schema = {}
@@ -663,22 +623,18 @@ class ValidatorTestMixin(object):
     def test_valid_instances_are_valid(self):
         errors = iter([])
 
-        with mock.patch.object(                                     # @UndefinedVariable
-            self.validator, "iter_errors", return_value=errors,
+        with mock.patch.object(  # @UndefinedVariable
+            self.validator, "iter_errors", return_value=errors
         ):
-            self.assertTrue(
-                self.validator.is_valid(self.instance, self.schema)
-            )
+            self.assertTrue(self.validator.is_valid(self.instance, self.schema))
 
     def test_invalid_instances_are_not_valid(self):
         errors = iter([mock.Mock()])
 
-        with mock.patch.object(                                     # @UndefinedVariable
-            self.validator, "iter_errors", return_value=errors,
+        with mock.patch.object(  # @UndefinedVariable
+            self.validator, "iter_errors", return_value=errors
         ):
-            self.assertFalse(
-                self.validator.is_valid(self.instance, self.schema)
-            )
+            self.assertFalse(self.validator.is_valid(self.instance, self.schema))
 
     def test_non_existent_properties_are_ignored(self):
         instance, my_property, my_value = mock.Mock(), mock.Mock(), mock.Mock()
@@ -722,39 +678,30 @@ class TestDraft3lValidator(ValidatorTestMixin, unittest.TestCase):
 
     def setUp(self):
         super(TestDraft3lValidator, self).setUp()
-        self.validator = PandelVisitor({
-            "$schema": "http://json-schema.org/draft-03/schema#"
-        })
+        self.validator = PandelVisitor(
+            {"$schema": "http://json-schema.org/draft-03/schema#"}
+        )
 
-    #@unittest.skip("For Draft3Validator only!")
+    # @unittest.skip("For Draft3Validator only!")
     def test_is_type_is_true_for_any_type(self):
         self.assertTrue(self.validator.is_valid(mock.Mock(), {"type": "any"}))
 
-    #@unittest.skip("For Draft3Validator only!")
+    # @unittest.skip("For Draft3Validator only!")
     def test_is_type_does_not_evade_bool_if_it_is_being_tested(self):
         self.assertTrue(self.validator.is_type(True, "boolean"))
         self.assertTrue(self.validator.is_valid(True, {"type": "any"}))
 
-    #@unittest.skip("The schema below in invalid under Draft3/4, but original test had averted meta-validation.")
+    # @unittest.skip("The schema below in invalid under Draft3/4, but original test had averted meta-validation.")
     def test_non_string_custom_types(self):
-        schema = {
-            "$schema": "http://json-schema.org/draft-03/schema#",
-            'type': [None]
-        }
+        schema = {"$schema": "http://json-schema.org/draft-03/schema#", "type": [None]}
         cls = self.validator_class(
-            schema, types={None: type(None)}, skip_meta_validation=True)
+            schema, types={None: type(None)}, skip_meta_validation=True
+        )
         cls.validate(None, schema)
 
-        schema = {
-            "$schema": "http://json-schema.org/draft-03/schema#",
-            'type': 'some'
-        }
-        types = {
-            'object': dict,
-            'some': pd.DataFrame,
-        }
-        cls = self.validator_class(
-            schema, types=types, skip_meta_validation=True)
+        schema = {"$schema": "http://json-schema.org/draft-03/schema#", "type": "some"}
+        types = {"object": dict, "some": pd.DataFrame}
+        cls = self.validator_class(schema, types=types, skip_meta_validation=True)
         cls.validate(pd.DataFrame(), schema)
 
 
@@ -763,7 +710,6 @@ class TestDraft4Validator(ValidatorTestMixin, unittest.TestCase):
 
 
 class TestSchemaIsChecked(unittest.TestCase):  # Was: class TestValidate
-
     def test_draft3_validator_is_chosen(self):
         pv = PandelVisitor({})
         schema = {"$schema": "http://json-schema.org/draft-03/schema#"}
@@ -794,8 +740,6 @@ class TestSchemaIsChecked(unittest.TestCase):  # Was: class TestValidate
 
 def sorted_errors(errors):
     def key(error):
-        return (
-            [str(e) for e in error.path],
-            [str(e) for e in error.schema_path]
-        )
+        return ([str(e) for e in error.path], [str(e) for e in error.schema_path])
+
     return sorted(errors, key=key)

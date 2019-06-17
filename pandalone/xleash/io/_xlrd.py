@@ -18,8 +18,16 @@ import logging
 from urllib import request
 from urllib.parse import urlparse
 from pandalone.xleash.io.backend import ABCBackend, ABCSheet, SheetId
-from xlrd import (xldate, XL_CELL_DATE, XL_CELL_EMPTY, XL_CELL_TEXT,
-                  XL_CELL_BLANK, XL_CELL_ERROR, XL_CELL_BOOLEAN, XL_CELL_NUMBER)
+from xlrd import (
+    xldate,
+    XL_CELL_DATE,
+    XL_CELL_EMPTY,
+    XL_CELL_TEXT,
+    XL_CELL_BLANK,
+    XL_CELL_ERROR,
+    XL_CELL_BOOLEAN,
+    XL_CELL_NUMBER,
+)
 import xlrd
 
 import numpy as np
@@ -105,10 +113,11 @@ def _parse_cell(xcell, epoch1904=False):
                 d = datetime.datetime(*d)
         return d
     elif ctype == XL_CELL_ERROR:
-        return float('nan')
+        return float("nan")
 
-    raise ValueError('Invalid XL-cell type(%s) for value(%s)!' %
-                     (xcell.ctype, xcell.value))
+    raise ValueError(
+        "Invalid XL-cell type(%s) for value(%s)!" % (xcell.ctype, xcell.value)
+    )
 
 
 def _open_sheet_by_name_or_index(xlrd_book, wb_id, sheet_id):
@@ -155,13 +164,11 @@ class XlrdSheet(ABCSheet):
 
     def get_sheet_ids(self):
         sh = self._sheet
-        return SheetId(self.book_fname or sh.book.filestr,
-                       [sh.name, sh.number])
+        return SheetId(self.book_fname or sh.book.filestr, [sh.name, sh.number])
 
     def open_sibling_sheet(self, sheet_id):
         """Gets by-index only if `sheet_id` is `int`, otherwise tries both by name and index."""
-        return _open_sheet_by_name_or_index(self._sheet.book,
-                                            self.book_fname, sheet_id)
+        return _open_sheet_by_name_or_index(self._sheet.book, self.book_fname, sheet_id)
 
     def list_sheetnames(self):
         return self._sheet.book.sheet_names()
@@ -175,7 +182,7 @@ class XlrdSheet(ABCSheet):
         nrows = self._sheet.nrows - 1
         ncols = self._sheet.ncols - 1
         if nrows < 0 or ncols < 0:
-            raise EmptyCaptureException('empty sheet')
+            raise EmptyCaptureException("empty sheet")
         return None, Coords(nrows, ncols)
 
     def read_rect(self, st, nd):
@@ -206,7 +213,6 @@ class XlrdSheet(ABCSheet):
 
 
 class XlrdBackend(ABCBackend):
-
     def bid(self, wb_url):
         if wb_url:
             parts = urlparse(wb_url)
@@ -231,19 +237,18 @@ class XlrdBackend(ABCBackend):
     def _open_book(self, url):
         parts = filename = urlparse(url)
         ropts = parts.params or {}
-        if 'logfile' not in ropts:
-            ropts['logfile'] = utils.LoggerWriter(log, logging.DEBUG)
-        if parts.scheme == 'file':
+        if "logfile" not in ropts:
+            ropts["logfile"] = utils.LoggerWriter(log, logging.DEBUG)
+        if parts.scheme == "file":
             path = utils.urlpath2path(parts.path)
-            log.info('Opening book(%r)...', path)
+            log.info("Opening book(%r)...", path)
             book = xlrd.open_workbook(path, **ropts)
         else:
-            ropts.pop('on_demand', None)
-            http_opts = ropts.get('http_opts', {})
+            ropts.pop("on_demand", None)
+            http_opts = ropts.get("http_opts", {})
             with request.urlopen(url, **http_opts) as response:
-                log.info('Opening book(%r)...', filename)
-                book = xlrd.open_workbook(
-                    filename, file_contents=response, **ropts)
+                log.info("Opening book(%r)...", filename)
+                book = xlrd.open_workbook(filename, file_contents=response, **ropts)
 
         return book
 
