@@ -2,9 +2,9 @@
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true,
     "python.pythonPath": "venv/bin/python",
-    "restructuredtext.confPath": "",
     "python.testing.pyTestArgs": [
-        "tests"
+        "--doctest-modules", 
+        "--doctest-report", "ndiff",
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.nosetestsEnabled": false,

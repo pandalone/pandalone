@@ -235,7 +235,7 @@ setup(
     setup_requires=[
         "setuptools-git >= 0.3"  # Gather package-data from all files in git.
     ],
-    tests_require=["ddt", "nose", "coverage", "coveralls", "pandas", "xlrd"],
+    tests_require=["pytest", "ddt", "nose", "coverage", "coveralls", "pandas", "xlrd"],
     test_suite="nose.collector",
     extras_require={
         "test": test_reqs,
