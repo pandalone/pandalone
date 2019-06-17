@@ -1,6 +1,6 @@
 .. include:: ../README.rst
     :start-after: _begin-intro:
-    :end-before: _install:
+    :end-before: _usage:
 
 Discussion
 ----------

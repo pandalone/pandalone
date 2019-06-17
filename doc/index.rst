@@ -17,7 +17,6 @@ Process data-trees with reconfigurable-paths in Python
     :numbered:
 
     intro
-    install
     usage
     contribute
     reference

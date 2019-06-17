@@ -889,8 +889,8 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
 
     You may re-invoke after some ``pip install <some-xleash-plugin>``.
 
-    `setup.py` configurations
-    -------------------------
+    ## `setup.py` configurations
+
     To implement a new plugin, you have to package your code as a regular
     python distribution and add the following declaration inside its
     :file:`setup.py`::
@@ -906,8 +906,8 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
         )
 
 
-    Implementing a plugin
-    ---------------------
+    ## Implementing a plugin
+
     The plugins are initialized during *import time* in a 2-stage procedure
     by :func:`init_plugins()`.
     A plugin is *loaded* and optionally *installed* if the *setup-configuration*

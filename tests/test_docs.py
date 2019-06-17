@@ -54,17 +54,6 @@ class Doctest(unittest.TestCase):
                 msg = "Version(%s) not found in README first %s header-lines!"
                 raise AssertionError(msg % (reldate, header_len))
 
-    def test_README_version_cmdline(self):
-        ver = pandalone.__version__
-        with open(readme_path) as fd:
-            ftext = fd.read()
-            m = re.search(
-                r"pndlcmd --version\s+%s" % ver, ftext, re.MULTILINE | re.IGNORECASE
-            )
-            self.assertIsNotNone(
-                m, "Version(%s) not found in README cmd-line version-check!" % ver
-            )
-
     def test_README_as_PyPi_landing_page(self):
         from docutils import core as dcore
 

@@ -98,252 +98,24 @@ can be thought like that::
 Quick-start
 -----------
 
-.. Note::
-    The program runs on **Python-3.5+** (preferred) and requires
-    **numpy/scipy**, **pandas** and **win32** libraries along with their *native backends* to be installed.
-    If you do not have such an environment already installed, please read :doc:`install` section below for
-    suitable distributions such as |anaconda|_ or |winpython|_.
+The program runs on **Python-3.5+** and requires **numpy**, **pandas** and 
+(optionally) **win32** libraries along with their *native backends*.
+.. code-block:: bash
 
-Assuming that you have a working python-environment, open a *command-shell*,
-(in *Windows* use :program:`cmd.exe` BUT ensure :program:`python.exe` is in its :envvar:`PATH`),
-try the following commands:
+    pip install pandalone                 ## Use `--pre` if version-string has a build-suffix.
 
-.. Tip::
-    The commands beginning with ``$``, below, imply a *Unix* like operating system with a *POSIX* shell
-    (*Linux*, *OS X*). Although the commands are simple and easy to translate in its *Windows* ``cmd.exe`` counterpart,
-    it would be worthwile to install `Cygwin <https://www.cygwin.com/>`_ to get the same environment on *Windows*.
-    If you choose to do that, include also the following packages in the *Cygwin*'s installation wizard::
-
-        * git, git-completion
-        * make, zip, unzip, bzip2, dos2unix
-        * openssh, curl, wget
-
-    But do not install/rely on cygwin's outdated python environment.
-
-:Install:
-    .. code-block:: bash
-
-        $ pip install pandalone                 ## Use `--pre` if version-string has a build-suffix.
-
-    Or in case you need the very latest from `master` branch :
-
-    .. code-block:: bash
-
-        $ pip install git+https://github.com/pandalone/pandalone.git
-
-    See: :doc:`install`
-
-:Run:
-    .. code-block:: bash
-
-        $ pandalone --version
-
-
-
-.. _install:
-
-Install
-=======
-Current version(|version|) runs on **Python-3.5+** and requires
-**numpy/scipy**, **pandas** and **win32** libraries along with their *native backends* to be installed.
-
-It has been tested under *Windows* and *Linux* for *Python-3.5+*.
-
-It is distributed on `Wheels <https://pypi.python.org/pypi/wheel>`_.
-
-
-Python installation
--------------------
-
-.. Warning::
-    On *Windows* it is strongly suggested **NOT to install the standard CPython distribution**,
-    unless:
-
-    a) you have *administrative priviledges*,
-    b) you are an experienced python programmer, so that
-    c) you know how to hunt dependencies from *PyPi* repository and/or
-       the `Unofficial Windows Binaries for Python Extension Packages <http://www.lfd.uci.edu/~gohlke/pythonlibs/>`_.
-
-As explained above, this project depends on packages with *native-backends* that require the use
-of *C* and *Fortran* compilers to build from sources.
-To avoid this hassle, you should choose one of the user-friendly distributions suggested below.
-
-Below is a matrix of the two suggested self-wrapped python distributions for running this program
-(we excluded here default *python* included in *linux*). Both distributions:
-
-- are free (as of freedom),
-- do not require *admin-rights* for installation in *Windows*, and
-- have been tested to run successfully this program (also tested on default *linux* distros).
-
-+-----------------+-------------------------------------------+-------------------------------------------+
-| *Distributions* | |winpython|_                              | |anaconda|_                               |
-|                 |                                           |                                           |
-+=================+===========================================+===========================================+
-| *Platform*      | **Windows**                               | **Windows**, **Mac OS**, **Linux**        |
-+-----------------+-------------------------------------------+-------------------------------------------+
-| *Ease of*       | Fair                                      | - *Anaconda:* Easy                        |
-|                 |                                           | - *MiniConda:* Moderate                   |
-|                 | (requires fiddling with the               |                                           |
-|                 | :envvar:`PATH`                            |                                           |
-| *Installation*  |                                           |                                           |
-|                 | and the Registry after install)           |                                           |
-|                 |                                           |                                           |
-+-----------------+-------------------------------------------+-------------------------------------------+
-| *Ease of Use*   | Easy                                      | Moderate                                  |
-|                 |                                           |                                           |
-|                 |                                           | (should use :command:`conda` and/or       |
-|                 |                                           | :command:`pip`                            |
-|                 |                                           |                                           |
-|                 |                                           | depending on whether a package            |
-|                 |                                           |                                           |
-|                 |                                           | contains native libraries                 |
-|                 |                                           |                                           |
-+-----------------+-------------------------------------------+-------------------------------------------+
-| *# of Packages* | Only what's included                      | Many 3rd-party packages                   |
-|                 |                                           |                                           |
-|                 | in the downloaded-archive                 | uploaded by users                         |
-|                 |                                           |                                           |
-+-----------------+-------------------------------------------+-------------------------------------------+
-| *Notes*         | After installation, see :ref:`faq` for:   | - Check also the lighter `miniconda       |
-|                 |                                           |   <http://conda.pydata.org/               |
-|                 | - Registering WinPython installation      |   miniconda.html>`_.                      |
-|                 | - Adding your installation in             | - For installing native-dependencies      |
-|                 |   :envvar:`PATH`                          |                                           |
-|                 |                                           |   with :command:`conda` see files:        |
-|                 |                                           |                                           |
-|                 |                                           |   - :file:`requirements/miniconda.conda`  |
-|                 |                                           |   - :file:`.travis.yaml`                  |
-|                 |                                           |                                           |
-+-----------------+-------------------------------------------+-------------------------------------------+
-|                 | Check also installation instructions from `the  pandas site                           |
-|                 | <http://pandas.pydata.org/pandas-docs/stable/install.html>`_.                         |
-|                 |                                                                                       |
-+-----------------+-------------------------------------------+-------------------------------------------+
-
-
-
-Package installation
---------------------
-
-Before installing it, make sure that there are no older versions left over
-on the python installation you are using.
-To cleanly uninstall it, run this command until you cannot find any project installed:
+Or in case you need the very latest from `master` branch :
 
 .. code-block:: bash
 
-    $ pip uninstall pandalone                   ## Use `pip3` if both python-2 & 3 are in PATH.
+    pip install git+https://github.com/pandalone/pandalone.git
 
-
-You can install the project directly from the |pypi|_ the "standard" way,
-by typing the :command:`pip` in the console:
-
-  .. code-block:: bash
-
-      $ pip install pandalone
-
-- If you want to install a *pre-release* version (the version-string is not plain numbers, but
-  ends with ``alpha``, ``beta.2`` or something else), use additionally option ``--pre``.
+Or in to install in *develop* mode with all dependencies needed for development, 
+clone it from the remote repo localy, and run:
 
 .. code-block:: bash
 
-    $ pip install pandalone
-
-- Also you can install the very latest version straight from the sources:
-
-  .. code-block:: bash
-
-      $ pip install git+git://github.com/pandalone/pandalone.git  --pre
-
-- If you want to upgrade an existing installation along with all its dependencies,
-  add also option ``--upgrade`` (or option ``-U`` equivalently), but then the build might take some
-  considerable time to finish.  Also there is the possibility the upgraded libraries might break
-  existing programs(!) so use it with caution, or from within a |virtualenv|_.
-
-- To install it for different Python environments, repeat the procedure using
-  the appropriate :program:`python.exe` interpreter for each environment.
-
-- .. Tip::
-    To debug installation problems, you can export a non-empty :envvar:`DISTUTILS_DEBUG`
-    and *distutils* will print detailed information about what it is doing and/or
-    print the whole command line when an external program (like a C compiler) fails.
-
-
-After installation, it is important that you check which version is visible in your :envvar:`PATH`:
-
-.. code-block:: bash
-
-    $ pndlcmd --version
-    0.3.0.dev3
-
-
-To install for different Python versions, repeat the procedure for every required version.
-
-
-
-Older versions
---------------
-To install an older released version issue the console command:
-
-.. code-block:: bash
-
-    $ pip install pandalone=0.0.1                   ## Use `--pre` if version-string has a build-suffix.
-
-or alternatively straight from the sources:
-
-  .. code-block:: bash
-
-      $ pip install git+https://github.com/pandalone/pandalone.git@v0.0.9-alpha.3.1  --pre
-
-Of course you can substitute `v0.0.9-alpha.3.1` with any slug from "commits", "branches" or "releases"
-that you will find on project's `github-repo <https://github.com/pandalone/pandalone>`_).
-
-.. Note::
-    If you have another version already installed, you have to use option ``--ignore-installed`` (or option ``-I``).
-    For using the specific version, check this (untested)
-    `stackoverflow question
-    <http://stackoverflow.com/questions/6445167/force-python-to-use-an-older-version-of-module-than-what-i-have-installed-now>`_.
-
-    You can install each version in a separate |virtualenv|_ and shy away from all this.
-    Check
-
-
-Installing sources
------------------------
-If you download the sources you have more options for installation.
-There are various methods to get hold of them:
-
-* Download the *source* distribution from |pypi|_.
-* Download a `release-snapshot from github <https://github.com/pandalone/pandalone/releases>`_
-* Clone the *git-repository* at *github*.
-
-  Assuming you have a working installation of `git <http://git-scm.com/>`_
-  you can fetch and install the latest version of the project with the following series of commands:
-
-  .. code-block:: bash
-
-      $ git clone "https://github.com/pandalone/pandalone.git" pandalone.git
-      $ cd pandalone.git
-      $ python setup.py install                                 ## Use `python3` if both python-2 & 3 installed.
-
-
-When working with sources, you need to have installed all libraries that the project depends on:
-
-.. code-block:: bash
-
-    $ pip install -r requirements/execution.pip .
-
-
-The previous command installs a "snapshot" of the project as it is found in the sources.
-If you wish to link the project's sources with your python environment, install the project
-in `development mode <http://pythonhosted.org/setuptools/setuptools.html#development-mode>`_:
-
-.. code-block:: bash
-
-    $ python setup.py develop
-
-
-.. Note:: This last command installs any missing dependencies inside the project-folder.
-
+    pip install -e <pandalone-dr>[dev]
 
 
 Project files and folders
@@ -371,16 +143,6 @@ Currently 2 portions of this library are ready for use: :mod:`pandalone.xleash` 
 :mod:`pandalone.mappings`
 
 .. _cmd-line-usage:
-
-Cmd-line usage
---------------
-.. Warning:: Not implemented in yet.
-
-The command-line usage below requires the Python environment to be installed, and provides for
-executing an experiment directly from the OS's shell (i.e. :program:`cmd` in windows or :program:`bash` in POSIX),
-and in a *single* command.
-
-[TBD]
 
 
 GUI usage

@@ -26,7 +26,6 @@ def check_import(lib):
 print("python exec: %s" % sys.executable)
 print("sys.path: %s" % sys.path)
 check_import('numpy')
-check_import('scipy')
 check_import('pandas')
 check_import('matplotlib')
 check_import('IPython')
