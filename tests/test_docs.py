@@ -30,7 +30,7 @@ class Doctest(unittest.TestCase):
             readme_path, module_relative=False, optionflags=doctest.NORMALIZE_WHITESPACE
         )
         self.assertGreater(test_count, 0, (failure_count, test_count))
-        self.assertEquals(failure_count, 0, (failure_count, test_count))
+        self.assertEqual(failure_count, 0, (failure_count, test_count))
 
     def test_README_version_opening(self):
         ver = pandalone.__version__

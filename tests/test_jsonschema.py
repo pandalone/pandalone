@@ -123,7 +123,7 @@ class TestJsonPath(unittest.TestCase):
         mm.add_submodel({"a": "foo", "b": "string"})
         self.assertRaisesRegex(
             ValidationError,
-            "Failed validating u?'type' in schema\[u?'properties']\[u?'b']",
+            r"Failed validating u?'type' in schema\[u?'properties']\[u?'b']",
             mm.build,
         )
 
@@ -136,7 +136,7 @@ class TestJsonPath(unittest.TestCase):
         pv.validate(pd.DataFrame({"foo": [1, 2], "foofoo": [3, 4]}))
 
         with self.assertRaisesRegex(
-            ValidationError, "\[1, 2, 3\] is not of type u?'object'"
+            ValidationError, r"\[1, 2, 3\] is not of type u?'object'"
         ):
             pv.validate([1, 2, 3])
 
@@ -167,21 +167,21 @@ class TestJsonPath(unittest.TestCase):
         pv.validate({"foo": 1})
         with self.assertRaisesRegex(
             ValidationError,
-            "Additional properties are not allowed \(u?'bar' was unexpected\)",
+            r"Additional properties are not allowed \(u?'bar' was unexpected\)",
         ):
             pv.validate({"foo": 1, "bar": 2})
 
         pv.validate(pd.Series({"foo": 1}))
         with self.assertRaisesRegex(
             ValidationError,
-            "Additional properties are not allowed \(u?'bar' was unexpected\)",
+            r"Additional properties are not allowed \(u?'bar' was unexpected\)",
         ):
             pv.validate(pd.Series({"foo": 1, "bar": 2}))
 
         pv.validate(pd.DataFrame({"foo": [1]}))
         with self.assertRaisesRegex(
             ValidationError,
-            "Additional properties are not allowed \(u?'bar' was unexpected\)",
+            r"Additional properties are not allowed \(u?'bar' was unexpected\)",
         ):
             pv.validate(pd.DataFrame({"foo": [1], "bar": [2]}))
 

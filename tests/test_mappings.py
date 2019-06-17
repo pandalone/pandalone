@@ -39,7 +39,7 @@ class Doctest(unittest.TestCase):
             pandalone.mappings, optionflags=doctest.NORMALIZE_WHITESPACE
         )  # | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
-        self.assertEquals(failure_count, 0, (failure_count, test_count))
+        self.assertEqual(failure_count, 0, (failure_count, test_count))
 
 
 class TestJoinPaths(unittest.TestCase):
@@ -275,7 +275,7 @@ class TestPmod(unittest.TestCase):
     def _build_pmod_manually(self):
         return Pmod(
             _steps={"a": Pmod(_alias="A")},
-            _regxs=[("a(\w*)", Pmod("AWord")), ("a(\d*)", Pmod(_alias="A_\\1"))],
+            _regxs=[(r"a(\w*)", Pmod("AWord")), ("a(\d*)", Pmod(_alias="A_\\1"))],
         )
 
     def assert_descend_stops(self, cpmod, msg=None):
@@ -297,8 +297,8 @@ class TestPmod(unittest.TestCase):
         pm = Pmod(
             _steps={"a": Pmod(_alias="A", _steps={1: 11})},
             _regxs=[
-                ("a\w*", Pmod(_alias="AWord", _steps={2: 22})),
-                ("a\d*", Pmod(_alias="ADigit", _steps={3: 33})),
+                (r"a\w*", Pmod(_alias="AWord", _steps={2: 22})),
+                (r"a\d*", Pmod(_alias="ADigit", _steps={3: 33})),
             ],
         )
 
@@ -357,7 +357,7 @@ class TestPmod(unittest.TestCase):
 
     def _build_simple_pmod_from_tuples(self):
         return pmods_from_tuples(
-            [("/a", "A"), ("/~a(\w*)", "AWord"), ("/~a(\d*)", "A_\\1")]
+            [("/a", "A"), (r"/~a(\w*)", "AWord"), ("/~a(\d*)", "A_\\1")]
         )
 
     def test_map_path_rootMapped_relative(self):
@@ -589,13 +589,13 @@ class TestPstep(unittest.TestCase):
         n = "foo"
         p = Pstep(n)
         self.assertEqual(str(p), n)
-        self.assertEquals(p, Pstep(n))
-        self.assertEquals(str(p.foo), str(p))
+        self.assertEqual(p, Pstep(n))
+        self.assertEqual(str(p.foo), str(p))
 
         n = "/foo"
         p = Pstep(n)
         self.assertEqual(str(p), n)
-        self.assertEquals(p, Pstep(n))
+        self.assertEqual(p, Pstep(n))
 
     def test_buildtree_valid_ops(self):
         p = Pstep()
@@ -613,8 +613,8 @@ class TestPstep(unittest.TestCase):
     def test_constructor(self):
         pmod = pmods_from_tuples([("/a", "A"), ("/a/c", "C"), ("/b/c", "C1")])
         p = pmod.step()
-        self.assertEquals(p.a, "A")
-        self.assertEquals(p.a.c, "C")
+        self.assertEqual(p.a, "A")
+        self.assertEqual(p.a.c, "C")
         self.assertEqual(p.b, "b")
         self.assertEqual(p.b.c, "C1")
 
@@ -796,73 +796,73 @@ class TestPstep(unittest.TestCase):
 
     def test_pmods_miss(self):
         p = pmods_from_tuples([("/MISS", "BOO")]).step()
-        self.assertEquals(p, "", (p, p._paths()))
+        self.assertEqual(p, "", (p, p._paths()))
         p = Pstep("foo", pmods_from_tuples([("/MISS", "BOO")]))
-        self.assertEquals(p, "foo", (p, p._paths()))
+        self.assertEqual(p, "foo", (p, p._paths()))
 
     def test_pmods_emptyroot_rootunmapped(self):
         p = pmods_from_tuples([("/a", "bar")]).step()
         p.a
-        self.assertEquals(p, "", (p, p._paths()))
-        self.assertEquals(p.a, "bar", (p, p._paths()))
-        self.assertEquals(sorted(p._paths()), ["/bar"])
+        self.assertEqual(p, "", (p, p._paths()))
+        self.assertEqual(p.a, "bar", (p, p._paths()))
+        self.assertEqual(sorted(p._paths()), ["/bar"])
 
-        self.assertEquals(p.a.b, "b")
-        self.assertEquals(sorted(p._paths()), ["/bar/b"])
+        self.assertEqual(p.a.b, "b")
+        self.assertEqual(sorted(p._paths()), ["/bar/b"])
 
-        self.assertEquals(p.c, "c")
-        self.assertEquals(sorted(p._paths()), ["/bar/b", "/c"])
+        self.assertEqual(p.c, "c")
+        self.assertEqual(sorted(p._paths()), ["/bar/b", "/c"])
 
-        self.assertEquals(p.a.f, "f")
-        self.assertEquals(sorted(p._paths()), ["/bar/b", "/bar/f", "/c"])
+        self.assertEqual(p.a.f, "f")
+        self.assertEqual(sorted(p._paths()), ["/bar/b", "/bar/f", "/c"])
 
     def test_pmods_nonemptyroot_rootunmapped(self):
         p = pmods_from_tuples([("root/a", "bar")]).step("root")
         p.a
-        self.assertEquals(p, "root", (p, p._paths()))
-        self.assertEquals(p.a, "bar", (p, p._paths()))
-        self.assertEquals(sorted(p._paths()), ["root/bar"])
+        self.assertEqual(p, "root", (p, p._paths()))
+        self.assertEqual(p.a, "bar", (p, p._paths()))
+        self.assertEqual(sorted(p._paths()), ["root/bar"])
 
-        self.assertEquals(p.a.b, "b")
-        self.assertEquals(sorted(p._paths()), ["root/bar/b"])
+        self.assertEqual(p.a.b, "b")
+        self.assertEqual(sorted(p._paths()), ["root/bar/b"])
 
-        self.assertEquals(p.c, "c")
-        self.assertEquals(sorted(p._paths()), ["root/bar/b", "root/c"])
+        self.assertEqual(p.c, "c")
+        self.assertEqual(sorted(p._paths()), ["root/bar/b", "root/c"])
 
-        self.assertEquals(p.a.f, "f")
-        self.assertEquals(sorted(p._paths()), ["root/bar/b", "root/bar/f", "root/c"])
+        self.assertEqual(p.a.f, "f")
+        self.assertEqual(sorted(p._paths()), ["root/bar/b", "root/bar/f", "root/c"])
 
     def test_pmods_emptyroot_rootmapped(self):
         p = pmods_from_tuples([("", "root"), ("/a", "bar")]).step()
         p.a
-        self.assertEquals(p, "root")
-        self.assertEquals(p.a, "bar")
-        self.assertEquals(sorted(p._paths()), ["root/bar"])
+        self.assertEqual(p, "root")
+        self.assertEqual(p.a, "bar")
+        self.assertEqual(sorted(p._paths()), ["root/bar"])
 
-        self.assertEquals(p.a.b, "b")
-        self.assertEquals(sorted(p._paths()), ["root/bar/b"])
+        self.assertEqual(p.a.b, "b")
+        self.assertEqual(sorted(p._paths()), ["root/bar/b"])
 
-        self.assertEquals(p.c, "c")
-        self.assertEquals(sorted(p._paths()), ["root/bar/b", "root/c"])
+        self.assertEqual(p.c, "c")
+        self.assertEqual(sorted(p._paths()), ["root/bar/b", "root/c"])
 
-        self.assertEquals(p.a.f, "f")
-        self.assertEquals(sorted(p._paths()), ["root/bar/b", "root/bar/f", "root/c"])
+        self.assertEqual(p.a.f, "f")
+        self.assertEqual(sorted(p._paths()), ["root/bar/b", "root/bar/f", "root/c"])
 
     def test_pmods_nonemptyroot_rootmapped(self):
         p = pmods_from_tuples([("root", "ROOT"), ("root/a", "bar")]).step("root")
         p.a
-        self.assertEquals(p, "ROOT")
-        self.assertEquals(p.a, "bar")
-        self.assertEquals(sorted(p._paths()), ["ROOT/bar"])
+        self.assertEqual(p, "ROOT")
+        self.assertEqual(p.a, "bar")
+        self.assertEqual(sorted(p._paths()), ["ROOT/bar"])
 
-        self.assertEquals(p.a.b, "b")
-        self.assertEquals(sorted(p._paths()), ["ROOT/bar/b"])
+        self.assertEqual(p.a.b, "b")
+        self.assertEqual(sorted(p._paths()), ["ROOT/bar/b"])
 
-        self.assertEquals(p.c, "c")
-        self.assertEquals(sorted(p._paths()), ["ROOT/bar/b", "ROOT/c"])
+        self.assertEqual(p.c, "c")
+        self.assertEqual(sorted(p._paths()), ["ROOT/bar/b", "ROOT/c"])
 
-        self.assertEquals(p.a.f, "f")
-        self.assertEquals(sorted(p._paths()), ["ROOT/bar/b", "ROOT/bar/f", "ROOT/c"])
+        self.assertEqual(p.a.f, "f")
+        self.assertEqual(sorted(p._paths()), ["ROOT/bar/b", "ROOT/bar/f", "ROOT/c"])
 
     def _build_psteps(self, root="", pmods=None):
         p = Pstep(root, pmods)

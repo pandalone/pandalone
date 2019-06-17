@@ -33,10 +33,13 @@ log = init_logging(__name__)
 class Doctest(unittest.TestCase):
     def test_doctests(self):
         failure_count, test_count = doctest.testmod(
-            pandata, optionflags=doctest.NORMALIZE_WHITESPACE
+            pandata,
+            optionflags=(
+                doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS | doctest.REPORT_NDIFF
+            ),
         )  # | doctest.ELLIPSIS)
         self.assertGreater(test_count, 0, (failure_count, test_count))
-        self.assertEquals(failure_count, 0, (failure_count, test_count))
+        self.assertEqual(failure_count, 0, (failure_count, test_count))
 
 
 class TestJSONCodec(unittest.TestCase):

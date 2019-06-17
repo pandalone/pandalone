@@ -24,7 +24,7 @@ class Doctest(unittest.TestCase):
             utils, optionflags=doctest.NORMALIZE_WHITESPACE
         )
         self.assertGreater(test_count, 0, (failure_count, test_count))
-        self.assertEquals(failure_count, 0, (failure_count, test_count))
+        self.assertEqual(failure_count, 0, (failure_count, test_count))
 
 
 class TestUtils(unittest.TestCase):

@@ -69,35 +69,35 @@ class T00Doctest(unittest.TestCase):
             xleash, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
         )
         self.assertGreater(test_count, 0, (failure_count, test_count))
-        self.assertEquals(failure_count, 0, (failure_count, test_count))
+        self.assertEqual(failure_count, 0, (failure_count, test_count))
 
     def test_parse(self):
         failure_count, test_count = doctest.testmod(
             _p, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
         )
         self.assertGreater(test_count, 0, (failure_count, test_count))
-        self.assertEquals(failure_count, 0, (failure_count, test_count))
+        self.assertEqual(failure_count, 0, (failure_count, test_count))
 
     def test_capture(self):
         failure_count, test_count = doctest.testmod(
             _c, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
         )
         self.assertGreater(test_count, 0, (failure_count, test_count))
-        self.assertEquals(failure_count, 0, (failure_count, test_count))
+        self.assertEqual(failure_count, 0, (failure_count, test_count))
 
     def test_lasso(self):
         failure_count, test_count = doctest.testmod(
             _l, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
         )
         self.assertGreater(test_count, 0, (failure_count, test_count))
-        self.assertEquals(failure_count, 0, (failure_count, test_count))
+        self.assertEqual(failure_count, 0, (failure_count, test_count))
 
     def test_xlrd(self):
         failure_count, test_count = doctest.testmod(
             xd, optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS
         )
         self.assertGreater(test_count, 0, (failure_count, test_count))
-        self.assertEquals(failure_count, 0, (failure_count, test_count))
+        self.assertEqual(failure_count, 0, (failure_count, test_count))
 
 
 _all_dir_pairs = ["LU", "LD", "UL", "DL"]
@@ -122,7 +122,7 @@ class T011Structs(unittest.TestCase):
     )
     def test_Edge_good(self, case):
         new_edge_args, edge = case
-        self.assertEquals(_p.Edge_new(*new_edge_args), edge)
+        self.assertEqual(_p.Edge_new(*new_edge_args), edge)
 
     @ddt.data(
         (("1", "A", "U1"), _p.Edge(_p.Cell("1", "A"), "U1")),
@@ -132,7 +132,7 @@ class T011Structs(unittest.TestCase):
     )
     def test_Edge_bad_areOK(self, case):
         new_edge_args, edge = case
-        self.assertEquals(_p.Edge_new(*new_edge_args), edge)
+        self.assertEqual(_p.Edge_new(*new_edge_args), edge)
 
     @ddt.data(
         ("1", 1, "0"),
@@ -442,7 +442,7 @@ class T01Parse(unittest.TestCase):
         regular, shortcut = case
         res1 = _p.parse_xlref_fragment(regular)
         res2 = _p.parse_xlref_fragment(shortcut)
-        self.assertEquals(len(res1), len(res2), (res1, res2))
+        self.assertEqual(len(res1), len(res2), (res1, res2))
 
     @ddt.data(
         ':{"opts": "..."}',
@@ -458,11 +458,11 @@ class T01Parse(unittest.TestCase):
         url = 'file://path/to/file.xlsx#Sheet1!U10(L):D20(D):{"func":"foo"}'
         res = _p.parse_xlref(url)
 
-        self.assertEquals(res["url_file"], "file://path/to/file.xlsx")
-        self.assertEquals(res["sh_name"], "Sheet1")
-        self.assertEquals(res["call_spec"], _p.CallSpec("foo"))
-        self.assertEquals(res["st_edge"], _p.Edge(_p.Cell("10", "U"), "L"))
-        self.assertEquals(res["nd_edge"], _p.Edge(_p.Cell("20", "D"), "D"))
+        self.assertEqual(res["url_file"], "file://path/to/file.xlsx")
+        self.assertEqual(res["sh_name"], "Sheet1")
+        self.assertEqual(res["call_spec"], _p.CallSpec("foo"))
+        self.assertEqual(res["st_edge"], _p.Edge(_p.Cell("10", "U"), "L"))
+        self.assertEqual(res["nd_edge"], _p.Edge(_p.Cell("20", "D"), "D"))
 
     def test_xl_url_Bad(self):
         self.assertRaises(ValueError, _p.parse_xlref, *('#!:{"json":"..."',))
@@ -470,11 +470,11 @@ class T01Parse(unittest.TestCase):
     def test_xl_url_Only_fragment(self):
         url = "#sheet_name!UP10:DOWN20"
         res = _p.parse_xlref(url)
-        self.assertEquals(res["url_file"], None)
+        self.assertEqual(res["url_file"], None)
 
         res = _p.parse_xlref("$%s$" % url)
-        self.assertEquals(res["url_file"], None)
-        self.assertEquals(res["sh_name"], "sheet_name")
+        self.assertEqual(res["url_file"], None)
+        self.assertEqual(res["sh_name"], "sheet_name")
 
     def test_xl_url_No_fragment(self):
         url = "A1:B1"
@@ -487,7 +487,7 @@ class T01Parse(unittest.TestCase):
     def test_xl_url_emptySheet(self):
         url = "file://path/to/file.xlsx#  !A1"
         res = _p.parse_xlref(url)
-        self.assertEquals(res["sh_name"], None)
+        self.assertEqual(res["sh_name"], None)
 
 
 def make_sample_matrix():
@@ -581,7 +581,7 @@ class T03TargetOpposite(unittest.TestCase):
             self.assertEqual(res, Coords(exp_row, exp_col), str(args))
         else:
             with self.assertRaisesRegex(
-                EmptyCaptureException, "No \w+-target found", msg=str(args)
+                EmptyCaptureException, r"No \w+-target found", msg=str(args)
             ):
                 _c._target_opposite(*args)
 
@@ -659,7 +659,7 @@ class T04TargetSame(unittest.TestCase):
             res = _c._target_same(*args)
             self.assertEqual(res, Coords(exp_row, exp_col), str(args))
         else:
-            with self.assertRaisesRegex(ValueError, "No \w+-target for", msg=str(args)):
+            with self.assertRaisesRegex(ValueError, r"No \w+-target for", msg=str(args)):
                 _c._target_same(*args)
 
     def check_target_same_state(

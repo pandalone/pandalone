@@ -358,8 +358,8 @@ class Pmod(object):
 
             >>> pm = Pmod(
             ...     _steps={'a': Pmod(_alias='A')},
-            ...     _regxs=[('a\w*', Pmod(_alias='AWord')),
-            ...              ('a(\d*)', Pmod(_alias=r'A_\1')),
+            ...     _regxs=[(r'a\w*', Pmod(_alias='AWord')),
+            ...              (r'a(\d*)', Pmod(_alias=r'A_\1')),
             ...    ])
             >>> pm.descend('a')
             (pmod('A'), 'A')
@@ -388,7 +388,7 @@ class Pmod(object):
             >>> sorted(pm.descend('a')[0]._steps)    ## All children and regexps match.
             [1, 2, 3]
 
-            >>> pm.descend('aa')[0]._steps           ## Only 'a\w*' matches.
+            >>> pm.descend('aa')[0]._steps           ## Only r'a\w*' matches.
             {2: pmod(22)}
 
             >>> sorted(pm.descend('a1')[0]._steps )  ## Both regexps matches.
@@ -607,7 +607,7 @@ def pmods_from_tuples(pmods_tuples):
       The "to" path can make use of any "from" capture-groups::
 
           ('/~all(.*)/path', 'foo')
-          ('~some[\d+]/path', 'foo\1')
+          (r'~some[\d+]/path', 'foo\1')
           ('//~all(.*)/path', 'foo')
 
 
