@@ -162,7 +162,6 @@ dev_reqs = (
     + xlrd_reqs
     + doc_reqs
     + [
-        "setuptools-git",
         "wheel",
         "twine",
         "pylint",
@@ -232,9 +231,6 @@ setup(
     package_data={proj_name: ["excel/*.vba", "excel/*.ico", "icons/*"]},
     install_requires=install_requires,
     python_requires='>=3.5',
-    setup_requires=[
-        "setuptools-git >= 0.3"  # Gather package-data from all files in git.
-    ],
     tests_require=["pytest", "ddt", "nose", "coverage", "coveralls", "pandas", "xlrd"],
     test_suite="nose.collector",
     extras_require={

@@ -1,1 +1,4 @@
+include LICENSE.txt
+recursive-include tests *
+
 prune doc/doc
