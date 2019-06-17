@@ -84,7 +84,7 @@ class TestJSONCodec(unittest.TestCase):
         for o in obj_list + [obj_list]:
             s = json.dumps(o, cls=JSONCodec.Encoder)
             oo = json.loads(s, cls=pandata.JSONCodec.Decoder)
-            self.assertTrue(pandata.trees_equal(o, oo), (o, oo))
+            self.assertTrue(...)
 
 
 class TestJsonPointer(unittest.TestCase):

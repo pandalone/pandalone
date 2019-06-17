@@ -27,8 +27,8 @@ from unittest import mock
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
-from jsonschema import FormatChecker, ValidationError
-from jsonschema.validators import RefResolutionError, RefResolver, UnknownType
+from jsonschema import FormatChecker, ValidationError, RefResolver
+from jsonschema.exceptions import UnknownType
 
 from pandalone.pandata import PandelVisitor
 
@@ -62,7 +62,6 @@ class TestIterErrors(unittest.TestCase):
         self.validator = PandelVisitor(schema)
         return self.validator.iter_errors(instance, *args, **kwds)
 
-    # @unittest.skip("For Draft3Validator only!")
     def test_iter_errors(self):
         data = [1, 2]
         for instance in wrap_in_pandas(data):
@@ -113,7 +112,6 @@ class TestValidationErrorMessages(unittest.TestCase):
         message = self.message_for(instance=1, schema={u"type": list(types)})
         self.assertEqual(message, "1 is not of type %r, %r" % types)
 
-    # @unittest.skip("For Draft3Validator only!")
     def test_object_without_title_type_failure(self):
         atype = {u"type": [{u"minimum": 3}]}
         schema = {
@@ -123,7 +121,6 @@ class TestValidationErrorMessages(unittest.TestCase):
         message = self.message_for(instance=1, schema=schema)
         self.assertEqual(message, "1 is not of type %r" % (atype,))
 
-    # @unittest.skip("For Draft3Validator only!")
     def test_object_with_name_type_failure(self):
         name = "Foo"
         schema = {
@@ -272,7 +269,6 @@ class TestValidationErrorDetails(unittest.TestCase):
 
         self.assertEqual(len(e2.context), 0)
 
-    # @unittest.skip("For Draft3Validator only!")
     def test_type(self):
         instance = {"foo": 1}
         schema = {
@@ -384,7 +380,6 @@ class TestValidationErrorDetails(unittest.TestCase):
             self.assertEqual(e3.validator, "maximum")
             self.assertEqual(e4.validator, "type")
 
-    # @unittest.skip("For Draft3Validator only!")
     def test_multiple_nesting(self):
         instance = [1, {"foo": 2, "bar": {"baz": [1]}}, "quux"]
         schema = {
@@ -618,7 +613,6 @@ class ValidatorTestMixin(object):
         self.instance = mock.Mock()
         self.schema = {}
         self.resolver = mock.Mock()
-        self.validator = self.validator_class(self.schema)
 
     def test_valid_instances_are_valid(self):
         errors = iter([])
@@ -654,7 +648,7 @@ class ValidatorTestMixin(object):
         with mock.patch.object(resolver, "resolve") as resolve:
             resolve.return_value = "url", {"type": "integer"}
             with self.assertRaises(ValidationError):
-                self.validator_class(schema, resolver=resolver).validate(None)
+                PandelVisitor(schema, resolver=resolver).validate(None)
 
         resolve.assert_called_once_with(schema["$ref"])
 
@@ -674,39 +668,26 @@ class ValidatorTestMixin(object):
 
 
 class TestDraft3lValidator(ValidatorTestMixin, unittest.TestCase):
-    validator_class = PandelVisitor
-
     def setUp(self):
-        super(TestDraft3lValidator, self).setUp()
+        super().setUp()
         self.validator = PandelVisitor(
             {"$schema": "http://json-schema.org/draft-03/schema#"}
         )
 
-    # @unittest.skip("For Draft3Validator only!")
     def test_is_type_is_true_for_any_type(self):
         self.assertTrue(self.validator.is_valid(mock.Mock(), {"type": "any"}))
 
-    # @unittest.skip("For Draft3Validator only!")
     def test_is_type_does_not_evade_bool_if_it_is_being_tested(self):
         self.assertTrue(self.validator.is_type(True, "boolean"))
         self.assertTrue(self.validator.is_valid(True, {"type": "any"}))
 
-    # @unittest.skip("The schema below in invalid under Draft3/4, but original test had averted meta-validation.")
-    def test_non_string_custom_types(self):
-        schema = {"$schema": "http://json-schema.org/draft-03/schema#", "type": [None]}
-        cls = self.validator_class(
-            schema, types={None: type(None)}, skip_meta_validation=True
-        )
-        cls.validate(None, schema)
-
-        schema = {"$schema": "http://json-schema.org/draft-03/schema#", "type": "some"}
-        types = {"object": dict, "some": pd.DataFrame}
-        cls = self.validator_class(schema, types=types, skip_meta_validation=True)
-        cls.validate(pd.DataFrame(), schema)
-
 
 class TestDraft4Validator(ValidatorTestMixin, unittest.TestCase):
-    validator_class = PandelVisitor
+    def setUp(self):
+        super().setUp()
+        self.validator = PandelVisitor(
+            {"$schema": "http://json-schema.org/draft-04/schema#"}
+        )
 
 
 class TestSchemaIsChecked(unittest.TestCase):  # Was: class TestValidate

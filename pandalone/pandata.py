@@ -17,7 +17,7 @@ import numbers
 import pickle
 import re
 from collections import OrderedDict, namedtuple
-from collections.abc import Mapping, Sequence
+import collections.abc as cabc
 from json.decoder import JSONDecoder
 from json.encoder import JSONEncoder
 from unittest.mock import MagicMock
@@ -143,32 +143,118 @@ class ModelOperations(namedtuple("ModelOperations", "inp out conv")):
         pass
 
 
-# Workaround https://github.com/Julian/jsonschema/issues/178
-ValidatorBase = jsonschema.validators.create({})
+cabc.Sequence.register(pd.Series)
+cabc.Mapping.register(pd.DataFrame)
+cabc.Mapping.register(pd.Series)
 
 
-class PandelVisitor(ValidatorBase):
+def _is_array(checker, instance):
+    try:
+        return not isinstance(instance, str) and (
+            isinstance(instance, cabc.Sequence)
+            or np.ndim(instance) == 1  # np.arrays, pd.Series (if prev check eare not)
+        )
+    except (TypeError, ValueError):  # value-error when np-array.
+        return False
+
+
+def _is_object(checker, instance):
+    return isinstance(instance, cabc.Mapping)
+
+
+def _is_bool(checker, instance):
+    return isinstance(instance, (bool, np.bool_))
+
+
+def _is_integer(checker, instance):
+    # bool inherits from int, so ensure bools aren't reported as ints
+    if isinstance(instance, bool):
+        return False
+    return isinstance(instance, (int, np.integer))
+
+
+def _is_null(checker, instance):
+    try:
+        return instance is None or bool(np.isnan(instance))
+    except (TypeError, ValueError):  # value-error when np-array.
+        return False
+
+
+def _find_additional_properties(instance, schema):
+    """
+    Return the set of additional properties for the given ``instance``.
+
+    Weeds out properties that should have been validated by ``properties`` and
+    / or ``patternProperties``.
+
+    Assumes ``instance`` is dict-like already.
 
     """
-    A customized :class:`Draft4Validator` suporting instance-trees with pandas and numpy objects, natively.
+
+    properties = schema.get("properties", {})
+    patterns = "|".join(schema.get("patternProperties", {}))
+    for property in instance.keys():  # keys() wer missin, PATCHING JUST FOR THIS!!!!
+        if property not in properties:
+            if patterns and re.search(patterns, property):
+                continue
+            yield property
+
+
+def _rule_additionalProperties(validator, aP, instance, schema):
+    if not validator.is_type(instance, "object"):
+        return
+
+    extras = set(_find_additional_properties(instance, schema))
+
+    if validator.is_type(aP, "object"):
+        for extra in extras:
+            for error in validator.descend(instance[extra], aP, path=extra):
+                yield error
+    elif not aP and extras:
+        if "patternProperties" in schema:
+            patterns = sorted(schema["patternProperties"])
+            if len(extras) == 1:
+                verb = "does"
+            else:
+                verb = "do"
+            error = "%s %s not match any of the regexes: %s" % (
+                ", ".join(map(repr, sorted(extras))),
+                verb,
+                ", ".join(map(repr, patterns)),
+            )
+            yield ValidationError(error)
+        else:
+            from jsonschema import _utils
+
+            error = "Additional properties are not allowed (%s %s unexpected)"
+            yield ValidationError(error % _utils.extras_msg(extras))
+
+
+def PandelVisitor(schema, resolver=None, format_checker=None):
+    """
+    A customized jsonschema-validator suporting instance-trees with pandas and numpy objects, natively.
 
     Any pandas or numpy instance (for example ``obj``) is treated like that:
 
-    +----------------------------+-----------------------------------------+
-    |        Python Type         |     JSON Equivalence                    |
-    +============================+=========================================+
-    | :class:`pandas.DataFrame`  | as ``object`` *json-type*, with         |
-    |                            | ``obj.columns`` as *keys*, and          |
-    |                            | ``obj[col].values`` as *values*         |
-    +----------------------------+-----------------------------------------+
-    | :class:`pandas.Series`     | as ``object`` *json-type*, with         |
-    |                            | ``obj.index`` as *keys*, and            |
-    |                            | ``obj.values`` as *values*              |
-    +----------------------------+-----------------------------------------+
-    | :class:`np.ndarray`,       | as ``array`` *json-type*                |
-    | :class:`list`,             |                                         |
-    | :class:`tuple`             |                                         |
-    +----------------------------+-----------------------------------------+
+    +----------------------------+------------------------------------------+
+    |        Python Type         |     JSON Equivalence                     |
+    +----------------------------+------------------------------------------+
+    | :class:`pandas.DataFrame`  | as ``object`` *json-type*, with:         |
+    |                            | keys: ``obj.columns`` (MUST be strings)  |
+    |                            | values: ``obj[col].values``              |
+    |                            |                                          |
+    |                            | NOTE: len(df) on rows(!), not columns.   |
+    +----------------------------+------------------------------------------+
+    | :class:`pandas.Series`     | - as ``object`` *json-type*, with:       |
+    |                            |   keys: ``obj.index`` (MUST be strings)  |
+    |                            |   values: ``obj.values``                 |
+    |                            | - as ``array`` *json-type*               |
+    +----------------------------+------------------------------------------+
+    | :class:`np.ndarray`        | as ``array`` *json-type* IF ndim == 1    |
+    +----------------------------+------------------------------------------+
+    | :class:`cabc.Sequence`     | as ``array`` IF not string               |
+    |                            | (like lists, tuples)                     |
+    +----------------------------+------------------------------------------+
 
     Note that the value of each dataFrame column is a :``ndarray`` instances.
 
@@ -199,11 +285,11 @@ class PandelVisitor(ValidatorBase):
 
         >>> schema = {
         ...     'type':     'object',
+        ...     'properties': {
+        ...         'foo': {}
+        ...     },
         ...     'required': ['foo'],
-        ...    'additionalProperties': False,
-        ...    'properties': {
-        ...        'foo': {}
-        ...    }
+        ...     'additionalProperties': False,
         ... }
         >>> pv = PandelVisitor(schema)
 
@@ -239,232 +325,26 @@ class PandelVisitor(ValidatorBase):
             Series([], dtype: float64)
 
     """
+    validator = jsonschema.validators.validator_for(schema)
 
-    def __init__(
-        self,
-        schema,
-        types=(),
-        resolver=None,
-        format_checker=None,
-        skip_meta_validation=False,
-    ):
-        super(PandelVisitor, self).__init__(schema, types, resolver, format_checker)
-
-        self._types.update(
+    ValidatorClass = jsonschema.validators.extend(
+        validator,
+        type_checker=validator.TYPE_CHECKER.redefine_many(
             {
-                # type(np.nan) == builtins.float! FIXME, are numpy-numbers -->
-                # json-types OK??
-                "number": (numbers.Number, np.number),
-                "integer": (int, np.integer),
-                "boolean": (bool, np.bool_),  # , np.bool8),
-                "array": (list, tuple, np.ndarray),
-                "object": (dict, pd.DataFrame, pd.Series),
+                "array": _is_array,
+                "object": _is_object,
+                "integer": _is_integer,
+                "boolean": _is_bool,
+                "null": _is_null,
             }
-        )
+        ),
+        validators={
+            "additionalProperties": _rule_additionalProperties,
+        }
+    )
 
-        # Setup Draft4/3 validation
-        #
-        # Meta-validate schema
-        #    with original validators (and not self)
-        #    because this class inherits an empty (schema/rules) validator.
-        # Falls back to 'Draft4' if no `$schema` exists.
-        validator_class = jsonschema.validators.validator_for(schema)
-        self.VALIDATORS = validator_class.VALIDATORS.copy()
-        self.META_SCHEMA = validator_class.META_SCHEMA
-        self.VALIDATORS.update(
-            {
-                "items": PandelVisitor._rule_items,
-                "additionalProperties": PandelVisitor._rule_additionalProperties,
-                "additionalItems": PandelVisitor._rule_additionalItems,
-            }
-        )
-        if validator_class == Draft3Validator:
-            self.VALIDATORS.update(
-                {"properties": PandelVisitor._rule_properties_draft3}
-            )
-        else:
-            self.VALIDATORS.update(
-                {
-                    "properties": PandelVisitor._rule_properties_draft4,
-                    "required": PandelVisitor._rule_required_draft4,
-                }
-            )
+    return ValidatorClass(schema, resolver=resolver, format_checker=format_checker)
 
-        self.old_scopes = []
-
-        # Cannot use ``validator_class.check_schema()`` because
-        #    need to relay my args to ``validator_class.__init__()``.
-        # Even better use myself, that i'm fatser (kind of...).
-        if not skip_meta_validation:
-            for error in self.iter_errors(schema, validator_class.META_SCHEMA):
-                raise SchemaError.create_from(error)
-
-    ##################################
-    ############ Visiting ###########
-    ##################################
-
-    def _get_iprop(self, instance, prop):
-        val = instance[prop]
-        if isinstance(val, NDFrame):
-            val = val.values
-        return val
-
-    def _is_iprop_in(self, instance, prop):
-        return prop in instance.keys()
-
-    def _iter_iprop_names(self, instance):
-        return instance.keys()
-
-    def _iter_iprop_pairs(self, instance):
-        if isinstance(instance, pd.DataFrame):
-            return ((k, v.values) for k, v in instance.iteritems())
-        if isinstance(instance, pd.Series):
-            return instance.iteritems()
-        return instance.items()
-
-    def _iter_iitems(self, instance):
-        return instance
-
-    def iter_errors(self, instance, _schema=None):
-        if _schema is None:
-            _schema = self.schema
-
-        scope = _schema.get("id")
-        if scope:
-            self.resolver.push_scope(scope)
-
-        ref = _schema.get("$ref")
-        if ref is not None:
-            validators = [("$ref", ref)]
-        else:
-            validators = self._iter_iprop_pairs(_schema)
-
-        for k, v in validators:
-            validator = self.VALIDATORS.get(k)
-            if validator is None:
-                continue
-
-            errors = validator(self, v, instance, _schema) or ()
-            for error in errors:
-                # set details if not already set by the called fn
-                error._set(
-                    validator=k, validator_value=v, instance=instance, schema=_schema
-                )
-                if k != "$ref":
-                    error.schema_path.appendleft(k)
-                yield error
-
-        if scope:
-            self.resolver.pop_scope()
-
-    ##################################
-    ############# Rules ##############
-    ##################################
-
-    def _rule_properties_draft4(self, sprops, instance, schema):
-        if not self.is_type(instance, "object"):
-            return
-
-        iprops = set(self._iter_iprop_names(instance))
-        for prop in iprops & set(sprops.keys()):
-            subschema = sprops[prop]
-            for error in self.descend(
-                self._get_iprop(instance, prop), subschema, path=prop, schema_path=prop
-            ):
-                yield error
-
-    def _rule_properties_draft3(self, properties, instance, schema):
-        if not self.is_type(instance, "object"):
-            return
-
-        for prop, subschema in self._iter_iprop_pairs(properties):
-            if self._is_iprop_in(instance, prop):
-                for error in self.descend(
-                    self._get_iprop(instance, prop),
-                    subschema,
-                    path=prop,
-                    schema_path=prop,
-                ):
-                    yield error
-            elif subschema.get("required", False):
-                error = ValidationError("%r is a required prop" % prop)
-                error._set(
-                    validator="required",
-                    validator_value=subschema["required"],
-                    instance=instance,
-                    schema=schema,
-                )
-                error.path.appendleft(prop)
-                error.schema_path.extend([prop, "required"])
-                yield error
-
-    def _rule_items(self, items, instance, schema):
-        if not self.is_type(instance, "array"):
-            return
-
-        if self.is_type(items, "object"):
-            for index, item in enumerate(self._iter_iitems(instance)):
-                for error in self.descend(item, items, path=index):
-                    yield error
-        else:
-            for (index, item), subschema in zip(
-                enumerate(self._iter_iitems(instance)), items
-            ):
-                for error in self.descend(
-                    item, subschema, path=index, schema_path=index
-                ):
-                    yield error
-
-    def _rule_additionalProperties(self, aP, instance, schema):
-        if not self.is_type(instance, "object"):
-            return
-
-        sprops = schema.get("properties", {})
-        patterns = "|".join(schema.get("patternProperties", {}))
-        extras = set()
-        for iprop in self._iter_iprop_names(instance):
-            if iprop not in sprops and not patterns or not re.search(patterns, iprop):
-                extras.add(iprop)
-
-        if extras:
-            if self.is_type(aP, "object"):
-                for extra in extras:
-                    for error in self.descend(
-                        self._get_iprop(instance, extra), aP, path=extra
-                    ):
-                        yield error
-            elif not aP:
-                yield ValidationError(
-                    "Additional properties are not allowed (%s %s unexpected)"
-                    % jsonschema._utils.extras_msg(extras)
-                )
-
-    def _rule_additionalItems(self, aI, instance, schema):
-        if not self.is_type(instance, "array") or self.is_type(
-            schema.get("items", {}), "object"
-        ):
-            return
-
-        len_items = len(schema.get("items", []))
-        if self.is_type(aI, "object"):
-            for index, item in enumerate(instance[len_items:], start=len_items):
-                for error in self.descend(item, aI, path=index):
-                    yield error
-        elif not aI and len(instance) > len_items:
-            yield ValidationError(
-                "Additional items are not allowed (%s %s unexpected)"
-                % jsonschema._utils.extras_msg(instance[len(schema.get("items", [])) :])
-            )
-
-    def _rule_required_draft4(self, required, instance, schema):
-        if self.is_type(instance, "object"):
-            for sprop in required:
-                if not self._is_iprop_in(instance, sprop):
-                    yield ValidationError("%r is a required property" % sprop)
-
-
-def trees_equal(t1, t2):
-    return True
 
 
 class Pandel(object):
@@ -797,7 +677,7 @@ class Pandel(object):
 
     @unified_contexts.setter
     def unified_contexts(self, path_ops):
-        assert isinstance(path_ops, Mapping), (type(path_ops), path_ops)
+        assert isinstance(path_ops, cabc.Mapping), (type(path_ops), path_ops)
         self._unified_contexts = path_ops
 
     def _select_context(self, path, branch):
@@ -860,14 +740,7 @@ class Pandel(object):
                     yield ValidationError("%r is a required property" % prop)
 
     def _get_model_validator(self, schema):
-
-        validator = Draft4Validator(schema)
-        validator._types.update(
-            {"ndarray": np.ndarray, "DataFrame": pd.DataFrame, "Series": pd.Series}
-        )
-        validator.VALIDATORS["DataFrame"] = self._rule_Required
-
-        return validator
+        return PandelVisitor(schema)
 
     def _validate_json_model(self, schema, mdl):
         validator = self._get_model_validator(schema)
@@ -892,7 +765,7 @@ class Pandel(object):
             # a.update(b) # DOES NOT append extra keys!
             a = b.combine_first(a)
 
-        elif isinstance(a, Mapping) or isinstance(b, Mapping):
+        elif isinstance(a, cabc.Mapping) or isinstance(b, cabc.Mapping):
             a = OrderedDict() if a is None else OrderedDict(a)
             b = OrderedDict() if b is None else OrderedDict(b)
 
@@ -906,8 +779,8 @@ class Pandel(object):
                     val = b_val
                 a[key] = val
 
-        elif (isinstance(a, Sequence) and not isinstance(a, str)) or (
-            isinstance(b, Sequence) and not isinstance(b, str)
+        elif (isinstance(a, cabc.Sequence) and not isinstance(a, str)) or (
+            isinstance(b, cabc.Sequence) and not isinstance(b, str)
         ):
             if b is not None:
                 val = b
@@ -980,7 +853,7 @@ class Pandel(object):
         """
 
         if path_ops:
-            assert isinstance(path_ops, Mapping), (type(path_ops), path_ops)
+            assert isinstance(path_ops, cabc.Mapping), (type(path_ops), path_ops)
 
         return self._submodel_tuples.append((model, path_ops))
 
@@ -1173,7 +1046,7 @@ def resolve_jsonpointer(doc, jsonpointer, default=_scream):
     :author: Julian Berman, ankostis
     """
     for part in iter_jsonpointer_parts(jsonpointer):
-        if isinstance(doc, Sequence):
+        if isinstance(doc, cabc.Sequence):
             # Array indexes should be turned into integers
             try:
                 part = int(part)
@@ -1240,7 +1113,7 @@ def resolve_path(doc, path, default=_scream, root=None):
         resolve_root,
     ]
     for part in iter_jsonpointer_parts_relaxed(path):
-        start_i = 0 if isinstance(doc, Sequence) else 1
+        start_i = 0 if isinstance(doc, cabc.Sequence) else 1
         for resolver in part_resolvers[start_i:]:
             try:
                 doc = resolver(doc, part)
@@ -1271,7 +1144,7 @@ def set_jsonpointer(doc, jsonpointer, value, object_factory=OrderedDict):
     pdoc = None
     ppart = None
     for i, part in enumerate(parts):
-        if isinstance(doc, Sequence) and not isinstance(doc, str):
+        if isinstance(doc, cabc.Sequence) and not isinstance(doc, str):
             # Array indexes should be turned into integers
             #
             doclen = len(doc)
@@ -1413,7 +1286,7 @@ class JSONCodec:
         >>> for o in obj_list + [obj_list]:
         ...     s = json.dumps(o, cls=JSONCodec.Encoder)
         ...     oo = json.loads(s, cls=JSONCodec.Decoder)
-        ...     assert trees_equal(o, oo)
+        ...     #assert trees_equal(o, oo)
         ...
 
     .. seealso::
