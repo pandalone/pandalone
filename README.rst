@@ -11,8 +11,8 @@ pandalone: process data-trees with relocatable-paths
 **pandalone** is a collection of utilities for working with *hierarchical-data*
 using *relocatable-paths*.
 
-:Release:       0.3.0
-:Date:          2019-06-18 05:13:24
+:Release:       0.3.1
+:Date:          2019-06-18 05:50:39
 :Documentation: https://pandalone.readthedocs.org/
 :Source:        https://github.com/pandalone/pandalone
 :PyPI repo:     https://pypi.python.org/pypi/pandalone
@@ -196,7 +196,7 @@ First run :command:`python` or :command:`ipython` and try to import the project 
     >>> import pandalone
 
     >>> pandalone.__version__           ## Check version once more.
-    '0.3.0'
+    '0.3.1'
 
     >>> pandalone.__file__              ## To check where it was installed.         # doctest: +SKIP
     /usr/local/lib/site-package/pandalone-...
