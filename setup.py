@@ -164,7 +164,7 @@ dev_reqs = (
         "twine",
         "pylint",
         # for VSCode autoformatting
-        "black",
+        "black ; python_version > '3.5'",
         # for git autoformatting
         "pre-commit",
         # for VSCode RST linting

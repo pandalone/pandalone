@@ -230,6 +230,15 @@ def _rule_additionalProperties(validator, aP, instance, schema):
             yield ValidationError(error % _utils.extras_msg(extras))
 
 
+def _rule_propertyNames(validator, propertyNames, instance, schema):
+    if not validator.is_type(instance, "object"):
+        return
+
+    for property in instance.keys():
+        for error in validator.descend(instance=property, schema=propertyNames):
+            yield error
+
+
 def PandelVisitor(schema, resolver=None, format_checker=None):
     """
     A customized jsonschema-validator suporting instance-trees with pandas and numpy objects, natively.
@@ -327,6 +336,10 @@ def PandelVisitor(schema, resolver=None, format_checker=None):
     """
     validator = jsonschema.validators.validator_for(schema)
 
+    rules = {"additionalProperties": _rule_additionalProperties}
+    if "propertyNames" in validator.VALIDATORS:
+        rules["propertyNames"] = _rule_propertyNames
+
     ValidatorClass = jsonschema.validators.extend(
         validator,
         type_checker=validator.TYPE_CHECKER.redefine_many(
@@ -338,7 +351,7 @@ def PandelVisitor(schema, resolver=None, format_checker=None):
                 "null": _is_null,
             }
         ),
-        validators={"additionalProperties": _rule_additionalProperties},
+        validators=rules,
     )
 
     return ValidatorClass(schema, resolver=resolver, format_checker=format_checker)
