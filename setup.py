@@ -140,21 +140,19 @@ install_requires = [
     "toolz",
     "jsonschema",  # 3+ dropped `validator._types`
     "numpy",
-    # asteval-0.9.10 added `usersums` kw in eval, 0.9.8 fixed  recusrion-limit newville/asteval#21 
-    'asteval >=0.9.10'
+    # asteval-0.9.10 added `usersums` kw in eval, 0.9.8 fixed  recusrion-limit newville/asteval#21
+    "asteval >=0.9.10",
 ]
 test_reqs = ["nose", "coverage", "coveralls", "docopt", "ddt", "openpyxl"]
 
-pandas_reqs = [
-    "pandas"  # For xleash df-filter, *probably* 0.19.0 (Oct 2016) needed 
-]
+pandas_reqs = ["pandas"]  # For xleash df-filter, *probably* 0.19.0 (Oct 2016) needed
 excel_reqs = [
     "xlwings >= 0.9.2 ; sys_platform == 'win32'",
     # For excel-macros locked msg-box.
     "easygui != 0.98",
 ]
 xlrd_reqs = ["xlrd"]
-doc_reqs = ["sphinx>=1.2",]  # for comparisons
+doc_reqs = ["sphinx>=1.2"]  # for comparisons
 dev_reqs = (
     test_reqs
     + pandas_reqs
@@ -166,7 +164,9 @@ dev_reqs = (
         "twine",
         "pylint",
         # for VSCode autoformatting
-        "black ; python_version > '3.5'",
+        "black",
+        # for git autoformatting
+        "pre-commit",
         # for VSCode RST linting
         "doc8",
         "sphinx-autobuild",
@@ -230,7 +230,7 @@ setup(
     # include_package_data = True,
     package_data={proj_name: ["excel/*.vba", "excel/*.ico", "icons/*"]},
     install_requires=install_requires,
-    python_requires='>=3.5',
+    python_requires=">=3.5",
     tests_require=["pytest", "ddt", "nose", "coverage", "coveralls", "pandas", "xlrd"],
     test_suite="nose.collector",
     extras_require={

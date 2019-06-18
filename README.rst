@@ -110,12 +110,14 @@ Or in case you need the very latest from `master` branch :
 
     pip install git+https://github.com/pandalone/pandalone.git
 
-Or in to install in *develop* mode with all dependencies needed for development, 
-clone it from the remote repo localy, and run:
+Or in to install in *develop* mode, with all dependencies needed for development, 
+and with pre-commit hook for auto-formatting python-code with *black*,
+clone locally this project from the remote repo, and run:
 
 .. code-block:: bash
 
     pip install -e <pandalone-dr>[dev]
+    pre-commit install
 
 
 Project files and folders
