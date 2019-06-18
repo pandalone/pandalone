@@ -659,7 +659,9 @@ class T04TargetSame(unittest.TestCase):
             res = _c._target_same(*args)
             self.assertEqual(res, Coords(exp_row, exp_col), str(args))
         else:
-            with self.assertRaisesRegex(ValueError, r"No \w+-target for", msg=str(args)):
+            with self.assertRaisesRegex(
+                ValueError, r"No \w+-target for", msg=str(args)
+            ):
                 _c._target_same(*args)
 
     def check_target_same_state(

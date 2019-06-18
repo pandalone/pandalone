@@ -338,13 +338,10 @@ def PandelVisitor(schema, resolver=None, format_checker=None):
                 "null": _is_null,
             }
         ),
-        validators={
-            "additionalProperties": _rule_additionalProperties,
-        }
+        validators={"additionalProperties": _rule_additionalProperties},
     )
 
     return ValidatorClass(schema, resolver=resolver, format_checker=format_checker)
-
 
 
 class Pandel(object):
