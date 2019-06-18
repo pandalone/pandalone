@@ -45,18 +45,42 @@ TODOs
 Rejected TODOs:
 ---------------
 - xleash:
-  - Support cubic areas; pandas create dict-of-dfs from multiple sheets.
-  - Use *ast* library for filters; cannot extract safely opts.
-  - Build Lasso-structs trees on `recursive` filter for debugging; carefully
-    crafted exception-messages is enough.
+    - Support cubic areas; pandas create dict-of-dfs from multiple sheets.
+    - Use *ast* library for filters; cannot extract safely opts.
+    - Build Lasso-structs trees on `recursive` filter for debugging; carefully
+        crafted exception-messages is enough.
 
 
 Changelog
 =========
 
+v0.3.0 (17-June-2019): DROP PY2 & bump jsonschema 2.x-->3.x
+-----------------------------------------------------------
+- Drop support for Python 2.7 & 3.4, `which covers 95% of 2018 Python-3 installations 
+  (84% of Pythons in total)
+  <https://www.jetbrains.com/research/python-developers-survey-2018/#python-3-adoption>`_
+- Bring up-to-date with latest jsonschem(draft7) from *jsonschema* lib.
+- Fix usage of *asteval* lib to work with latest version using `usersym` table 
+  for context-variables.
+- Fix #13: ``ensure_filename()`` util were duping filename's file-extension 
+  if was given the same. 
+- Build & dev-dependencies enhancements.
+- Make all TCs to pass in both CIs for linux & Windows.
+- Suport PyTest for launching tests - *nosetest* is still used in CIs, 
+  an includes coverage also.
+- style: auto-format python files with |black|_  using |pre-commit|_.
+- Drop bloated documentation sections about installation and
+  cmdline-tools that never existed.
+
+.. |black| replace:: *black* opinionated formatter
+.. _black: https://black.readthedocs.io/
+.. |pre-commit| replace:: *pre-commit* hooks framework 
+.. _pre-commit: https://pre-commit.com/
+
+
 v0.2.6 (5-June-2019): deps cleanup
 ----------------------------------
-- build: 
+- build:
   - drop dep-tricks for older Pythons & correct old missconceptions.
   - drop never used `openpyxl` dep
   - drop `sphinx_rtd_theme` not-really-needed-these-days dep
