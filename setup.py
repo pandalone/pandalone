@@ -138,7 +138,7 @@ download_url = "https://github.com/%s/%s/tarball/v%s" % (proj_name, proj_name, p
 
 install_requires = [
     "toolz",
-    "jsonschema",  # 3+ dropped `validator._types`
+    "jsonschema >=3.0.0",  # 3+ dropped `validator._types`
     "numpy",
     # asteval-0.9.10 added `usersums` kw in eval, 0.9.8 fixed  recusrion-limit newville/asteval#21
     "asteval >=0.9.10",
