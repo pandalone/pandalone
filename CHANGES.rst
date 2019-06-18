@@ -54,6 +54,11 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.3.2 (19-June-2019): relax *asteval* lower-bound
+--------------------------------------------------
+- Support also asteval <0.9.10 (but still >0.9.7 needed for PY35+)
+
+
 v0.3.1 (18-June-2019): DROP PY2 & bump jsonschema 2.x-->3.x
 -----------------------------------------------------------
 - Drop support for Python 2.7 & 3.4, `which covers 95% of 2018 Python-3 installations 

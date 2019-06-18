@@ -140,8 +140,11 @@ install_requires = [
     "toolz",
     "jsonschema >=3.0.0",  # 3+ dropped `validator._types`
     "numpy",
-    # asteval-0.9.10 added `usersums` kw in eval, 0.9.8 fixed  recusrion-limit newville/asteval#21
-    "asteval >=0.9.10",
+    # asteval versions:
+    #   0.9.7 (Apr 2016):  support 3.5+
+    #   0.9.8 (Sep 2016): recursion bad code removed (could not recurse deep before) newville/asteval#21
+    #   0.9.10 (Oct 2017): usersym table
+    "asteval >=0.9.7",
 ]
 test_reqs = ["nose", "coverage", "coveralls", "docopt", "ddt", "openpyxl"]
 

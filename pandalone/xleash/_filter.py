@@ -396,6 +396,17 @@ def recursive_filter(ranger, lasso, filters=(), include=None, exclude=None, dept
 ast_log_writer = LoggerWriter(logging.getLogger("%s.pyeval" % __name__), logging.INFO)
 
 
+def _asteval_interpreter(symtable, *args, **kwds):
+    try:
+        interp = asteval.Interpreter(usersyms=symtable, **kwds)
+    except TypeError:
+        # Arg `usersym ` added in asteval-0.9.10 (Oct 2017)
+        interp = asteval.Interpreter(symtable, **kwds)
+        interp.symtable.update(symtable)
+
+    return interp
+
+
 def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
     proced = False
     if isinstance(elval, str):
@@ -404,7 +415,7 @@ def _pyeval_element_func(ranger, lasso, context, elval, eval_all):
         from .. import xleash
 
         symtable.update({"xleash": xleash})
-        aeval = asteval.Interpreter(usersyms=symtable, writer=ast_log_writer)
+        aeval = _asteval_interpreter(symtable, writer=ast_log_writer)
         res = aeval.eval(expr)
         if aeval.error:
             error = aeval.error[0].get_error()
@@ -508,7 +519,7 @@ def py_filter(ranger, lasso, expr):
     from .. import xleash
 
     symtable.update({"xleash": xleash})
-    aeval = asteval.Interpreter(usersyms=symtable, writer=ast_log_writer)
+    aeval = _asteval_interpreter(symtable, writer=ast_log_writer)
     res = aeval.eval(expr)
     if aeval.error:
         error = aeval.error[0].get_error()
