@@ -54,14 +54,15 @@ Rejected TODOs:
 Changelog
 =========
 
-v0.3.0 (17-June-2019): DROP PY2 & bump jsonschema 2.x-->3.x
+v0.3.1 (18-June-2019): DROP PY2 & bump jsonschema 2.x-->3.x
 -----------------------------------------------------------
 - Drop support for Python 2.7 & 3.4, `which covers 95% of 2018 Python-3 installations 
   (84% of Pythons in total)
   <https://www.jetbrains.com/research/python-developers-survey-2018/#python-3-adoption>`_
-- Bring up-to-date with latest jsonschem(draft7) from *jsonschema* lib.
-- Fix usage of *asteval* lib to work with latest version using `usersym` table 
-  for context-variables.
+- Use latest jsonschem(draft7) for ``PandelVisitor``, using *jsonschema* lib,
+  bringing its lower-bound from 2.x.x --> 3.0.0.
+- Fix *asteval* *xleash* filter to work correctly with latest version 
+  using `usersym` table for context-variables (were missing those).
 - Fix #13: ``ensure_filename()`` util were duping filename's file-extension 
   if was given the same. 
 - Build & dev-dependencies enhancements.
@@ -71,6 +72,7 @@ v0.3.0 (17-June-2019): DROP PY2 & bump jsonschema 2.x-->3.x
 - style: auto-format python files with |black|_  using |pre-commit|_.
 - Drop bloated documentation sections about installation and
   cmdline-tools that never existed.
+- Note: v0.3.0 were missing low-boundary on jsonschema >=3.
 
 .. |black| replace:: *black* opinionated formatter
 .. _black: https://black.readthedocs.io/
