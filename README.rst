@@ -1,8 +1,8 @@
 ###########################################################
 pandalone: process data-trees with relocatable-paths
 ###########################################################
-|pypi-ver| |travis-status| |appveyor-status| |cover-status| |docs-status| \
-|dependencies| |downloads-count| |github-issues| |python-ver| |proj-license|
+|pypi-ver| |docs| |travis-status| |appveyor-status| |cover-status| |dependencies| \
+|downloads-count| |github-issues| |python-ver| |codestyle| |proj-license|
 
 .. image:: doc/_static/pandalone_logo.png
    :width: 300 px
@@ -495,22 +495,17 @@ Glossary
 .. _anaconda: http://docs.continuum.io/anaconda/
 
 .. |travis-status| image:: https://travis-ci.org/pandalone/pandalone.svg
-    :alt: Travis build status
+    :alt: Travis build status (Linux)
     :scale: 100%
     :target: https://travis-ci.org/pandalone/pandalone
 
 .. |appveyor-status| image:: https://ci.appveyor.com/api/projects/status/jayah84y3ae7ddfc?svg=true
-    :alt: Apveyor build status
+    :alt: Apveyor build status (Windows)
     :scale: 100%
     :target: https://ci.appveyor.com/project/ankostis/pandalone
 
 .. |cover-status| image:: https://coveralls.io/repos/pandalone/pandalone/badge.svg
     :target: https://coveralls.io/r/pandalone/pandalone
-
-.. |docs-status| image:: https://readthedocs.org/projects/pandalone/badge/
-    :alt: Documentation status
-    :scale: 100%
-    :target: https://readthedocs.org/builds/pandalone/
 
 .. |pypi-ver| image::  https://img.shields.io/pypi/v/pandalone.svg
     :target: https://pypi.python.org/pypi/pandalone/
@@ -535,3 +530,11 @@ Glossary
 .. |dependencies| image:: https://img.shields.io/requires/github/pandalone/pandalone.svg
     :target: https://requires.io/github/pandalone/pandalone/requirements/
     :alt: Dependencies up-to-date?
+
+.. |docs| image:: https://readthedocs.org/projects/pandalone/badge/?version=latest 
+    :target: https://pandalone.readthedocs.io/en/latest/
+    :alt: Documentation
+
+.. |codestyle| image:: https://img.shields.io/badge/code%20style-black-black.svg
+    :target: https://github.com/ambv/black
+    :alt: Code Style
