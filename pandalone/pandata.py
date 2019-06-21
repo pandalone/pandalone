@@ -149,13 +149,9 @@ cabc.Mapping.register(pd.Series)
 
 
 def _is_array(checker, instance):
-    try:
-        return not isinstance(instance, str) and (
-            isinstance(instance, cabc.Sequence)
-            or np.ndim(instance) == 1  # np.arrays, pd.Series (if prev check eare not)
-        )
-    except (TypeError, ValueError):  # value-error when np-array.
-        return False
+    return not isinstance(instance, str) and isinstance(
+        instance, (cabc.Sequence, np.ndarray)
+    )
 
 
 def _is_object(checker, instance):
