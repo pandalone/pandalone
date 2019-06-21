@@ -54,6 +54,10 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.3.3 (21-June-2019): accept multi-dim numpy-arrays as jsonschema-arrays
+-------------------------------------------------------------------------
+
+
 v0.3.2 (19-June-2019): relax *asteval* lower-bound
 --------------------------------------------------
 - Support also asteval <0.9.10 (but still >0.9.7 needed for PY35+)
