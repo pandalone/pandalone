@@ -146,8 +146,16 @@ install_requires = [
     #   0.9.10 (Oct 2017): usersym table
     "asteval >=0.9.7",
 ]
-test_reqs = ["nose", "coverage", "coveralls", "docopt", "ddt", "openpyxl"]
-
+doc_reqs = ["sphinx>=1.2"]  # for comparisons
+test_reqs = doc_reqs + [
+    "docutils",
+    "nose",
+    "coverage",
+    "coveralls",
+    "docopt",
+    "ddt",
+    "openpyxl",
+]
 pandas_reqs = ["pandas"]  # For xleash df-filter, *probably* 0.19.0 (Oct 2016) needed
 excel_reqs = [
     "xlwings >= 0.9.2 ; sys_platform == 'win32'",
@@ -155,7 +163,6 @@ excel_reqs = [
     "easygui != 0.98",
 ]
 xlrd_reqs = ["xlrd"]
-doc_reqs = ["sphinx>=1.2"]  # for comparisons
 dev_reqs = (
     test_reqs
     + pandas_reqs
@@ -238,6 +245,7 @@ setup(
     test_suite="nose.collector",
     extras_require={
         "test": test_reqs,
+        "doc": doc_reqs,
         "excel": excel_reqs,
         "pandas": pandas_reqs,
         "xlrd": xlrd_reqs,
