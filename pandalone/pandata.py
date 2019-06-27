@@ -235,7 +235,7 @@ def _rule_propertyNames(validator, propertyNames, instance, schema):
             yield error
 
 
-def PandelVisitor(schema, resolver=None, format_checker=None):
+def PandelVisitor(schema, resolver=None, format_checker=None, auto_defaults=True):
     """
     A customized jsonschema-validator suporting instance-trees with pandas and numpy objects, natively.
 
@@ -331,10 +331,29 @@ def PandelVisitor(schema, resolver=None, format_checker=None):
 
     """
     validator = jsonschema.validators.validator_for(schema)
+    rule_props = validator.VALIDATORS["properties"]
+
+    def rule_auto_defaults_properties(validator, properties, instance, schema):
+        if not validator.is_type(instance, "object"):
+            return
+
+        for property, subschema in properties.items():
+            if subschema is not None and "default" in subschema:
+                dflt = subschema["default"]
+
+                if isinstance(instance, dict):
+                    instance.setdefault(property, dflt)
+                elif property not in instance:
+                    instance[property] = dflt
+
+        for error in rule_props(validator, properties, instance, schema):
+            yield error
 
     rules = {"additionalProperties": _rule_additionalProperties}
     if "propertyNames" in validator.VALIDATORS:
         rules["propertyNames"] = _rule_propertyNames
+    if auto_defaults:
+        rules["properties"] = rule_auto_defaults_properties
 
     ValidatorClass = jsonschema.validators.extend(
         validator,
