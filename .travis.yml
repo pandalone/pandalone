@@ -49,5 +49,5 @@ script:
         ./bin/check_readme.sh
 
 after_success:
-    - if [[ $TRAVIS_PYTHON_VERSION == '3.5' ]]; then coveralls; fi
+    - if [[ $TRAVIS_PYTHON_VERSION == '3.7' ]]; then pip install coveralls && coveralls; fi
 
