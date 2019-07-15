@@ -54,6 +54,14 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.2.7 (5-June-2019): stray sources
+-----------------------------------
+- fix: remove stray sources from xleash
+  (`xleash.io._xlwings` has syntax-errors irritating linters)
+- feat: backport build/bumpver scripts from v0.3.x
+  (above bug was a results of a bad build).
+
+
 v0.2.6 (5-June-2019): deps cleanup
 ----------------------------------
 - build: 
