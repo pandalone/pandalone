@@ -19,9 +19,15 @@ from collections import OrderedDict
 
 import pandas as pd
 from pandas.io import parsers as pdparsers
-from pandas.io.excel import _fill_mi_header, _pop_header_name
 
 from . import installed_filters
+
+try:
+    from pandas.io.excel._util import _fill_mi_header, _pop_header_name
+except ImportError:
+    # pandas < 0.25.0 (before summer 2019)
+    from pandas.io.excel import _fill_mi_header, _pop_header_name
+
 
 try:
     from pandas.errors import EmptyDataError
