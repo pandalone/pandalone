@@ -54,6 +54,37 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.3.4 (28-July-2019): xleash for pandas 0.25+
+----------------------------------------------
+- fix xleash for pandas 0.25+ (19-July 2019).
+- Pstep:
+  - enh: rename cstor 2nd arg from ``_proto_or_pmod --> maps`` and allow
+    to pass a sequence of 2-tuples to define mappings.
+  - feat: accept multiple tags at once.
+
+
+v0.2.8 (7-Sept-2019): BACKPORT fix for pandas 0.25+ (19-July 2019)
+------------------------------------------------------------------
+- Fix xleash for pandas 0.25+ (19-July 2019).
+- Fix *asteval* *xleash* filter to work correctly with latest version
+  using `usersym` table for context-variables (were missing those);
+  relax *asteval* version lower-bound < 0.9.10, but bump dependency 
+  from ``>= 0.9.7 --> 0.9.8``.
+- Fix #13: ``ensure_filename()`` util were duping filename's file-extension
+  if was given the same.
+- Fix missing test-deps `ddt` & `openpyxl`.
+- Fix git ignores.
+
+
+
+v0.2.7 (15-July-2019): stray sources
+------------------------------------
+- fix: remove stray sources from xleash
+  (`xleash.io._xlwings` has syntax-errors irritating linters)
+- feat: backport build/bumpver scripts from v0.3.x
+  (above bug was a results of a bad build).
+
+
 v0.3.3 (21-June-2019): accept multi-dim numpy-arrays as jsonschema-arrays
 -------------------------------------------------------------------------
 
