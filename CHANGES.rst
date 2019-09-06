@@ -54,6 +54,19 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.2.8 (6-Sept-2019): BACKPORT fix for pandas 0.25+ (19-July 2019)
+-------------------------------------------------------------------
+- Fix xleash for pandas 0.25+ (19-July 2019).
+- Fix *asteval* *xleash* filter to work correctly with latest version
+  using `usersym` table for context-variables (were missing those);
+  relax *asteval* version lower-bound < 0.9.10, but bump dependency 
+  from ``>= 0.9.7 --> 0.9.8``.
+- Fix #13: ``ensure_filename()`` util were duping filename's file-extension
+  if was given the same.
+- Fix missing test-deps `ddt` & `openpyxl`.
+- Fix git ignores.
+
+
 v0.2.7 (5-June-2019): stray sources
 -----------------------------------
 - fix: remove stray sources from xleash
