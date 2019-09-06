@@ -65,18 +65,18 @@ v0.3.2 (19-June-2019): relax *asteval* lower-bound
 
 v0.3.1 (18-June-2019): DROP PY2 & bump jsonschema 2.x-->3.x
 -----------------------------------------------------------
-- Drop support for Python 2.7 & 3.4, `which covers 95% of 2018 Python-3 installations 
+- Drop support for Python 2.7 & 3.4, `which covers 95% of 2018 Python-3 installations
   (84% of Pythons in total)
   <https://www.jetbrains.com/research/python-developers-survey-2018/#python-3-adoption>`_
 - Use latest jsonschem(draft7) for ``PandelVisitor``, using *jsonschema* lib,
   bringing its lower-bound from 2.x.x --> 3.0.0.
-- Fix *asteval* *xleash* filter to work correctly with latest version 
+- Fix *asteval* *xleash* filter to work correctly with latest version
   using `usersym` table for context-variables (were missing those).
-- Fix #13: ``ensure_filename()`` util were duping filename's file-extension 
-  if was given the same. 
+- Fix #13: ``ensure_filename()`` util were duping filename's file-extension
+  if was given the same.
 - Build & dev-dependencies enhancements.
 - Make all TCs to pass in both CIs for linux & Windows.
-- Suport PyTest for launching tests - *nosetest* is still used in CIs, 
+- Suport PyTest for launching tests - *nosetest* is still used in CIs,
   an includes coverage also.
 - style: auto-format python files with |black|_  using |pre-commit|_.
 - Drop bloated documentation sections about installation and
@@ -85,12 +85,12 @@ v0.3.1 (18-June-2019): DROP PY2 & bump jsonschema 2.x-->3.x
 
 .. |black| replace:: *black* opinionated formatter
 .. _black: https://black.readthedocs.io/
-.. |pre-commit| replace:: *pre-commit* hooks framework 
+.. |pre-commit| replace:: *pre-commit* hooks framework
 .. _pre-commit: https://pre-commit.com/
 
 
 v0.2.6 (5-June-2019): deps cleanup
-----------------------------------
+-----------------------------------
 - build:
   - drop dep-tricks for older Pythons & correct old missconceptions.
   - drop never used `openpyxl` dep

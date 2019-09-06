@@ -195,6 +195,8 @@ setup(
     download_url=download_url,
     project_urls={
         "Documentation": "https://%s.readthedocs.io/" % proj_name,
+        "Changes": "https://github.com/%s/%s/blob/master/CHANGES.rst"
+        % (proj_name, proj_name),
         "Sources": "https://github.com/%s/%s" % (proj_name, proj_name),
         "Bug Tracker": "https://github.com/%s/%s/issues" % (proj_name, proj_name),
     },

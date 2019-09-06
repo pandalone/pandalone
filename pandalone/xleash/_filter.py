@@ -473,17 +473,19 @@ def pyeval_filter(
 
     Example::
 
+        >>> from pandalone import xleash
         >>> expr = '''
         ... res = array([[0.5, 0.3, 0.1, 0.1]])
         ... res * res.T
         ... '''
         >>> lasso = Lasso(values=expr, opts={})
-        >>> ranger = Ranger(None)
-        >>> eval_filter(ranger, lasso).values
-        array([[ 0.25,  0.15,  0.05,  0.05],
-               [ 0.15,  0.09,  0.03,  0.03],
-               [ 0.05,  0.03,  0.01,  0.01],
-               [ 0.05,  0.03,  0.01,  0.01]])
+        >>> with xleash.SheetsFactory() as sf:
+        ...     ranger = xleash.Ranger(sf)
+        ...     pyeval_filter(ranger, lasso).values
+        array([[0.25,  0.15,  0.05,  0.05],
+               [0.15,  0.09,  0.03,  0.03],
+               [0.05,  0.03,  0.01,  0.01],
+               [0.05,  0.03,  0.01,  0.01]])
     """
     return run_filter_elementwise(
         ranger,

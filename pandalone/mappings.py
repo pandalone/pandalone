@@ -587,7 +587,7 @@ class Pmod(object):
 
 
 def pmods_from_tuples(pmods_tuples):
-    """
+    r"""
     Turns a list of 2-tuples into a *pmods* hierarchy.
 
     - Each tuple defines the renaming-or-relocation of the *final* part
