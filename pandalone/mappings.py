@@ -103,7 +103,8 @@ class Pmod(object):
 
     .. Note::
         Do not manually construct instances from this class!
-        To construct a hierarchy use the :func:`pmods_from_tuples()`.
+        To construct a hierarchy use the :func:`pmods_from_tuples()`
+        or pass mappings as the 2nd argument in :class:`Pstep` constructor.
 
     You can either use it for massively map paths, either for *renaming* them::
 
@@ -167,7 +168,7 @@ class Pmod(object):
 
         Delegates to :meth:`Pstep.__new__()`.
         """
-        return Pstep(pname, _proto_or_pmod=self, alias=alias)
+        return Pstep(pname, maps=self, alias=alias)
 
     def _append_into_steps(self, key):
         """
@@ -959,11 +960,16 @@ class Pstep(str):
 
         >>> from pandalone.mappings import pmods_from_tuples
 
-        >>> pmods = pmods_from_tuples([
+        >>> maps = [
         ...     ('',         'deeper/ROOT'),
         ...     ('/abc',     'ABC'),
         ...     ('/abc/foo', 'BAR'),
-        ... ])
+        ... ]
+        >>> p = Pstep('', pmods_from_tuples(maps))
+
+    OR
+
+        >>> pmods = pmods_from_tuples(maps)
         >>> p = pmods.step()
         >>> p.abc.foo
         `BAR`
@@ -1007,7 +1013,7 @@ class Pstep(str):
             return "LOCKED"
         return "LOCKED"
 
-    def __new__(cls, pname="", _proto_or_pmod=None, alias=None):
+    def __new__(cls, pname=None, maps=None, alias=None, *tags):
         """
         Constructs a string with str-content which may comes from the mappings.
 
@@ -1016,10 +1022,10 @@ class Pstep(str):
             pname='attr_name',
             pname='attr_name', _alias='Mass [kg]'
 
-            pname='attr_name', _proto_or_pmod=Pmod
+            pname='attr_name', maps=Pmod
 
-            pname='attr_name', _proto_or_pmod=Pstep
-            pname='attr_name', _proto_or_pmod=Pstep, _alias='Mass [kg]'
+            pname='attr_name', maps=Pstep
+            pname='attr_name', maps=Pstep, _alias='Mass [kg]'
 
 
         :param str pname:
@@ -1027,7 +1033,8 @@ class Pstep(str):
                 the parent-pstep's attribute holding this pstep.
                 It is stored at `_orig` and if no `alias` and unmapped by pmod,
                 this becomes the `alias`.
-        :param Pmod or Pstep _proto_or_pmod:
+                To create an "absolute" pstep, do not set this or alias args.
+        :param Pmod or Pstep maps:
                 It can be either:
 
                 - the mappings for this pstep,
@@ -1038,24 +1045,29 @@ class Pstep(str):
                 The mappings will apply only if :meth:`Pmod.descend()`
                 match `pname` and will derrive the alias.
         :param str alias:
-                Will become the super-str object when no mappaings specified
-                (`_proto_or_pmod` is a dict from some prototype pstep)
+                Will become the super-str object when no mappings specified
+                (`maps` is a dict from some prototype pstep)
                 It gets jsonpointer-escaped if it exists
                 (see :func:`pandata.escape_jsonpointer_part()`)
+        :param tags:
+            Arguments for calling :meth:`_tag()` afterwards.
         """
         pmod = None
         attrs = None
-        if _proto_or_pmod:
-            if isinstance(_proto_or_pmod, Pmod):
-                pmod, m_alias = _proto_or_pmod.descend(pname)
+        if pname is None:
+            pname = ""
+        if maps:
+            if isinstance(maps, (list, tuple, Pmod)):
+                if isinstance(maps, (list, tuple)):
+                    maps = pmods_from_tuples(maps)
+                pmod, m_alias = maps.descend(pname)
                 if alias is None and m_alias:
                     # TODO: Add Escape-path TCs.
                     alias = unescape_jsonpointer_part(m_alias)
+            elif not isinstance(maps, Pstep):
+                raise ValueError("Invalid type(%s) for `maps`!" % maps)
             else:
-                assert isinstance(_proto_or_pmod, Pstep), (
-                    "Invalid type(%s) for `_proto_or_pmod`!" % _proto_or_pmod
-                )
-                attrs = _clone_attrs(_proto_or_pmod)
+                attrs = _clone_attrs(maps)
         if alias is None:
             alias = pname
         self = str.__new__(cls, alias)
@@ -1064,7 +1076,7 @@ class Pstep(str):
             "_pmod": pmod,
             "_csteps": None,
             "_locked": Pstep.CAN_RELOCATE,
-            "_tags": (),
+            "_tags": set(tags) if tags else (),
         }
 
         return self
@@ -1162,16 +1174,16 @@ class Pstep(str):
         self._locked = Pstep.LOCKED
         return self
 
-    def _tag(self, tag):
+    def _tag(self, *tags):
         """Add a "tag" for this pstep.
 
         :return: self, for chained use
         """
-        tags = self._tags
-        if tags:
-            tags.add(tag)
-        else:
-            self._tags = set([tag])
+        _tags = self._tags
+        if _tags:
+            _tags.update(tags)
+        elif tags:
+            self._tags = set(tags)
 
         return self
 

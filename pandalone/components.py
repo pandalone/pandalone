@@ -203,14 +203,14 @@ class FuncComponent(Component):
         """The suggested :class:`Pstep` for cfunc to use to access inputs."""
         p = self._pinp
         if p is None:
-            self._pinp = p = Pstep(path or self._name, _proto_or_pmod=self._pmod)
+            self._pinp = p = Pstep(path or self._name, maps=self._pmod)
         return p
 
     def pout(self, path=None):
         """The suggested :class:`Pstep` for cfunc to use to access outputs."""
         p = self._pout
         if p is None:
-            self._pout = p = Pstep(path or self._name, _proto_or_pmod=self._pmod)
+            self._pout = p = Pstep(path or self._name, maps=self._pmod)
         return p
 
     def _build(self, pmod=None):
