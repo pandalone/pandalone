@@ -334,17 +334,15 @@ def PandelVisitor(schema, resolver=None, format_checker=None, auto_defaults=True
     rule_props = validator.VALIDATORS["properties"]
 
     def rule_auto_defaults_properties(validator, properties, instance, schema):
+        # See https://python-jsonschema.readthedocs.io/en/stable/faq/#frequently-asked-questions
         if not validator.is_type(instance, "object"):
             return
 
         for property, subschema in properties.items():
-            if subschema is not None and "default" in subschema:
-                dflt = subschema["default"]
-
-                if isinstance(instance, dict):
-                    instance.setdefault(property, dflt)
-                elif property not in instance:
-                    instance[property] = dflt
+            if "default" in subschema and (
+                property not in instance or instance[property] is None
+            ):
+                instance[property] = subschema["default"]
 
         for error in rule_props(validator, properties, instance, schema):
             yield error
