@@ -20,14 +20,7 @@ install:
     - pip list
 
 script:
-    - |
-        if [[ "$TRAVIS_PYTHON_VERSION" = '3.8' ]]; then
-            echo "+++ Checking all TCs, DTs & Coverage....";
-            python setup.py test_all
-        else
-            echo "+++ Checking only TCs....";
-            python setup.py test_code
-        fi
+    - pytest
 
     -   echo "+++ Checking install...."
         python setup.py install

@@ -147,15 +147,6 @@ install_requires = [
     "asteval >=0.9.7",
 ]
 doc_reqs = ["sphinx>=1.3"]  # for `autodoc_mock_imports` config
-test_reqs = doc_reqs + [
-    "docutils",
-    "nose",
-    "coverage",
-    "coveralls",
-    "docopt",
-    "ddt",
-    "openpyxl",
-]
 pandas_reqs = ["pandas"]  # For xleash df-filter, *probably* 0.19.0 (Oct 2016) needed
 excel_reqs = [
     "xlwings >= 0.9.2 ; sys_platform == 'win32'",
@@ -163,6 +154,22 @@ excel_reqs = [
     "easygui != 0.98",
 ]
 xlrd_reqs = ["xlrd"]
+test_reqs = (
+    doc_reqs
+    + pandas_reqs
+    + excel_reqs
+    + xlrd_reqs
+    + [
+        "pytest",
+        "pytest-cov",
+        "pytest-sphinx",
+        "docutils",
+        "coveralls",
+        "docopt",
+        "ddt",
+        "openpyxl",
+    ]
+)
 dev_reqs = (
     test_reqs
     + pandas_reqs

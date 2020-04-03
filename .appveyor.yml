@@ -43,6 +43,7 @@ install:
 
     # - "python setup.py develop" ## NO, pip installed in "develop' mode, above.
     - python setup.py build
+    - pip install -e .[test]
 
 build: false
 
@@ -59,13 +60,7 @@ test_script:
         echo "+++  Checking archives for PyPI repo..."
         python setup.py sdist bdist_wheel
 
-    -   IF "%PYTHON_VERSION%"=="3.7" (
-            echo "+++ Checking all TCs, DTs & Coverage...." &
-            python setup.py test_all
-        ) ELSE (
-            echo "+++ Checking only TCs...." &
-            python setup.py test_code
-        )
+    - pytest
 
 
     - |
