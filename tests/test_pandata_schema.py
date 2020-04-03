@@ -18,6 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import itertools as itt
 import json
 import unittest
 from collections import deque
@@ -27,7 +28,8 @@ from unittest import mock
 import numpy as np
 import numpy.testing as npt
 import pandas as pd
-from jsonschema import FormatChecker, ValidationError, RefResolver
+import pytest
+from jsonschema import FormatChecker, RefResolver, ValidationError
 from jsonschema.exceptions import UnknownType
 
 from pandalone.pandata import PandelVisitor
@@ -37,16 +39,8 @@ def validate(instance, schema, *args, **kws):
     return PandelVisitor(schema, *args, **kws).validate(instance)
 
 
-def wrap_as_sequences(seq):
-    """
-    Accepts a sequence and yields it like (list, tuple, ndarray),
-    """
-
-
 def wrap_in_pandas(dict_or_list, wrap_as_df=False):
-    """
-    Accepts a mapping and yields it like (dict, Series),
-    """
+    """Yield dicts wrapped in (dict, Series[, DataFrame]), seqs in (list, tuple, array)."""
     if isinstance(dict_or_list, dict):
         for op in (dict, pd.Series):
             yield op(dict_or_list)
@@ -57,40 +51,42 @@ def wrap_in_pandas(dict_or_list, wrap_as_df=False):
             yield op(dict_or_list)
 
 
-class TestIterErrors(unittest.TestCase):
-    def iter_errors(self, instance, schema, *args, **kwds):
-        self.validator = PandelVisitor(schema)
-        return self.validator.iter_errors(instance, *args, **kwds)
+def iter_errors(instance, schema, *args, **kwds):
+    validator = PandelVisitor(schema)
+    return validator.iter_errors(instance, *args, **kwds)
 
-    def test_iter_errors(self):
-        data = [1, 2]
-        for instance in wrap_in_pandas(data):
-            schema = {
-                "$schema": "http://json-schema.org/draft-03/schema#",
-                u"disallow": u"array",
-                u"enum": [["a", "b", "c"], ["d", "e", "f"]],
-                u"minItems": 3,
-            }
 
-            got = (e for e in self.iter_errors(instance, schema))
-            expected = ["disallow", "minItems", "enum"]
-            self.assertListEqual(sorted(e.validator for e in got), sorted(expected))
+@pytest.mark.parametrize("instance", wrap_in_pandas([1, 2]))
+def test_iter_errors(instance):
+    schema = {
+        "$schema": "http://json-schema.org/draft-03/schema#",
+        u"disallow": u"array",
+        u"enum": [["a", "b", "c"], ["d", "e", "f"]],
+        u"minItems": 3,
+    }
 
-    def test_iter_errors_multiple_failures_one_validator(self):
-        tree1 = {"foo": 2, "bar": [1], "baz": 15, "quux": "spam"}
-        tree2 = {"foo": 2, "bar": np.array([1]), "baz": 15, "quux": "spam"}
-        for data in (tree1, tree2):
-            for instance in wrap_in_pandas(data):
-                schema = {
-                    u"properties": {
-                        "foo": {u"type": "string"},
-                        "bar": {u"minItems": 2},
-                        "baz": {u"maximum": 10, u"enum": [2, 4, 6, 8]},
-                    }
-                }
+    got = (e for e in iter_errors(instance, schema))
+    expected = ["disallow", "minItems", "enum"]
+    assert sorted(e.validator for e in got) == sorted(expected)
 
-                errors = list(self.iter_errors(instance, schema))
-                self.assertEqual(len(errors), 4, errors)
+
+@pytest.mark.parametrize(
+    "instance",
+    itt.chain(
+        wrap_in_pandas({"foo": 2, "bar": [1], "baz": 15, "quux": "spam"}),
+        wrap_in_pandas({"foo": 2, "bar": np.array([1]), "baz": 15, "quux": "spam"}),
+    ),
+)
+def test_iter_errors_multiple_failures_one_validator(instance):
+    schema = {
+        u"properties": {
+            "foo": {u"type": "string"},
+            "bar": {u"minItems": 2},
+            "baz": {u"maximum": 10, u"enum": [2, 4, 6, 8]},
+        }
+    }
+    errors = list(iter_errors(instance, schema))
+    assert len(errors) == 4
 
 
 class TestValidationErrorMessages(unittest.TestCase):
