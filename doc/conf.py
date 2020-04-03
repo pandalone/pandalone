@@ -9,11 +9,11 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
+import importlib
+import io
+import os
 import re
 import sys
-import os
-import io
-import importlib
 
 
 def check_import(lib):
@@ -62,23 +62,8 @@ sys.path.insert(0, os.path.abspath("../"))
 #     From http://read-the-docs.readthedocs.org/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
 #     Also tried but fails: http://blog.rtwilson.com/how-to-make-your-sphinx-documentation-compile-with-readthedocs-when-youre-using-numpy-and-scipy/
 #
-if on_rtd:
-    try:
-        from unittest.mock import MagicMock as Mock
-    except ImportError:
-        from mock import Mock
-
-    MOCK_MODULES = ["xlwings"]  # Mock-out because it depends on win32.
-    for mod_name in MOCK_MODULES:
-        sys.modules[mod_name] = Mock()
-
-# Trick from https://github.com/rtfd/readthedocs.org/issues/283
-# On read the docs we need to use a different CDN URL for MathJax which loads
-# over HTTPS.
-if on_rtd:
-    mathjax_path = (
-        "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"
-    )
+if os.name != "nt":
+    autodoc_mock_imports = ["xlwings"]  # Mock-out because it depends on win32.
 
 # Make autodoc always includes constructors.
 #    From http://stackoverflow.com/a/5599712/548792

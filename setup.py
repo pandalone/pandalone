@@ -146,7 +146,7 @@ install_requires = [
     #   0.9.10 (Oct 2017): usersym table
     "asteval >=0.9.7",
 ]
-doc_reqs = ["sphinx>=1.2"]  # for comparisons
+doc_reqs = ["sphinx>=1.3"]  # for `autodoc_mock_imports` config
 test_reqs = doc_reqs + [
     "docutils",
     "nose",
