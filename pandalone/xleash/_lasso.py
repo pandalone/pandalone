@@ -173,7 +173,7 @@ class Ranger(object):
             )
         except Exception as ex:
             msg = "Loading sheet([%s]%s) failed due to: %s"
-            raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex))
+            raise ValueError(msg % (lasso.url_file, lasso.sh_name, ex)) from ex
         return sheet
 
     # TODO: Move _resolve_capture_rect into ABCSheet
