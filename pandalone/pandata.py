@@ -13,16 +13,16 @@ URI-references, implemented by :class:`Pandel`.
 
 import abc
 import binascii
+import collections.abc as cabc
+import functools as fnt
 import numbers
 import pickle
 import re
 from collections import OrderedDict, namedtuple
-import collections.abc as cabc
 from json.decoder import JSONDecoder
 from json.encoder import JSONEncoder
 from unittest.mock import MagicMock
 from urllib.parse import urljoin
-
 
 import jsonschema
 import numpy as np
@@ -235,6 +235,32 @@ def _rule_propertyNames(validator, propertyNames, instance, schema):
             yield error
 
 
+def _rule_auto_defaults_properties(validator, properties, instance, schema, rule_props):
+    # See https://python-jsonschema.readthedocs.io/en/stable/faq/#frequently-asked-questions
+    if not validator.is_type(instance, "object"):
+        return
+
+    for property, subschema in properties.items():
+        if "default" in subschema and (
+            property not in instance or _is_null(None, instance[property])
+        ):
+            instance[property] = subschema["default"]
+
+    for error in rule_props(validator, properties, instance, schema):
+        yield error
+
+
+def rule_enum(validator, enums, instance, schema):
+    """Overridden to evade pandas-equals after Julian/jsonschema#575 fixed bool != 0,1 (v3.0.2)."""
+    unbool = jsonschema._utils.unbool
+    if instance is 0 or instance is 1:
+        unbooled = unbool(instance)
+        if all(unbooled != unbool(each) for each in enums):
+            yield ValidationError("%r is not one of %r" % (instance, enums))
+    elif instance not in enums:
+        yield ValidationError("%r is not one of %r" % (instance, enums))
+
+
 def PandelVisitor(schema, resolver=None, format_checker=None, auto_defaults=True):
     """
     A customized jsonschema-validator suporting instance-trees with pandas and numpy objects, natively.
@@ -333,25 +359,15 @@ def PandelVisitor(schema, resolver=None, format_checker=None, auto_defaults=True
     validator = jsonschema.validators.validator_for(schema)
     rule_props = validator.VALIDATORS["properties"]
 
-    def rule_auto_defaults_properties(validator, properties, instance, schema):
-        # See https://python-jsonschema.readthedocs.io/en/stable/faq/#frequently-asked-questions
-        if not validator.is_type(instance, "object"):
-            return
-
-        for property, subschema in properties.items():
-            if "default" in subschema and (
-                property not in instance or instance[property] is None
-            ):
-                instance[property] = subschema["default"]
-
-        for error in rule_props(validator, properties, instance, schema):
-            yield error
-
     rules = {"additionalProperties": _rule_additionalProperties}
     if "propertyNames" in validator.VALIDATORS:
         rules["propertyNames"] = _rule_propertyNames
     if auto_defaults:
-        rules["properties"] = rule_auto_defaults_properties
+        rules["properties"] = fnt.partial(
+            _rule_auto_defaults_properties, rule_props=rule_props
+        )
+    if hasattr(jsonschema._utils, "unbool"):
+        rules["enum"] = rule_enum  # fix pandas after jsonschema-3.0.2
 
     ValidatorClass = jsonschema.validators.extend(
         validator,
