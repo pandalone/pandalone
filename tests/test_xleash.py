@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 import xlrd
 from numpy import testing as npt
-from pandas.util.testing import assert_frame_equal
+from pandas.testing import assert_frame_equal
 from toolz import dicttoolz as dtz
 
 from pandalone import xleash, xlsutils
@@ -39,6 +39,12 @@ from pandalone.xleash import _parse as _p
 from pandalone.xleash.io import _xlrd as xd
 from pandalone.xleash.io import backend as _s
 from tests import _tutils
+
+try:
+    from pandas.testing import assert_frame_equal
+except ImportError:
+    # deprecated on v1.0
+    from pandas.util.testing import assert_frame_equal
 
 
 log = _tutils.init_logging(__name__)
