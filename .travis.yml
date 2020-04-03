@@ -3,14 +3,13 @@
 sudo: false
 language: python
 python:
-  - 3.5
+  #- 3.5
   - 3.6
   - 3.7
-  # - "3.8-dev"  # too slow!
-matrix:
-  allow_failures:
-    - python: 3.5
-    #- python: "3.8-dev"
+  - 3.8
+# matrix:
+#   allow_failures:
+#     - python: 3.5
 
 before_install:
 
@@ -22,7 +21,7 @@ install:
 
 script:
     - |
-        if [[ "$TRAVIS_PYTHON_VERSION" = '3.5' ]]; then
+        if [[ "$TRAVIS_PYTHON_VERSION" = '3.8' ]]; then
             echo "+++ Checking all TCs, DTs & Coverage....";
             python setup.py test_all
         else
@@ -49,5 +48,5 @@ script:
         ./bin/check_readme.sh
 
 after_success:
-    - if [[ $TRAVIS_PYTHON_VERSION == '3.7' ]]; then pip install coveralls && coveralls; fi
+    - if [[ $TRAVIS_PYTHON_VERSION == '3.8' ]]; then pip install coveralls && coveralls; fi
 
