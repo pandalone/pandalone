@@ -2000,7 +2000,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
             "1-'tt'",
             """
             Value("1-'tt'") at XLocation(sheet=None, st=None, nd=None, base_coords=None):
-            3 errors while py-evaluating "1-'tt'": TypeError:    1-'tt'
+            1 errors while py-evaluating "1-'tt'": TypeError:    1-'tt'
             unsupported operand type(s) for -: 'int' and 'str'
         """,
         ),
@@ -2008,7 +2008,7 @@ class T16Eval(unittest.TestCase, _tutils.CustomAssertions):
             "int('g')",
             """
             Value("int('g')") at XLocation(sheet=None, st=None, nd=None, base_coords=None):
-            4 errors while py-evaluating "int('g')": ValueError:    int('g')
+            1 errors while py-evaluating "int('g')": ValueError:    int('g')
             Error running function call 'int' with args ['g'] and kwargs {}: invalid literal for int() with base 10: 'g'
         """,
         ),
