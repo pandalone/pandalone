@@ -100,11 +100,20 @@ Quick-start
 
 The program runs on **Python-3.5+** and requires **numpy**, **pandas** and 
 (optionally) **win32** libraries along with their *native backends*.
+
 .. code-block:: bash
 
     pip install pandalone                 ## Use `--pre` if version-string has a build-suffix.
 
-Or in case you need the very latest from `master` branch :
+... but probably you need the following for `xleash` to work:
+
+.. code-block:: bash
+
+    pip install pandalone[xlrd]
+
+All "extras" are: ``test, doc, excel, pandas, xlrd, dev, all``
+
+In case you need the very latest from `master` branch :
 
 .. code-block:: bash
 

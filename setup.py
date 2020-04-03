@@ -252,6 +252,7 @@ setup(
         "pandas": pandas_reqs,
         "xlrd": xlrd_reqs,
         "dev": dev_reqs,
+        "all": dev_reqs,
     },
     entry_points={
         "pandalone.xleash.plugins": [
