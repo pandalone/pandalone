@@ -242,7 +242,11 @@ def _rule_auto_defaults_properties(validator, properties, instance, schema, rule
 
     for property, subschema in properties.items():
         if "default" in subschema and (
-            property not in instance or _is_null(None, instance[property])
+            property not in instance
+            or (
+                "null" not in subschema.get("type", ())
+                and _is_null(None, instance[property])
+            )
         ):
             instance[property] = subschema["default"]
 
