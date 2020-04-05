@@ -77,6 +77,16 @@ v0.3.4 (28-July-2019): xleash for pandas 0.25+
   - feat: accept multiple tags at once.
 
 
+v0.3.3 (21-June-2019, UNRELEASED): jsonschema multi-dim numpy-arrays
+--------------------------------------------------------------------
++ accept multi-dim numpy-arrays as jsonschema-arrays
+
+
+v0.3.2 (19-June-2019, UNRELEASED): relax *asteval* lower-bound
+--------------------------------------------------------------
+- Support also asteval <0.9.10 (but still >0.9.7 needed for PY35+)
+
+
 v0.2.8 (7-Sept-2019): BACKPORT fix for pandas 0.25+ (19-July 2019)
 ------------------------------------------------------------------
 - Fix xleash for pandas 0.25+ (19-July 2019).
