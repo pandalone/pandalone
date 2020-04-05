@@ -1,7 +1,7 @@
 ###########################################################
 pandalone: process data-trees with relocatable-paths
 ###########################################################
-|pypi-ver| |conda-ver| |gh-version| |docs| |travis-status| |appveyor-status| |cover-status| 
+|pypi-ver| |conda-ver| |gh-version| |docs-status| |travis-status| |appveyor-status| |cover-status| 
 |dependencies| |downloads-count| |github-issues| |python-ver| |codestyle| |proj-license|
 
 .. image:: doc/_static/pandalone_logo.png
@@ -521,7 +521,7 @@ Glossary
     :alt: Latest Version in PyPI
 
 .. |gh-version| image::  https://img.shields.io/github/v/release/pandalone/pandalone?label=GitHub%20release&include_prereleases
-    :target: https://github.com/oandalone/pandalone/releases
+    :target: https://github.com/pandalone/pandalone/releases
     :alt: Latest release in GitHub
 
 .. |conda-ver| image:: https://anaconda.org/ankostis/pandalone/badges/version.svg
@@ -548,7 +548,7 @@ Glossary
     :target: https://requires.io/github/pandalone/pandalone/requirements/
     :alt: Dependencies up-to-date?
 
-.. |docs| image:: https://readthedocs.org/projects/pandalone/badge/?version=latest 
+.. |docs-status| image:: https://img.shields.io/readthedocs/pandalone?branch=master
     :target: https://pandalone.readthedocs.io/en/latest/
     :alt: Documentation
 
