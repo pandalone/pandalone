@@ -54,6 +54,20 @@ Rejected TODOs:
 Changelog
 =========
 
+v0.3.5 (5-Apr-2020): Auto-default Pandel
+----------------------------------------
+- FEAT(PANDEL): support auto defaulting/removing `nulls` with jsonschema validation.
+- FIX(pandel): up-to-date patches to jsonschema for traversing pandas
+  (see `Julian/jsonschema#675 <https://github.com/Julian/jsonschema/pull/675>`_)
+- FEAT(CI): drop Python-3.5, test evenly, including Python-3.8.
+- FEAT(build, doc): + ``[all]`` pip-extras (identical to ``[dev]``); document available
+  pip-extras in Quickstart section.
+- enh(CI): Pytest-ize travis & appveyor scripts.
+- enh(build): ignore folder when black-formatting, to eradicate delays when pre-commiting.
+- fix(xleash.TC): up-to-date `pyeval` msg in a TC.
+- enh(site): drop RTD mock hacks; fix `xlwings` intersphinx url.
+
+
 v0.3.4 (28-July-2019): xleash for pandas 0.25+
 ----------------------------------------------
 - fix xleash for pandas 0.25+ (19-July 2019).
