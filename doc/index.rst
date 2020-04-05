@@ -5,7 +5,7 @@
 ######################################################
 Process data-trees with reconfigurable-paths in Python
 ######################################################
-|pypi-ver| (|release|, |today|) |gh-version| |travis-status| |appveyor-status| |cover-status|
+|pypi-ver| |conda-ver| (|release|, |today|) |gh-version| |travis-status| |appveyor-status| |cover-status|
 |docs-status| |dependencies| |downloads-count| |github-issues| |python-ver| |proj-license|
 
 
