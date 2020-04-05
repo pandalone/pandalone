@@ -106,18 +106,18 @@ def test_iter_errors_multiple_failures_one_validator(instance):
         ({"type": ["number"]}, None, ValidationError("None is not of type 'number'")),
     ],
 )
-def test_auto_defaults_no_auto_remove(schema, instance, exp):
+def test_auto_default_no_auto_remove(schema, instance, exp):
     schema = {"type": "object", "properties": {"prop": schema}}
     instance = {"prop": instance}
-    val_kw = {"auto_default_nulls": True, "auto_remove_nulls": False}
+    validator_kw = {"auto_default_nulls": True, "auto_remove_nulls": False}
     if isinstance(exp, Exception):
         with pytest.raises(type(exp), match=str(exp)):
-            validate(instance, schema, **val_kw)
+            validate(instance, schema, **validator_kw)
     elif isinstance(exp, type) and issubclass(exp, Exception):
         with pytest.raises(exp):
-            validate(instance, schema, **val_kw)
+            validate(instance, schema, **validator_kw)
     else:
-        validate(instance, schema, **val_kw)
+        validate(instance, schema, **validator_kw)
         assert exp == instance["prop"]
 
 
@@ -138,18 +138,23 @@ def test_auto_defaults_no_auto_remove(schema, instance, exp):
         ({"type": ["number"]}, None, ...),
     ],
 )
-def test_auto_defaults_auto_remove(schema, instance, exp):
+@pytest.mark.parametrize(
+    "schema_prop, init_arg", [(..., True), (None, True), (True, False)]
+)
+def test_auto_default_auto_remove(schema, instance, exp, schema_prop, init_arg):
+    if schema_prop is not ...:
+        schema["autoDefaultNull"] = schema["autoRemoveNull"] = schema_prop
     schema = {"type": "object", "properties": {"prop": schema}}
     instance = {"prop": instance}
-    val_kw = {"auto_default_nulls": True, "auto_remove_nulls": True}
+    validator_kw = {"auto_default_nulls": init_arg, "auto_remove_nulls": init_arg}
     if isinstance(exp, Exception):
         with pytest.raises(type(exp), match=str(exp)):
-            validate(instance, schema, **val_kw)
+            validate(instance, schema, **validator_kw)
     elif isinstance(exp, type) and issubclass(exp, Exception):
         with pytest.raises(exp):
-            validate(instance, schema, **val_kw)
+            validate(instance, schema, **validator_kw)
     else:
-        validate(instance, schema, **val_kw)
+        validate(instance, schema, **validator_kw)
         if exp is ...:
             assert not instance
         else:

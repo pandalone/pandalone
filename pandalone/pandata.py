@@ -21,13 +21,14 @@ import re
 from collections import OrderedDict, namedtuple
 from json.decoder import JSONDecoder
 from json.encoder import JSONEncoder
+from typing import Union
 from unittest.mock import MagicMock
 from urllib.parse import urljoin
 
 import jsonschema
 import numpy as np
 import pandas as pd
-from jsonschema import Draft3Validator, Draft4Validator, ValidationError
+from jsonschema import ValidationError
 from jsonschema.exceptions import RefResolutionError, SchemaError
 from pandas.core.generic import NDFrame
 
@@ -243,12 +244,21 @@ def _is_null_in_type(typ):
     return "null" in typ
 
 
+def first_defined(*var, default=None):
+    """Return the 1st non-none `var`, or `default`."""
+    for v in var:
+        if v is not None:
+            return v
+    return default
+
+
 def _rule_auto_defaults_properties(
     validator,
     properties,
     instance,
     schema,
-    rule_props,
+    original_props_rule,
+    auto_default,
     auto_default_nulls,
     auto_remove_nulls,
 ):
@@ -259,24 +269,29 @@ def _rule_auto_defaults_properties(
         return
 
     for property, subschema in properties.items():
+        prop_given = property in instance
         if "default" in subschema and (
-            property not in instance
+            (
+                first_defined(subschema.get("autoDefault"), auto_default)
+                and not prop_given
+            )
             or (
-                auto_default_nulls
+                first_defined(subschema.get("autoDefaultNull"), auto_default_nulls)
                 and not _is_null_in_type(subschema.get("type"))
+                and prop_given
                 and _is_null(None, instance[property])
             )
         ):
             instance[property] = subschema["default"]
         elif (
-            auto_remove_nulls
+            first_defined(subschema.get("autoRemoveNull"), auto_remove_nulls)
             and not _is_null_in_type(subschema.get("type"))
-            and property in instance
+            and prop_given
             and _is_null(None, instance[property])
         ):
             del instance[property]
 
-    for error in rule_props(validator, properties, instance, schema):
+    for error in original_props_rule(validator, properties, instance, schema):
         yield error
 
 
@@ -295,11 +310,39 @@ def PandelVisitor(
     schema,
     resolver=None,
     format_checker=None,
-    auto_default_nulls=True,
-    auto_remove_nulls=False,
+    auto_default: Union[bool, None] = True,
+    auto_default_nulls: Union[bool, None] = False,
+    auto_remove_nulls: Union[bool, None] = False,
 ):
     """
     A customized jsonschema-validator suporting instance-trees with pandas and numpy objects, natively.
+
+    :param auto_default:
+        When the tri-state bool ``autoDefault`` in schema or this param are enabled,
+        it applies any schema's ``default`` value if a property is missing and
+        schema's ``type`` does not support `nulls`.
+
+        - Independent of `auto_default_nulls` (you may enable both).
+        - See meth:`_rule_auto_defaults_properties`.
+
+    :param auto_default_nulls:
+        When the tri-state bool ``autoDefaultNull`` in schema or this param are
+        it applies any schema's ``default`` value if the property is `null` and
+        schema's ``type`` does not support `nulls`.
+
+        - Independent of `auto_default` (you may enable both).
+        - Take precedence over `auto_remove_nulls`.
+        - See meth:`_rule_auto_defaults_properties`.
+
+    :param auto_remove_nulls:
+        When the tri-state bool ``autoRemoveNull`` in schema or this param are
+        it removes a `null` property value if the schema's ``type`` does not accept `nulls`.
+
+        - See meth:`_rule_auto_defaults_properties`.
+
+        .. ATTENTION::
+            If this is enabled, any `required` properties rule must FOLLOW
+            the `properties` rule.
 
     Any pandas or numpy instance (for example ``obj``) is treated like that:
 
@@ -393,17 +436,17 @@ def PandelVisitor(
 
     """
     validator = jsonschema.validators.validator_for(schema)
-    rule_props = validator.VALIDATORS["properties"]
+    props_rule = validator.VALIDATORS["properties"]
 
-    rules = {
-        "additionalProperties": _rule_additionalProperties,
-        "properties": fnt.partial(
+    rules = {"additionalProperties": _rule_additionalProperties}
+    if any((auto_default, auto_default_nulls, auto_remove_nulls)):
+        rules["properties"] = fnt.partial(
             _rule_auto_defaults_properties,
-            rule_props=rule_props,
+            original_props_rule=props_rule,
+            auto_default=auto_default,
             auto_default_nulls=auto_default_nulls,
             auto_remove_nulls=auto_remove_nulls,
-        ),
-    }
+        )
     if "propertyNames" in validator.VALIDATORS:
         rules["propertyNames"] = _rule_propertyNames
     if hasattr(jsonschema._utils, "unbool"):
