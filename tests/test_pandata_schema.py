@@ -35,10 +35,6 @@ from jsonschema.exceptions import UnknownType
 from pandalone.pandata import PandelVisitor
 
 
-def validate(instance, schema, *args, **kws):
-    return PandelVisitor(schema, *args, **kws).validate(instance)
-
-
 def wrap_in_pandas(dict_or_list, wrap_as_df=False):
     """Yield dicts wrapped in (dict, Series[, DataFrame]), seqs in (list, tuple, array)."""
     if isinstance(dict_or_list, dict):
@@ -49,6 +45,10 @@ def wrap_in_pandas(dict_or_list, wrap_as_df=False):
     else:
         for op in (list, tuple, np.array):
             yield op(dict_or_list)
+
+
+def validate(instance, schema, *args, **kws):
+    return PandelVisitor(schema, *args, **kws).validate(instance)
 
 
 def iter_errors(instance, schema, *args, **kwds):
@@ -87,6 +87,73 @@ def test_iter_errors_multiple_failures_one_validator(instance):
     }
     errors = list(iter_errors(instance, schema))
     assert len(errors) == 4
+
+
+@pytest.mark.parametrize(
+    "schema, instance, exp",
+    [
+        ({}, None, None),
+        ({}, "abc", "abc"),
+        ({"type": "null"}, None, None),
+        ({"type": "null"}, "abc", ValidationError("'abc' is not of type 'null'")),
+        ({"type": ["null", "number"]}, None, None),
+        ({"type": ["null", "number"]}, 1, 1),
+        ({"type": ["null", "number"], "default": 2}, None, None),
+        ({"type": ["null", "number"], "default": 2}, 1, 1),
+        ({"type": ["number"], "default": 2}, 1, 1),
+        ({"type": ["number"], "default": 2}, None, 2),
+        ({"type": ["number"]}, 1, 1),
+        ({"type": ["number"]}, None, ValidationError("None is not of type 'number'")),
+    ],
+)
+def test_auto_defaults_no_auto_remove(schema, instance, exp):
+    schema = {"type": "object", "properties": {"prop": schema}}
+    instance = {"prop": instance}
+    val_kw = {"auto_default_nulls": True, "auto_remove_nulls": False}
+    if isinstance(exp, Exception):
+        with pytest.raises(type(exp), match=str(exp)):
+            validate(instance, schema, **val_kw)
+    elif isinstance(exp, type) and issubclass(exp, Exception):
+        with pytest.raises(exp):
+            validate(instance, schema, **val_kw)
+    else:
+        validate(instance, schema, **val_kw)
+        assert exp == instance["prop"]
+
+
+@pytest.mark.parametrize(
+    "schema, instance, exp",
+    [
+        ({}, None, ...),
+        ({}, "abc", "abc"),
+        ({"type": "null"}, None, None),
+        ({"type": "null"}, "abc", ValidationError("'abc' is not of type 'null'")),
+        ({"type": ["null", "number"]}, None, None),
+        ({"type": ["null", "number"]}, 1, 1),
+        ({"type": ["null", "number"], "default": 2}, None, None),
+        ({"type": ["null", "number"], "default": 2}, 1, 1),
+        ({"type": ["number"], "default": 2}, 1, 1),
+        ({"type": ["number"], "default": 2}, None, 2),
+        ({"type": ["number"]}, 1, 1),
+        ({"type": ["number"]}, None, ...),
+    ],
+)
+def test_auto_defaults_auto_remove(schema, instance, exp):
+    schema = {"type": "object", "properties": {"prop": schema}}
+    instance = {"prop": instance}
+    val_kw = {"auto_default_nulls": True, "auto_remove_nulls": True}
+    if isinstance(exp, Exception):
+        with pytest.raises(type(exp), match=str(exp)):
+            validate(instance, schema, **val_kw)
+    elif isinstance(exp, type) and issubclass(exp, Exception):
+        with pytest.raises(exp):
+            validate(instance, schema, **val_kw)
+    else:
+        validate(instance, schema, **val_kw)
+        if exp is ...:
+            assert not instance
+        else:
+            assert exp == instance["prop"]
 
 
 class TestValidationErrorMessages(unittest.TestCase):
@@ -471,11 +538,11 @@ class TestValidationErrorDetails(unittest.TestCase):
         }
         validator = PandelVisitor(schema)
 
-        e, = validator.iter_errors(instance)
+        (e,) = validator.iter_errors(instance)
         self.assertEqual(e.absolute_path, deque(["root"]))
         self.assertEqual(e.absolute_schema_path, deque(["properties", "root", "anyOf"]))
 
-        e1, = e.context
+        (e1,) = e.context
         self.assertEqual(e1.absolute_path, deque(["root", "children", "a"]))
         self.assertEqual(
             e1.absolute_schema_path,
@@ -494,7 +561,7 @@ class TestValidationErrorDetails(unittest.TestCase):
             ),
         )
 
-        e2, = e1.context
+        (e2,) = e1.context
         self.assertEqual(
             e2.absolute_path, deque(["root", "children", "a", "children", "ab"])
         )

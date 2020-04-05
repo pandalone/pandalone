@@ -235,20 +235,46 @@ def _rule_propertyNames(validator, propertyNames, instance, schema):
             yield error
 
 
-def _rule_auto_defaults_properties(validator, properties, instance, schema, rule_props):
-    # See https://python-jsonschema.readthedocs.io/en/stable/faq/#frequently-asked-questions
-    if not validator.is_type(instance, "object"):
+def _is_null_in_type(typ):
+    if not typ:
+        return False
+    if isinstance(typ, str):
+        return typ == "null"
+    return "null" in typ
+
+
+def _rule_auto_defaults_properties(
+    validator,
+    properties,
+    instance,
+    schema,
+    rule_props,
+    auto_default_nulls,
+    auto_remove_nulls,
+):
+    """
+    Adapted from: https://python-jsonschema.readthedocs.io/en/stable/faq/#frequently-asked-questions
+    """
+    if not _is_object(None, instance):
         return
 
     for property, subschema in properties.items():
         if "default" in subschema and (
             property not in instance
             or (
-                "null" not in subschema.get("type", ())
+                auto_default_nulls
+                and not _is_null_in_type(subschema.get("type"))
                 and _is_null(None, instance[property])
             )
         ):
             instance[property] = subschema["default"]
+        elif (
+            auto_remove_nulls
+            and not _is_null_in_type(subschema.get("type"))
+            and property in instance
+            and _is_null(None, instance[property])
+        ):
+            del instance[property]
 
     for error in rule_props(validator, properties, instance, schema):
         yield error
@@ -265,7 +291,13 @@ def rule_enum(validator, enums, instance, schema):
         yield ValidationError("%r is not one of %r" % (instance, enums))
 
 
-def PandelVisitor(schema, resolver=None, format_checker=None, auto_defaults=True):
+def PandelVisitor(
+    schema,
+    resolver=None,
+    format_checker=None,
+    auto_default_nulls=True,
+    auto_remove_nulls=False,
+):
     """
     A customized jsonschema-validator suporting instance-trees with pandas and numpy objects, natively.
 
@@ -363,13 +395,17 @@ def PandelVisitor(schema, resolver=None, format_checker=None, auto_defaults=True
     validator = jsonschema.validators.validator_for(schema)
     rule_props = validator.VALIDATORS["properties"]
 
-    rules = {"additionalProperties": _rule_additionalProperties}
+    rules = {
+        "additionalProperties": _rule_additionalProperties,
+        "properties": fnt.partial(
+            _rule_auto_defaults_properties,
+            rule_props=rule_props,
+            auto_default_nulls=auto_default_nulls,
+            auto_remove_nulls=auto_remove_nulls,
+        ),
+    }
     if "propertyNames" in validator.VALIDATORS:
         rules["propertyNames"] = _rule_propertyNames
-    if auto_defaults:
-        rules["properties"] = fnt.partial(
-            _rule_auto_defaults_properties, rule_props=rule_props
-        )
     if hasattr(jsonschema._utils, "unbool"):
         rules["enum"] = rule_enum  # fix pandas after jsonschema-3.0.2
 
