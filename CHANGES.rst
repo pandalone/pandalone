@@ -72,6 +72,7 @@ v0.3.4 (28-July-2019): xleash for pandas 0.25+
 ----------------------------------------------
 - fix xleash for pandas 0.25+ (19-July 2019).
 - Pstep:
+
   - enh: rename cstor 2nd arg from ``_proto_or_pmod --> maps`` and allow
     to pass a sequence of 2-tuples to define mappings.
   - feat: accept multiple tags at once.
@@ -196,6 +197,7 @@ v0.2.0 (2-Nov-2016): "Really?" release
 - xleash:
   - Plugins for backends and filters.
   - Packaging now supports 3 extras:
+  
     - ``xlrd`` for the typical backend plugin,
     - ``xlwings`` for the new backend, excel-utils & tests,
     - ``pandas`` for filters plugins.
@@ -208,6 +210,7 @@ v0.2.0 (2-Nov-2016): "Really?" release
 - xlutils, deps: Upgraded to ``xlwings-0.9.x`` released Aug/2/2016
   (see `migration guide <http://docs.xlwings.org/en/stable/migrate_to_0.9.html>`_)
   - Dropped util-functions (provided by now `xlwings`) or renamed:
+
     - ``xlutils.get_active_workbook()``
     - ``xlutils.get_workbook()``
     - ``tests._tutils.xw_Workbook() --> tests._tutils.xw_no_save_Workbook()``
@@ -227,9 +230,11 @@ v0.1.13 (1-Nov-2016):
 v0.1.12 (July-2016): "Stegh" release
 -----------------------------------------
 - xleash:
+
   - Make ``_parse_xlref_fragment()`` public (remove ``'_'`` from prefix).
   - #7: FIX ``"df"`` filter to read multi-index excel-tables
     that is supported since ``pandas-v0.16.x``.
+
 - Add API for returning sheet-names: ``SheetsFactory.list_sheetnames()``
   and ``Sheet.list_sheetnames()``.
 - Mark as "beta" in python trove-classifiers - del non-release opening note.
@@ -243,6 +248,7 @@ v0.1.11 (Apr-2016):
 v0.1.10 (Apr-2016):
 ----------------------------------------
 - xleash:
+
   - #6: Gracefully handle absolute-paths & file-URLs.
   - #8: Accept xlrefs with only sheets (without rect edges)s.
   - #9: always return [] on empty sheets.
@@ -259,26 +265,33 @@ v0.1.10 (Apr-2016):
 
 
 - v0.1.8 (Sep-2015):
+
     - deps: Do not require flake8.
 
 - v0.1.7 (Sep-2015):
+
     - deps: Do not enforce pandas/numpy version.
 
 - v0.1.6 (Sep-2015):
+
     - xleash: Minor forgotten regression from previous fix context-sheet.
     - pstep: Make steps work as pandas-indexes.
 
 - v0.1.5 (Sep-2015): properly fix context-sheet on `Ranger` anf `SheetsFactory`.
 
 - v0.1.4 (Sep-2015): xleash fixes
+
     - xleash: Temporarily-Hacked for not closing sibling-sheets.
     - xleash: handle gracefully targeting-failures as *empty* captures.
 
 - v0.1.3 (Sep-2015):
+
     - xleash: perl-quoting xlrefs to avoid being treated as python-comments.
 
 - v0.1.1 (Sep-2015): **1st working release**
+
     - xleash:
+
         - FIX missing `xleash` package from wheel.
         - Renamed package `xlasso`--> `xleash` and  factor-out `_filters`
           module.
@@ -286,6 +299,7 @@ v0.1.10 (Apr-2016):
         - Accept xl-refs quoted by any char.
 
 - v0.1.0 (Sep-2015): **XLasso BROKEN!**
+
     - Release in *pypi* broken, missing xlasso.
     - The `mappings` and `xlasso` packages are considered ready to be used.
 
