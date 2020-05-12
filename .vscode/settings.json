@@ -1,12 +1,16 @@
 {
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true,
-    "python.pythonPath": "venv/bin/python",
+    "python.pythonPath": ".venv/bin/python",
     "python.testing.pytestArgs": [
         "--doctest-modules", 
         "--doctest-report", "ndiff",
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.nosetestsEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "cSpell.words": [
+        "BACKPORT",
+        "Quickstart"
+    ]
 }

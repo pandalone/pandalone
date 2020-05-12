@@ -54,7 +54,14 @@ Rejected TODOs:
 Changelog
 =========
 
-v0.3.5 (5-Apr-2020): Auto-default Pandel
+v0.4.1 (13-May-2020): fix null-check np-arrays
+----------------------------------------------
++ FIX(pandel): treat np-arrays as booleans by checking their size, recommended
+  in `numpy/numpy#9583 <https://github.com/numpy/numpy/issues/9583>`_, 
+  to handle np.arrays's future boolean behavior (yet deprecated).
+
+
+v0.4.0 (5-Apr-2020): Auto-default Pandel
 ----------------------------------------
 - FEAT(PANDEL): support auto defaulting/removing `nulls` with jsonschema validation.
 - FIX(pandel): up-to-date patches to jsonschema for traversing pandas
