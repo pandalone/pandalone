@@ -54,7 +54,18 @@ Rejected TODOs:
 Changelog
 =========
 
-v0.3.5 (5-Apr-2020): Auto-default Pandel
+v0.5.0 (14-May-2020): Drop PY3.5 & OrderedDict, fix null-check np-arrays
+------------------------------------------------------------------------
++ DROP PY3.5 for it has no ordered dictionaries
+
+  + replace the use of OrderedDict with vanilla (PY3.6) dicts. 
+
++ FIX(pandel): treat np-arrays as booleans by checking their size, recommended
+  in `numpy/numpy#9583 <https://github.com/numpy/numpy/issues/9583>`_, 
+  to handle np.arrays's future boolean behavior (yet deprecated).
+
+
+v0.4.0 (5-Apr-2020): Auto-default Pandel
 ----------------------------------------
 - FEAT(PANDEL): support auto defaulting/removing `nulls` with jsonschema validation.
 - FIX(pandel): up-to-date patches to jsonschema for traversing pandas
