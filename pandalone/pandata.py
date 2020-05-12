@@ -171,10 +171,18 @@ def _is_integer(checker, instance):
 
 
 def _is_null(checker, instance):
+    if instance is None or instance is float("nan") or instance is np.nan:
+        return True
+
+    ## Handle np.arrays's future "bool" behavior.
+    #  see https://github.com/numpy/numpy/issues/9583
+    #
     try:
-        return instance is None or bool(np.isnan(instance))
-    except (TypeError, ValueError):  # value-error when np-array.
-        return False
+        return instance.size == 1 and np.isnan(instance).all()
+    except Exception:
+        pass
+
+    return False
 
 
 def _find_additional_properties(instance, schema):
