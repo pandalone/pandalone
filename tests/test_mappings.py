@@ -432,12 +432,12 @@ class TestPmod(unittest.TestCase):
         pmods = pmods_from_tuples(pmods_tuples)
 
         pmods = pmods._steps[""]
-        s = [
-            r"pmod({'a': pmod('A')}, OrderedDict([(re.compile('a\\w*'), "
-            r"pmod('A1/A2')), (re.compile('a\\d*'), "
-            r"pmod(OrderedDict([(re.compile('b?'), pmod('D/D'))])))]))"
-        ]
-        self.assertEqual(str(pmods), "".join(s))
+        s = (
+            r"pmod({'a': pmod('A')}, {re.compile('a\\w*'): "
+            r"pmod('A1/A2'), re.compile('a\\d*'): "
+            r"pmod({re.compile('b?'): pmod('D/D')})})"
+        )
+        self.assertEqual(str(pmods), s)
 
     def test_pmods_from_tuples_rootMapping(self):
         self.assertEqual(

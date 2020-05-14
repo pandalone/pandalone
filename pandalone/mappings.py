@@ -32,7 +32,6 @@ Hierarchical string-like objects useful for indexing, that can be rename/relocat
 - TODO: Implements "anywhere" pmods(`//`).
 """
 
-from collections import OrderedDict
 from copy import copy
 import logging
 import re
@@ -93,12 +92,6 @@ class Pmod(object):
       the component-paths of their input & output onto the actual
       value-tree paths.
 
-    :ivar str _alias:          (optional) the mapped-name of the pstep for
-                               this pmod
-    :ivar dict _steps:         {original_name --> pmod}
-    :ivar OrderedDict _regxs:  {regex_on_originals --> pmod}
-
-
     Example:
 
     .. Note::
@@ -145,6 +138,13 @@ class Pmod(object):
 
     __slots__ = ["_alias", "_steps", "_regxs"]
 
+    #: (optional) the mapped-name of the pstep for
+    _alias: str
+    #: {original_name --> pmod}
+    _steps: dict
+    #:  {regex_on_originals --> pmod}
+    _regxs: dict
+
     def __init__(self, _alias=None, _steps={}, _regxs={}):
         """
         Args passed only for testing, remember `_regxs` to be (k,v) tuple-list!
@@ -156,7 +156,7 @@ class Pmod(object):
         self._alias = _alias
         self._steps = _steps
         if _regxs:
-            self._regxs = OrderedDict((re.compile(k), v) for k, v in _regxs)
+            self._regxs = {re.compile(k): v for k, v in _regxs}
         else:
             self._regxs = _regxs
 
@@ -198,7 +198,7 @@ class Pmod(object):
         cpmod = None
         d = self._regxs
         if not d:
-            self._regxs = d = OrderedDict()  # Do not modify init-defaults.
+            self._regxs = d = {}  # Do not modify init-defaults.
         else:
             cpmod = d.get(key)
             if cpmod:
@@ -315,16 +315,16 @@ class Pmod(object):
             ...                    ('a', Pmod(_alias='AA'))])
 
             >>> pm1._merge(pm2)
-            pmod('pm2', OrderedDict([(re.compile('d'), pmod('D')),
-                       (re.compile('c'), pmod('C')),
-                       (re.compile('b'), pmod('BB')),
-                       (re.compile('a'), pmod('AA'))]))
+            pmod('pm2', {re.compile('d'): pmod('D'),
+                         re.compile('c'): pmod('C'),
+                         re.compile('b'): pmod('BB'),
+                         re.compile('a'): pmod('AA')})
 
             >>> pm2._merge(pm1)
-            pmod('pm1', OrderedDict([(re.compile('b'), pmod('BB')),
-                        (re.compile('d'), pmod('D')),
-                        (re.compile('a'), pmod('A')),
-                        (re.compile('c'), pmod('C'))]))
+            pmod('pm1', {re.compile('b'): pmod('BB'),
+                         re.compile('d'): pmod('D'),
+                         re.compile('a'): pmod('A'),
+                         re.compile('c'): pmod('C')})
         """
         self = copy(self)
         if other._alias is not None:
@@ -631,8 +631,8 @@ def pmods_from_tuples(pmods_tuples):
         ...     ('/a/~b[123]', 'B'),
         ... ])
         pmod({'': pmod({'a':
-                pmod(OrderedDict([(re.compile('b[123]'), pmod('B'))]))},
-                     OrderedDict([(re.compile('a*'), pmod('A1/A2'))]))})
+                pmod({re.compile('b[123]'): pmod('B')})},
+                     {re.compile('a*'): pmod('A1/A2')})})
 
 
     This is how you map *root*::
