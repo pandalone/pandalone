@@ -41,7 +41,7 @@ __commit__ = ""
 #
 py_ver = sys.version_info
 if py_ver < (3, 5):
-    exit("Sorry, Python >= 3.5 is needed (not %s)" % py_ver)
+    exit("Sorry, Python >= 3.6 is needed (not %s)" % py_ver)
 
 proj_name = "pandalone"
 mydir = os.path.dirname(__file__)
@@ -181,7 +181,7 @@ dev_reqs = (
         "twine",
         "pylint",
         # for VSCode autoformatting
-        "black ; python_version > '3.5'",
+        "black",
         # for git autoformatting
         "pre-commit",
         # for VSCode RST linting
@@ -249,7 +249,7 @@ setup(
     # include_package_data = True,
     package_data={proj_name: ["excel/*.vba", "excel/*.ico", "icons/*"]},
     install_requires=install_requires,
-    python_requires=">=3.5",
+    python_requires=">=3.6",
     tests_require=["pytest", "ddt", "nose", "coverage", "coveralls", "pandas", "xlrd"],
     test_suite="nose.collector",
     extras_require={

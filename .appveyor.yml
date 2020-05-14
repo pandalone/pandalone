@@ -5,8 +5,8 @@ environment:
 
     matrix:
          # a sampling of
-        - PYTHON: "C:\\Python35-x64"
-          PYTHON_VERSION: "3.5"
+        - PYTHON: "C:\\Python38-x64"
+          PYTHON_VERSION: "3.8"
           PYTHON_ARCH: "64"
           IS_CONDA: "false"
 
@@ -19,10 +19,6 @@ environment:
           PYTHON_VERSION: "3.7"
           PYTHON_ARCH: "64"
           IS_CONDA: "false"
-
-matrix:
-    allow_failures:
-        - PYTHON_VERSION: 3.5
 
 install:
     - ps: ./bin/install_python.ps1

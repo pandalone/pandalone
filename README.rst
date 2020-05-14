@@ -38,7 +38,7 @@ with a *dependency-resolver*, every such model should auto-adapt and process
 only values available, and allow *remapping* of the paths accessing them,
 to run on renamed/relocated *value-trees* without component-code modifications.
 
-It is an open source library written and tested on *Python-3.5+* , *Windows* and *Linux*.
+It is an open source library written and tested on *Python-3.6+* , *Windows* and *Linux*.
 
 .. Note::
     The project, as of May-2015, is considered at an alpha-stage,

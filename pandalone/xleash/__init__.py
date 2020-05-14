@@ -32,7 +32,7 @@ It is based on `xlrd <http://www.python-excel.org/>`_ library but also
 checked for compatibility with `xlwings <http://xlwings.org/quickstart/>`_
 *COM-client* library.
 It requires *numpy* and (optionally) *pandas*.
-Since 2019 it is python-3 only, tested on 3.5+.
+Since May 2020 it is python-3.6+ only.
 
 
 Overview
