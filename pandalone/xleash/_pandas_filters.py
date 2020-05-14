@@ -14,7 +14,6 @@ Prefer accessing the public members from the parent module.
 """
 
 import logging
-from collections import OrderedDict
 
 import pandas as pd
 from pandas.io import parsers as pdparsers
@@ -238,7 +237,7 @@ def install_filters(filters_dict):
             "df": {"func": _df_filter},
             "sr": {
                 "func": lambda ranger, lasso, *args, **kwds: lasso._replace(
-                    values=pd.Series(OrderedDict(lasso.values), *args, **kwds)
+                    values=pd.Series(dict(lasso.values), *args, **kwds)
                 ),
                 "desc": (
                     "Converts a 2-columns list-of-lists into pd.Series.\n"

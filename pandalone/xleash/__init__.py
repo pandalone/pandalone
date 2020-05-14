@@ -78,8 +78,8 @@ Annotated Example
   target-moves─────┐
   landing-cell──┐  │
                ┌┤ ┌┤
-              #C3(UL):..(RD):RULD:["pipe": ["odict", "recursive"]]
-               └─┬──┘ └─┬──┘ └┬─┘ └──────────────┬───────────────┘
+              #C3(UL):..(RD):RULD:["pipe": ["dict", "recursive"]]
+               └─┬──┘ └─┬──┘ └┬─┘ └──────────────┬──────────────┘
   1st-edge───────┘      │     │                  │
   2nd-edge──────────────┘     │                  │
   expansions──────────────────┘                  │
@@ -773,7 +773,7 @@ API
 """
 
 
-from collections import namedtuple, OrderedDict
+from collections import namedtuple
 import logging
 import os
 import pkg_resources
@@ -967,7 +967,7 @@ def _init_plugins(plugin_group_name=_PLUGIN_GROUP_NAME):
             )
 
 
-_plugins_installed = OrderedDict()
+_plugins_installed = {}
 """
 A list of 2-tuples for each plugin installed of :class:`pkg_resources.EntryPoint`
 and the number of completed stages (integer).
