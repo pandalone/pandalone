@@ -18,7 +18,7 @@ import functools as fnt
 import numbers
 import pickle
 import re
-from collections import OrderedDict, namedtuple
+from collections import namedtuple
 from json.decoder import JSONDecoder
 from json.encoder import JSONEncoder
 from typing import Union
@@ -699,8 +699,6 @@ class Pandel(object):
     The basic usage requires to subclass your own model-maker, just so that a *json-schema*
     is provided for both validation-steps, 2 & 4:
 
-        >>> from collections import OrderedDict as od                           ## Json is better with stable keys-order
-
         >>> class MyModel(Pandel):
         ...     def _get_json_schema(self, is_prevalidation):
         ...         return {                                                    ## Define the json-schema.
@@ -717,8 +715,8 @@ class Pandel(object):
     Then you can instanciate it and add your submodels:
 
         >>> mm = MyModel()
-        >>> mm.add_submodel(od(a='foo', b=1))                                   ## submodel-1 (base)
-        >>> mm.add_submodel(pd.Series(od(a='bar', c=2)))                        ## submodel-2 (top-model)
+        >>> mm.add_submodel({"a": 'foo', "b": 1})                                   ## submodel-1 (base)
+        >>> mm.add_submodel(pd.Series({"a": "bar", "c": 2}))                        ## submodel-2 (top-model)
 
 
     You then have to build the final unified-model (any validation errors would be reported at this point):
@@ -726,7 +724,7 @@ class Pandel(object):
         >>> mdl = mm.build()
 
     Note that you can also access the unified-model in the :attr:`model` attribute.
-    You can now interogate it:
+    You can now interrogate it:
 
         >>> mdl['a'] == 'bar'                       ## Value overridden by top-model
         True
@@ -896,8 +894,8 @@ class Pandel(object):
             a = b.combine_first(a)
 
         elif isinstance(a, cabc.Mapping) or isinstance(b, cabc.Mapping):
-            a = OrderedDict() if a is None else OrderedDict(a)
-            b = OrderedDict() if b is None else OrderedDict(b)
+            a = {} if a is None else {**a}
+            b = {} if b is None else {**b}
 
             for key in b:
                 b_val = b[key]
@@ -1258,7 +1256,7 @@ def resolve_path(doc, path, default=_scream, root=None):
     return doc
 
 
-def set_jsonpointer(doc, jsonpointer, value, object_factory=OrderedDict):
+def set_jsonpointer(doc, jsonpointer, value, object_factory=dict):
     """
     Resolve a ``jsonpointer`` within the referenced ``doc``.
 
