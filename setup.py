@@ -40,7 +40,7 @@ __commit__ = ""
 # Fail early on ancient python-versions
 #
 py_ver = sys.version_info
-if py_ver < (3, 5):
+if py_ver < (3, 6):
     exit("Sorry, Python >= 3.6 is needed (not %s)" % py_ver)
 
 proj_name = "pandalone"
